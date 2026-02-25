@@ -1,0 +1,64 @@
+# ------------------------------
+# Node / package managers
+# ------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ------------------------------
+# Expo / React Native
+# ------------------------------
+.expo/
+.expo-shared/
+dist/
+web-build/
+expo-env.d.ts
+.metro-health-check*
+
+# Generated native folders (managed Expo)
+# Remove these two lines if you intentionally version native projects.
+/ios
+/android
+
+# Native build/caches (if native folders are present)
+*.keystore
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+.kotlin/
+
+# ------------------------------
+# Environment / secrets
+# ------------------------------
+.env
+.env.*
+
+# ------------------------------
+# TypeScript / testing / coverage
+# ------------------------------
+*.tsbuildinfo
+coverage/
+.nyc_output/
+
+# ------------------------------
+# OS / editor files
+# ------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# ------------------------------
+# Misc local files
+# ------------------------------
+*.pem
+*.tmp
+*.temp
+app-example/

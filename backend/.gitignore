@@ -1,0 +1,62 @@
+# =====================
+# Build output
+# =====================
+bin/
+obj/
+publish/
+out/
+
+# =====================
+# User-specific files
+# =====================
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# =====================
+# Visual Studio / VS Code
+# =====================
+.vs/
+.vscode/
+
+# =====================
+# Rider / JetBrains
+# =====================
+.idea/
+
+# =====================
+# Logs
+# =====================
+logs/
+*.log
+
+# =====================
+# Secrets / configs
+# =====================
+appsettings.Production.json
+appsettings.Staging.json
+appsettings.Local.json
+secrets.json
+
+# =====================
+# EF Core
+# =====================
+Migrations/*.Designer.cs
+Migrations/*.snapshots
+*.db
+*.db-shm
+*.db-wal
+
+# =====================
+# OS junk
+# =====================
+.DS_Store
+Thumbs.db
+
+# =====================
+# Test / coverage
+# =====================
+TestResults/
+coverage/

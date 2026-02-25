@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22D3EE"/>
+      <stop offset="0.5" stop-color="#60A5FA"/>
+      <stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="220" fill="#0B1220"/>
+
+  <!-- EV (balanced + spaced) -->
+  <g fill="none" stroke="url(#g)" stroke-linecap="round" stroke-linejoin="round">
+    <!-- E -->
+    <path stroke-width="92"
+          d="M270 300 V700
+             M270 300 H450
+             M270 500 H430
+             M270 700 H450"/>
+
+    <!-- V (shifted right for spacing) -->
+    <path stroke-width="92"
+          d="M600 300 L720 700 L840 300"/>
+  </g>
+
+  <!-- Realistic Dumbbell -->
+  <g fill="url(#g)" stroke="none">
+
+    <!-- Bar -->
+    <rect x="360" y="815" width="354" height="20" rx="10"/>
+
+    <!-- Left plates -->
+    <rect x="300" y="780" width="40" height="90" rx="12"/>
+    <rect x="260" y="790" width="35" height="70" rx="10"/>
+    <rect x="230" y="800" width="25" height="50" rx="8"/>
+
+    <!-- Right plates -->
+    <rect x="734" y="780" width="40" height="90" rx="12"/>
+    <rect x="779" y="790" width="35" height="70" rx="10"/>
+    <rect x="819" y="800" width="25" height="50" rx="8"/>
+
+    <!-- Collars -->
+    <rect x="350" y="805" width="10" height="40" rx="5"/>
+    <rect x="714" y="805" width="10" height="40" rx="5"/>
+
+  </g>
+</svg>

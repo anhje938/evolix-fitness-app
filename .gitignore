@@ -1,0 +1,14 @@
+# Visual Studio cache
+.vs/
+backend/.vs/
+**/*.vsidx
+
+# Build / bin / obj
+bin/
+obj/
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+build/

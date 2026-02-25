@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"></stop>
+      <stop offset="0.55" stop-color="#172554"></stop>
+      <stop offset="1" stop-color="#020617"></stop>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"></stop>
+      <stop offset="1" stop-color="#3b82f6"></stop>
+    </linearGradient>
+  </defs>
+
+  <rect x="64" y="64" width="896" height="896" rx="220" fill="url(#bg)"></rect>
+
+  <!-- Dumbbell: big + clean -->
+  <g>
+    <rect x="308" y="470" width="408" height="84" rx="42" fill="rgba(255,255,255,0.92)"></rect>
+    <rect x="232" y="400" width="96" height="224" rx="42" fill="rgba(255,255,255,0.92)"></rect>
+    <rect x="696" y="400" width="96" height="224" rx="42" fill="rgba(255,255,255,0.92)"></rect>
+    <rect x="192" y="428" width="52" height="168" rx="26" fill="rgba(255,255,255,0.68)"></rect>
+    <rect x="780" y="428" width="52" height="168" rx="26" fill="rgba(255,255,255,0.68)"></rect>
+  </g>
+
+  <!-- Accent stroke -->
+  <rect x="112" y="112" width="800" height="800" rx="200" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="6"></rect>
+  <path d="M240 310c120-120 420-150 560-20" fill="none" stroke="url(#accent)" stroke-width="12" stroke-linecap="round" opacity="0.55"></path>
+</svg>
