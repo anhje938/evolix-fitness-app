@@ -20,7 +20,7 @@ export default function OverviewTab() {
   const { openCompletedSession } = useWorkoutSession();
 
   const onOpenSession = (id: string) => {
-    // ✅ Åpner WorkoutSessionOverlay i "edit mode" (re-using overlay)
+    // Edit mode
     void openCompletedSession(id);
   };
 

@@ -13,11 +13,13 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { Alert } from "react-native";
 
 import { getSessionDetails } from "@/api/exercise/sessionDetails";
 import {
   deleteWorkoutSession,
   postWorkoutSession,
+  putWorkoutSession,
 } from "@/api/exercise/workoutSession";
 import type { CompletedWorkoutSummaryDto } from "@/api/exercise/completedWorkouts";
 
@@ -53,7 +55,7 @@ type WorkoutSessionContextValue = {
   /** Endrer navn/tittel lokalt i overlay */
   renameSession: (name: string) => void;
 
-  /** Sletter HEL utført økt (kun når session.id finnes) */
+  /** Sletter HEL utfÃ¸rt Ã¸kt (kun nÃ¥r session.id finnes) */
   deleteSession: () => Promise<void>;
 
   addExercise: (payload: {
@@ -130,7 +132,7 @@ function toOptimisticCompletedWorkout(
 
   return {
     id: sessionId,
-    name: session.name ?? "Økt",
+    name: session.name ?? "Ã˜kt",
     mode: session.workoutId ? "program" : "quick",
     startedAtUtc: session.startedAtUtc,
     finishedAtUtc,
@@ -158,7 +160,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
     const newSession: WorkoutSession = {
       id: undefined,
       mode: "quick" as SessionMode,
-      name: name || "Fri økt",
+      name: name || "Fri Ã¸kt",
       workoutProgramId: null,
       workoutId: null,
       startedAtUtc: now,
@@ -200,8 +202,8 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
   }, []);
 
   /**
-   * Åpne en tidligere økt i overlay (utført økt)
-   * Viktig: behold backend-id’er på logs/sets
+   * Ã…pne en tidligere Ã¸kt i overlay (utfÃ¸rt Ã¸kt)
+   * Viktig: behold backend-idâ€™er pÃ¥ logs/sets
    */
   const openCompletedSession = useCallback(async (sessionId: string) => {
     try {
@@ -236,7 +238,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
         mode: dto.workoutId
           ? ("program" as SessionMode)
           : ("quick" as SessionMode),
-        name: dto.title ?? "Økt",
+        name: dto.title ?? "Ã˜kt",
         workoutProgramId: dto.workoutProgramId ?? null,
         workoutId: dto.workoutId ?? null,
         startedAtUtc: dto.startedAtUtc,
@@ -248,7 +250,11 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
       setIsOpen(true);
       setIsMinimized(false);
     } catch (err) {
-      console.log("❌ openCompletedSession error", err);
+      console.log("âŒ openCompletedSession error", err);
+      Alert.alert(
+        "Kunne ikke Ã¥pne Ã¸kten",
+        "PrÃ¸v igjen. Hvis feilen fortsetter, Ã¥pne appen pÃ¥ nytt."
+      );
     }
   }, []);
 
@@ -276,20 +282,43 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
   // --- DELETE WHOLE SESSION (BACKEND) ---
 
   const deleteSession = useCallback(async () => {
+    if (!session?.id) return; // kan ikke slette noe som ikke finnes i backend
+
+    const sessionId = session.id;
+    const previousCompleted =
+      queryClient.getQueryData<CompletedWorkoutSummaryDto[]>([
+        "completedWorkouts",
+      ]) ?? [];
+
     try {
-      if (!session?.id) return; // kan ikke slette noe som ikke finnes i backend
+      // Optimistic update: fjern økten fra historikk umiddelbart i UI.
+      queryClient.setQueryData<CompletedWorkoutSummaryDto[]>(
+        ["completedWorkouts"],
+        (prev) => {
+          const list = Array.isArray(prev) ? prev : [];
+          return list.filter((x) => x.id !== sessionId);
+        }
+      );
+
+      closeSession();
 
       const token = await SecureStore.getItemAsync("token");
       if (!token) throw new Error("Mangler auth-token for å slette økt");
 
-      await deleteWorkoutSession(session.id, token);
-
-      closeSession();
+      await deleteWorkoutSession(sessionId, token);
+      await queryClient.invalidateQueries({ queryKey: ["completedWorkouts"] });
     } catch (err) {
       console.log("❌ deleteSession error", err);
-      // valgfritt: throw err; (hvis du vil vise Alert i UI basert på error)
+      queryClient.setQueryData<CompletedWorkoutSummaryDto[]>(
+        ["completedWorkouts"],
+        previousCompleted
+      );
+      Alert.alert(
+        "Kunne ikke slette økten",
+        "Prøv igjen om et øyeblikk."
+      );
     }
-  }, [session?.id, closeSession]);
+  }, [session?.id, closeSession, queryClient]);
 
   // --- EXERCISES / SETS (LOCAL STATE) ---
 
@@ -389,6 +418,9 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
     if (!session) return;
 
     try {
+      const editingCompletedSessionId =
+        session.id && session.finishedAtUtc ? session.id : null;
+
       const filteredExercises: SessionExercise[] = session.exercises
         .map((ex) => ({ ...ex, sets: ex.sets.filter((s) => s.completed) }))
         .filter((ex) => ex.sets.length > 0);
@@ -411,7 +443,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
       }
 
       const token = await SecureStore.getItemAsync("token");
-      if (!token) throw new Error("Mangler auth-token for å lagre økt");
+      if (!token) throw new Error("Mangler auth-token for Ã¥ lagre Ã¸kt");
 
       const payload: WorkoutSession = {
         ...session,
@@ -419,7 +451,14 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
         exercises: sanitizedExercises,
       };
 
-      const savedSessionId = await postWorkoutSession(payload, token);
+      let savedSessionId = "";
+
+      if (editingCompletedSessionId) {
+        await putWorkoutSession(editingCompletedSessionId, payload, token);
+        savedSessionId = editingCompletedSessionId;
+      } else {
+        savedSessionId = await postWorkoutSession(payload, token);
+      }
 
       const optimistic = toOptimisticCompletedWorkout(savedSessionId, payload);
       queryClient.setQueryData<CompletedWorkoutSummaryDto[]>(
@@ -435,7 +474,11 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
 
       closeSession();
     } catch (err) {
-      console.log("❌ finishAndSave error", err);
+      console.log("âŒ finishAndSave error", err);
+      Alert.alert(
+        "Kunne ikke lagre",
+        "Sjekk nettverk og prÃ¸v igjen. Ã˜kten er fortsatt Ã¥pen slik at du ikke mister data."
+      );
     }
   }, [session, closeSession, queryClient]);
 

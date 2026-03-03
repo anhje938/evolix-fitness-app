@@ -9,6 +9,7 @@ import { WorkoutTab } from "@/components/exercise/sub-tabs/WorkoutTab";
 import { TrainingTabsProvider } from "@/context/trainingTabsContext";
 import React, { useCallback, useState } from "react";
 import { StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type PageKey =
   | "overview"
@@ -18,6 +19,7 @@ type PageKey =
   | "progression";
 
 function ExerciseContent() {
+  const insets = useSafeAreaInsets();
   const [page, setPage] = useState<PageKey>("overview");
 
   // ✅ holder valgt exercise
@@ -32,7 +34,7 @@ function ExerciseContent() {
   }, []);
 
   return (
-    <DarkOceanBackground style={styles.container}>
+    <DarkOceanBackground style={[styles.container, { paddingTop: insets.top + 6 }]}>
       <NavButtons setPage={setPage} page={page} />
 
       {page === "overview" && <OverviewTab />}
@@ -63,5 +65,5 @@ export default function TrainingPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingTop: 60 },
+  container: { flex: 1 },
 });

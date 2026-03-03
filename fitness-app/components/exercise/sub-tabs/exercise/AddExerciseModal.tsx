@@ -1,5 +1,4 @@
 import { ADVANCED_MUSCLE_FILTERS } from "@/types/muscles";
-import { useUserSettings } from "@/context/UserSettingsProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
@@ -28,14 +27,11 @@ type Props = {
 };
 
 export function AddExerciseModal({ visible, onClose, onSubmit }: Props) {
-  const { userSettings } = useUserSettings();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedMuscle, setSelectedMuscle] = useState<string>("ALL");
   const [equipment, setEquipment] = useState("");
   const [specificGroups, setSpecificGroups] = useState<string[]>([]);
-
-  const isAdvanced = userSettings.muscleFilter === "advanced";
 
   // Ta bort ALL fra advanced chips-lista
   const advancedSpecificList = useMemo(
@@ -67,9 +63,7 @@ export function AddExerciseModal({ visible, onClose, onSubmit }: Props) {
 
     // ✅ lagre som CSV-string i backend-feltet "SpecificMuscleGroups"
     const specificToSend =
-      isAdvanced && specificGroups.length > 0
-        ? specificGroups.join(",")
-        : undefined;
+      specificGroups.length > 0 ? specificGroups.join(",") : undefined;
 
     onSubmit({
       name: name.trim(),
@@ -107,57 +101,53 @@ export function AddExerciseModal({ visible, onClose, onSubmit }: Props) {
               returnKeyType="done"
             />
 
-            {/* MUSKELGRUPPE (primary) */}
-            {!isAdvanced && (
-              <View>
-                <Text style={styles.label}>Muskelgruppe</Text>
-                <MuscleFilterBar
-                  value={selectedMuscle}
-                  onChange={setSelectedMuscle}
-                  preset={userSettings.muscleFilter}
-                />
-              </View>
-            )}
+            {/* Primær muskelgruppe */}
+            <View>
+              <Text style={styles.label}>Primær muskelgruppe</Text>
+              <MuscleFilterBar
+                value={selectedMuscle}
+                onChange={setSelectedMuscle}
+                preset="basic"
+              />
+            </View>
 
-            {/* ADVANCED: multi-select spesifikke muskelgrupper */}
-            {isAdvanced && (
-              <>
-                <Text style={styles.label}>Muskelgrupper</Text>
+            {/* Spesifikke muskelgrupper */}
+            <>
+              <Text style={styles.label}>Spesifikke muskelgrupper</Text>
 
-                <View style={styles.chipWrap}>
-                  {advancedSpecificList.map((item) => {
-                    const active = specificGroups.includes(item.value);
+              <View style={styles.chipWrap}>
+                {advancedSpecificList.map((item) => {
+                  const active = specificGroups.includes(item.value);
 
-                    return (
-                      <Pressable
-                        key={item.value}
-                        onPress={() => toggleSpecific(item.value)}
+                  return (
+                    <Pressable
+                      key={item.value}
+                      onPress={() => toggleSpecific(item.value)}
+                      style={[
+                        styles.multiChip,
+                        active && styles.multiChipActive,
+                      ]}
+                    >
+                      <Text
                         style={[
-                          styles.multiChip,
-                          active && styles.multiChipActive,
+                          styles.multiChipText,
+                          active && styles.multiChipTextActive,
                         ]}
+                        numberOfLines={1}
                       >
-                        <Text
-                          style={[
-                            styles.multiChipText,
-                            active && styles.multiChipTextActive,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                        {item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
 
-                {!!specificGroups.length && (
-                  <Text style={styles.selectedHint}>
-                    Valgt: {specificGroups.join(", ")}
-                  </Text>
-                )}
-              </>
-            )}
+              {!!specificGroups.length && (
+                <Text style={styles.selectedHint}>
+                  Valgt: {specificGroups.join(", ")}
+                </Text>
+              )}
+            </>
 
             {/* UTSTYR */}
             <Text style={styles.label}>Utstyr</Text>

@@ -226,12 +226,13 @@ export const ExerciseBlock = memo(function ExerciseBlock({
                 weightRefs.current[idx] = el;
               }}
               style={[typography.body, styles.setInput]}
-              keyboardType="decimal-pad"
+              keyboardType="numeric"
               placeholder="-"
               placeholderTextColor={overlayColors.muted2}
               value={set.weight ?? set.weight === 0 ? String(set.weight) : ""}
               returnKeyType="next"
               blurOnSubmit={false}
+              submitBehavior="submit"
               onSubmitEditing={() => repsRefs.current[idx]?.focus()}
               onChangeText={(txt) =>
                 onUpdateSet(set.id, { weight: parseNullableFloat(txt) })
@@ -243,12 +244,15 @@ export const ExerciseBlock = memo(function ExerciseBlock({
                 repsRefs.current[idx] = el;
               }}
               style={[typography.body, styles.setInput]}
-              keyboardType="number-pad"
+              keyboardType="numeric"
               placeholder="-"
               placeholderTextColor={overlayColors.muted2}
               value={set.reps ?? set.reps === 0 ? String(set.reps) : ""}
               returnKeyType={idx === exercise.sets.length - 1 ? "done" : "next"}
               blurOnSubmit={idx === exercise.sets.length - 1}
+              submitBehavior={
+                idx === exercise.sets.length - 1 ? "blurAndSubmit" : "submit"
+              }
               onSubmitEditing={() => {
                 if (idx < exercise.sets.length - 1) {
                   weightRefs.current[idx + 1]?.focus();

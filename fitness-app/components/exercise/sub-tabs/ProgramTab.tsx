@@ -17,9 +17,14 @@ import { PostWorkoutForUser } from "@/api/exercise/workout"; // ✅ NEW
 import { queryClient } from "@/config/queryClient";
 import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
+import { useUserSettings } from "@/context/UserSettingsProvider";
 import { usePrograms } from "@/hooks/usePrograms";
 import { useWorkouts } from "@/hooks/useWorkouts";
 import { Program, Workout } from "@/types/exercise";
+import {
+  isUserCreatedProgram,
+  isUserCreatedWorkout,
+} from "@/utils/exercise/isUserCreated";
 
 import AddButton from "../AddButton";
 import CreateProgramModal from "./program/CreateProgramModal";
@@ -29,6 +34,7 @@ import { ProgramList } from "./program/ProgramList";
 export default function ProgramTab() {
   const [openCreate, setOpenCreate] = useState(false);
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
+  const { userSettings } = useUserSettings();
 
   // UI states for mutations (bug-proof)
   const [busy, setBusy] = useState<"create" | "edit" | "delete" | null>(null);
@@ -48,14 +54,16 @@ export default function ProgramTab() {
     refetch: refetchWorkouts,
   } = useWorkouts();
 
-  const programs = useMemo(
-    () => (programsData ?? []) as Program[],
-    [programsData]
-  );
-  const workouts = useMemo(
-    () => (workoutsData ?? []) as Workout[],
-    [workoutsData]
-  );
+  const programs = useMemo(() => {
+    const all = (programsData ?? []) as Program[];
+    if (!userSettings.showOnlyCustomTrainingContent) return all;
+    return all.filter(isUserCreatedProgram);
+  }, [programsData, userSettings.showOnlyCustomTrainingContent]);
+  const workouts = useMemo(() => {
+    const all = (workoutsData ?? []) as Workout[];
+    if (!userSettings.showOnlyCustomTrainingContent) return all;
+    return all.filter(isUserCreatedWorkout);
+  }, [workoutsData, userSettings.showOnlyCustomTrainingContent]);
 
   const isLoading = loadingPrograms || loadingWorkouts;
   const hasError = !!programsError || !!workoutsError;
@@ -77,10 +85,7 @@ export default function ProgramTab() {
     setBusy("create");
     try {
       await PostProgramForUser(name);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["programs"] }),
-        queryClient.invalidateQueries({ queryKey: ["workouts"] }),
-      ]);
+      await queryClient.invalidateQueries({ queryKey: ["programs"] });
       setOpenCreate(false);
     } catch (error) {
       setUiError(

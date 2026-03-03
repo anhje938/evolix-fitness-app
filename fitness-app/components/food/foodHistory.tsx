@@ -1,6 +1,6 @@
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
-import { Food } from "@/types/meal";
+import type { Food } from "@/types/meal";
 import { formatDateNO, parseISO } from "@/utils/date";
 import { calcTotalMacros } from "@/utils/food/calculateTotalMacros";
 import {
@@ -17,6 +17,19 @@ type FoodHistoryProps = {
   foodList: Food[];
 };
 
+function toWeekdayNo(date: string): string | null {
+  const parsed = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Intl.DateTimeFormat("nb-NO", { weekday: "long" }).format(parsed);
+}
+
+function toLocalDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export function FoodHistory({ foodList }: FoodHistoryProps) {
   const [listMode, setListMode] = useState<"daily" | "weekly">("daily");
   const [dailyVisible, setDailyVisible] = useState(PAGE_SIZE);
@@ -32,12 +45,30 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
     () => Object.keys(groupedMeals).sort().reverse(),
     [groupedMeals]
   );
+  const latestFiveCalendarDateSet = useMemo(() => {
+    const set = new Set<string>();
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+
+    for (let i = 0; i < 5; i += 1) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      set.add(toLocalDateKey(d));
+    }
+
+    return set;
+  }, []);
 
   const weeklyTotals = useMemo(
     () => getWeeklyMacroTotals(foodList ?? []),
     [foodList]
   );
   const activeWeek = weeklyTotals[0];
+
+  const totalMeals = foodList?.length ?? 0;
+  const trackedDays = sortedDates.length;
+  const avgMealsPerDay =
+    trackedDays > 0 ? (totalMeals / trackedDays).toFixed(1) : "0.0";
 
   const weeklyAverages = useMemo(() => {
     if (sortedDates.length === 0) return null;
@@ -74,21 +105,27 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
   const renderDayHeader = (
     date: string,
     total: ReturnType<typeof calcTotalMacros>,
+    mealsCount: number,
+    showWeekday: boolean,
     options?: { expandable?: boolean; expanded?: boolean }
   ) => {
     const expandable = options?.expandable;
     const expanded = options?.expanded;
+    const weekday = showWeekday ? toWeekdayNo(date) : null;
+    const dayLabel = weekday ?? formatDateNO(date);
 
     return (
       <View style={styles.dayRow}>
-
         <View style={styles.dayIconWrap}>
-          <Fontisto name="date" size={16} color="rgba(6,182,212,0.75)" />
+          <Fontisto name="date" size={16} color="rgba(56,189,248,0.76)" />
         </View>
 
         <View style={styles.dayTextCol}>
           <Text style={[typography.bodyBlack, styles.dayTitle]}>
-            {formatDateNO(date)}
+            {dayLabel}
+          </Text>
+          <Text style={styles.dayMetaText}>
+            {mealsCount} {mealsCount === 1 ? "måltid" : "måltider"}
           </Text>
 
           <View style={styles.macroLine}>
@@ -116,7 +153,7 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
             <Ionicons
               name={expanded ? "chevron-up" : "chevron-down"}
               size={15}
-              color="rgba(6,182,212,0.65)"
+              color="rgba(56,189,248,0.66)"
               style={{ marginTop: 5, alignSelf: "flex-end" }}
             />
           )}
@@ -128,20 +165,29 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
   const renderDailyExpandableCard = (date: string) => {
     const mealsPerDate = groupedMeals[date] ?? [];
     const total = calcTotalMacros(mealsPerDate);
+    const mealsCount = mealsPerDate.length;
     const isExpanded = expandedDate === date;
 
     return (
       <View key={date} style={[generalStyles.newCard, styles.dayCard]}>
+        <View style={styles.dayCardAccent} />
+
         <TouchableOpacity activeOpacity={0.9} onPress={() => toggleDate(date)}>
-          {renderDayHeader(date, total, {
+          {renderDayHeader(
+            date,
+            total,
+            mealsCount,
+            latestFiveCalendarDateSet.has(date),
+            {
             expandable: true,
             expanded: isExpanded,
-          })}
+            }
+          )}
         </TouchableOpacity>
 
         {isExpanded && (
           <View style={styles.expandedWrap}>
-            {mealsPerDate.map((meal: Food, idx: number) => {
+            {mealsPerDate.map((meal, idx) => {
               const iso = parseISO(meal.timestampUtc);
               const isLast = idx === mealsPerDate.length - 1;
 
@@ -151,7 +197,7 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
                     <Fontisto
                       name="shopping-basket"
                       size={12}
-                      color="rgba(6,182,212,0.70)"
+                      color="rgba(56,189,248,0.68)"
                     />
                   </View>
 
@@ -171,9 +217,18 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
                     <Text style={[typography.bodyBlack, styles.mealKcal]}>
                       {meal.calories} kcal
                     </Text>
-                    <Text style={[typography.body, styles.mealMacros]}>
-                      P {meal.proteins} • C {meal.carbs} • F {meal.fats}
-                    </Text>
+
+                    <View style={styles.mealMacroRow}>
+                      <Text style={[styles.mealMacroChip, styles.mealMacroP]}>
+                        P {meal.proteins}
+                      </Text>
+                      <Text style={[styles.mealMacroChip, styles.mealMacroC]}>
+                        C {meal.carbs}
+                      </Text>
+                      <Text style={[styles.mealMacroChip, styles.mealMacroF]}>
+                        F {meal.fats}
+                      </Text>
+                    </View>
                   </View>
 
                   {!isLast && <View style={styles.rowDivider} />}
@@ -189,13 +244,20 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
   const renderDailySimpleCard = (date: string, keyPrefix = "") => {
     const mealsPerDate = groupedMeals[date] ?? [];
     const total = calcTotalMacros(mealsPerDate);
+    const mealsCount = mealsPerDate.length;
 
     return (
       <View
         key={`${keyPrefix}${date}`}
         style={[generalStyles.newCard, styles.dayCard]}
       >
-        {renderDayHeader(date, total)}
+        <View style={styles.dayCardAccent} />
+        {renderDayHeader(
+          date,
+          total,
+          mealsCount,
+          latestFiveCalendarDateSet.has(date)
+        )}
       </View>
     );
   };
@@ -216,10 +278,11 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
   };
 
   return (
-    <View style={[generalStyles.newCard, styles.container]}>
-
+    <View style={[styles.container]}>
       <View style={styles.headerRow}>
-        <Text style={[typography.h2, styles.headerTitle]}>Historikk</Text>
+        <View style={styles.headerLeft}>
+          <Text style={[typography.h2, styles.headerTitle]}>Matlogg</Text>
+        </View>
 
         <View style={styles.segment}>
           <TouchableOpacity
@@ -260,8 +323,33 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
         </View>
       </View>
 
-      {listMode === "daily" && (
-        <View style={{ width: "100%", marginTop: 14 }}>
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryChip}>
+          <Ionicons name="calendar-outline" size={13} color="#38bdf8" />
+          <Text style={styles.summaryChipText}>{trackedDays} dager</Text>
+        </View>
+        <View style={styles.summaryChip}>
+          <Ionicons name="pulse-outline" size={13} color="#38bdf8" />
+          <Text style={styles.summaryChipText}>{avgMealsPerDay} per dag</Text>
+        </View>
+      </View>
+
+      {sortedDates.length === 0 && (
+        <View style={[generalStyles.newCard, styles.emptyStateCard]}>
+          <View style={styles.emptyIconWrap}>
+            <Ionicons name="sparkles-outline" size={17} color="#38bdf8" />
+          </View>
+          <Text style={[typography.bodyBlack, styles.emptyTitle]}>
+            Ingen måltider logget ennå
+          </Text>
+          <Text style={[typography.body, styles.emptySub]}>
+            Når du logger mat vil historikken vises her.
+          </Text>
+        </View>
+      )}
+
+      {listMode === "daily" && sortedDates.length > 0 && (
+        <View style={styles.modeContent}>
           {sortedDates
             .slice(0, dailyVisible)
             .map((date) => renderDailyExpandableCard(date))}
@@ -273,8 +361,8 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
         </View>
       )}
 
-      {listMode === "weekly" && activeWeek && (
-        <View style={{ width: "100%", marginTop: 14 }}>
+      {listMode === "weekly" && activeWeek && sortedDates.length > 0 && (
+        <View style={styles.modeContent}>
           {weeklyAverages && (
             <View style={[generalStyles.newCard, styles.weekCard]}>
               <Text style={[typography.bodyBlack, styles.weekTitle]}>
@@ -375,7 +463,7 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     alignItems: "center",
-    padding: 20,
+    padding: 0,
   },
 
   headerRow: {
@@ -384,6 +472,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 2,
+    gap: 10,
+  },
+  headerLeft: {
+    flex: 1,
+    minWidth: 0,
   },
 
   headerTitle: {
@@ -393,9 +486,9 @@ const styles = StyleSheet.create({
   segment: {
     flexDirection: "row",
     padding: 3,
-    borderRadius: 12,
-    backgroundColor: "rgba(2,6,23,0.35)",
-    borderWidth: 0.5,
+    borderRadius: 13,
+    backgroundColor: "rgba(2,6,23,0.44)",
+    borderWidth: 0.8,
     borderColor: "rgba(255,255,255,0.10)",
   },
 
@@ -406,13 +499,14 @@ const styles = StyleSheet.create({
   },
 
   segmentBtnActive: {
-    backgroundColor: "rgba(6,182,212,0.10)",
-    borderWidth: 0.5,
-    borderColor: "rgba(6,182,212,0.20)",
-    shadowColor: "#06b6d4",
+    backgroundColor: "rgba(6,182,212,0.14)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.28)",
+    shadowColor: "#0891b2",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    elevation: 1,
   },
 
   segmentText: {
@@ -424,24 +518,98 @@ const styles = StyleSheet.create({
   },
 
   segmentTextActive: {
-    color: "#06b6d4",
+    color: "#38bdf8",
     fontWeight: "700",
   },
 
+  summaryRow: {
+    width: "100%",
+    marginTop: 10,
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  summaryChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: "rgba(6,182,212,0.10)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.16)",
+  },
+  summaryChipText: {
+    ...typography.body,
+    color: "rgba(224,242,254,0.95)",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+
+  modeContent: {
+    width: "100%",
+    marginTop: 14,
+  },
+
+  emptyStateCard: {
+    width: "100%",
+    marginTop: 14,
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    backgroundColor: "rgba(2,6,23,0.20)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.12)",
+  },
+  emptyIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(6,182,212,0.12)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.16)",
+    marginBottom: 8,
+  },
+  emptyTitle: {
+    color: "#F8FAFC",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  emptySub: {
+    marginTop: 3,
+    fontSize: 12,
+    color: "rgba(148,163,184,0.9)",
+  },
+
   dayCard: {
+    position: "relative",
+    overflow: "hidden",
     width: "100%",
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 14,
     marginVertical: 5,
-
-    backgroundColor: "rgba(2,6,23,0.18)",
-    borderWidth: 0.5,
-    borderColor: "rgba(255,255,255,0.08)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
+    backgroundColor: "rgba(2,6,23,0.22)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.11)",
+    shadowColor: "#0891b2",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.09,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  dayCardAccent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: "rgba(56,189,248,0.58)",
+    opacity: 0.7,
   },
 
   dayRow: {
@@ -456,9 +624,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
-    backgroundColor: "rgba(6,182,212,0.08)",
-    borderWidth: 0.5,
-    borderColor: "rgba(6,182,212,0.15)",
+    backgroundColor: "rgba(6,182,212,0.10)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.16)",
   },
 
   dayTextCol: {
@@ -470,6 +638,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     letterSpacing: 0.1,
+  },
+  dayMetaText: {
+    ...typography.body,
+    marginTop: 2,
+    color: "rgba(148,163,184,0.86)",
+    fontSize: 11,
+    fontWeight: "600",
   },
 
   macroLine: {
@@ -502,17 +677,17 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 11,
     borderRadius: 10,
-    backgroundColor: "rgba(6,182,212,0.10)",
-    borderWidth: 0.5,
-    borderColor: "rgba(6,182,212,0.20)",
-    shadowColor: "#06b6d4",
+    backgroundColor: "rgba(6,182,212,0.12)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.18)",
+    shadowColor: "#0891b2",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.12,
     shadowRadius: 3,
   },
 
   kcalValue: {
-    color: "#06b6d4",
+    color: "#38bdf8",
     fontSize: 14,
     fontWeight: "700",
     letterSpacing: 0.05,
@@ -526,7 +701,7 @@ const styles = StyleSheet.create({
 
   expandedWrap: {
     marginTop: 14,
-    borderTopWidth: 0.5,
+    borderTopWidth: 0.8,
     borderTopColor: "rgba(255,255,255,0.08)",
     paddingTop: 12,
   },
@@ -545,9 +720,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 11,
-    backgroundColor: "rgba(6,182,212,0.08)",
-    borderWidth: 0.5,
-    borderColor: "rgba(6,182,212,0.12)",
+    backgroundColor: "rgba(6,182,212,0.10)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.14)",
   },
 
   mealTextCol: {
@@ -574,17 +749,42 @@ const styles = StyleSheet.create({
   },
 
   mealKcal: {
-    color: "#06b6d4",
+    color: "#38bdf8",
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 0.05,
   },
-
-  mealMacros: {
-    color: "rgba(148,163,184,0.85)",
+  mealMacroRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    gap: 4,
+  },
+  mealMacroChip: {
+    ...typography.body,
     fontSize: 10,
-    fontWeight: "600",
-    marginTop: 2,
+    fontWeight: "700",
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 7,
+    overflow: "hidden",
+  },
+  mealMacroP: {
+    color: "#86efac",
+    backgroundColor: "rgba(74,222,128,0.12)",
+    borderWidth: 0.8,
+    borderColor: "rgba(74,222,128,0.25)",
+  },
+  mealMacroC: {
+    color: "#7dd3fc",
+    backgroundColor: "rgba(56,189,248,0.12)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.24)",
+  },
+  mealMacroF: {
+    color: "#fdba74",
+    backgroundColor: "rgba(251,146,60,0.12)",
+    borderWidth: 0.8,
+    borderColor: "rgba(251,146,60,0.24)",
   },
 
   rowDivider: {
@@ -599,13 +799,14 @@ const styles = StyleSheet.create({
   weekCard: {
     borderRadius: 16,
     padding: 16,
-    backgroundColor: "rgba(2,6,23,0.18)",
-    borderWidth: 0.5,
-    borderColor: "rgba(255,255,255,0.08)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
+    backgroundColor: "rgba(2,6,23,0.22)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.11)",
+    shadowColor: "#0891b2",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.09,
+    shadowRadius: 4,
+    elevation: 1,
   },
 
   weekTitle: {
@@ -628,8 +829,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     backgroundColor: "rgba(255,255,255,0.04)",
-    borderWidth: 0.5,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderWidth: 0.8,
+    borderColor: "rgba(255,255,255,0.10)",
   },
 
   weekLabel: {
@@ -697,17 +898,17 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 18,
     borderRadius: 12,
-    backgroundColor: "rgba(6,182,212,0.08)",
-    borderWidth: 0.5,
-    borderColor: "rgba(6,182,212,0.15)",
-    shadowColor: "#06b6d4",
+    backgroundColor: "rgba(6,182,212,0.10)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.16)",
+    shadowColor: "#0891b2",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 3,
   },
 
   loadMoreText: {
-    color: "#06b6d4",
+    color: "#38bdf8",
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0.05,

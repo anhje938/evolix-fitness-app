@@ -34,7 +34,7 @@ namespace backend.Migrations
 
                     b.HasIndex("WorkoutsId");
 
-                    b.ToTable("ExerciseWorkout");
+                    b.ToTable("ExerciseWorkout", (string)null);
                 });
 
             modelBuilder.Entity("backend.Features.Food.FoodLog", b =>
@@ -68,7 +68,7 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("FoodLogs");
+                    b.ToTable("FoodLogs", (string)null);
                 });
 
             modelBuilder.Entity("backend.Features.Training.Exercises.Exercise", b =>
@@ -98,7 +98,7 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Exercises");
+                    b.ToTable("Exercises", (string)null);
                 });
 
             modelBuilder.Entity("backend.Features.Training.WorkoutPrograms.WorkoutProgram", b =>
@@ -122,7 +122,7 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WorkoutPrograms");
+                    b.ToTable("WorkoutPrograms", (string)null);
                 });
 
             modelBuilder.Entity("backend.Features.Training.WorkoutSessions.Entities.SetLog", b =>
@@ -162,7 +162,7 @@ namespace backend.Migrations
 
                     b.HasIndex("WorkoutExerciseLogId");
 
-                    b.ToTable("SetLogs");
+                    b.ToTable("SetLogs", (string)null);
                 });
 
             modelBuilder.Entity("backend.Features.Training.WorkoutSessions.Entities.WorkoutExerciseLog", b =>
@@ -189,7 +189,7 @@ namespace backend.Migrations
 
                     b.HasIndex("WorkoutSessionId");
 
-                    b.ToTable("WorkoutExerciseLogs");
+                    b.ToTable("WorkoutExerciseLogs", (string)null);
                 });
 
             modelBuilder.Entity("backend.Features.Training.WorkoutSessions.Entities.WorkoutSession", b =>
@@ -235,7 +235,7 @@ namespace backend.Migrations
 
                     b.HasIndex("WorkoutProgramId");
 
-                    b.ToTable("WorkoutSessions");
+                    b.ToTable("WorkoutSessions", (string)null);
                 });
 
             modelBuilder.Entity("backend.Features.Training.Workouts.Workout", b =>
@@ -264,7 +264,7 @@ namespace backend.Migrations
 
                     b.HasIndex("WorkoutProgramId");
 
-                    b.ToTable("Workouts");
+                    b.ToTable("Workouts", (string)null);
                 });
 
             modelBuilder.Entity("backend.Features.Users.User", b =>
@@ -286,7 +286,7 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("backend.Features.Users.UserSettings", b =>
@@ -308,14 +308,25 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("HomeSectionOrderJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("MuscleFilter")
                         .HasColumnType("int");
 
                     b.Property<int>("ProteinGoal")
                         .HasColumnType("int");
 
+                    b.Property<string>("RecoveryMapHiddenMusclesJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("SchemaVersion")
                         .HasColumnType("int");
+
+                    b.Property<bool>("ShowOnlyCustomTrainingContent")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime>("UpdatedUtc")
                         .HasColumnType("datetime2");
@@ -328,6 +339,7 @@ namespace backend.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("WeightGoalKg")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
@@ -335,7 +347,7 @@ namespace backend.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("UserSettings");
+                    b.ToTable("UserSettings", (string)null);
                 });
 
             modelBuilder.Entity("backend.Features.Weight.WeightLog", b =>
@@ -358,7 +370,7 @@ namespace backend.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("WeightLogs");
+                    b.ToTable("WeightLogs", (string)null);
                 });
 
             modelBuilder.Entity("ExerciseWorkout", b =>

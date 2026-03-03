@@ -5,6 +5,7 @@ import { State } from "react-native-gesture-handler";
 
 const screenWidth = Dimensions.get("window").width;
 const BASE_POINT_WIDTH = 65;
+const MIN_COMPACT_WIDTH = 220;
 
 type Params = {
   weightList: Weight[];
@@ -16,6 +17,7 @@ type Params = {
   decimalPlaces: number;
 
   goalValue?: number;
+  includeGoalInRange?: boolean;
 
   minXLabels: number;
   maxXLabels: number;
@@ -34,6 +36,7 @@ export function useWeightProgressChart({
   yMaxPadding,
   decimalPlaces,
   goalValue,
+  includeGoalInRange = false,
   minXLabels,
   maxXLabels,
   minZoom,
@@ -126,7 +129,7 @@ export function useWeightProgressChart({
 
   const yRange = useMemo(() => {
     if (!values.length) {
-      return { minY: 0, maxY: 0, goal: goalValue ?? 0, isGoalExtreme: false };
+      return { minY: 0, maxY: 0, goal: goalValue ?? 0, isGoalInRange: false };
     }
 
     const baseMin = Math.min(...values);
@@ -139,39 +142,41 @@ export function useWeightProgressChart({
     let minY = baseMin - yMinPadding - autoPad;
     let maxY = baseMax + yMaxPadding + autoPad;
 
-    if (goal < minY) {
-      const goalPad = Math.max(autoPad, (baseMin - goal) * 0.15);
-      minY = goal - goalPad;
-    }
-    if (goal > maxY) {
-      const goalPad = Math.max(autoPad, (goal - baseMax) * 0.15);
-      maxY = goal + goalPad;
+    if (includeGoalInRange && goalValue !== undefined) {
+      minY = Math.min(minY, goal - autoPad);
+      maxY = Math.max(maxY, goal + autoPad);
     }
 
-    const dataRange = baseMax - baseMin;
-    const goalDistance =
-      goal < baseMin ? baseMin - goal : goal > baseMax ? goal - baseMax : 0;
-    const isGoalExtreme = goalDistance > dataRange * 2;
+    const isGoalInRange = goal >= minY && goal <= maxY;
 
-    if (isGoalExtreme) {
-      minY = baseMin - yMinPadding - autoPad;
-      maxY = baseMax + yMaxPadding + autoPad;
-    }
-
-    return { minY, maxY, goal, isGoalExtreme };
-  }, [values, yMinPadding, yMaxPadding, goalValue]);
+    return { minY, maxY, goal, isGoalInRange };
+  }, [values, yMinPadding, yMaxPadding, goalValue, includeGoalInRange]);
 
   const zoomState = useMemo(() => {
     const fallbackWidth = screenWidth - 48;
     const effectiveContainerWidth = containerWidth ?? fallbackWidth;
-    const naturalWidth = dailyData.length * BASE_POINT_WIDTH;
+    const dataCount = dailyData.length;
+    const adaptivePointWidth =
+      dataCount <= 4
+        ? 46
+        : dataCount <= 8
+        ? 40
+        : dataCount <= 16
+        ? 32
+        : dataCount <= 30
+        ? 26
+        : 22;
+    const naturalWidth = Math.max(MIN_COMPACT_WIDTH, dataCount * adaptivePointWidth);
     const computedMinZoom =
       naturalWidth > 0 ? Math.min(1, effectiveContainerWidth / naturalWidth) : 1;
-    const effectiveMinZoom = Math.min(minZoom, computedMinZoom);
+    const effectiveMinZoom = Math.max(minZoom, computedMinZoom);
     const effectiveMaxZoom = Math.max(effectiveMinZoom, maxZoom);
 
     const desiredWidth = naturalWidth * zoom;
-    const chartWidth = Math.max(effectiveContainerWidth, desiredWidth);
+    const chartWidth =
+      naturalWidth > effectiveContainerWidth
+        ? Math.max(effectiveContainerWidth, desiredWidth)
+        : effectiveContainerWidth;
     const chartHeight = height ?? 240;
 
     const canZoomIn = zoom < effectiveMaxZoom - 0.01;
@@ -246,8 +251,11 @@ export function useWeightProgressChart({
       : "";
 
     const trendIcon =
-      stats && stats.change !== 0 ? (stats.change > 0 ? "↗" : "↘") : "→";
-
+      stats && stats.change !== 0
+        ? stats.change > 0
+          ? "\u2197"
+          : "\u2198"
+        : "\u2192";
     const trendColor =
       stats && stats.change !== 0
         ? stats.change > 0

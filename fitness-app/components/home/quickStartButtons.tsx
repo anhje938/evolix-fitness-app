@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   glassButton: {
     position: "relative",
     overflow: "hidden",
-    paddingVertical: 22,
+    paddingVertical: 19,
     paddingHorizontal: 18,
     borderRadius: 20,
     alignItems: "center",

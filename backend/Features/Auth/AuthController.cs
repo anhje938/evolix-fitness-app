@@ -16,20 +16,28 @@ namespace backend.Features.Auth
         private readonly AuthService _auth;
         private readonly ILogger<AuthController> _logger;
         private readonly IConfiguration _config;
+        private readonly IHostEnvironment _env;
 
-        // Sett denne til true midlertidig om du vil se feilmeldinger i Expo-loggen
-        private const bool RETURN_DEBUG_DETAILS = true;
+        private bool ReturnDebugDetails => _env.IsDevelopment();
 
-        public AuthController(AuthService auth, ILogger<AuthController> logger, IConfiguration config)
+        public AuthController(
+            AuthService auth,
+            ILogger<AuthController> logger,
+            IConfiguration config,
+            IHostEnvironment env)
         {
             _auth = auth;
             _logger = logger;
             _config = config;
+            _env = env;
         }
 
         [HttpGet("debug")]
         public IActionResult DebugConfig()
         {
+            if (!_env.IsDevelopment())
+                return NotFound();
+
             // OBS: Ikke returner SecretKey. Kun "exists"-sjekk.
             var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
             var appleClientId = _config["AppleSettings:ClientId"];
@@ -95,7 +103,7 @@ namespace backend.Features.Auth
             {
                 // Hvis tokenet ikke engang kan parses (format feil)
                 _logger.LogWarning(ex, "Failed to parse Apple idToken as JWT. traceId={traceId}", reqId);
-                if (RETURN_DEBUG_DETAILS)
+                if (ReturnDebugDetails)
                     return BadRequest(new { error = "Invalid token format", detail = ex.Message, traceId = reqId });
                 return BadRequest(new { error = "Invalid token format", traceId = reqId });
             }
@@ -115,7 +123,7 @@ namespace backend.Features.Auth
                 if (ex.InnerException != null)
                     _logger.LogWarning(ex.InnerException, "Inner exception. traceId={traceId} message={msg}", reqId, ex.InnerException.Message);
 
-                if (RETURN_DEBUG_DETAILS)
+                if (ReturnDebugDetails)
                 {
                     return Unauthorized(new
                     {
@@ -132,7 +140,7 @@ namespace backend.Features.Auth
             {
                 _logger.LogError(ex, "Unhandled error during Apple login. traceId={traceId}", reqId);
 
-                if (RETURN_DEBUG_DETAILS)
+                if (ReturnDebugDetails)
                 {
                     return StatusCode(500, new
                     {

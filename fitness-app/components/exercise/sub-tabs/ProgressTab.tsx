@@ -7,6 +7,7 @@ import {
 import { generalStyles } from "@/config/styles";
 import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
+import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useExercises } from "@/hooks/useExercises";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -39,10 +40,11 @@ import { StatRow } from "./progress/StatRow";
 import { YearSummaryCard } from "./progress/YearSummaryCard";
 
 import { estimate1RMFromTopSet } from "@/utils/exercise/oneRepMax";
+import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 
 type ProgressTabProps = {
   selectedExerciseId: string | null;
-  onSelectExercise: (exerciseId: string) => void;
+  onSelectExercise: (exerciseId: string | null) => void;
 };
 
 const ui = {
@@ -68,17 +70,28 @@ export default function ProgressTab({
   selectedExerciseId,
   onSelectExercise,
 }: ProgressTabProps) {
+  const { userSettings } = useUserSettings();
   const { data: exerciseData } = useExercises();
-  const exercises = exerciseData ?? [];
+  const exercises = useMemo(() => {
+    const allExercises = exerciseData ?? [];
+    if (!userSettings.showOnlyCustomTrainingContent) return allExercises;
+    return allExercises.filter(isUserCreatedExercise);
+  }, [exerciseData, userSettings.showOnlyCustomTrainingContent]);
 
   const [search, setSearch] = useState("");
   const [metric, setMetric] = useState<Metric>("weight");
   const [volumeMetric, setVolumeMetric] = useState<VolumeMetric>("sets");
   const [searchFocused, setSearchFocused] = useState(false);
 
-  // ✅ Default selection if none is set yet
+  // Keep selected exercise in sync with visible list
   useEffect(() => {
-    if (!selectedExerciseId && exercises.length > 0) {
+    if (exercises.length === 0) {
+      if (selectedExerciseId !== null) onSelectExercise(null);
+      return;
+    }
+
+    const selectedIsVisible = exercises.some((ex) => ex.id === selectedExerciseId);
+    if (!selectedIsVisible) {
       onSelectExercise(exercises[0].id);
     }
   }, [exercises, selectedExerciseId, onSelectExercise]);

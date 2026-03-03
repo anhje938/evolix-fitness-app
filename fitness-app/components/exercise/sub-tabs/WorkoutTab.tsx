@@ -26,7 +26,12 @@ import {
 import { queryClient } from "@/config/queryClient";
 
 import { WorkoutList } from "@/components/exercise/sub-tabs/workout/WorkoutList";
+import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useWorkoutSession } from "@/context/workoutSessionContext";
+import {
+  isUserCreatedExercise,
+  isUserCreatedWorkout,
+} from "@/utils/exercise/isUserCreated";
 import AddButton from "../AddButton";
 
 type StartWorkoutPayload = {
@@ -41,6 +46,8 @@ export function WorkoutTab() {
   const [openCreate, setOpenCreate] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
 
+  const { userSettings } = useUserSettings();
+
   // ---------- DATA ----------
   const {
     data: workoutData,
@@ -54,14 +61,16 @@ export function WorkoutTab() {
     error: exercisesError,
   } = useExercises();
 
-  const workouts = useMemo(
-    () => (workoutData ?? []) as Workout[],
-    [workoutData]
-  );
-  const exercises = useMemo(
-    () => (exerciseData ?? []) as Exercise[],
-    [exerciseData]
-  );
+  const workouts = useMemo(() => {
+    const all = (workoutData ?? []) as Workout[];
+    if (!userSettings.showOnlyCustomTrainingContent) return all;
+    return all.filter(isUserCreatedWorkout);
+  }, [workoutData, userSettings.showOnlyCustomTrainingContent]);
+  const exercises = useMemo(() => {
+    const all = (exerciseData ?? []) as Exercise[];
+    if (!userSettings.showOnlyCustomTrainingContent) return all;
+    return all.filter(isUserCreatedExercise);
+  }, [exerciseData, userSettings.showOnlyCustomTrainingContent]);
 
   // ---------- WORKOUT SESSION (OVERLAY) ----------
   const { openProgramSession } = useWorkoutSession();
@@ -92,7 +101,7 @@ export function WorkoutTab() {
     dayLabel?: string;
     description?: string;
     exerciseIds: string[];
-  }) => {
+  }, options?: { closeModal?: boolean }) => {
     if (!editingWorkout) return;
 
     try {
@@ -105,7 +114,9 @@ export function WorkoutTab() {
       });
 
       queryClient.invalidateQueries({ queryKey: ["workouts"] });
-      setEditingWorkout(null);
+      if (options?.closeModal !== false) {
+        setEditingWorkout(null);
+      }
     } catch (err) {
       console.log("Feil ved oppdatering av økt", err);
     }

@@ -35,6 +35,31 @@ type AddSetRequest = {
   notes?: string | null;
 };
 
+type UpdateWorkoutSessionSetRequest = {
+  setNumber?: number | null;
+  weightKg?: number | null;
+  reps?: number | null;
+  rir?: number | null;
+  distanceMeters?: number | null;
+  duration?: string | null;
+  setType?: string | null;
+  notes?: string | null;
+};
+
+type UpdateWorkoutSessionExerciseLogRequest = {
+  exerciseId: string;
+  order?: number | null;
+  notes?: string | null;
+  sets: UpdateWorkoutSessionSetRequest[];
+};
+
+type UpdateWorkoutSessionRequest = {
+  startedAtUtc?: string | null;
+  title?: string | null;
+  notes?: string | null;
+  exerciseLogs: UpdateWorkoutSessionExerciseLogRequest[];
+};
+
 /**
  * Lagrer en komplett WorkoutSession til backend ved å:
  *  1) Starte en session (POST /api/workoutsession)
@@ -127,6 +152,47 @@ export async function postWorkoutSession(
   // Backend setter FinishedAtUtc selv (DateTime.UtcNow) og
   // regner totals (TotalSets, TotalReps, TotalVolume)
   return sessionId;
+}
+
+export async function putWorkoutSession(
+  sessionId: string,
+  session: WorkoutSession,
+  token: string
+) {
+  const payload: UpdateWorkoutSessionRequest = {
+    startedAtUtc: session.startedAtUtc ?? null,
+    title: session.name ?? null,
+    notes: null,
+    exerciseLogs: session.exercises.map((ex, exIndex) => ({
+      exerciseId: ex.exerciseId,
+      order: ex.order ?? exIndex + 1,
+      notes: null,
+      sets: ex.sets.map((set, setIndex) => ({
+        setNumber: setIndex + 1,
+        weightKg: set.weight ?? null,
+        reps: set.reps ?? null,
+        rir: null,
+        distanceMeters: null,
+        duration: null,
+        setType: null,
+        notes: null,
+      })),
+    })),
+  };
+
+  const res = await fetch(`${API_BASE_URL}/workoutsession/${sessionId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || "Kunne ikke oppdatere økten");
+  }
 }
 
 

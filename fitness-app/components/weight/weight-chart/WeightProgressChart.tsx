@@ -13,6 +13,7 @@ import {
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import type { Weight } from "@/types/weight";
+import { Ionicons } from "@expo/vector-icons";
 
 import { useWeightProgressChart } from "@/hooks/useWeightProgressChart";
 import { styles } from "./WeightProgressChart.styles";
@@ -122,6 +123,8 @@ export function WeightProgressChart({
 
   showStats = true,
 }: Props) {
+  const [showGoalInChart, setShowGoalInChart] = React.useState(false);
+
   const chart = useWeightProgressChart({
     weightList,
     weeks,
@@ -129,6 +132,7 @@ export function WeightProgressChart({
     yMaxPadding,
     decimalPlaces,
     goalValue,
+    includeGoalInRange: showGoalInChart,
     minXLabels,
     maxXLabels,
     minZoom,
@@ -146,7 +150,7 @@ export function WeightProgressChart({
             <View>
               <Text style={[typography.h2, styles.title]}>{title}</Text>
               <Text style={[typography.body, styles.meta]}>
-                0 målinger · siste {weeks} uker
+                {`0 m\u00e5linger \u00b7 siste ${weeks} uker`}
               </Text>
             </View>
           </View>
@@ -154,14 +158,14 @@ export function WeightProgressChart({
 
         <View style={styles.emptyRow}>
           <View style={styles.emptyIconWrap}>
-            <Text style={styles.emptyIcon}>⚖️</Text>
+            <Ionicons name="scale-outline" size={18} color="#38bdf8" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[typography.bodyBlack, styles.emptyTitle]}>
-              Ingen vektmålinger ennå
+              {"Ingen vektm\u00e5linger enn\u00e5"}
             </Text>
             <Text style={[typography.body, styles.emptySub]}>
-              Legg inn en måling for å se utviklingen her.
+              {"Legg inn en m\u00e5ling for \u00e5 se utviklingen her."}
             </Text>
           </View>
         </View>
@@ -182,6 +186,13 @@ export function WeightProgressChart({
       withDots: false,
     },
   ];
+  const shouldEnableHorizontalScroll =
+    chart.chartWidth > chart.effectiveContainerWidth + 1;
+  const shouldShowGoalToggle =
+    showGoalLine &&
+    goalValue !== undefined &&
+    chart.stats &&
+    (!chart.isGoalInRange || showGoalInChart);
 
   return (
     <View style={[generalStyles.newCard, styles.card]}>
@@ -192,7 +203,7 @@ export function WeightProgressChart({
             <Text style={[typography.h2, styles.title]}>{title}</Text>
           )}
           <Text style={[typography.body, styles.meta]}>
-            {chart.stats?.count} målinger · siste {weeks} uker
+            {`${chart.stats?.count} m\u00e5linger \u00b7 siste ${weeks} uker`}
           </Text>
         </View>
 
@@ -207,7 +218,7 @@ export function WeightProgressChart({
                 !chart.canZoomOut && styles.zoomButtonDisabled,
               ]}
             >
-              <Text style={styles.zoomText}>−</Text>
+              <Text style={styles.zoomText}>-</Text>
             </TouchableOpacity>
 
             <View style={styles.zoomPill}>
@@ -233,14 +244,28 @@ export function WeightProgressChart({
       {showStats && chart.stats && (
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Start</Text>
+            <View style={styles.statHead}>
+              <View style={styles.statIconWrap}>
+                <Ionicons name="flag-outline" size={12} color="#7dd3fc" />
+              </View>
+              <Text style={styles.statLabel}>Start</Text>
+            </View>
             <Text style={styles.statValue}>
               {chart.stats.first.toFixed(decimalPlaces)} kg
             </Text>
           </View>
 
           <View style={[styles.statBox, styles.statBoxAccent]}>
-            <Text style={styles.statLabel}>Endring</Text>
+            <View style={styles.statHead}>
+              <View style={styles.statIconWrap}>
+                <Ionicons
+                  name="swap-vertical-outline"
+                  size={12}
+                  color="#7dd3fc"
+                />
+              </View>
+              <Text style={styles.statLabel}>Endring</Text>
+            </View>
             <View style={styles.changeRow}>
               <Text
                 style={[styles.trendIcon, { color: chart.trend.trendColor }]}
@@ -256,7 +281,12 @@ export function WeightProgressChart({
           </View>
 
           <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Nå</Text>
+            <View style={styles.statHead}>
+              <View style={styles.statIconWrap}>
+                <Ionicons name="scale-outline" size={12} color="#7dd3fc" />
+              </View>
+              <Text style={styles.statLabel}>{"N\u00e5"}</Text>
+            </View>
             <Text style={styles.statValue}>
               {chart.stats.last.toFixed(decimalPlaces)} kg
             </Text>
@@ -264,36 +294,37 @@ export function WeightProgressChart({
         </View>
       )}
 
-      <Text style={styles.hint}>Knip for zoom · dra for å se mer</Text>
+      <Text style={styles.hint}>{"Knip for zoom \u00b7 dra for \u00e5 se mer"}</Text>
 
       {/* Goal indicator if goal is outside visible range */}
-      {showGoalLine &&
-        goalValue !== undefined &&
-        chart.isGoalExtreme &&
-        chart.stats && (
+      {shouldShowGoalToggle && (
           <View style={styles.goalIndicator}>
-            <View
-              style={[
-                styles.goalBadge,
-                chart.goal < chart.stats.min
-                  ? styles.goalBadgeBelow
-                  : styles.goalBadgeAbove,
-              ]}
+            <TouchableOpacity
+              activeOpacity={0.86}
+              onPress={() => setShowGoalInChart((prev) => !prev)}
+              style={[styles.goalHint, showGoalInChart && styles.goalHintActive]}
             >
-              <Text style={styles.goalBadgeIcon}>
-                {chart.goal < chart.stats.min ? "↓" : "↑"}
+              <Ionicons
+                name={showGoalInChart ? "eye-off-outline" : "arrow-down"}
+                size={12}
+                color={
+                  showGoalInChart
+                    ? "rgba(125,211,252,0.96)"
+                    : "rgba(251,191,36,0.95)"
+                }
+              />
+              <Text
+                style={[
+                  styles.goalHintText,
+                  showGoalInChart && styles.goalHintTextActive,
+                ]}
+              >
+                {showGoalInChart ? "Skjul m\u00e5l" : "Vis m\u00e5l"}
               </Text>
-              <View style={styles.goalBadgeContent}>
-                <Text style={styles.goalBadgeLabel}>Mål</Text>
-                <Text style={styles.goalBadgeValue}>
-                  {chart.goal.toFixed(decimalPlaces)} kg
-                </Text>
-              </View>
-              <Text style={styles.goalBadgeDistance}>
-                {chart.goal < chart.stats.min ? "-" : "+"}
-                {Math.abs(chart.stats.last - chart.goal).toFixed(1)} kg
+              <Text style={styles.goalHintValue}>
+                {`${chart.goal.toFixed(decimalPlaces)} kg`}
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -311,10 +342,15 @@ export function WeightProgressChart({
               horizontal
               showsHorizontalScrollIndicator={false}
               bounces={false}
-              scrollEnabled={chart.chartWidth > chart.effectiveContainerWidth}
+              scrollEnabled={shouldEnableHorizontalScroll}
               contentContainerStyle={[
                 styles.scrollContent,
-                { width: chart.chartWidth },
+                {
+                  width: shouldEnableHorizontalScroll
+                    ? chart.chartWidth
+                    : chart.effectiveContainerWidth,
+                  alignItems: shouldEnableHorizontalScroll ? "flex-start" : "center",
+                },
               ]}
             >
               <View
@@ -378,26 +414,64 @@ export function WeightProgressChart({
                     return n.toFixed(decimalPlaces);
                   }}
                   decorator={(props: any) => {
-                    const { width: innerWidth, height: innerHeight } = props;
+                    const {
+                      width: innerWidth,
+                      height: innerHeight,
+                      paddingTop = 16,
+                      paddingRight = 64,
+                      data: decoratorData = [],
+                    } = props;
 
                     if (
                       !showGoalLine ||
-                      !chart.goal ||
+                      goalValue === undefined ||
                       chart.maxY === chart.minY ||
-                      chart.isGoalExtreme
+                      !chart.isGoalInRange
                     ) {
                       return null;
                     }
 
-                    const goalY =
-                      ((chart.maxY - chart.goal) / (chart.maxY - chart.minY)) *
-                      innerHeight;
+                    const allDataValues = Array.isArray(decoratorData)
+                      ? decoratorData
+                          .flatMap((dataset: any) =>
+                            Array.isArray(dataset?.data) ? dataset.data : []
+                          )
+                          .filter(
+                            (v: unknown): v is number =>
+                              typeof v === "number" && Number.isFinite(v)
+                          )
+                      : [];
+
+                    if (!allDataValues.length) return null;
+
+                    const min = Math.min(...allDataValues);
+                    const max = Math.max(...allDataValues);
+                    const scaler = fromZero
+                      ? Math.max(...allDataValues, 0) - Math.min(...allDataValues, 0) || 1
+                      : max - min || 1;
+                    const baseHeight =
+                      min >= 0 && max >= 0
+                        ? innerHeight
+                        : min < 0 && max <= 0
+                        ? 0
+                        : (innerHeight * max) / scaler;
+                    const goalHeight =
+                      min < 0 && max > 0
+                        ? innerHeight * (chart.goal / scaler)
+                        : min >= 0 && max >= 0
+                        ? fromZero
+                          ? innerHeight * (chart.goal / scaler)
+                          : innerHeight * ((chart.goal - min) / scaler)
+                        : fromZero
+                        ? innerHeight * (chart.goal / scaler)
+                        : innerHeight * ((chart.goal - max) / scaler);
+                    const goalY = ((baseHeight - goalHeight) / 4) * 3 + paddingTop;
 
                     return (
                       <>
                         {/* Goal line */}
                         <Line
-                          x1="0"
+                          x1={paddingRight.toString()}
                           x2={innerWidth.toString()}
                           y1={goalY}
                           y2={goalY}
@@ -408,14 +482,14 @@ export function WeightProgressChart({
 
                         {/* Goal label */}
                         <SvgText
-                          x={innerWidth - 65}
+                          x={innerWidth - 6}
                           y={goalY - 6}
                           fill={goalLineColor}
                           fontSize="11"
                           fontWeight="700"
                           textAnchor="end"
                         >
-                          Mål: {chart.goal.toFixed(decimalPlaces)} kg
+                          {`M\u00e5l: ${chart.goal.toFixed(decimalPlaces)} kg`}
                         </SvgText>
 
                         {/* Gradient fill under line (kept for future use) */}
@@ -468,10 +542,20 @@ export function WeightProgressChart({
       {showStats && chart.stats && goalValue !== undefined && (
         <View style={styles.goalStats}>
           <View style={styles.goalStat}>
-            <Text style={styles.goalStatLabel}>Mål</Text>
-            <Text style={styles.goalStatValue}>
-              {goalValue.toFixed(decimalPlaces)} kg
-            </Text>
+            <View style={styles.goalLabelRow}>
+              <Text style={styles.goalStatLabel}>{"M\u00e5l"}</Text>
+            </View>
+            <View style={styles.goalValueRow}>
+              <Text style={[styles.goalStatValue, styles.goalWeightValue]}>
+                {goalValue.toFixed(decimalPlaces)} kg
+              </Text>
+              <Ionicons
+                name="medal"
+                size={14}
+                color="rgba(251,191,36,0.98)"
+                style={styles.goalValueIcon}
+              />
+            </View>
           </View>
 
           <View style={styles.goalStat}>
@@ -485,7 +569,7 @@ export function WeightProgressChart({
           </View>
 
           <View style={styles.goalStat}>
-            <Text style={styles.goalStatLabel}>Tid til mål</Text>
+            <Text style={styles.goalStatLabel}>{"Tid til m\u00e5l"}</Text>
 
             {chart.stats.goalDirection === "correct" &&
             chart.stats.daysToGoal !== null ? (

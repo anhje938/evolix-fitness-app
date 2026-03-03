@@ -15,8 +15,10 @@ import { useFoodContext } from "@/context/FoodProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import type { Food, FoodDto } from "@/types/meal";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Match HomePage accents (reference vibe)
 const circleAccents = {
@@ -40,6 +42,7 @@ function calcPct(current: number, goal: number) {
 }
 
 export default function FoodPage() {
+  const insets = useSafeAreaInsets();
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<"manual" | "qr">("manual");
 
@@ -67,6 +70,7 @@ export default function FoodPage() {
       setIsOpen(false);
     } catch (error) {
       console.log("Could not save meal to backend", error);
+      Alert.alert("Kunne ikke lagre måltid", "Noe gikk galt. Prøv igjen.");
     }
   };
 
@@ -163,13 +167,35 @@ export default function FoodPage() {
   const fatGoal = Number(userSettings.fatGoal ?? 0);
 
   return (
-    <DarkOceanBackground style={generalStyles.container}>
+    <DarkOceanBackground
+      style={[styles.screen, { paddingTop: insets.top + 6 }]}
+    >
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         {/* GOALS CARD (same vibe as Home) */}
         <View style={[generalStyles.newCard, styles.goalsCard]}>
+          <View pointerEvents="none" style={styles.goalsSheenWrap}>
+            <LinearGradient
+              colors={[
+                "rgba(6,182,212,0.14)",
+                "rgba(59,130,246,0.09)",
+                "rgba(2,6,23,0.00)",
+              ]}
+              start={{ x: 0.15, y: 0 }}
+              end={{ x: 0.9, y: 1 }}
+              style={styles.goalsSheen}
+            />
+          </View>
+
+          <LinearGradient
+            colors={["rgba(6,182,212,0.88)", "rgba(59,130,246,0.84)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.goalsAccentBar}
+          />
+
           <View style={styles.header}>
             <Text style={[typography.body, styles.headerTitle]}>
               Dagens mål
@@ -318,18 +344,52 @@ export default function FoodPage() {
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    width: "100%",
+    paddingHorizontal: 20,
+  },
   content: {
     paddingBottom: 40,
     width: "100%",
   },
 
   goalsCard: {
+    position: "relative",
+    overflow: "hidden",
     width: "100%",
     marginBottom: 18,
     borderRadius: 18,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 10,
+    paddingBottom: 12,
     paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "rgba(6,182,212,0.16)",
+    backgroundColor: "rgba(15,23,42,0.44)",
+    shadowColor: "#06b6d4",
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 1,
+  },
+
+  goalsSheenWrap: {
+    position: "absolute",
+    top: -45,
+    left: -60,
+    right: -60,
+    bottom: -45,
+  },
+  goalsSheen: {
+    flex: 1,
+    transform: [{ rotate: "-10deg" }],
+  },
+  goalsAccentBar: {
+    height: 3,
+    width: "48%",
+    borderRadius: 999,
+    opacity: 0.92,
+    alignSelf: "center",
+    marginBottom: 10,
   },
 
   header: {

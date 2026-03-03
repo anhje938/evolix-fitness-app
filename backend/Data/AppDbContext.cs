@@ -118,6 +118,9 @@ namespace backend.Data
                 b.HasIndex(x => x.UserId).IsUnique();
 
                 b.Property(x => x.HomeProgressCirclesJson).IsRequired();
+                b.Property(x => x.HomeSectionOrderJson).IsRequired();
+                b.Property(x => x.RecoveryMapHiddenMusclesJson).IsRequired();
+                b.Property(x => x.WeightGoalKg).HasPrecision(18, 2);
 
                 b.HasOne(x => x.User)
                     .WithOne(u => u.Settings)

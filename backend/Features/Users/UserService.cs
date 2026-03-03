@@ -6,6 +6,31 @@ namespace backend.Features.Users
 {
     public class UserService
     {
+        private static readonly string[] DefaultHomeProgressCircles =
+            ["calories", "protein", "carbs", "fat"];
+
+        private static readonly string[] AllowedHomeProgressCircles =
+            ["calories", "protein", "carbs", "fat"];
+
+        private static readonly string[] DefaultHomeSectionOrder =
+            ["quickStart", "goals", "weight", "recoveryMap"];
+
+        private static readonly string[] AllowedHomeSectionOrder =
+            ["quickStart", "goals", "weight", "recoveryMap"];
+
+        private static readonly JsonSerializerOptions HomeUiJsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        private sealed class HomeUiSettingsPayload
+        {
+            public string[] HomeProgressCircles { get; set; } = [.. DefaultHomeProgressCircles];
+            public string[] HomeSectionOrder { get; set; } = [.. DefaultHomeSectionOrder];
+            public string[] RecoveryMapHiddenMuscles { get; set; } = [];
+            public bool ShowOnlyCustomTrainingContent { get; set; } = false;
+        }
+
         private readonly AppDbContext _db;
 
         public UserService(AppDbContext db)
@@ -97,6 +122,24 @@ namespace backend.Features.Users
                     return true;
                 }
 
+        public async Task<User?> GetUserAsync(
+            string userId,
+            CancellationToken ct = default)
+        {
+            return await _db.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == userId, ct);
+        }
+
+        public async Task<UserSettings?> GetSettingsAsync(
+            string userId,
+            CancellationToken ct = default)
+        {
+            return await _db.UserSettings
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.UserId == userId, ct);
+        }
+
 
         //Update usersettings
         public async Task<bool> UpdateSettingsAsync(
@@ -135,16 +178,209 @@ namespace backend.Features.Users
                 settings.MuscleFilter = dto.MuscleFilter.Value;
 
             // Home UI
-            if (dto.HomeProgressCircles != null)
+            if (dto.HomeProgressCircles != null ||
+                dto.HomeSectionOrder != null ||
+                dto.RecoveryMapHiddenMuscles != null ||
+                dto.ShowOnlyCustomTrainingContent.HasValue)
             {
-                settings.HomeProgressCirclesJson =
-                    JsonSerializer.Serialize(dto.HomeProgressCircles);
+                var homeUi = new HomeUiSettingsPayload
+                {
+                    HomeProgressCircles = ParseStoredHomeProgressCircles(
+                        settings.HomeProgressCirclesJson
+                    ),
+                    HomeSectionOrder = ParseStoredHomeSectionOrder(
+                        settings.HomeSectionOrderJson
+                    ),
+                    RecoveryMapHiddenMuscles = ParseStoredRecoveryMapHiddenMuscles(
+                        settings.RecoveryMapHiddenMusclesJson
+                    ),
+                    ShowOnlyCustomTrainingContent =
+                        settings.ShowOnlyCustomTrainingContent
+                };
+
+                if (dto.HomeProgressCircles != null)
+                {
+                    homeUi.HomeProgressCircles = NormalizeStringArray(
+                        dto.HomeProgressCircles,
+                        AllowedHomeProgressCircles,
+                        DefaultHomeProgressCircles
+                    );
+                }
+
+                if (dto.HomeSectionOrder != null)
+                {
+                    homeUi.HomeSectionOrder = NormalizeStringArray(
+                        dto.HomeSectionOrder,
+                        AllowedHomeSectionOrder,
+                        DefaultHomeSectionOrder
+                    );
+                }
+
+                if (dto.RecoveryMapHiddenMuscles != null)
+                {
+                    homeUi.RecoveryMapHiddenMuscles = NormalizeUniqueStringArray(
+                        dto.RecoveryMapHiddenMuscles
+                    );
+                }
+
+                if (dto.ShowOnlyCustomTrainingContent.HasValue)
+                {
+                    homeUi.ShowOnlyCustomTrainingContent =
+                        dto.ShowOnlyCustomTrainingContent.Value;
+                }
+
+                settings.HomeProgressCirclesJson = JsonSerializer.Serialize(
+                    homeUi.HomeProgressCircles,
+                    HomeUiJsonOptions
+                );
+                settings.HomeSectionOrderJson = JsonSerializer.Serialize(
+                    homeUi.HomeSectionOrder,
+                    HomeUiJsonOptions
+                );
+                settings.RecoveryMapHiddenMusclesJson = JsonSerializer.Serialize(
+                    homeUi.RecoveryMapHiddenMuscles,
+                    HomeUiJsonOptions
+                );
+                settings.ShowOnlyCustomTrainingContent =
+                    homeUi.ShowOnlyCustomTrainingContent;
             }
 
             settings.UpdatedUtc = DateTime.UtcNow;
 
             await _db.SaveChangesAsync(ct);
             return true;
+        }
+
+        private static string[] ParseStoredHomeProgressCircles(string? raw)
+        {
+            var parsed = ReadArrayOrObjectProperty(raw, "homeProgressCircles", "homeGoalTiles");
+            return NormalizeStringArray(
+                parsed,
+                AllowedHomeProgressCircles,
+                DefaultHomeProgressCircles
+            );
+        }
+
+        private static string[] ParseStoredHomeSectionOrder(string? raw)
+        {
+            var parsed = ReadArrayOrObjectProperty(raw, "homeSectionOrder");
+            return NormalizeStringArray(
+                parsed,
+                AllowedHomeSectionOrder,
+                DefaultHomeSectionOrder
+            );
+        }
+
+        private static string[] ParseStoredRecoveryMapHiddenMuscles(string? raw)
+        {
+            var parsed = ReadArrayOrObjectProperty(raw, "recoveryMapHiddenMuscles");
+            return NormalizeUniqueStringArray(parsed);
+        }
+
+        private static string[]? ReadArrayOrObjectProperty(
+            string? raw,
+            params string[] objectPropertyNames
+        )
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(raw);
+                var root = doc.RootElement;
+
+                if (root.ValueKind == JsonValueKind.Array)
+                {
+                    return ReadStringArray(root);
+                }
+
+                if (root.ValueKind != JsonValueKind.Object) return null;
+
+                foreach (var wanted in objectPropertyNames)
+                {
+                    var value = TryGetStringArrayProperty(root, wanted);
+                    if (value != null) return value;
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string[]? TryGetStringArrayProperty(JsonElement root, string name)
+        {
+            foreach (var prop in root.EnumerateObject())
+            {
+                if (!string.Equals(prop.Name, name, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (prop.Value.ValueKind != JsonValueKind.Array) return null;
+                return ReadStringArray(prop.Value);
+            }
+
+            return null;
+        }
+
+        private static string[] ReadStringArray(JsonElement value)
+        {
+            var list = new List<string>();
+            foreach (var item in value.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.String) continue;
+                var raw = item.GetString();
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+                list.Add(raw.Trim());
+            }
+            return [.. list];
+        }
+
+        private static string[] NormalizeStringArray(
+            IEnumerable<string>? input,
+            IReadOnlyList<string> allowed,
+            IReadOnlyList<string> fallback)
+        {
+            if (input == null) return [.. fallback];
+
+            var allowedSet = new HashSet<string>(allowed, StringComparer.Ordinal);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var next = new List<string>();
+
+            foreach (var raw in input)
+            {
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+                if (!allowedSet.Contains(raw)) continue;
+                if (!seen.Add(raw)) continue;
+                next.Add(raw);
+            }
+
+            foreach (var value in fallback)
+            {
+                if (!seen.Contains(value)) next.Add(value);
+            }
+
+            return [.. next];
+        }
+
+        private static string[] NormalizeUniqueStringArray(IEnumerable<string>? input)
+        {
+            if (input == null) return [];
+
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var next = new List<string>();
+
+            foreach (var raw in input)
+            {
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+
+                var value = raw.Trim();
+                if (!seen.Add(value)) continue;
+                next.Add(value);
+            }
+
+            return [.. next];
         }
     }
 }

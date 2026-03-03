@@ -1,4 +1,5 @@
 // app/(tabs)/home.tsx
+import { deleteMyUser, fetchMyUser } from "@/api/user";
 import SettingsLogo from "@/assets/icons/white-settings.svg";
 import { DarkOceanBackground } from "@/components/DarkOceanBackground";
 import AnatomyFigure from "@/components/exercise/AnatomyFigure";
@@ -6,18 +7,18 @@ import { ProgressCircle } from "@/components/food/progressCircle";
 import { WeightSummaryBox } from "@/components/home/WeightSummary";
 import QuickStartButtons from "@/components/home/quickStartButtons";
 import SettingsModal from "@/components/settings/SettingsModal";
-import { deleteMyUser } from "@/api/user";
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
+import { useAuth } from "@/context/AuthProvider";
 import { useFoodContext } from "@/context/FoodProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useWeightContext } from "@/context/WeightProvider";
-import { useAuth } from "@/context/AuthProvider";
 import { useExercises } from "@/hooks/useExercises";
 import { useRecoveryMap } from "@/hooks/useRecoveryMap";
 import { useCompletedWorkouts } from "@/hooks/workout-history/useCompletedWorkouts";
-import type { HomeGoalTile } from "@/types/userSettings";
+import type { HomeGoalTile, HomeSectionKey } from "@/types/userSettings";
 import { muscleToSlug } from "@/utils/recovery/muscleToSlug";
+import { toBodyHighlighterData } from "@/utils/recovery/toBodyHighlighterData";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -32,6 +33,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ui = {
   text: "rgba(229,236,255,0.95)",
@@ -41,6 +43,12 @@ const ui = {
 };
 
 const ALL_TILES: HomeGoalTile[] = ["calories", "protein", "carbs", "fat"];
+const HOME_SECTION_ORDER_FALLBACK: HomeSectionKey[] = [
+  "quickStart",
+  "goals",
+  "weight",
+  "recoveryMap",
+];
 
 const labelMap: Record<HomeGoalTile, string> = {
   calories: "Kalorier",
@@ -72,6 +80,30 @@ function calcPct(current: number, goal: number) {
   if (!Number.isFinite(current)) return 0;
   if (!Number.isFinite(goal) || goal <= 0) return 0;
   return clampPct((current / goal) * 100);
+}
+
+function normalizeHomeSectionOrder(
+  input: HomeSectionKey[] | undefined
+): HomeSectionKey[] {
+  if (!Array.isArray(input)) return [...HOME_SECTION_ORDER_FALLBACK];
+
+  const seen = new Set<HomeSectionKey>();
+  const next: HomeSectionKey[] = [];
+
+  for (const raw of input) {
+    if (!HOME_SECTION_ORDER_FALLBACK.includes(raw)) continue;
+    if (seen.has(raw)) continue;
+    seen.add(raw);
+    next.push(raw);
+  }
+
+  if (next.length !== HOME_SECTION_ORDER_FALLBACK.length) {
+    for (const key of HOME_SECTION_ORDER_FALLBACK) {
+      if (!seen.has(key)) next.push(key);
+    }
+  }
+
+  return next;
 }
 
 function readRecovery01(entry: unknown): number {
@@ -203,6 +235,7 @@ function uniq(list: HomeGoalTile[]) {
 const SECTION_GAP = 18;
 
 export default function HomePage() {
+  const insets = useSafeAreaInsets();
   const { token, setToken } = useAuth();
   const { todayTotals } = useFoodContext();
   const { progressionLast7, lastWeight } = useWeightContext();
@@ -216,9 +249,10 @@ export default function HomePage() {
   } = useUserSettings();
   const { data: sessions = [] } = useCompletedWorkouts();
   const { data: exercises = [] } = useExercises();
-  const { bodyData, recoveryMap } = useRecoveryMap({ sessions, exercises });
+  const { recoveryMap } = useRecoveryMap({ sessions, exercises });
 
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [displayName, setDisplayName] = useState("");
   const [musclePopup, setMusclePopup] = useState<{
     muscle: string;
     lastTrained: string;
@@ -262,6 +296,30 @@ export default function HomePage() {
   } | null>(null);
 
   useEffect(() => {
+    let isActive = true;
+
+    if (!token) {
+      setDisplayName("");
+      return;
+    }
+
+    (async () => {
+      try {
+        const me = await fetchMyUser(token);
+        if (!isActive) return;
+        setDisplayName((me?.displayName ?? "").trim());
+      } catch (error) {
+        console.log("Could not fetch user profile", error);
+        if (isActive) setDisplayName("");
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [token]);
+
+  useEffect(() => {
     if (!musclePopup) return;
     popupAnim.setValue(0);
     Animated.parallel([
@@ -274,6 +332,24 @@ export default function HomePage() {
     ]).start();
   }, [musclePopup, popupAnim]);
 
+  const filteredRecoveryMap = useMemo(() => {
+    const hidden = new Set<string>(userSettings.recoveryMapHiddenMuscles ?? []);
+    const next: Record<string, (typeof recoveryMap)[string]> = {};
+
+    for (const [muscle, entry] of Object.entries(recoveryMap ?? {})) {
+      if (muscle === "ALL" || !hidden.has(muscle)) {
+        next[muscle] = entry;
+      }
+    }
+
+    return next;
+  }, [recoveryMap, userSettings.recoveryMapHiddenMuscles]);
+
+  const filteredBodyData = useMemo(
+    () => toBodyHighlighterData(filteredRecoveryMap),
+    [filteredRecoveryMap]
+  );
+
   const recoveryBySlug = useMemo(() => {
     const map = new Map<
       string,
@@ -285,7 +361,7 @@ export default function HomePage() {
       }[]
     >();
 
-    for (const [muscle, entry] of Object.entries(recoveryMap ?? {})) {
+    for (const [muscle, entry] of Object.entries(filteredRecoveryMap ?? {})) {
       if (muscle === "ALL") continue;
       const slug = muscleToSlug(muscle);
       if (!slug) continue;
@@ -301,7 +377,7 @@ export default function HomePage() {
     }
 
     return map;
-  }, [recoveryMap]);
+  }, [filteredRecoveryMap]);
 
   const popupPositionStyle = useMemo(() => {
     if (
@@ -472,8 +548,322 @@ export default function HomePage() {
     router.replace("/(auth)/sign-in");
   };
 
+  const orderedHomeSections = normalizeHomeSectionOrder(
+    userSettings.homeSectionOrder
+  );
+
+  const homeSections: Array<{ key: HomeSectionKey; content: React.ReactNode }> = [];
+
+  for (const sectionKey of orderedHomeSections) {
+    if (sectionKey === "quickStart") {
+      homeSections.push({
+        key: sectionKey,
+        content: <QuickStartButtons />,
+      });
+      continue;
+    }
+
+    if (sectionKey === "goals") {
+      if (!topKey && bottomKeys.length === 0) continue;
+
+      homeSections.push({
+        key: sectionKey,
+        content: (
+          <View style={[generalStyles.newCard, styles.goalsCard]}>
+            <View pointerEvents="none" style={styles.goalsSheenWrap}>
+              <LinearGradient
+                colors={[
+                  "rgba(6,182,212,0.14)",
+                  "rgba(59,130,246,0.09)",
+                  "rgba(2,6,23,0.00)",
+                ]}
+                start={{ x: 0.15, y: 0 }}
+                end={{ x: 0.9, y: 1 }}
+                style={styles.goalsSheen}
+              />
+            </View>
+
+            <LinearGradient
+              colors={["rgba(6,182,212,0.88)", "rgba(59,130,246,0.84)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.goalsAccentBar}
+            />
+            <View style={styles.goalsHeader}>
+              <Text style={[typography.body, styles.goalsTitle]}>Dagens mål</Text>
+            </View>
+
+            {topKey && (
+              <View style={styles.topArea}>
+                <ProgressCircle
+                  percentage={tileData.calories.pct}
+                  currentValue={tileData.calories.current}
+                  maxValue={tileData.calories.max}
+                  size={130}
+                  strokeWidth={5}
+                  accentColor={circleAccents.calories}
+                  icon={
+                    <Ionicons
+                      name="flame-outline"
+                      size={18}
+                      color={circleAccents.calories as any}
+                    />
+                  }
+                  labelStyle={{ opacity: 0, height: 0, marginTop: 0 }}
+                  valueStyle={styles.circleValueTop}
+                  fractionStyle={styles.circleFractionTop}
+                />
+
+                <Text style={[typography.body, styles.topLabel]} numberOfLines={1}>
+                  {labelMap.calories}
+                </Text>
+              </View>
+            )}
+
+            {bottomKeys.length > 0 && (
+              <View
+                style={[
+                  styles.bottomRow,
+                  bottomCount === 1 && styles.bottomRow1,
+                  bottomCount === 2 && styles.bottomRow2,
+                  bottomCount === 3 && styles.bottomRow3,
+                ]}
+              >
+                {bottomKeys.map((k) => {
+                  const it = tileData[k];
+                  return (
+                    <View
+                      key={k}
+                      style={[
+                        styles.bottomTile,
+                        bottomCount === 1 && styles.bottomTile1,
+                        bottomCount === 2 && styles.bottomTile2,
+                        bottomCount === 3 && styles.bottomTile3,
+                      ]}
+                    >
+                      <ProgressCircle
+                        percentage={it.pct}
+                        currentValue={it.current}
+                        maxValue={it.max}
+                        size={95}
+                        strokeWidth={6}
+                        accentColor={circleAccents[k]}
+                        labelStyle={{ opacity: 0, height: 0, marginTop: 0 }}
+                        valueStyle={styles.circleValue}
+                        fractionStyle={styles.circleFraction}
+                      />
+
+                      <Text style={[typography.body, styles.macroLabel]} numberOfLines={1}>
+                        {shortLabelMap[k]}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        ),
+      });
+      continue;
+    }
+
+    if (sectionKey === "weight") {
+      homeSections.push({
+        key: sectionKey,
+        content: (
+          <WeightSummaryBox
+            weightProgressLastWeek={progressionLast7}
+            todayWeight={lastWeight ?? 0}
+          />
+        ),
+      });
+      continue;
+    }
+
+    homeSections.push({
+      key: sectionKey,
+      content: (
+        <LinearGradient
+          colors={[
+            "rgba(255,255,255,0.06)",
+            "rgba(255,255,255,0.03)",
+            "rgba(255,255,255,0.02)",
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.anatomyCard}
+          onLayout={(e) =>
+            setAnatomyCardSize({
+              width: e.nativeEvent.layout.width,
+              height: e.nativeEvent.layout.height,
+            })
+          }
+        >
+          <View style={styles.anatomyInnerStroke} />
+
+          <LinearGradient
+            colors={[
+              "rgba(6,182,212,0.12)",
+              "rgba(59,130,246,0.10)",
+              "rgba(2,6,23,0.00)",
+            ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.anatomyGlow}
+          />
+
+          <View style={styles.anatomyHeader}>
+            <Text style={[typography.body, styles.anatomyTitle]}>Restitusjonskart</Text>
+          </View>
+
+          <LinearGradient
+            colors={["rgba(6,182,212,0.88)", "rgba(59,130,246,0.84)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.anatomyAccentBar}
+          />
+
+          <View
+            style={styles.anatomyRow}
+            onLayout={(e) => setAnatomyRowLayout(e.nativeEvent.layout)}
+          >
+            <View
+              style={styles.anatomyCol}
+              onLayout={(e) => setFrontColLayout(e.nativeEvent.layout)}
+            >
+              <View style={styles.anatomyLabelPill}>
+                <Text style={styles.anatomyLabelText}>Forside</Text>
+              </View>
+
+              <View
+                style={styles.anatomyFigureBox}
+                onLayout={(e) => setFrontFigureLayout(e.nativeEvent.layout)}
+              >
+                <AnatomyFigure
+                  gender="male"
+                  side="front"
+                  scale={1.08}
+                  offsetY={24}
+                  outline="subtle"
+                  data={filteredBodyData}
+                  onBodyPartPress={(part, side) =>
+                    handleBodyPartPress(part, "front", side)
+                  }
+                />
+              </View>
+            </View>
+
+            <View style={styles.anatomyDivider} />
+
+            <View
+              style={styles.anatomyCol}
+              onLayout={(e) => setBackColLayout(e.nativeEvent.layout)}
+            >
+              <View style={styles.anatomyLabelPill}>
+                <Text style={styles.anatomyLabelText}>Bakside</Text>
+              </View>
+
+              <View
+                style={styles.anatomyFigureBox}
+                onLayout={(e) => setBackFigureLayout(e.nativeEvent.layout)}
+              >
+                <AnatomyFigure
+                  gender="male"
+                  side="back"
+                  scale={1.08}
+                  offsetY={24}
+                  outline="subtle"
+                  data={filteredBodyData}
+                  onBodyPartPress={(part, side) =>
+                    handleBodyPartPress(part, "back", side)
+                  }
+                />
+              </View>
+            </View>
+          </View>
+
+          {musclePopup && (
+            <Animated.View
+              style={[
+                styles.musclePopupShell,
+                popupPositionStyle,
+                {
+                  opacity: popupAnim,
+                  transform: [
+                    {
+                      translateY: popupAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [8, 0],
+                      }),
+                    },
+                    {
+                      scale: popupAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.98, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <View style={styles.musclePopup}>
+                <LinearGradient
+                  colors={[
+                    "rgba(56,189,248,0.24)",
+                    "rgba(99,102,241,0.18)",
+                    "rgba(2,6,23,0.84)",
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.musclePopupGlow}
+                />
+
+                <View style={styles.musclePopupHeader}>
+                  <View style={styles.musclePopupTitleRow}>
+                    <View style={styles.musclePopupDot} />
+                    <Text style={styles.musclePopupTitle}>{musclePopup.muscle}</Text>
+                  </View>
+
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.musclePopupClose,
+                      pressed && styles.musclePopupClosePressed,
+                    ]}
+                    onPress={() => setMusclePopup(null)}
+                    hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                  >
+                    <Ionicons name="close" size={13} color="rgba(226,232,240,0.92)" />
+                  </Pressable>
+                </View>
+
+                <View style={styles.musclePopupMetricRow}>
+                  <View style={styles.musclePopupMetricLabel}>
+                    <Ionicons name="time-outline" size={12} color="rgba(148,163,184,0.95)" />
+                    <Text style={styles.musclePopupMetricLabelText}>Sist trent</Text>
+                  </View>
+                  <Text style={styles.musclePopupMetricValue}>{musclePopup.lastTrained}</Text>
+                </View>
+
+                <View style={styles.musclePopupMetricRow}>
+                  <View style={styles.musclePopupMetricLabel}>
+                    <Ionicons name="sparkles-outline" size={12} color="rgba(148,163,184,0.95)" />
+                    <Text style={styles.musclePopupMetricLabelText}>Estimert klar</Text>
+                  </View>
+                  <Text style={[styles.musclePopupMetricValue, styles.musclePopupMetricValueReady]}>
+                    {musclePopup.estimatedReady}
+                  </Text>
+                </View>
+              </View>
+            </Animated.View>
+          )}
+        </LinearGradient>
+      ),
+    });
+  }
   return (
-    <DarkOceanBackground style={generalStyles.container}>
+    <DarkOceanBackground
+      style={[styles.screen, { paddingTop: insets.top + 6 }]}
+    >
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -481,9 +871,16 @@ export default function HomePage() {
         {/* HEADER */}
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            <Text style={[typography.h1, { marginBottom: 5 }]}>Hei, {""}</Text>
+            <Text
+              style={[typography.h2, { marginBottom: 5 }]}
+              numberOfLines={1}
+            >
+              {displayName
+                ? `Velkommen tilbake, ${displayName}`
+                : "Velkommen tilbake"}
+            </Text>
             <Text style={[typography.body, styles.subGreeting]}>
-              Fortsett den gode innsatsen!
+              Klar for neste progresjon i dag?
             </Text>
           </View>
 
@@ -498,340 +895,39 @@ export default function HomePage() {
           </TouchableOpacity>
         </View>
 
-        {/* GOALS CARD */}
-        {(topKey || bottomKeys.length > 0) && (
-          <View style={styles.section}>
-            <View style={[generalStyles.newCard, styles.goalsCard]}>
-              <View style={styles.goalsHeader}>
-                <Text style={[typography.body, styles.goalsTitle]}>
-                  Dagens mål
-                </Text>
-              </View>
-
-              {/* TOP: calories hvis valgt */}
-              {topKey && (
-                <View style={styles.topArea}>
-                  <ProgressCircle
-                    percentage={tileData.calories.pct}
-                    currentValue={tileData.calories.current}
-                    maxValue={tileData.calories.max}
-                    size={150}
-                    strokeWidth={6}
-                    accentColor={circleAccents.calories}
-                    icon={
-                      <Ionicons
-                        name="flame-outline"
-                        size={18}
-                        color={circleAccents.calories as any}
-                      />
-                    }
-                    labelStyle={{ opacity: 0, height: 0, marginTop: 0 }}
-                    valueStyle={styles.circleValueTop}
-                    fractionStyle={styles.circleFractionTop}
-                  />
-
-                  <Text
-                    style={[typography.body, styles.topLabel]}
-                    numberOfLines={1}
-                  >
-                    {labelMap.calories}
-                  </Text>
-                </View>
-              )}
-
-              {/* BOTTOM: macros valgt */}
-              {bottomKeys.length > 0 && (
-                <View
-                  style={[
-                    styles.bottomRow,
-                    bottomCount === 1 && styles.bottomRow1,
-                    bottomCount === 2 && styles.bottomRow2,
-                    bottomCount === 3 && styles.bottomRow3,
-                  ]}
-                >
-                  {bottomKeys.map((k) => {
-                    const it = tileData[k];
-                    return (
-                      <View
-                        key={k}
-                        style={[
-                          styles.bottomTile,
-                          bottomCount === 1 && styles.bottomTile1,
-                          bottomCount === 2 && styles.bottomTile2,
-                          bottomCount === 3 && styles.bottomTile3,
-                        ]}
-                      >
-                        <ProgressCircle
-                          percentage={it.pct}
-                          currentValue={it.current}
-                          maxValue={it.max}
-                          size={111}
-                          strokeWidth={7}
-                          accentColor={circleAccents[k]}
-                          labelStyle={{ opacity: 0, height: 0, marginTop: 0 }}
-                          valueStyle={styles.circleValue}
-                          fractionStyle={styles.circleFraction}
-                        />
-
-                        <Text
-                          style={[typography.body, styles.macroLabel]}
-                          numberOfLines={1}
-                        >
-                          {shortLabelMap[k]}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* WEIGHT SUMMARY */}
-        <View style={styles.section}>
-          <WeightSummaryBox
-            weightProgressLastWeek={progressionLast7}
-            todayWeight={lastWeight ?? 0}
-          />
-        </View>
-
-        {/* QUICK START */}
-        <View style={styles.section}>
-          <QuickStartButtons />
-        </View>
-
-        {/* ANATOMY (front + back in same glass card) */}
-        <View style={styles.sectionLast}>
-          <LinearGradient
-            colors={[
-              "rgba(255,255,255,0.06)",
-              "rgba(255,255,255,0.03)",
-              "rgba(255,255,255,0.02)",
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.anatomyCard}
-            onLayout={(e) =>
-              setAnatomyCardSize({
-                width: e.nativeEvent.layout.width,
-                height: e.nativeEvent.layout.height,
-              })
+        {homeSections.map((section, index) => (
+          <View
+            key={section.key}
+            style={
+              index === homeSections.length - 1 ? styles.sectionLast : styles.section
             }
           >
-            <View style={styles.anatomyInnerStroke} />
-
-            <LinearGradient
-              colors={[
-                "rgba(6,182,212,0.10)",
-                "rgba(99,102,241,0.08)",
-                "rgba(168,85,247,0.06)",
-              ]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.anatomyGlow}
-            />
-
-            <View style={styles.anatomyHeader}>
-              <Text style={[typography.body, styles.anatomyTitle]}>
-                Restitusjonskart
-              </Text>
-            </View>
-
-            <View
-              style={styles.anatomyRow}
-              onLayout={(e) => setAnatomyRowLayout(e.nativeEvent.layout)}
-            >
-              <View
-                style={styles.anatomyCol}
-                onLayout={(e) => setFrontColLayout(e.nativeEvent.layout)}
-              >
-                <View style={styles.anatomyLabelPill}>
-                  <Text style={styles.anatomyLabelText}>Forside</Text>
-                </View>
-
-                <View
-                  style={styles.anatomyFigureBox}
-                  onLayout={(e) => setFrontFigureLayout(e.nativeEvent.layout)}
-                >
-                  <AnatomyFigure
-                    gender="male"
-                    scale={1.08}
-                    offsetY={35}
-                    outline="subtle"
-                    side="front"
-                    data={bodyData}
-                    onBodyPartPress={(bodyPart, pressedSide) =>
-                      handleBodyPartPress(bodyPart, "front", pressedSide)
-                    }
-                  />
-                </View>
-              </View>
-
-              <View style={styles.anatomyDivider} />
-
-              <View
-                style={styles.anatomyCol}
-                onLayout={(e) => setBackColLayout(e.nativeEvent.layout)}
-              >
-                <View style={styles.anatomyLabelPill}>
-                  <Text style={styles.anatomyLabelText}>Bakside</Text>
-                </View>
-
-                <View
-                  style={styles.anatomyFigureBox}
-                  onLayout={(e) => setBackFigureLayout(e.nativeEvent.layout)}
-                >
-                  <AnatomyFigure
-                    gender="male"
-                    scale={1.08}
-                    offsetY={35}
-                    outline="subtle"
-                    side="back"
-                    data={bodyData}
-                    onBodyPartPress={(bodyPart, pressedSide) =>
-                      handleBodyPartPress(bodyPart, "back", pressedSide)
-                    }
-                  />
-                </View>
-              </View>
-            </View>
-
-            {musclePopup && (
-              <Animated.View
-                style={[
-                  styles.musclePopupShell,
-                  popupPositionStyle,
-                  {
-                    opacity: popupAnim,
-                    transform: [
-                      {
-                        translateY: popupAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [10, 0],
-                        }),
-                      },
-                      {
-                        scale: popupAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.98, 1],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              >
-                <LinearGradient
-                  colors={[
-                    "rgba(8,19,38,0.98)",
-                    "rgba(6,16,31,0.92)",
-                    "rgba(4,13,27,0.92)",
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.musclePopup}
-                >
-                  <LinearGradient
-                    colors={[
-                      "rgba(34,211,238,0.18)",
-                      "rgba(125,211,252,0.08)",
-                      "rgba(255,255,255,0)",
-                    ]}
-                    start={{ x: 0.1, y: 0 }}
-                    end={{ x: 0.9, y: 1 }}
-                    style={styles.musclePopupGlow}
-                  />
-
-                  <View style={styles.musclePopupHeader}>
-                    <View style={styles.musclePopupTitleRow}>
-                      <View style={styles.musclePopupDot} />
-                      <Text style={styles.musclePopupTitle}>
-                        {musclePopup.muscle}
-                      </Text>
-                    </View>
-                    <Pressable
-                      onPress={() => setMusclePopup(null)}
-                      hitSlop={10}
-                      accessibilityRole="button"
-                      accessibilityLabel="Lukk muskelinfo"
-                      style={({ pressed }) => [
-                        styles.musclePopupClose,
-                        pressed && styles.musclePopupClosePressed,
-                      ]}
-                    >
-                      <Ionicons
-                        name="close"
-                        size={14}
-                        color="rgba(226,232,240,0.92)"
-                      />
-                    </Pressable>
-                  </View>
-
-                  <View style={styles.musclePopupMetricRow}>
-                    <View style={styles.musclePopupMetricLabel}>
-                      <Ionicons
-                        name="barbell-outline"
-                        size={12}
-                        color="rgba(148,163,184,0.95)"
-                      />
-                      <Text style={styles.musclePopupMetricLabelText}>
-                        Sist trent
-                      </Text>
-                    </View>
-                    <Text style={styles.musclePopupMetricValue}>
-                      {musclePopup.lastTrained}
-                    </Text>
-                  </View>
-
-                  <View style={styles.musclePopupMetricRow}>
-                    <View style={styles.musclePopupMetricLabel}>
-                      <Ionicons
-                        name="sparkles-outline"
-                        size={12}
-                        color="rgba(56,189,248,0.95)"
-                      />
-                      <Text style={styles.musclePopupMetricLabelText}>
-                        Estimert klar
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.musclePopupMetricValue,
-                        styles.musclePopupMetricValueReady,
-                      ]}
-                    >
-                      {musclePopup.estimatedReady}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.musclePopupHint}>
-                    Trykk en annen muskel for ny status.
-                  </Text>
-                </LinearGradient>
-              </Animated.View>
-            )}
-          </LinearGradient>
-        </View>
-
-        {/* SETTINGS MODAL */}
-        <SettingsModal
-          visible={settingsVisible}
-          setVisible={setSettingsVisible}
-          userSettings={userSettings}
-          onChangeUserSettings={setUserSettings}
-          onRefreshUserSettings={refreshUserSettings}
-          isLoadingUserSettings={isLoadingUserSettings}
-          isSavingUserSettings={isSavingUserSettings}
-          userSettingsError={userSettingsError}
-          onLogout={logOutUser}
-          onDeleteAccount={deleteUserAccount}
-        />
+            {section.content}
+          </View>
+        ))}
       </ScrollView>
+
+      <SettingsModal
+        visible={settingsVisible}
+        setVisible={setSettingsVisible}
+        userSettings={userSettings}
+        onChangeUserSettings={setUserSettings}
+        onRefreshUserSettings={refreshUserSettings}
+        isLoadingUserSettings={isLoadingUserSettings}
+        isSavingUserSettings={isSavingUserSettings}
+        userSettingsError={userSettingsError}
+        onLogout={logOutUser}
+        onDeleteAccount={deleteUserAccount}
+      />
     </DarkOceanBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    width: "100%",
+    paddingHorizontal: 20,
+  },
   scrollContent: { paddingBottom: 24 },
 
   // ✅ Global, consistent vertical rhythm between sections
@@ -867,11 +963,42 @@ const styles = StyleSheet.create({
   },
 
   goalsCard: {
+    position: "relative",
+    overflow: "hidden",
     width: "100%",
     borderRadius: 18,
-    paddingTop: 12,
-    paddingBottom: 14,
-    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 10,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: "rgba(6,182,212,0.16)",
+    backgroundColor: "rgba(15,23,42,0.44)",
+    shadowColor: "#06b6d4",
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 1,
+  },
+
+  goalsSheenWrap: {
+    position: "absolute",
+    top: -45,
+    left: -60,
+    right: -60,
+    bottom: -45,
+  },
+  goalsSheen: {
+    flex: 1,
+    transform: [{ rotate: "-10deg" }],
+  },
+
+  goalsAccentBar: {
+    height: 3,
+    width: "48%",
+    borderRadius: 999,
+    opacity: 0.92,
+    alignSelf: "center",
+    marginBottom: 8,
   },
 
   goalsHeader: {
@@ -879,23 +1006,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 6,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   goalsTitle: {
     color: ui.text,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "400",
   },
 
   topArea: {
     alignItems: "center",
     justifyContent: "center",
-    paddingBottom: 10,
+    paddingBottom: 6,
   },
   topLabel: {
-    marginTop: 10,
+    marginTop: 6,
     color: "rgba(229,236,255,0.85)",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "400",
   },
 
@@ -914,9 +1041,9 @@ const styles = StyleSheet.create({
   bottomTile3: { width: "32%" },
 
   macroLabel: {
-    marginTop: 10,
+    marginTop: 6,
     color: "rgba(229,236,255,0.85)",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "400",
   },
 
@@ -946,18 +1073,23 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: "hidden",
     paddingTop: 16,
-    paddingBottom: 18,
+    paddingBottom: 10,
     paddingHorizontal: 14,
-    backgroundColor: "rgba(2,6,23,0.35)",
+    backgroundColor: "rgba(15,23,42,0.44)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: "rgba(6,182,212,0.16)",
+    shadowColor: "#06b6d4",
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 1,
   },
 
   anatomyInnerStroke: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(59,130,246,0.12)",
   },
 
   anatomyGlow: {
@@ -969,9 +1101,17 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     opacity: 0.65,
   },
+  anatomyAccentBar: {
+    height: 3,
+    width: "48%",
+    borderRadius: 999,
+    opacity: 0.92,
+    alignSelf: "center",
+    marginBottom: 12,
+  },
 
   anatomyHeader: {
-    marginBottom: 14,
+    marginBottom: 8,
   },
 
   anatomyTitle: {
@@ -993,7 +1133,7 @@ const styles = StyleSheet.create({
 
   anatomyDivider: {
     width: 1,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(59,130,246,0.16)",
     marginHorizontal: 10,
     borderRadius: 1,
   },
@@ -1002,9 +1142,9 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "rgba(6,182,212,0.10)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(59,130,246,0.24)",
     marginBottom: 10,
   },
 
@@ -1018,7 +1158,7 @@ const styles = StyleSheet.create({
 
   anatomyFigureBox: {
     width: "100%",
-    height: 372,
+    height: 392,
     alignItems: "center",
     justifyContent: "flex-end",
     overflow: "visible",
@@ -1112,3 +1252,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
 });
+
+
+
+

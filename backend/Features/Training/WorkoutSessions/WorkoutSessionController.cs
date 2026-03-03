@@ -49,6 +49,23 @@ namespace backend.Features.Training.WorkoutSessions
             return Ok(response);
         }
 
+        // Replaces an existing session (title + logs/sets)
+        [HttpPut("{sessionId:guid}")]
+        public async Task<IActionResult> UpdateSession(
+            Guid sessionId,
+            [FromBody] UpdateWorkoutSessionRequest req,
+            CancellationToken ct)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized("User id missing in token.");
+            }
+
+            await _workoutSessionService.UpdateSessionAsync(userId, sessionId, req, ct);
+            return NoContent();
+        }
+
         // Returns a single session by id for the current user
         [HttpGet("{sessionId:guid}")]
         public async Task<ActionResult<WorkoutSessionResponse>> GetById(Guid sessionId, CancellationToken ct)

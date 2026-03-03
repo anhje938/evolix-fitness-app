@@ -36,6 +36,10 @@
         
         public string HomeProgressCirclesJson { get; set; } =
             "[\"calories\",\"protein\",\"carbs\",\"fat\"]";
+        public string HomeSectionOrderJson { get; set; } =
+            "[\"quickStart\",\"goals\",\"weight\",\"recoveryMap\"]";
+        public string RecoveryMapHiddenMusclesJson { get; set; } = "[]";
+        public bool ShowOnlyCustomTrainingContent { get; set; } = false;
 
         public DateTime UpdatedUtc { get; set; } = DateTime.UtcNow;
         public int SchemaVersion { get; set; } = 1;

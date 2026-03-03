@@ -3,6 +3,7 @@ import { typography } from "@/config/typography";
 import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import {
+  Alert,
   StyleSheet,
   Text,
   TextInput,
@@ -53,8 +54,8 @@ export function AddWeightSheet({
 
   const handleSave = () => {
     const value = parseFloat(weightKg.replace(",", "."));
-    if (isNaN(value)) {
-      // TODO: vis feilmelding
+    if (isNaN(value) || value <= 0) {
+      Alert.alert("Ugyldig vekt", "Skriv inn en gyldig vekt i kg.");
       return;
     }
 
@@ -125,7 +126,10 @@ export function AddWeightSheet({
                       placeholderTextColor="rgba(148,163,184,0.8)"
                       keyboardType="numeric"
                       returnKeyType="done"
+                      onFocus={() => setWeightFocused(true)}
                       onBlur={() => setWeightFocused(false)}
+                      blurOnSubmit
+                      onSubmitEditing={handleSave}
                     />
                     <Ionicons
                       name="scale-outline"
@@ -251,7 +255,7 @@ const styles = StyleSheet.create({
   // dark overlay behind the card
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(3,7,18,0.75)",
+    backgroundColor: "rgba(3,7,18,0.8)",
   },
   // centers the sheet in the middle of the screen
   sheetWrapper: {
@@ -266,7 +270,9 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     paddingHorizontal: 24,
     paddingVertical: 22,
-    backgroundColor: "rgba(15,23,42,0.98)",
+    backgroundColor: "rgba(2,6,23,0.96)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.16)",
   },
   headerRow: {
     flexDirection: "row",
@@ -282,7 +288,9 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 6,
     borderRadius: 999,
-    backgroundColor: "rgba(15,23,42,0.9)",
+    backgroundColor: "rgba(15,23,42,0.82)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.16)",
   },
   section: {
     marginTop: 16,
@@ -298,9 +306,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: "rgba(15,23,42,0.9)",
-    borderWidth: 1,
-    borderColor: "rgba(30,64,175,0.7)",
+    backgroundColor: "rgba(15,23,42,0.7)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.16)",
   },
   inputRowFocused: {
     borderColor: "#38BDF8",
@@ -333,9 +341,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginHorizontal: 4,
     borderRadius: 12,
-    backgroundColor: "rgba(15,23,42,0.9)",
-    borderWidth: 1,
-    borderColor: "rgba(30,64,175,0.9)",
+    backgroundColor: "rgba(15,23,42,0.72)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.18)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -350,9 +358,9 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     padding: 14,
     borderRadius: 16,
-    backgroundColor: "rgba(8,47,73,0.95)",
-    borderWidth: 1,
-    borderColor: "rgba(34,211,238,0.5)",
+    backgroundColor: "rgba(8,47,73,0.62)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.24)",
   },
   tipIconWrapper: {
     width: 28,
@@ -384,6 +392,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 16,
     borderRadius: 18,
+    shadowColor: "#0284c7",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    elevation: 2,
   },
   saveText: {
     ...typography.bodyBlack,

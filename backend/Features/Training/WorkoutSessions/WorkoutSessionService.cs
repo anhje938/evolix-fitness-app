@@ -97,6 +97,99 @@ namespace backend.Features.Training.WorkoutSessions
             return session;
         }
 
+        // Replaces title/notes/exercise logs/sets for an existing workout session.
+        public async Task<WorkoutSession> UpdateSessionAsync(
+            string userId,
+            Guid sessionId,
+            UpdateWorkoutSessionRequest req,
+            CancellationToken ct = default)
+        {
+            var session = await _db.WorkoutSessions
+                .Include(s => s.ExerciseLogs)
+                    .ThenInclude(l => l.Sets)
+                .FirstOrDefaultAsync(s => s.Id == sessionId && s.UserId == userId, ct);
+
+            if (session == null)
+                throw new NotFoundException("Workout session not found");
+
+            session.Title = req.Title?.Trim();
+            session.Notes = req.Notes?.Trim();
+
+            if (req.StartedAtUtc.HasValue)
+                session.StartedAtUtc = req.StartedAtUtc.Value;
+
+            var requestedLogs = req.ExerciseLogs ?? new List<UpdateWorkoutSessionExerciseLogRequest>();
+            var requestedExerciseIds = requestedLogs
+                .Select(x => x.ExerciseId)
+                .Distinct()
+                .ToList();
+
+            if (requestedExerciseIds.Count > 0)
+            {
+                var existingExerciseIds = await _db.Exercises
+                    .Where(e => requestedExerciseIds.Contains(e.Id))
+                    .Select(e => e.Id)
+                    .ToListAsync(ct);
+
+                var missingExerciseIds = requestedExerciseIds.Except(existingExerciseIds).ToList();
+                if (missingExerciseIds.Count > 0)
+                {
+                    throw new NotFoundException(
+                        $"Exercises not found: {string.Join(", ", missingExerciseIds)}");
+                }
+            }
+
+            if (session.ExerciseLogs.Count > 0)
+            {
+                _db.WorkoutExerciseLogs.RemoveRange(session.ExerciseLogs);
+                session.ExerciseLogs.Clear();
+            }
+
+            for (var logIndex = 0; logIndex < requestedLogs.Count; logIndex++)
+            {
+                var logReq = requestedLogs[logIndex];
+                var order = logReq.Order.HasValue && logReq.Order.Value > 0
+                    ? logReq.Order.Value
+                    : logIndex + 1;
+
+                var exerciseLog = new WorkoutExerciseLog
+                {
+                    WorkoutSessionId = session.Id,
+                    ExerciseId = logReq.ExerciseId,
+                    Order = order,
+                    Notes = logReq.Notes?.Trim()
+                };
+
+                var setRequests = logReq.Sets ?? new List<UpdateWorkoutSessionSetRequest>();
+                for (var setIndex = 0; setIndex < setRequests.Count; setIndex++)
+                {
+                    var setReq = setRequests[setIndex];
+                    var setNumber = setReq.SetNumber.HasValue && setReq.SetNumber.Value > 0
+                        ? setReq.SetNumber.Value
+                        : setIndex + 1;
+
+                    exerciseLog.Sets.Add(new SetLog
+                    {
+                        SetNumber = setNumber,
+                        WeightKg = setReq.WeightKg,
+                        Reps = setReq.Reps,
+                        Rir = setReq.Rir,
+                        DistanceMeters = setReq.DistanceMeters,
+                        Duration = setReq.Duration,
+                        SetType = setReq.SetType,
+                        Notes = setReq.Notes
+                    });
+                }
+
+                session.ExerciseLogs.Add(exerciseLog);
+            }
+
+            RecalculateSessionTotals(session);
+            await _db.SaveChangesAsync(ct);
+
+            return session;
+        }
+
 
         // Adds a set to a workout session. Creates an exercise log if needed.
         public async Task<SetLog> AddSetAsync(

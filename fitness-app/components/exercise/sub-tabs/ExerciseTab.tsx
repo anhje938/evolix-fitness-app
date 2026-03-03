@@ -21,7 +21,9 @@ import { queryClient } from "@/config/queryClient";
 import AddButton from "../AddButton";
 import { AddExerciseModal } from "./exercise/AddExerciseModal";
 
+import { useUserSettings } from "@/context/UserSettingsProvider";
 import { MuscleFilterValue } from "@/types/muscles";
+import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { LinearGradient } from "expo-linear-gradient";
 import ExerciseCard from "./exercise/ExerciseCard";
 
@@ -48,8 +50,13 @@ export default function ExerciseTab({ onPressExercise }: Props) {
   const [openAdd, setOpenAdd] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
 
+  const { userSettings } = useUserSettings();
   const { data, isLoading, error } = useExercises();
-  const exercises = data ?? [];
+  const exercises = useMemo(() => {
+    const allExercises = data ?? [];
+    if (!userSettings.showOnlyCustomTrainingContent) return allExercises;
+    return allExercises.filter(isUserCreatedExercise);
+  }, [data, userSettings.showOnlyCustomTrainingContent]);
 
   const exerciseIds = useMemo(() => exercises.map((e) => e.id), [exercises]);
   const { data: setsHistoryMap } = useAllExerciseSetsHistory(exerciseIds);

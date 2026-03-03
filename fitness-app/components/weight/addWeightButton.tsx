@@ -7,7 +7,6 @@ type AddWeightButtonProps = {
   onPress: () => void;
 };
 
-// Samme premium “glass blue” som AddMealButton
 const GLASS_BLUE = ["#0284C7", "#1E40AF"] as const;
 
 export function AddWeightButton({ onPress }: AddWeightButtonProps) {
@@ -17,7 +16,6 @@ export function AddWeightButton({ onPress }: AddWeightButtonProps) {
       style={styles.wrapper}
       onPress={onPress}
     >
-      {/* thin glass rim */}
       <View style={styles.edge}>
         <LinearGradient
           colors={GLASS_BLUE}
@@ -25,10 +23,8 @@ export function AddWeightButton({ onPress }: AddWeightButtonProps) {
           end={{ x: 0.85, y: 0.9 }}
           style={styles.button}
         >
-          {/* subtle refraction */}
           <View style={styles.glass} />
 
-          {/* specular highlight */}
           <LinearGradient
             colors={[
               "rgba(255,255,255,0.22)",

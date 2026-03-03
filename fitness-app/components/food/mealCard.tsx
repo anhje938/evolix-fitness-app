@@ -22,11 +22,11 @@ type MealCardProps = {
   onDeleteMeal?: (mealId: string) => void | Promise<void>;
 };
 
-const PURPLE = {
-  main: "rgba(216, 54, 181, 0.70)", // classy magenta-purple
-  soft: "rgba(216, 54, 181, 0.22)",
-  softer: "rgba(216, 54, 181, 0.12)",
-  deepBg: "rgba(20, 6, 26, 0.20)",
+const ACCENT = {
+  main: "rgba(45, 212, 191, 0.62)",
+  soft: "rgba(45, 212, 191, 0.22)",
+  softer: "rgba(45, 212, 191, 0.12)",
+  deepBg: "rgba(2, 6, 23, 0.22)",
 };
 
 export const MealCard = memo(function MealCard({
@@ -80,16 +80,16 @@ export const MealCard = memo(function MealCard({
     );
   };
 
-  // Premium tom-state (mer kontrast + lilla accent)
+  // Premium tom-state (samme ocean/cyan tema som resten av appen)
   if (todaysMeals.length === 0) {
     return (
       <View style={[generalStyles.newCard, styles.emptyCard]}>
-        {/* Purple sheen for contrast */}
+        {/* Sheen for depth */}
         <View pointerEvents="none" style={styles.sheenWrap}>
           <LinearGradient
             colors={[
-              "rgba(216, 54, 181, 0.18)",
-              "rgba(59, 130, 246, 0.08)",
+              "rgba(45, 212, 191, 0.14)",
+              "rgba(20, 184, 166, 0.08)",
               "rgba(2, 6, 23, 0.00)",
             ]}
             start={{ x: 0.12, y: 0 }}
@@ -101,9 +101,9 @@ export const MealCard = memo(function MealCard({
         {/* Accent bar */}
         <LinearGradient
           colors={[
-            "rgba(6, 182, 212, 0.85)",
-            "rgba(59, 130, 246, 0.85)",
-            "rgba(216, 54, 181, 0.75)",
+            "rgba(20, 184, 166, 0.80)",
+            "rgba(45, 212, 191, 0.72)",
+            "rgba(2, 6, 23, 0.00)",
           ]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
@@ -126,56 +126,92 @@ export const MealCard = memo(function MealCard({
     );
   }
 
+  const showSwipeHint = todaysMeals.length > 1;
+
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.scrollContent}
-      style={styles.scroll}
-    >
-      {todaysMeals.map((meal) => {
-        const iso = parseISO(meal.timestampUtc);
+    <View style={styles.carouselWrap}>
+      {showSwipeHint && (
+        <View style={styles.swipeHintRow}>
+          <Ionicons
+            name="swap-horizontal"
+            size={12}
+            color="rgba(153,246,228,0.92)"
+          />
+          <Text style={[typography.body, styles.swipeHintText]}>
+            Sveip for flere
+          </Text>
+        </View>
+      )}
 
-        return (
-          <Pressable
-            key={meal.id}
-            onLongPress={() => openMenu(meal)}
-            delayLongPress={250}
-            android_ripple={{ color: "rgba(255,255,255,0.04)" }}
-            style={({ pressed }) => [
-              styles.cardPressable,
-              pressed && styles.cardPressed,
-            ]}
-          >
-            <View style={[generalStyles.newCard, styles.card]}>
-              {/* Purple-tinted contrast layer (under sheen) */}
-              <View pointerEvents="none" style={styles.tintLayer} />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          showSwipeHint && styles.scrollContentWithHint,
+        ]}
+        style={styles.scroll}
+      >
+        {todaysMeals.map((meal) => {
+          const iso = parseISO(meal.timestampUtc);
 
-              {/* Diagonal purple sheen */}
-              <View pointerEvents="none" style={styles.sheenWrap}>
+          return (
+            <Pressable
+              key={meal.id}
+              onPress={() => openMenu(meal)}
+              android_ripple={{ color: "rgba(255,255,255,0.04)" }}
+              style={({ pressed }) => [
+                styles.cardPressable,
+                pressed && styles.cardPressed,
+              ]}
+            >
+              <View style={[generalStyles.newCard, styles.card]}>
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openMenu(meal);
+                  }}
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.menuButton,
+                    pressed && styles.menuButtonPressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="ellipsis-horizontal"
+                    size={14}
+                    color="rgba(226,232,240,0.95)"
+                  />
+                </Pressable>
+
+                {/* Contrast layer under sheen */}
+                <View pointerEvents="none" style={styles.tintLayer} />
+
+                {/* Diagonal sheen */}
+                <View pointerEvents="none" style={styles.sheenWrap}>
                 <LinearGradient
                   colors={[
-                    "rgba(216, 54, 181, 0.22)",
-                    "rgba(59, 130, 246, 0.10)",
+                    "rgba(45, 212, 191, 0.16)",
+                    "rgba(20, 184, 166, 0.08)",
                     "rgba(2, 6, 23, 0.00)",
                   ]}
-                  start={{ x: 0.12, y: 0 }}
-                  end={{ x: 0.9, y: 1 }}
-                  style={styles.sheen}
-                />
-              </View>
+                    start={{ x: 0.12, y: 0 }}
+                    end={{ x: 0.9, y: 1 }}
+                    style={styles.sheen}
+                  />
+                </View>
 
-              {/* Accent bar for interactivity */}
-              <LinearGradient
-                colors={[
-                  "rgba(6, 182, 212, 0.90)",
-                  "rgba(59, 130, 246, 0.90)",
-                  "rgba(216, 54, 181, 0.80)",
-                ]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.accentBar}
-              />
+                {/* Accent bar for interactivity */}
+                <LinearGradient
+                  colors={[
+                    "rgba(20, 184, 166, 0.82)",
+                    "rgba(45, 212, 191, 0.74)",
+                    "rgba(2, 6, 23, 0.00)",
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.accentBar}
+                />
 
               {/* Header */}
               <View style={styles.header}>
@@ -201,8 +237,8 @@ export const MealCard = memo(function MealCard({
                   <View pointerEvents="none" style={styles.kcalGlowWrap}>
                     <LinearGradient
                       colors={[
-                        "rgba(216, 54, 181, 0.20)",
-                        "rgba(59, 130, 246, 0.10)",
+                        "rgba(45, 212, 191, 0.14)",
+                        "rgba(20, 184, 166, 0.10)",
                         "rgba(2, 6, 23, 0.00)",
                       ]}
                       start={{ x: 0, y: 0 }}
@@ -218,29 +254,21 @@ export const MealCard = memo(function MealCard({
                 </View>
               </View>
 
-              {/* Macros */}
-              <View style={styles.macrosRow}>
-                <MacroPill
-                  label="Protein"
-                  value={`${Math.round(meal.proteins)}g`}
-                />
-                <MacroPill label="Karbo" value={`${Math.round(meal.carbs)}g`} />
-                <MacroPill label="Fett" value={`${Math.round(meal.fats)}g`} />
+                {/* Macros */}
+                <View style={styles.macrosRow}>
+                  <MacroPill
+                    label="Protein"
+                    value={`${Math.round(meal.proteins)}g`}
+                  />
+                  <MacroPill label="Karbo" value={`${Math.round(meal.carbs)}g`} />
+                  <MacroPill label="Fett" value={`${Math.round(meal.fats)}g`} />
+                </View>
               </View>
-
-              {/* Optional: tiny hint that it’s interactive */}
-              <View style={styles.longPressHint}>
-                <Ionicons
-                  name="ellipsis-horizontal"
-                  size={16}
-                  color="rgba(148,163,184,0.55)"
-                />
-              </View>
-            </View>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 });
 
@@ -250,7 +278,7 @@ function MacroPill({ label, value }: { label: string; value: string }) {
       <View pointerEvents="none" style={styles.pillGlowWrap}>
         <LinearGradient
           colors={[
-            "rgba(216, 54, 181, 0.14)",
+            "rgba(45, 212, 191, 0.12)",
             "rgba(255,255,255,0.02)",
             "rgba(2, 6, 23, 0.00)",
           ]}
@@ -271,12 +299,38 @@ function MacroPill({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  carouselWrap: {
+    width: "100%",
+  },
+  swipeHintRow: {
+    alignSelf: "flex-end",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 6,
+    marginRight: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderRadius: 999,
+    backgroundColor: "rgba(2,6,23,0.28)",
+    borderWidth: 1,
+    borderColor: "rgba(45,212,191,0.22)",
+  },
+  swipeHintText: {
+    fontSize: 10,
+    color: "rgba(204,251,241,0.95)",
+    fontWeight: "600",
+    letterSpacing: 0.2,
+  },
   scroll: {
     marginBottom: 20,
   },
   scrollContent: {
     paddingHorizontal: 4,
     gap: 12,
+  },
+  scrollContentWithHint: {
+    paddingRight: 14,
   },
 
   // Pressable wrapper so ripple/pressed doesn't mess with card layout
@@ -295,10 +349,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
 
     borderWidth: 1,
-    borderColor: PURPLE.softer,
+    borderColor: "rgba(45,212,191,0.16)",
 
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
+    shadowColor: "#0d9488",
+    shadowOpacity: 0.16,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 10 },
     elevation: 2,
@@ -306,7 +360,7 @@ const styles = StyleSheet.create({
 
   tintLayer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: PURPLE.deepBg,
+    backgroundColor: ACCENT.deepBg,
     opacity: 1,
   },
 
@@ -324,9 +378,9 @@ const styles = StyleSheet.create({
 
   accentBar: {
     height: 3,
-    width: "46%",
+    width: "58%",
     borderRadius: 999,
-    opacity: 0.95,
+    opacity: 0.98,
     marginBottom: 12,
     alignSelf: "center",
   },
@@ -372,7 +426,7 @@ const styles = StyleSheet.create({
 
     backgroundColor: "rgba(2, 6, 23, 0.30)",
     borderWidth: 1,
-    borderColor: PURPLE.soft,
+    borderColor: ACCENT.soft,
   },
   kcalGlowWrap: {
     position: "absolute",
@@ -408,7 +462,7 @@ const styles = StyleSheet.create({
 
     backgroundColor: "rgba(2, 6, 23, 0.26)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(45,212,191,0.14)",
   },
 
   pillGlowWrap: {
@@ -435,11 +489,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 
-  longPressHint: {
+  menuButton: {
     position: "absolute",
-    bottom: 10,
-    right: 10,
-    opacity: 0.8,
+    top: 8,
+    right: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 5,
+    backgroundColor: "rgba(2, 6, 23, 0.65)",
+    borderWidth: 1,
+    borderColor: "rgba(45,212,191,0.26)",
+  },
+  menuButtonPressed: {
+    transform: [{ scale: 0.96 }],
+    backgroundColor: "rgba(15,23,42,0.9)",
   },
 
   emptyCard: {
@@ -448,7 +514,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: PURPLE.softer,
+    borderColor: ACCENT.softer,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
@@ -460,15 +526,15 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 12,
-    backgroundColor: PURPLE.softer,
+    backgroundColor: ACCENT.softer,
     borderWidth: 1,
-    borderColor: PURPLE.soft,
+    borderColor: ACCENT.soft,
     alignItems: "center",
     justifyContent: "center",
   },
   emptyIconText: {
     fontSize: 16,
-    color: "rgba(216, 54, 181, 0.85)",
+    color: "rgba(45, 212, 191, 0.85)",
   },
   emptyTitle: {
     color: "#E2E8F0",

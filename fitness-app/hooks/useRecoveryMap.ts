@@ -20,6 +20,23 @@ function safeArray<T>(x: any): T[] {
   return Array.isArray(x) ? (x as T[]) : [];
 }
 
+function parseSpecificMuscleGroups(input: unknown): string[] {
+  if (Array.isArray(input)) {
+    return input
+      .map((x) => String(x).trim())
+      .filter((x) => x.length > 0);
+  }
+
+  if (typeof input === "string") {
+    return input
+      .split(",")
+      .map((x) => x.trim())
+      .filter((x) => x.length > 0);
+  }
+
+  return [];
+}
+
 function firstArray<T>(...candidates: any[]): T[] {
   for (const c of candidates) {
     if (Array.isArray(c)) return c as T[];
@@ -124,7 +141,7 @@ function toCompletedWorkouts(
         const ex = exerciseById.get(exerciseId);
         const sets = safeArray<any>(l.sets);
 
-        const groups = safeArray<string>(ex?.specificMuscleGroups);
+        const groups = parseSpecificMuscleGroups(ex?.specificMuscleGroups);
         const fallbackGroups = groupsFromFallbackMuscle(l.muscle ?? ex?.muscle);
         const primaryMuscles = (groups.length ? groups : fallbackGroups) as any[];
         const secondaryMuscles: any[] = [];

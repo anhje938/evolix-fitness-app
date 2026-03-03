@@ -24,14 +24,17 @@ type UserSettingsCtx = {
 };
 
 const KEY = "user_settings";
-const SAVE_DEBOUNCE_MS = 450;
+const SAVE_DEBOUNCE_MS = 700;
 const INITIAL_USER_SETTINGS: UserSettings = {
   calorieGoal: 2500,
   proteinGoal: 180,
   fatGoal: 70,
   carbGoal: 220,
+  showOnlyCustomTrainingContent: false,
   muscleFilter: "advanced",
+  recoveryMapHiddenMuscles: [],
   homeGoalTiles: ["calories", "protein", "carbs", "fat"],
+  homeSectionOrder: ["quickStart", "goals", "weight", "recoveryMap"],
   weightGoalKg: 84,
   weightDirection: "maintain",
 };
@@ -45,7 +48,37 @@ function mergeWithDefaults(raw: Partial<UserSettings>): UserSettings {
     homeGoalTiles: Array.isArray(raw.homeGoalTiles)
       ? raw.homeGoalTiles
       : INITIAL_USER_SETTINGS.homeGoalTiles,
+    homeSectionOrder: Array.isArray(raw.homeSectionOrder)
+      ? raw.homeSectionOrder
+      : INITIAL_USER_SETTINGS.homeSectionOrder,
+    recoveryMapHiddenMuscles: Array.isArray(raw.recoveryMapHiddenMuscles)
+      ? raw.recoveryMapHiddenMuscles
+      : INITIAL_USER_SETTINGS.recoveryMapHiddenMuscles,
   };
+}
+
+function sameStringArray(a: string[], b: string[]) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function areSettingsEqual(a: UserSettings, b: UserSettings) {
+  return (
+    a.calorieGoal === b.calorieGoal &&
+    a.proteinGoal === b.proteinGoal &&
+    a.fatGoal === b.fatGoal &&
+    a.carbGoal === b.carbGoal &&
+    a.showOnlyCustomTrainingContent === b.showOnlyCustomTrainingContent &&
+    a.weightGoalKg === b.weightGoalKg &&
+    a.weightDirection === b.weightDirection &&
+    a.muscleFilter === b.muscleFilter &&
+    sameStringArray(a.recoveryMapHiddenMuscles, b.recoveryMapHiddenMuscles) &&
+    sameStringArray(a.homeGoalTiles, b.homeGoalTiles) &&
+    sameStringArray(a.homeSectionOrder, b.homeSectionOrder)
+  );
 }
 
 function toErrorMessage(error: unknown): string {
@@ -80,7 +113,10 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
         if (!mountedRef.current || !raw) return;
 
         const parsed = JSON.parse(raw) as Partial<UserSettings>;
-        setUserSettingsState(mergeWithDefaults(parsed));
+        const merged = mergeWithDefaults(parsed);
+        setUserSettingsState((prev) =>
+          areSettingsEqual(prev, merged) ? prev : merged
+        );
       } catch {
         // Ignore invalid cache and keep defaults.
       }
@@ -105,7 +141,9 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
       const remote = await fetchUserSettings(token);
       if (!mountedRef.current || !remote) return;
 
-      setUserSettingsState(remote);
+      setUserSettingsState((prev) =>
+        areSettingsEqual(prev, remote) ? prev : remote
+      );
       await persistLocal(remote);
     } catch (error) {
       if (!mountedRef.current) return;
@@ -125,19 +163,26 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
   }, [refreshUserSettings]);
 
   const flushQueuedSave = useCallback(async () => {
-    const queued = queuedSaveRef.current;
-    if (!queued || !token) return;
+    const queuedSnapshot = queuedSaveRef.current;
+    if (!queuedSnapshot || !token) return;
 
     setIsSavingUserSettings(true);
     setUserSettingsError(null);
 
     try {
-      const saved = await upsertUserSettings(token, queued);
+      const saved = await upsertUserSettings(token, queuedSnapshot);
       if (!mountedRef.current) return;
 
-      setUserSettingsState(saved);
-      queuedSaveRef.current = saved;
-      await persistLocal(saved);
+      const hasNewerQueuedDraft = queuedSaveRef.current !== queuedSnapshot;
+      if (!hasNewerQueuedDraft) {
+        queuedSaveRef.current = saved;
+        setUserSettingsState((prev) =>
+          areSettingsEqual(prev, saved) ? prev : saved
+        );
+        await persistLocal(saved);
+      } else if (queuedSaveRef.current) {
+        await persistLocal(queuedSaveRef.current);
+      }
     } catch (error) {
       if (!mountedRef.current) return;
       if (isUnauthorizedError(error)) {

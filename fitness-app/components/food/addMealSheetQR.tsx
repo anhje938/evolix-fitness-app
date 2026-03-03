@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import {
+  Alert,
   Dimensions,
   KeyboardAvoidingView,
   Platform,
@@ -81,6 +82,10 @@ export function AddMealSheetQR({
       });
     } catch (error) {
       console.log("Lookup failed for barcode:", value, error);
+      Alert.alert(
+        "Fant ikke produkt",
+        "Kunne ikke hente produktdata fra strekkoden. Prøv igjen eller legg inn manuelt."
+      );
     }
   };
 
@@ -100,10 +105,11 @@ export function AddMealSheetQR({
           fats: 0,
         };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Do not submit if nothing is scanned or we do not have a product name
     if (!scannedCode || !productName) {
       console.log("Cannot save: missing scanned code or product name");
+      Alert.alert("Mangler produkt", "Skann et produkt før du lagrer.");
       return;
     }
 
@@ -117,10 +123,11 @@ export function AddMealSheetQR({
     };
 
     try {
-      onSubmit(payload);
+      await onSubmit(payload);
       onClose();
     } catch (error) {
       console.log("Could not submit scanned meal", error);
+      Alert.alert("Kunne ikke lagre måltid", "Prøv igjen om et øyeblikk.");
     }
   };
 

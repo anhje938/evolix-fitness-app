@@ -38,8 +38,8 @@ type Props = {
     name: string;
     dayLabel?: string;
     description?: string;
-    exerciseIds: string[]; // ✅ ordered
-  }) => void;
+    exerciseIds: string[];
+  }, options?: { closeModal?: boolean }) => void;
 
   onDelete: () => void;
 };
@@ -155,7 +155,7 @@ export function EditWorkoutModal({
         dayLabel: dayLabel.trim() || undefined,
         description: description.trim() || undefined,
         exerciseIds: nextIds,
-      });
+      }, { closeModal: false });
 
       lastSavedIdsRef.current = nextIds;
     }, 350);
@@ -217,7 +217,7 @@ export function EditWorkoutModal({
         ? prev.filter((x) => x !== id)
         : [...prev, id]; // add to end (order)
 
-      saveToApiDebounced(next); // ✅ autosave selection/order
+      saveToApiDebounced(next); // autosave selection/order
       return next;
     });
   };
@@ -233,7 +233,7 @@ export function EditWorkoutModal({
       dayLabel: dayLabel.trim() || undefined,
       description: description.trim() || undefined,
       exerciseIds: selectedExerciseIds,
-    });
+    }, { closeModal: true });
     lastSavedIdsRef.current = selectedExerciseIds;
   };
 
@@ -567,7 +567,7 @@ export function EditWorkoutModal({
                       onDragEnd={({ data }: DragEndParams<Exercise>) => {
                         const nextIds = data.map((x) => x.id);
                         setSelectedExerciseIds(nextIds);
-                        saveToApiDebounced(nextIds); // ✅ autosave on reorder
+                        saveToApiDebounced(nextIds); // autosave on reorder
                       }}
                       renderItem={renderSelectedItem}
                       scrollEnabled={false}

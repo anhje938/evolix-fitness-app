@@ -99,7 +99,7 @@ export function WeightSummaryBox({
 
 const styles = StyleSheet.create({
   card: {
-    padding: 18,
+    padding: 16,
     borderRadius: 22,
     alignItems: "center",
     overflow: "hidden",
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     width: "62%",
     borderRadius: 999,
     opacity: 0.9,
-    marginBottom: 12,
+    marginBottom: 10,
   },
 
   kicker: {
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     color: newColors.text.primary,
     fontSize: 28,
     lineHeight: 32,
-    marginBottom: 12,
+    marginBottom: 10,
   },
 
   deltaPill: {
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingHorizontal: 12,
     borderRadius: 999,
     borderWidth: 1,

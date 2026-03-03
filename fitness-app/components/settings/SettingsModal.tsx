@@ -1,6 +1,15 @@
 import CloseIcon from "@/assets/icons/white-x.svg";
 import { typography } from "@/config/typography";
-import { UserSettings } from "@/types/userSettings";
+import {
+  ADVANCED_MUSCLE_FILTERS,
+  type AdvancedMuscleFilterValue,
+} from "@/types/muscles";
+import {
+  type HomeGoalTile,
+  type HomeSectionKey,
+  type RecoveryMapMuscleKey,
+  type UserSettings,
+} from "@/types/userSettings";
 import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -16,8 +25,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-export type HomeGoalTile = "calories" | "protein" | "carbs" | "fat";
+import DraggableFlatList, {
+  type RenderItemParams,
+} from "react-native-draggable-flatlist";
 
 type TabKey = "general" | "user";
 type LegalSection = {
@@ -97,8 +107,11 @@ const INITIAL_SETTINGS: UserSettings = {
   proteinGoal: 180,
   fatGoal: 70,
   carbGoal: 220,
+  showOnlyCustomTrainingContent: false,
   muscleFilter: "advanced",
+  recoveryMapHiddenMuscles: [],
   homeGoalTiles: ["calories", "protein", "carbs", "fat"],
+  homeSectionOrder: ["quickStart", "goals", "weight", "recoveryMap"],
   weightGoalKg: 84,
   weightDirection: "maintain",
 };
@@ -120,6 +133,15 @@ type Props = {
 
 const AUTH_TOKEN_KEY = "token";
 const DELETE_CONFIRM_WORD = "SLETT";
+const ALL_HOME_SECTIONS: HomeSectionKey[] = [
+  "quickStart",
+  "goals",
+  "weight",
+  "recoveryMap",
+];
+const ALL_RECOVERY_MUSCLES: RecoveryMapMuscleKey[] = ADVANCED_MUSCLE_FILTERS.filter(
+  (item) => item.value !== "ALL"
+).map((item) => item.value as RecoveryMapMuscleKey);
 
 function clampInt(value: string, fallback: number) {
   const cleaned = value.replace(",", ".").trim();
@@ -135,6 +157,63 @@ function toggleTile(list: HomeGoalTile[], tile: HomeGoalTile) {
     return next.length > 0 ? next : list;
   }
   return [...list, tile];
+}
+
+function normalizeHomeSectionOrder(input: unknown): HomeSectionKey[] {
+  if (!Array.isArray(input)) return [...ALL_HOME_SECTIONS];
+
+  const next: HomeSectionKey[] = [];
+  const seen = new Set<HomeSectionKey>();
+
+  for (const raw of input) {
+    if (typeof raw !== "string") continue;
+    if (!ALL_HOME_SECTIONS.includes(raw as HomeSectionKey)) continue;
+    const key = raw as HomeSectionKey;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    next.push(key);
+  }
+
+  if (next.length !== ALL_HOME_SECTIONS.length) {
+    for (const key of ALL_HOME_SECTIONS) {
+      if (!seen.has(key)) next.push(key);
+    }
+  }
+
+  return next;
+}
+
+function normalizeRecoveryMapHiddenMuscles(input: unknown): RecoveryMapMuscleKey[] {
+  if (!Array.isArray(input)) return [];
+
+  const next: RecoveryMapMuscleKey[] = [];
+  const seen = new Set<RecoveryMapMuscleKey>();
+
+  for (const raw of input) {
+    if (typeof raw !== "string") continue;
+    if (!ALL_RECOVERY_MUSCLES.includes(raw as RecoveryMapMuscleKey)) continue;
+    const muscle = raw as RecoveryMapMuscleKey;
+    if (seen.has(muscle)) continue;
+    seen.add(muscle);
+    next.push(muscle);
+  }
+
+  return next;
+}
+
+function toggleRecoveryMuscleVisibility(
+  hidden: RecoveryMapMuscleKey[],
+  muscle: RecoveryMapMuscleKey
+) {
+  if (hidden.includes(muscle)) {
+    return hidden.filter((m) => m !== muscle);
+  }
+  return [...hidden, muscle];
+}
+
+function toRecoveryMuscleLabel(value: AdvancedMuscleFilterValue): string {
+  const fromConfig = ADVANCED_MUSCLE_FILTERS.find((item) => item.value === value);
+  return fromConfig?.label ?? String(value);
 }
 
 export default function SettingsModal({
@@ -189,6 +268,47 @@ export default function SettingsModal({
         { key: "fat" as const, label: "Fett" },
       ] satisfies Array<{ key: HomeGoalTile; label: string }>,
     []
+  );
+
+  const sectionLabels = useMemo(
+    () =>
+      ({
+        quickStart: "Hurtigstart",
+        goals: "Dagens mål",
+        weight: "Vektoversikt",
+        recoveryMap: "Restitusjonskart",
+      }) satisfies Record<HomeSectionKey, string>,
+    []
+  );
+
+  const sectionOrderItems = useMemo(
+    () =>
+      normalizeHomeSectionOrder(settings.homeSectionOrder).map((key) => ({
+        key,
+        label: sectionLabels[key],
+      })),
+    [sectionLabels, settings.homeSectionOrder]
+  );
+
+  const hiddenRecoveryMuscles = useMemo(
+    () =>
+      normalizeRecoveryMapHiddenMuscles(settings.recoveryMapHiddenMuscles),
+    [settings.recoveryMapHiddenMuscles]
+  );
+
+  const renderSectionOrderItem = ({
+    item,
+    drag,
+    isActive,
+  }: RenderItemParams<{ key: HomeSectionKey; label: string }>) => (
+    <Pressable
+      onLongPress={drag}
+      delayLongPress={120}
+      style={[styles.orderRow, isActive && styles.orderRowActive]}
+    >
+      <Text style={[typography.body, styles.orderLabel]}>{item.label}</Text>
+      <Text style={[typography.bodyBold, styles.orderHandle]}>=</Text>
+    </Pressable>
   );
 
   const handleLogout = () => {
@@ -510,7 +630,6 @@ export default function SettingsModal({
               ) : (
                 <>
                   {(isLoadingUserSettings ||
-                    isSavingUserSettings ||
                     !!userSettingsError) && (
                     <View
                       style={[
@@ -527,9 +646,14 @@ export default function SettingsModal({
                       >
                         {userSettingsError
                           ? "Kunne ikke synkronisere innstillinger."
-                          : isLoadingUserSettings
-                          ? "Henter brukerinnstillinger..."
-                          : "Lagrer endringer..."}
+                          : "Henter brukerinnstillinger..."}
+                      </Text>
+                    </View>
+                  )}
+                  {!isLoadingUserSettings && !userSettingsError && (
+                    <View style={styles.syncHintBox}>
+                      <Text style={[typography.body, styles.syncHintText]}>
+                        Endringer lagres automatisk.
                       </Text>
                     </View>
                   )}
@@ -721,6 +845,148 @@ export default function SettingsModal({
                       </View>
                     </View>
 
+                    <View style={[styles.settingsItemBox, styles.stackItem]}>
+                      <View style={styles.itemTextBox}>
+                        <Text style={[typography.body, styles.itemText]}>
+                          Egne treningsdata
+                        </Text>
+                        <Text style={[typography.body, styles.itemSubtext]}>
+                          Vis alle eller bare selvlagde ovelser, okter og program
+                        </Text>
+                      </View>
+
+                      <View style={styles.segment}>
+                        <Pressable
+                          onPress={() =>
+                            updateSettings({
+                              showOnlyCustomTrainingContent: false,
+                            })
+                          }
+                          style={({ pressed }) => [
+                            styles.segmentBtn,
+                            !settings.showOnlyCustomTrainingContent &&
+                              styles.segmentBtnActive,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              typography.bodyBold,
+                              styles.segmentText,
+                              !settings.showOnlyCustomTrainingContent &&
+                                styles.segmentTextActive,
+                            ]}
+                          >
+                            Alle
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          onPress={() =>
+                            updateSettings({
+                              showOnlyCustomTrainingContent: true,
+                            })
+                          }
+                          style={({ pressed }) => [
+                            styles.segmentBtn,
+                            settings.showOnlyCustomTrainingContent &&
+                              styles.segmentBtnActive,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              typography.bodyBold,
+                              styles.segmentText,
+                              settings.showOnlyCustomTrainingContent &&
+                                styles.segmentTextActive,
+                            ]}
+                          >
+                            Kun selvlagde
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+
+                    <View style={[styles.settingsItemBox, styles.stackItem]}>
+                      <View style={styles.itemTextBox}>
+                        <Text style={[typography.body, styles.itemText]}>
+                          Muskler i restitusjonskart
+                        </Text>
+                        <Text style={[typography.body, styles.itemSubtext]}>
+                          Standard er alle. Trykk for Ã¥ skjule eller vise muskler.
+                        </Text>
+                      </View>
+
+                      <View style={styles.recoveryActionsRow}>
+                        <Pressable
+                          onPress={() =>
+                            updateSettings({ recoveryMapHiddenMuscles: [] })
+                          }
+                          style={({ pressed }) => [
+                            styles.recoveryActionBtn,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text style={[typography.bodyBold, styles.recoveryActionText]}>
+                            Vis alle
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          onPress={() =>
+                            updateSettings({
+                              recoveryMapHiddenMuscles: [...ALL_RECOVERY_MUSCLES],
+                            })
+                          }
+                          style={({ pressed }) => [
+                            styles.recoveryActionBtn,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text style={[typography.bodyBold, styles.recoveryActionText]}>
+                            Skjul alle
+                          </Text>
+                        </Pressable>
+                      </View>
+
+                      <View style={styles.chipRow}>
+                        {ALL_RECOVERY_MUSCLES.map((muscle) => {
+                          const isVisible = !hiddenRecoveryMuscles.includes(muscle);
+
+                          return (
+                            <Pressable
+                              key={muscle}
+                              onPress={() =>
+                                updateSettings({
+                                  recoveryMapHiddenMuscles:
+                                    toggleRecoveryMuscleVisibility(
+                                      hiddenRecoveryMuscles,
+                                      muscle
+                                    ),
+                                })
+                              }
+                              style={({ pressed }) => [
+                                styles.chip,
+                                isVisible && styles.chipActive,
+                                pressed && styles.pressed,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  typography.bodyBold,
+                                  styles.chipText,
+                                  isVisible && styles.chipTextActive,
+                                ]}
+                              >
+                                {toRecoveryMuscleLabel(muscle)}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+
                     {/* Home tiles */}
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
@@ -765,6 +1031,29 @@ export default function SettingsModal({
                           );
                         })}
                       </View>
+                    </View>
+
+                    <View style={[styles.settingsItemBox, styles.stackItem]}>
+                      <View style={styles.itemTextBox}>
+                        <Text style={[typography.body, styles.itemText]}>
+                          Rekkefølge på hjemskjerm
+                        </Text>
+                        <Text style={[typography.body, styles.itemSubtext]}>
+                          Hold inne og dra for å endre seksjonsrekkefølge
+                        </Text>
+                      </View>
+
+                      <DraggableFlatList
+                        data={sectionOrderItems}
+                        keyExtractor={(item) => item.key}
+                        renderItem={renderSectionOrderItem}
+                        onDragEnd={({ data }) =>
+                          updateSettings({
+                            homeSectionOrder: data.map((x) => x.key),
+                          })
+                        }
+                        scrollEnabled={false}
+                      />
                     </View>
                   </View>
 
@@ -1126,6 +1415,19 @@ const styles = StyleSheet.create({
   syncInfoTextError: {
     color: "rgba(254,202,202,0.98)",
   },
+  syncHintBox: {
+    marginTop: 12,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.2)",
+    backgroundColor: "rgba(148,163,184,0.08)",
+  },
+  syncHintText: {
+    fontSize: 12,
+    color: "rgba(226,232,240,0.88)",
+  },
 
   section: {
     marginTop: 14,
@@ -1217,6 +1519,25 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
   },
+  recoveryActionsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  recoveryActionBtn: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.25)",
+    backgroundColor: "rgba(255,255,255,0.03)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  recoveryActionText: {
+    fontSize: 12,
+    color: "rgba(226,232,240,0.9)",
+  },
   chip: {
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -1235,6 +1556,32 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     opacity: 1,
+  },
+
+  orderRow: {
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(255,255,255,0.02)",
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  orderRowActive: {
+    backgroundColor: "rgba(59,130,246,0.12)",
+    borderColor: "rgba(96,165,250,0.32)",
+  },
+  orderLabel: {
+    fontSize: 13,
+    color: "rgba(229,236,255,0.95)",
+  },
+  orderHandle: {
+    fontSize: 18,
+    color: "rgba(148,163,184,0.92)",
+    lineHeight: 20,
   },
 
   logoutBox: {

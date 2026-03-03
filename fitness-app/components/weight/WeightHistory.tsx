@@ -49,7 +49,7 @@ export default function WeightHistory({
   };
 
   const formatDifference = (diff: number | null) => {
-    if (diff === null) return "—";
+    if (diff === null) return "-";
     if (diff > 0) return `+${diff.toFixed(1)} kg`;
     if (diff < 0) return `${diff.toFixed(1)} kg`;
     return "0.0 kg";
@@ -58,9 +58,9 @@ export default function WeightHistory({
   const getDiffTone = (diff: number | null) => {
     if (diff === null || diff === 0) {
       return {
-        text: "rgba(148,163,184,0.92)",
-        bg: "rgba(255,255,255,0.03)",
-        border: "rgba(255,255,255,0.08)",
+        text: "rgba(186,230,253,0.95)",
+        bg: "rgba(56,189,248,0.08)",
+        border: "rgba(56,189,248,0.16)",
       };
     }
     if (diff > 0) {
@@ -83,9 +83,50 @@ export default function WeightHistory({
     const label = getRelativeDateLabel(date);
     return { label, time };
   }, [latest]);
+  const uniqueDayKeys = useMemo(() => {
+    const dayKeys = new Set<string>();
 
+    weightList.forEach((entry) => {
+      const date = new Date(entry.timestampUtc);
+      if (Number.isNaN(date.getTime())) return;
+
+      const key = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0"),
+      ].join("-");
+
+      dayKeys.add(key);
+    });
+
+    return dayKeys;
+  }, [weightList]);
+
+  const trackedDays = uniqueDayKeys.size;
+  const currentStreak = useMemo(() => {
+    if (uniqueDayKeys.size === 0) return 0;
+
+    const cursor = new Date();
+    cursor.setHours(12, 0, 0, 0);
+
+    let streak = 0;
+    while (true) {
+      const key = [
+        cursor.getFullYear(),
+        String(cursor.getMonth() + 1).padStart(2, "0"),
+        String(cursor.getDate()).padStart(2, "0"),
+      ].join("-");
+
+      if (!uniqueDayKeys.has(key)) break;
+
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    return streak;
+  }, [uniqueDayKeys]);
   return (
-    <View style={[generalStyles.newCard, styles.containerCard]}>
+    <View style={styles.containerCard}>
       {/* Header + segmented */}
       <View style={styles.headerRow}>
         <Text style={[typography.h2, styles.title]}>Vektlogg</Text>
@@ -129,6 +170,16 @@ export default function WeightHistory({
         </View>
       </View>
 
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryPill}>
+          <Ionicons name="flame-outline" size={13} color="#38bdf8" />
+          <Text style={styles.summaryText}>{currentStreak} day streak</Text>
+        </View>
+        <View style={styles.summaryPill}>
+          <Ionicons name="calendar-outline" size={13} color="#38bdf8" />
+          <Text style={styles.summaryText}>{trackedDays} dager</Text>
+        </View>
+      </View>
       {/* Top summary: latest measurement */}
       {latest && (
         <View style={[generalStyles.newCard, styles.latestCard]}>
@@ -137,7 +188,7 @@ export default function WeightHistory({
               <Ionicons
                 name="analytics-outline"
                 size={16}
-                color="rgba(226,232,240,0.95)"
+                color="rgba(56,189,248,0.82)"
               />
             </View>
 
@@ -184,7 +235,7 @@ export default function WeightHistory({
                   <Ionicons
                     name="trending-up-outline"
                     size={15}
-                    color="rgba(226,232,240,0.95)"
+                    color="rgba(56,189,248,0.82)"
                   />
                 </View>
                 <Text style={[typography.bodyBlack, styles.avgLabel]}>
@@ -252,7 +303,7 @@ export default function WeightHistory({
                       <Ionicons
                         name="scale-outline"
                         size={16}
-                        color="rgba(226,232,240,0.92)"
+                        color="rgba(56,189,248,0.78)"
                       />
                     </View>
 
@@ -260,7 +311,6 @@ export default function WeightHistory({
                       <Text style={[typography.bodyBlack, styles.primaryText]}>
                         {label}
                       </Text>
-                      {/* ✅ only time here (no duplicate date) */}
                       <Text style={[typography.body, styles.secondaryText]}>
                         {time}
                       </Text>
@@ -331,7 +381,7 @@ export default function WeightHistory({
                     <Ionicons
                       name="calendar-outline"
                       size={16}
-                      color="rgba(226,232,240,0.92)"
+                      color="rgba(56,189,248,0.78)"
                     />
                   </View>
 
@@ -387,12 +437,10 @@ export default function WeightHistory({
 const styles = StyleSheet.create({
   containerCard: {
     width: "100%",
-    padding: 16,
-    borderRadius: 22,
-
-    backgroundColor: "rgba(2,6,23,0.14)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    padding: 0,
+    borderRadius: 0,
+    backgroundColor: "transparent",
+    borderWidth: 0,
   },
 
   headerRow: {
@@ -402,14 +450,39 @@ const styles = StyleSheet.create({
   },
 
   title: { color: "white" },
+  summaryRow: {
+    width: "100%",
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 2,
+    flexWrap: "wrap",
+  },
+  summaryPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: "rgba(6,182,212,0.10)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.16)",
+  },
+  summaryText: {
+    ...typography.body,
+    color: "rgba(224,242,254,0.95)",
+    fontSize: 11,
+    fontWeight: "600",
+  },
 
   segment: {
     flexDirection: "row",
-    padding: 2,
+    padding: 3,
     borderRadius: 999,
-    backgroundColor: "rgba(2,6,23,0.28)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(2,6,23,0.44)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.28)",
   },
   segmentBtn: {
     paddingVertical: 5,
@@ -417,9 +490,14 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   segmentBtnActive: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(6,182,212,0.14)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.28)",
+    shadowColor: "#0891b2",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    elevation: 1,
   },
   segmentText: {
     ...typography.body,
@@ -428,7 +506,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.1,
   },
-  segmentTextActive: { color: "#FFFFFF" },
+  segmentTextActive: { color: "#38bdf8" },
 
   // Latest card (premium but compact)
   latestCard: {
@@ -437,9 +515,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(2,6,23,0.22)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.11)",
+    shadowColor: "#0891b2",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.09,
+    shadowRadius: 4,
+    elevation: 1,
   },
   latestTopRow: {
     flexDirection: "row",
@@ -451,9 +534,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(6,182,212,0.10)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.16)",
     marginRight: 10,
   },
   latestLabel: {
@@ -500,9 +583,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 18,
     marginBottom: 10,
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(2,6,23,0.22)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.11)",
+    shadowColor: "#0891b2",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.09,
+    shadowRadius: 4,
+    elevation: 1,
   },
   avgTopRow: {
     flexDirection: "row",
@@ -515,9 +603,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(6,182,212,0.10)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.16)",
   },
   avgLabel: {
     fontSize: 11,
@@ -547,7 +635,8 @@ const styles = StyleSheet.create({
     width: "100%",
     marginTop: 10,
     marginBottom: 6,
-    alignItems: "center",
+    alignItems: "flex-start",
+    paddingHorizontal: 6,
   },
   monthHeaderText: {
     fontSize: 11,
@@ -565,9 +654,9 @@ const styles = StyleSheet.create({
     marginBottom: 7,
     borderRadius: 18,
 
-    backgroundColor: "rgba(2,6,23,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(2,6,23,0.20)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.10)",
   },
   row: {
     flexDirection: "row",
@@ -577,9 +666,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 11,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(6,182,212,0.10)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.16)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
@@ -625,7 +714,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 999,
-    borderWidth: 1,
+    borderWidth: 0.8,
     minWidth: 72,
     alignItems: "center",
     justifyContent: "center",
@@ -643,14 +732,19 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 16,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(6,182,212,0.10)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.16)",
+    shadowColor: "#0891b2",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
   },
   loadMoreText: {
     fontSize: 11,
-    color: "#E5ECFF",
+    color: "#38bdf8",
     fontWeight: "900",
     letterSpacing: 0.16,
   },
 });
+

@@ -25,7 +25,6 @@ import {
   MUSCLE_FILTERS,
   MuscleFilterValue,
 } from "@/types/muscles";
-import { useUserSettings } from "@/context/UserSettingsProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -126,7 +125,6 @@ export default function ExerciseCard({
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const { userSettings } = useUserSettings();
 
   const [name, setName] = useState("");
   const [muscle, setMuscle] = useState<MuscleFilterValue>("ALL");
@@ -137,7 +135,6 @@ export default function ExerciseCard({
   const canEdit = !isGlobal;
 
   const [specificGroups, setSpecificGroups] = useState<string[]>([]);
-  const isAdvanced = userSettings.muscleFilter === "advanced";
 
   const advancedSpecificList = useMemo(() => {
     const basic = new Set(
@@ -150,20 +147,15 @@ export default function ExerciseCard({
   }, []);
 
   const displayMuscleChips = useMemo(() => {
-    if (isAdvanced) {
-      const fromDb = normalizeSpecificToKnownAdvanced(
-        parseSpecificGroups((exercise as any).specificMuscleGroups)
-      );
+    const fromDb = normalizeSpecificToKnownAdvanced(
+      parseSpecificGroups((exercise as any).specificMuscleGroups)
+    );
 
-      if (fromDb.length > 0) return fromDb;
-
-      const base = (exercise.muscle ?? "").trim();
-      return base ? [base] : [];
-    }
+    if (fromDb.length > 0) return fromDb;
 
     const base = (exercise.muscle ?? "").trim();
     return base ? [base] : [];
-  }, [exercise, isAdvanced]);
+  }, [exercise]);
 
   const displayEquipmentList = useMemo(() => {
     const eq = (exercise.equipment ?? "").trim();
@@ -227,15 +219,11 @@ export default function ExerciseCard({
     setEquipment(exercise.equipment ?? "");
     setDescription(exercise.description ?? "");
 
-    if (isAdvanced) {
-      const parsed = normalizeSpecificToKnownAdvanced(
-        parseSpecificGroups((exercise as any).specificMuscleGroups)
-      );
-      setSpecificGroups(parsed);
-    } else {
-      setSpecificGroups([]);
-    }
-  }, [editOpen, exercise, isAdvanced]);
+    const parsed = normalizeSpecificToKnownAdvanced(
+      parseSpecificGroups((exercise as any).specificMuscleGroups)
+    );
+    setSpecificGroups(parsed);
+  }, [editOpen, exercise]);
 
   function toggleSpecific(v: string) {
     setSpecificGroups((prev) =>
@@ -253,9 +241,7 @@ export default function ExerciseCard({
     try {
       setSaving(true);
 
-      const cleanedSpecific = isAdvanced
-        ? normalizeSpecificToKnownAdvanced(specificGroups)
-        : [];
+      const cleanedSpecific = normalizeSpecificToKnownAdvanced(specificGroups);
 
       await UpdateExercise(exercise.id, {
         name: trimmed,
@@ -263,12 +249,14 @@ export default function ExerciseCard({
         muscle: muscle === "ALL" ? "" : muscle,
         equipment: equipment.trim() ? equipment.trim() : "",
         specificMuscleGroups:
-          isAdvanced && cleanedSpecific.length > 0
-            ? cleanedSpecific.join(",")
-            : "",
+          cleanedSpecific.length > 0 ? cleanedSpecific.join(",") : "",
       });
 
-      queryClient.invalidateQueries({ queryKey: ["exercises"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["exercises"] }),
+        queryClient.invalidateQueries({ queryKey: ["sessionDetails"] }),
+        queryClient.invalidateQueries({ queryKey: ["completedWorkouts"] }),
+      ]);
       closeEdit();
     } catch (err) {
       console.log("Feil ved oppdatering av øvelse", err);
@@ -294,7 +282,11 @@ export default function ExerciseCard({
       setDeleting(true);
       await DeleteExercise(exercise.id);
 
-      queryClient.invalidateQueries({ queryKey: ["exercises"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["exercises"] }),
+        queryClient.invalidateQueries({ queryKey: ["sessionDetails"] }),
+        queryClient.invalidateQueries({ queryKey: ["completedWorkouts"] }),
+      ]);
       closeEdit();
     } catch (err) {
       console.log("Feil ved sletting av øvelse", err);
@@ -525,85 +517,81 @@ export default function ExerciseCard({
                 />
               </View>
 
-              {!isAdvanced && (
-                <>
-                  <Text style={[styles.sectionLabel, { marginTop: 14 }]}>
-                    Muskelgruppe
-                  </Text>
+              <>
+                <Text style={[styles.sectionLabel, { marginTop: 14 }]}>
+                  Muskelgruppe
+                </Text>
 
-                  <View style={styles.pillsRow}>
-                    {MUSCLE_FILTERS.map((m) => {
-                      const active = m.value === muscle;
-                      return (
-                        <Pressable
-                          key={m.value}
-                          onPress={() => setMuscle(m.value)}
-                          style={({ pressed }) => [
-                            styles.pillSelect,
+                <View style={styles.pillsRow}>
+                  {MUSCLE_FILTERS.map((m) => {
+                    const active = m.value === muscle;
+                    return (
+                      <Pressable
+                        key={m.value}
+                        onPress={() => setMuscle(m.value)}
+                        style={({ pressed }) => [
+                          styles.pillSelect,
+                          active
+                            ? styles.pillSelectActive
+                            : styles.pillSelectInactive,
+                          pressed && { opacity: 0.92 },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.pillSelectText,
                             active
-                              ? styles.pillSelectActive
-                              : styles.pillSelectInactive,
-                            pressed && { opacity: 0.92 },
+                              ? styles.pillSelectTextActive
+                              : styles.pillSelectTextInactive,
                           ]}
                         >
-                          <Text
-                            style={[
-                              styles.pillSelectText,
-                              active
-                                ? styles.pillSelectTextActive
-                                : styles.pillSelectTextInactive,
-                            ]}
-                          >
-                            {m.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
+                          {m.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
 
-              {isAdvanced && (
-                <>
-                  <Text style={[styles.sectionLabel, { marginTop: 14 }]}>
-                    Spesifikke muskelgrupper
+              <>
+                <Text style={[styles.sectionLabel, { marginTop: 14 }]}>
+                  Spesifikke muskelgrupper
+                </Text>
+
+                <View style={styles.chipWrap}>
+                  {advancedSpecificList.map((item) => {
+                    const active = specificGroups.includes(item.value);
+
+                    return (
+                      <Pressable
+                        key={item.value}
+                        onPress={() => toggleSpecific(item.value)}
+                        style={({ pressed }) => [
+                          styles.multiChip,
+                          active && styles.multiChipActive,
+                          pressed && { opacity: 0.92 },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.multiChipText,
+                            active && styles.multiChipTextActive,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {!!specificGroups.length && (
+                  <Text style={styles.selectedHint}>
+                    Valgt: {specificGroups.join(", ")}
                   </Text>
-
-                  <View style={styles.chipWrap}>
-                    {advancedSpecificList.map((item) => {
-                      const active = specificGroups.includes(item.value);
-
-                      return (
-                        <Pressable
-                          key={item.value}
-                          onPress={() => toggleSpecific(item.value)}
-                          style={({ pressed }) => [
-                            styles.multiChip,
-                            active && styles.multiChipActive,
-                            pressed && { opacity: 0.92 },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.multiChipText,
-                              active && styles.multiChipTextActive,
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {item.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-
-                  {!!specificGroups.length && (
-                    <Text style={styles.selectedHint}>
-                      Valgt: {specificGroups.join(", ")}
-                    </Text>
-                  )}
-                </>
-              )}
+                )}
+              </>
 
               <Text style={[styles.sectionLabel, { marginTop: 14 }]}>
                 Utstyr

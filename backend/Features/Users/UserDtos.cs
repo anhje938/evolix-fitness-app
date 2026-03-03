@@ -17,5 +17,8 @@
 
         // Home UI
         public string[]? HomeProgressCircles { get; set; }
+        public string[]? HomeSectionOrder { get; set; }
+        public string[]? RecoveryMapHiddenMuscles { get; set; }
+        public bool? ShowOnlyCustomTrainingContent { get; set; }
     }
 }

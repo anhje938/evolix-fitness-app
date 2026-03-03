@@ -42,9 +42,9 @@ export default function RootLayout() {
           <AuthProvider>
             <UserSettingsProvider>
               <Stack screenOptions={{ headerShown: false }} />
+              <WorkoutSessionOverlay />
             </UserSettingsProvider>
           </AuthProvider>
-          <WorkoutSessionOverlay />
         </WorkoutSessionProvider>
       </GestureHandlerRootView>
     </QueryClientProvider>

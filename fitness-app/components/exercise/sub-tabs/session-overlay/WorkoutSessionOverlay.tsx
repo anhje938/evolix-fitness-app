@@ -1,6 +1,8 @@
 import { typography } from "@/config/typography";
+import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useWorkoutSession } from "@/context/workoutSessionContext";
 import { useExercises } from "@/hooks/useExercises";
+import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { formatDuration } from "@/utils/session-overlay/formatDuration";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -62,6 +64,7 @@ export function WorkoutSessionOverlay() {
     deleteSession,
   } = useWorkoutSession();
 
+  const { userSettings } = useUserSettings();
   const { data: exercises = [] } = useExercises();
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -103,7 +106,8 @@ export function WorkoutSessionOverlay() {
     if (next !== session?.name) renameSession(next);
   };
 
-  const canDeleteCompleted = !!session?.id && !!session?.finishedAtUtc;
+  const isEditingCompletedSession = !!session?.id && !!session?.finishedAtUtc;
+  const canDeleteCompleted = isEditingCompletedSession;
 
   const handleDeleteSession = () => {
     if (!canDeleteCompleted) return;
@@ -148,13 +152,30 @@ export function WorkoutSessionOverlay() {
     return { sets, completed, exercises: visibleExercises.length };
   }, [visibleExercises]);
 
+  const availableExercises = useMemo(() => {
+    if (!userSettings.showOnlyCustomTrainingContent) return exercises;
+    return exercises.filter(isUserCreatedExercise);
+  }, [exercises, userSettings.showOnlyCustomTrainingContent]);
+
   const filteredExercises = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return exercises;
-    return exercises.filter((ex) => ex.name.toLowerCase().includes(q));
-  }, [exercises, search]);
+    if (!q) return availableExercises;
+    return availableExercises.filter((ex) => ex.name.toLowerCase().includes(q));
+  }, [availableExercises, search]);
 
   const handleClose = () => {
+    if (isEditingCompletedSession) {
+      Alert.alert(
+        "Forkaste endringer?",
+        "Endringer du har gjort i økten blir ikke lagret.",
+        [
+          { text: "Fortsett redigering", style: "cancel" },
+          { text: "Forkast", style: "destructive", onPress: closeSession },
+        ]
+      );
+      return;
+    }
+
     if (totals.completed <= 0) {
       closeSession();
       return;
@@ -173,14 +194,18 @@ export function WorkoutSessionOverlay() {
     if (!session) return;
     commitTitle();
 
+    const beforeSaveAction = isEditingCompletedSession
+      ? "lagrer endringene"
+      : "fullfører";
+
     const issues = findInvalidCompletedSets(session.exercises);
     if (issues.length > 0) {
       const first = issues[0];
       Alert.alert(
         "Ugyldige sett",
         issues.length > 1
-          ? `Du har ${issues.length} ferdig-markerte sett med ugyldige verdier.\n\nEksempel:\n${first.exerciseName} – sett ${first.setIndex}: ${first.reason}\n\nRett opp før du fullfører.`
-          : `Du har et ferdig-markert sett med ugyldige verdier:\n\n${first.exerciseName} – sett ${first.setIndex}: ${first.reason}\n\nRett opp før du fullfører.`,
+          ? `Du har ${issues.length} ferdig-markerte sett med ugyldige verdier.\n\nEksempel:\n${first.exerciseName} - sett ${first.setIndex}: ${first.reason}\n\nRett opp før du ${beforeSaveAction}.`
+          : `Du har et ferdig-markert sett med ugyldige verdier:\n\n${first.exerciseName} - sett ${first.setIndex}: ${first.reason}\n\nRett opp før du ${beforeSaveAction}.`,
         [{ text: "OK" }]
       );
       return;
@@ -188,7 +213,12 @@ export function WorkoutSessionOverlay() {
 
     const res = validateSessionForSave(session.exercises);
     if (!res.ok) {
-      Alert.alert("Kan ikke fullføre", res.message);
+      Alert.alert(
+        isEditingCompletedSession
+          ? "Kan ikke lagre endringer"
+          : "Kan ikke fullføre",
+        res.message
+      );
       return;
     }
 
@@ -211,6 +241,10 @@ export function WorkoutSessionOverlay() {
   }
 
   const modeLabel = session.mode === "quick" ? "Fri økt" : "Planlagt økt";
+  const closeButtonLabel = isEditingCompletedSession ? "Lukk" : "Avbryt økt";
+  const finishButtonLabel = isEditingCompletedSession
+    ? "Lagre endringer"
+    : "Fullfør økt";
 
   return (
     <Modal visible={isOpen} animationType="fade" transparent>
@@ -234,7 +268,7 @@ export function WorkoutSessionOverlay() {
             <IconBtn
               icon="close-outline"
               onPress={handleClose}
-              label="Avbryt økt"
+              label={closeButtonLabel}
             />
 
             <View style={styles.headerCenter}>
@@ -511,9 +545,7 @@ export function WorkoutSessionOverlay() {
             >
               <View style={styles.finishButton}>
                 <Ionicons name="checkmark-done" size={18} color="white" />
-                <Text style={[typography.body, styles.finishText]}>
-                  Fullfør økt
-                </Text>
+                <Text style={[typography.body, styles.finishText]}>{finishButtonLabel}</Text>
               </View>
             </Pressable>
           </View>
