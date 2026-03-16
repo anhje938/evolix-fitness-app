@@ -18,6 +18,6 @@ namespace backend.Features.Training.Exercises
         // Quick flag to detect type
         public bool IsCustom => UserId != null;
 
-        public List<Workout> Workouts { get; set; } = new();
+        public List<WorkoutExercise> WorkoutExercises { get; set; } = new();
     }
 }

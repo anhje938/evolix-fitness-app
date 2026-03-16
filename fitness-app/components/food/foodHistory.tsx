@@ -1,7 +1,7 @@
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import type { Food } from "@/types/meal";
-import { formatDateNO, parseISO } from "@/utils/date";
+import { formatDateNO } from "@/utils/date";
 import { calcTotalMacros } from "@/utils/food/calculateTotalMacros";
 import {
   getWeeklyMacroTotals,
@@ -28,6 +28,15 @@ function toLocalDateKey(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+function formatLocalTime(ts: string): string {
+  const parsed = new Date(ts);
+  if (Number.isNaN(parsed.getTime())) return "--:--";
+  return parsed.toLocaleTimeString("nb-NO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export function FoodHistory({ foodList }: FoodHistoryProps) {
@@ -188,7 +197,6 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
         {isExpanded && (
           <View style={styles.expandedWrap}>
             {mealsPerDate.map((meal, idx) => {
-              const iso = parseISO(meal.timestampUtc);
               const isLast = idx === mealsPerDate.length - 1;
 
               return (
@@ -209,7 +217,7 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
                       {meal.title}
                     </Text>
                     <Text style={[typography.body, styles.mealSub]}>
-                      {iso.time}
+                      {formatLocalTime(meal.timestampUtc)}
                     </Text>
                   </View>
 

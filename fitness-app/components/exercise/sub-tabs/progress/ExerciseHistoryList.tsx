@@ -291,7 +291,7 @@ export default function ExerciseHistoryList({ history }: Props) {
                         style={[typography.body, styles.rmLabel]}
                         numberOfLines={1}
                       >
-                        Est. 1RM
+                        Estimert 1RM
                       </Text>
 
                       <Text
@@ -352,22 +352,26 @@ export default function ExerciseHistoryList({ history }: Props) {
                                 {s.setNumber}.
                               </Text>
                               <Text
-                                style={[typography.body, styles.setWeight]}
+                                style={[typography.body, styles.setReps]}
                                 numberOfLines={1}
                               >
-                                {formatKg(s.weightKg)}
-                                <Text style={styles.unit}> kg</Text>
+                                {formatReps(s.reps)}
+                                <Text style={styles.unit}> reps</Text>
                               </Text>
                             </View>
 
                             <View style={styles.tableDivider} />
 
                             <Text
-                              style={[typography.body, styles.setReps]}
+                              style={[
+                                typography.body,
+                                styles.setWeight,
+                                styles.setWeightRight,
+                              ]}
                               numberOfLines={1}
                             >
-                              {formatReps(s.reps)}
-                              <Text style={styles.unit}> reps</Text>
+                              {formatKg(s.weightKg)}
+                              <Text style={styles.unit}> kg</Text>
                             </Text>
                           </View>
                         );
@@ -661,7 +665,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    minWidth: 120,
+    flex: 1,
+    minWidth: 0,
   },
   setIndex: {
     color: colors.muted2,
@@ -676,6 +681,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
     fontVariant: ["tabular-nums"],
+  },
+  setWeightRight: {
+    textAlign: "right",
   },
   setReps: {
     color: colors.text,

@@ -351,11 +351,11 @@ namespace backend.Features.Training.WorkoutSessions
                 if (!allSets.Any())
                     continue;
 
-                var topWeight = allSets
+                var topSet = allSets
                     .Where(s => s.WeightKg.HasValue)
-                    .Select(s => s.WeightKg.Value)
-                    .DefaultIfEmpty()
-                    .Max();
+                    .OrderByDescending(s => s.WeightKg)
+                    .ThenByDescending(s => s.Reps ?? 0)
+                    .FirstOrDefault();
 
                 var totalSets = allSets.Count;
 
@@ -369,7 +369,8 @@ namespace backend.Features.Training.WorkoutSessions
                 {
                     ExerciseId = exerciseId,
                     PerformedAtUtc = session.StartedAtUtc,
-                    TopSetWeightKg = topWeight > 0 ? topWeight : (double?)null,
+                    TopSetWeightKg = topSet?.WeightKg > 0 ? topSet.WeightKg : (double?)null,
+                    TopSetReps = topSet?.Reps,
                     TotalSets = totalSets,
                     TotalVolumeKg = totalVolume > 0 ? totalVolume : (double?)null
                 });

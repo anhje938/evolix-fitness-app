@@ -1,18 +1,22 @@
-// api/exercise/program.ts
+import { authFetch, getValidAccessToken } from "@/api/authSession";
 import { CreateProgramRequest, Program } from "@/types/exercise";
-import * as SecureStore from "expo-secure-store";
 import { API_BASE_URL } from "../baseUrl";
 
 async function authedFetch(input: RequestInfo, init?: RequestInit) {
-  const token = await SecureStore.getItemAsync("token");
-  const res = await fetch(input, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(init?.headers ?? {}),
+  const token = await getValidAccessToken();
+  if (!token) throw new Error("Mangler auth-token");
+
+  const res = await authFetch(
+    input,
+    {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
     },
-  });
+    { token }
+  );
 
   if (!res.ok) {
     const errorText = await res.text().catch(() => "");
@@ -21,14 +25,12 @@ async function authedFetch(input: RequestInfo, init?: RequestInit) {
   return res;
 }
 
-// FETCH PROGRAMS
 export async function GetProgramsForUser() {
   const res = await authedFetch(`${API_BASE_URL}/workoutprogram`);
   const data: Program[] = await res.json();
   return data;
 }
 
-// POST PROGRAM
 export async function PostProgramForUser(name: string) {
   const body: CreateProgramRequest = { name };
   const res = await authedFetch(`${API_BASE_URL}/workoutprogram`, {
@@ -40,7 +42,6 @@ export async function PostProgramForUser(name: string) {
   return data;
 }
 
-// UPDATE PROGRAM (name + workoutIds)
 export async function UpdateProgramForUser(
   id: string,
   data: { name: string; workoutIds: string[] }
@@ -56,8 +57,6 @@ export async function UpdateProgramForUser(
   return await res.json();
 }
 
-// DELETE PROGRAM
 export async function DeleteProgramForUser(id: string) {
   await authedFetch(`${API_BASE_URL}/workoutprogram/${id}`, { method: "DELETE" });
-  return;
 }

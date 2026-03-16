@@ -46,7 +46,7 @@ export function MetricSwitcher({
             onPress={() => onVolumeMetricChange("kg")}
           />
           <SubModeButton
-            label="Volum (sets)"
+            label="Volum (sett)"
             selected={volumeMetric === "sets"}
             onPress={() => onVolumeMetricChange("sets")}
           />

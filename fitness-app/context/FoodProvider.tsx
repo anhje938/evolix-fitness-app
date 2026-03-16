@@ -30,6 +30,13 @@ type FoodContextValue = {
 
 const FoodContext = createContext<FoodContextValue | undefined>(undefined);
 
+function sortFoodsByTimestampDesc(list: Food[]) {
+  return [...list].sort(
+    (a, b) =>
+      new Date(b.timestampUtc).getTime() - new Date(a.timestampUtc).getTime()
+  );
+}
+
 export function FoodProvider({ children }: { children: ReactNode }) {
   const [foodList, setFoodList] = useState<Food[]>([]);
   const [isLoadingMeals, setIsLoadingMeals] = useState(false);
@@ -59,7 +66,7 @@ export function FoodProvider({ children }: { children: ReactNode }) {
       const data = await FetchUserMeals(token);
 
       if (!mountedRef.current) return;
-      setFoodList(data);
+      setFoodList(sortFoodsByTimestampDesc(data));
     } catch (error) {
       if (isUnauthorizedError(error)) {
         if (mountedRef.current) setFoodList([]);

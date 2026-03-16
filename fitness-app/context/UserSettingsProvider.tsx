@@ -227,6 +227,9 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
 
     queuedSaveRef.current = null;
     setIsSavingUserSettings(false);
+    setIsLoadingUserSettings(false);
+    setUserSettingsError(null);
+    setUserSettingsState(INITIAL_USER_SETTINGS);
   }, [token]);
 
   const value = useMemo(

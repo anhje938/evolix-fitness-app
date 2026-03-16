@@ -15,6 +15,7 @@ import React, {
 } from "react";
 import { Alert } from "react-native";
 
+import { getValidAccessToken } from "@/api/authSession";
 import { getSessionDetails } from "@/api/exercise/sessionDetails";
 import {
   deleteWorkoutSession,
@@ -23,7 +24,6 @@ import {
 } from "@/api/exercise/workoutSession";
 import type { CompletedWorkoutSummaryDto } from "@/api/exercise/completedWorkouts";
 
-import * as SecureStore from "expo-secure-store";
 import { useQueryClient } from "@tanstack/react-query";
 
 // ---- TYPES ----
@@ -74,7 +74,7 @@ type WorkoutSessionContextValue = {
 
   removeSet: (sessionExerciseId: string, setId: string) => void;
 
-  finishAndSave: () => Promise<void>;
+  finishAndSave: (options?: { nameOverride?: string }) => Promise<void>;
 };
 
 // ---- CONTEXT SETUP ----
@@ -152,9 +152,26 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
+  const focusActiveSession = useCallback((message: string) => {
+    if (!session || session.finishedAtUtc) return false;
+
+    setIsOpen(true);
+    setIsMinimized(false);
+    Alert.alert("Økt allerede i gang", message);
+    return true;
+  }, [session]);
+
   // --- OPEN / CLOSE ---
 
   const openQuickSession = useCallback((name?: string) => {
+    if (
+      focusActiveSession(
+        "Du har allerede en aktiv økt. Fortsett den før du starter en ny hurtigøkt."
+      )
+    ) {
+      return;
+    }
+
     const now = new Date().toISOString();
 
     const newSession: WorkoutSession = {
@@ -171,9 +188,17 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
     setSession(newSession);
     setIsOpen(true);
     setIsMinimized(false);
-  }, []);
+  }, [focusActiveSession]);
 
   const openProgramSession = useCallback((args: OpenProgramSessionArgs) => {
+    if (
+      focusActiveSession(
+        "Du har allerede en aktiv økt. Fullfør eller avbryt den før du starter en ny planlagt økt."
+      )
+    ) {
+      return;
+    }
+
     const now = new Date().toISOString();
 
     const exercises: SessionExercise[] = args.exercises.map((ex, index) => ({
@@ -199,13 +224,21 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
     setSession(newSession);
     setIsOpen(true);
     setIsMinimized(false);
-  }, []);
+  }, [focusActiveSession]);
 
   /**
    * Ã…pne en tidligere Ã¸kt i overlay (utfÃ¸rt Ã¸kt)
    * Viktig: behold backend-idâ€™er pÃ¥ logs/sets
    */
   const openCompletedSession = useCallback(async (sessionId: string) => {
+    if (
+      focusActiveSession(
+        "Du har allerede en aktiv økt. Fullfør eller avbryt den før du åpner en tidligere økt."
+      )
+    ) {
+      return;
+    }
+
     try {
       const dto = await getSessionDetails(sessionId);
 
@@ -256,7 +289,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
         "PrÃ¸v igjen. Hvis feilen fortsetter, Ã¥pne appen pÃ¥ nytt."
       );
     }
-  }, []);
+  }, [focusActiveSession]);
 
   const closeSession = useCallback(() => {
     setSession(null);
@@ -302,7 +335,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
 
       closeSession();
 
-      const token = await SecureStore.getItemAsync("token");
+      const token = await getValidAccessToken();
       if (!token) throw new Error("Mangler auth-token for å slette økt");
 
       await deleteWorkoutSession(sessionId, token);
@@ -414,7 +447,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
 
   // --- FINISH & SAVE TO BACKEND ---
 
-  const finishAndSave = useCallback(async () => {
+  const finishAndSave = useCallback(async (options?: { nameOverride?: string }) => {
     if (!session) return;
 
     try {
@@ -442,12 +475,15 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
         return;
       }
 
-      const token = await SecureStore.getItemAsync("token");
+      const token = await getValidAccessToken();
       if (!token) throw new Error("Mangler auth-token for Ã¥ lagre Ã¸kt");
+
+      const nextName =
+        normalizeName(options?.nameOverride ?? session.name) || session.name;
 
       const payload: WorkoutSession = {
         ...session,
-        name: normalizeName(session.name) || session.name,
+        name: nextName,
         exercises: sanitizedExercises,
       };
 

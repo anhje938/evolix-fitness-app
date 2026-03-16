@@ -3,7 +3,7 @@ import type { SessionExercise, SessionSet } from "@/types/exercise";
 import { parseNullableFloat } from "@/utils/session-overlay/parseNullableFloat";
 import { parseNullableInt } from "@/utils/session-overlay/parseNullableInt";
 import { Ionicons } from "@expo/vector-icons";
-import React, { memo, useEffect, useMemo, useRef } from "react";
+import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { TextInput as RNTextInput } from "react-native";
 import {
   Alert,
@@ -50,6 +50,11 @@ const ROW_METRICS = {
   rightBuffer: 8,
 };
 
+function formatWeightInputValue(weight: number | null | undefined) {
+  if (weight == null) return "";
+  return String(weight).replace(".", ",");
+}
+
 /**
  * ============================================================
  * SMALL UI COMPONENTS
@@ -60,10 +65,14 @@ export const IconBtn = memo(function IconBtn({
   icon,
   onPress,
   label,
+  showLabel = false,
+  tone = "default",
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   label: string;
+  showLabel?: boolean;
+  tone?: "default" | "danger";
 }) {
   return (
     <Pressable
@@ -71,9 +80,29 @@ export const IconBtn = memo(function IconBtn({
       hitSlop={10}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.85 }]}
+      style={({ pressed }) => [
+        styles.iconBtn,
+        showLabel && styles.iconBtnWithLabel,
+        tone === "danger" && styles.iconBtnDanger,
+        pressed && { opacity: 0.85 },
+      ]}
     >
-      <Ionicons name={icon} size={18} color={overlayColors.text} />
+      <Ionicons
+        name={icon}
+        size={18}
+        color={tone === "danger" ? overlayColors.danger : overlayColors.text}
+      />
+      {showLabel && (
+        <Text
+          style={[
+            typography.bodyBold,
+            styles.iconBtnLabel,
+            tone === "danger" && styles.iconBtnLabelDanger,
+          ]}
+        >
+          {label}
+        </Text>
+      )}
     </Pressable>
   );
 });
@@ -121,6 +150,10 @@ export const ExerciseBlock = memo(function ExerciseBlock({
 }: ExerciseBlockProps) {
   const repsRefs = useRef<Array<RNTextInput | null>>([]);
   const weightRefs = useRef<Array<RNTextInput | null>>([]);
+  const [focusedWeightSetId, setFocusedWeightSetId] = useState<string | null>(
+    null
+  );
+  const [weightDrafts, setWeightDrafts] = useState<Record<string, string>>({});
 
   const ensuredForIdRef = useRef<string | null>(null);
   const didEnsureRef = useRef(false);
@@ -138,6 +171,23 @@ export const ExerciseBlock = memo(function ExerciseBlock({
     didEnsureRef.current = true;
     onAddSet();
   }, [exercise.sets.length, onAddSet]);
+
+  useEffect(() => {
+    setWeightDrafts((prev) => {
+      const next: Record<string, string> = {};
+      for (const set of exercise.sets) {
+        if (prev[set.id] != null) next[set.id] = prev[set.id];
+      }
+      return next;
+    });
+
+    if (
+      focusedWeightSetId &&
+      !exercise.sets.some((set) => set.id === focusedWeightSetId)
+    ) {
+      setFocusedWeightSetId(null);
+    }
+  }, [exercise.sets, focusedWeightSetId]);
 
   const toggleCompletedGuarded = (set: SessionSet, setIndex: number) => {
     const nextCompleted = !set.completed;
@@ -195,11 +245,11 @@ export const ExerciseBlock = memo(function ExerciseBlock({
         <Text style={[typography.body, styles.setHeaderIndex]}>#</Text>
 
         <View style={styles.headerCellWrap}>
-          <Text style={[typography.body, styles.setHeaderCellText]}>Kg</Text>
+          <Text style={[typography.body, styles.setHeaderCellText]}>Reps</Text>
         </View>
 
         <View style={styles.headerCellWrap}>
-          <Text style={[typography.body, styles.setHeaderCellText]}>Reps</Text>
+          <Text style={[typography.body, styles.setHeaderCellText]}>Kg</Text>
         </View>
 
         <View style={styles.headerDoneWrap}>
@@ -223,24 +273,6 @@ export const ExerciseBlock = memo(function ExerciseBlock({
 
             <TextInput
               ref={(el) => {
-                weightRefs.current[idx] = el;
-              }}
-              style={[typography.body, styles.setInput]}
-              keyboardType="numeric"
-              placeholder="-"
-              placeholderTextColor={overlayColors.muted2}
-              value={set.weight ?? set.weight === 0 ? String(set.weight) : ""}
-              returnKeyType="next"
-              blurOnSubmit={false}
-              submitBehavior="submit"
-              onSubmitEditing={() => repsRefs.current[idx]?.focus()}
-              onChangeText={(txt) =>
-                onUpdateSet(set.id, { weight: parseNullableFloat(txt) })
-              }
-            />
-
-            <TextInput
-              ref={(el) => {
                 repsRefs.current[idx] = el;
               }}
               style={[typography.body, styles.setInput]}
@@ -248,21 +280,67 @@ export const ExerciseBlock = memo(function ExerciseBlock({
               placeholder="-"
               placeholderTextColor={overlayColors.muted2}
               value={set.reps ?? set.reps === 0 ? String(set.reps) : ""}
+              returnKeyType="next"
+              submitBehavior="submit"
+              onSubmitEditing={() => weightRefs.current[idx]?.focus()}
+              onChangeText={(txt) =>
+                onUpdateSet(set.id, { reps: parseNullableInt(txt) })
+              }
+            />
+
+            <TextInput
+              ref={(el) => {
+                weightRefs.current[idx] = el;
+              }}
+              style={[typography.body, styles.setInput]}
+              keyboardType="numeric"
+              placeholder="-"
+              placeholderTextColor={overlayColors.muted2}
+              value={
+                focusedWeightSetId === set.id
+                  ? (weightDrafts[set.id] ?? formatWeightInputValue(set.weight))
+                  : formatWeightInputValue(set.weight)
+              }
               returnKeyType={idx === exercise.sets.length - 1 ? "done" : "next"}
-              blurOnSubmit={idx === exercise.sets.length - 1}
               submitBehavior={
                 idx === exercise.sets.length - 1 ? "blurAndSubmit" : "submit"
               }
+              onFocus={() => {
+                setFocusedWeightSetId(set.id);
+                setWeightDrafts((prev) => ({
+                  ...prev,
+                  [set.id]:
+                    prev[set.id] ?? formatWeightInputValue(set.weight),
+                }));
+              }}
+              onBlur={() => {
+                setFocusedWeightSetId((prev) =>
+                  prev === set.id ? null : prev
+                );
+                setWeightDrafts((prev) => {
+                  const next = { ...prev };
+                  delete next[set.id];
+                  return next;
+                });
+              }}
               onSubmitEditing={() => {
                 if (idx < exercise.sets.length - 1) {
-                  weightRefs.current[idx + 1]?.focus();
+                  repsRefs.current[idx + 1]?.focus();
                 } else {
                   Keyboard.dismiss();
                 }
               }}
-              onChangeText={(txt) =>
-                onUpdateSet(set.id, { reps: parseNullableInt(txt) })
-              }
+              onChangeText={(txt) => {
+                setWeightDrafts((prev) => ({
+                  ...prev,
+                  [set.id]: txt,
+                }));
+
+                const normalized = txt.replace(",", ".");
+                onUpdateSet(set.id, {
+                  weight: parseNullableFloat(normalized),
+                });
+              }}
             />
 
             <Pressable
@@ -465,6 +543,25 @@ const styles = StyleSheet.create({
     backgroundColor: overlayColors.surface,
     borderWidth: 1,
     borderColor: overlayColors.borderSoft,
+  },
+  iconBtnWithLabel: {
+    width: "auto",
+    minWidth: 38,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    gap: 8,
+  },
+  iconBtnDanger: {
+    backgroundColor: "rgba(239,68,68,0.10)",
+    borderColor: "rgba(239,68,68,0.24)",
+  },
+  iconBtnLabel: {
+    color: overlayColors.text,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  iconBtnLabelDanger: {
+    color: overlayColors.danger,
   },
 
   stat: {

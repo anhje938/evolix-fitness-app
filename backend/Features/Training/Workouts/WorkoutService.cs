@@ -1,7 +1,6 @@
 ﻿using backend.Common;
 using backend.Data;
 using backend.Features.Training.WorkoutSessions.Entities;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Features.Training.Workouts
@@ -19,13 +18,40 @@ namespace backend.Features.Training.Workouts
         //IF ADMIN CREATES = GLOBAL | IF USER CREATES = PERSONAL
         public async Task<WorkoutResponse> CreateWorkout(CreateWorkoutRequest req, string userId, bool isAdmin, CancellationToken ct = default)
         {
+            var orderedExerciseIds = (req.ExerciseIds ?? [])
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToList();
+
+            if (orderedExerciseIds.Count > 0)
+            {
+                var existingExerciseIds = await _db.Exercises
+                    .Where(e => orderedExerciseIds.Contains(e.Id))
+                    .Select(e => e.Id)
+                    .ToListAsync(ct);
+
+                var missingExerciseIds = orderedExerciseIds.Except(existingExerciseIds).ToList();
+                if (missingExerciseIds.Count > 0)
+                {
+                    throw new NotFoundException(
+                        $"Exercises not found: {string.Join(", ", missingExerciseIds)}");
+                }
+            }
+
             var workout = new Workout
             {
                 Name = req.Name,
                 Description = req.Description,
                 DayLabel = req.DayLabel,
                 WorkoutProgramId = req.WorkoutProgramId,
-                UserId = isAdmin ? null : userId
+                UserId = isAdmin ? null : userId,
+                WorkoutExercises = orderedExerciseIds
+                    .Select((exerciseId, index) => new WorkoutExercise
+                    {
+                        ExerciseId = exerciseId,
+                        Order = index + 1
+                    })
+                    .ToList()
             };
 
             await _db.Workouts.AddAsync(workout, ct);
@@ -35,9 +61,10 @@ namespace backend.Features.Training.Workouts
             {
                 Id = workout.Id,
                 Name = workout.Name,
-                Description = workout.Description,
-                DayLabel = workout.DayLabel,
+                Description = workout.Description ?? string.Empty,
+                DayLabel = workout.DayLabel ?? string.Empty,
                 WorkoutProgramId = workout.WorkoutProgramId,
+                ExerciseIds = orderedExerciseIds,
                 UserId = workout.UserId,
                 IsCustom = workout.IsCustom
             };
@@ -52,7 +79,7 @@ namespace backend.Features.Training.Workouts
             CancellationToken ct = default)
         {
             var query = _db.Workouts
-                .Include(w => w.Exercises) // hvis du trenger Exercises til ExerciseIds
+                .AsNoTracking()
                 .AsQueryable();
 
             if (!isAdmin)
@@ -63,14 +90,18 @@ namespace backend.Features.Training.Workouts
             // Admin: ser ALT (ingen ekstra filter)
 
             return await query
+                .OrderBy(w => w.Name)
                 .Select(w => new WorkoutResponse
                 {
                     Id = w.Id,
                     Name = w.Name,
-                    Description = w.Description,
-                    DayLabel = w.DayLabel,
+                    Description = w.Description ?? string.Empty,
+                    DayLabel = w.DayLabel ?? string.Empty,
                     WorkoutProgramId = w.WorkoutProgramId,
-                    ExerciseIds = w.Exercises.Select(e => e.Id).ToList(),
+                    ExerciseIds = w.WorkoutExercises
+                        .OrderBy(we => we.Order)
+                        .Select(we => we.ExerciseId)
+                        .ToList(),
                     UserId = w.UserId,
                     IsCustom = w.IsCustom
                 })
@@ -119,7 +150,7 @@ namespace backend.Features.Training.Workouts
         public async Task UpdateWorkout(string userId, bool isAdmin, Guid id, UpdateWorkoutRequest req, CancellationToken ct = default)
         {
             var existing = await _db.Workouts
-                .Include(w => w.Exercises)
+                .Include(w => w.WorkoutExercises)
                 .FirstOrDefaultAsync(e => e.Id == id, ct);
 
             if (existing == null)
@@ -133,28 +164,40 @@ namespace backend.Features.Training.Workouts
             existing.DayLabel = req.DayLabel;
             existing.WorkoutProgramId = req.WorkoutProgramId;
 
-            var newIds = (req.ExerciseIds ?? new List<Guid>()).Distinct().ToHashSet();
-
-            var existingIds = existing.Exercises
-                .Select(e => e.Id)
-                .ToHashSet();
-
-            var toRemove = existing.Exercises
-                .Where(e => !newIds.Contains(e.Id))
+            var orderedExerciseIds = (req.ExerciseIds ?? new List<Guid>())
+                .Where(exerciseId => exerciseId != Guid.Empty)
+                .Distinct()
                 .ToList();
 
-            foreach (var ex in toRemove)
-                existing.Exercises.Remove(ex);
-
-            var idsToAdd = newIds.Except(existingIds).ToList();
-            if (idsToAdd.Count > 0)
+            if (orderedExerciseIds.Count > 0)
             {
-                var exercisesToAdd = await _db.Exercises
-                    .Where(e => idsToAdd.Contains(e.Id))
+                var existingExerciseIds = await _db.Exercises
+                    .Where(e => orderedExerciseIds.Contains(e.Id))
+                    .Select(e => e.Id)
                     .ToListAsync(ct);
 
-                foreach (var ex in exercisesToAdd)
-                    existing.Exercises.Add(ex);
+                var missingExerciseIds = orderedExerciseIds.Except(existingExerciseIds).ToList();
+                if (missingExerciseIds.Count > 0)
+                {
+                    throw new NotFoundException(
+                        $"Exercises not found: {string.Join(", ", missingExerciseIds)}");
+                }
+            }
+
+            if (existing.WorkoutExercises.Count > 0)
+            {
+                _db.WorkoutExercises.RemoveRange(existing.WorkoutExercises);
+                existing.WorkoutExercises.Clear();
+            }
+
+            foreach (var workoutExercise in orderedExerciseIds.Select((exerciseId, index) => new WorkoutExercise
+            {
+                WorkoutId = existing.Id,
+                ExerciseId = exerciseId,
+                Order = index + 1
+            }))
+            {
+                existing.WorkoutExercises.Add(workoutExercise);
             }
 
             await _db.SaveChangesAsync(ct);

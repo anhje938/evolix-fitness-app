@@ -1,31 +1,29 @@
 import { API_BASE_URL } from "@/api/baseUrl";
-import * as SecureStore from "expo-secure-store";
+import { authFetch, getValidAccessToken } from "@/api/authSession";
 
 export type ExerciseHistoryPointDto = {
   exerciseId: string;
   performedAtUtc: string;
   topSetWeightKg: number | null;
-  topSetReps: number | null;     // 👈 NY
+  topSetReps: number | null;
   totalSets: number;
   totalVolumeKg: number | null;
 };
 
-//GETS EXERCISE HISTORY FOR BEST MEASUREMENT PR SESSION
 export async function getExerciseHistory(
   exerciseId: string
 ): Promise<ExerciseHistoryPointDto[]> {
-  const token = await SecureStore.getItemAsync("token");
+  const token = await getValidAccessToken();
   if (!token) throw new Error("Mangler auth-token");
 
-  const res = await fetch(
+  const res = await authFetch(
     `${API_BASE_URL}/workoutsession/exercise/${exerciseId}/history`,
-    
     {
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
-    }
+    },
+    { token }
   );
 
   if (!res.ok) {
@@ -57,21 +55,20 @@ export type ExerciseSessionSetsDto = {
   totalVolumeKg: number | null;
 };
 
-//GETS ALL EXERCISEHISTORY
 export async function getExerciseSetsHistory(
   exerciseId: string
 ): Promise<ExerciseSessionSetsDto[]> {
-  const token = await SecureStore.getItemAsync("token");
+  const token = await getValidAccessToken();
   if (!token) throw new Error("Mangler auth-token");
 
-  const res = await fetch(
+  const res = await authFetch(
     `${API_BASE_URL}/workoutsession/exercise/${exerciseId}/sets-history`,
     {
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
-    }
+    },
+    { token }
   );
 
   if (!res.ok) {
@@ -81,4 +78,3 @@ export async function getExerciseSetsHistory(
 
   return res.json();
 }
-

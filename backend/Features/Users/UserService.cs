@@ -107,20 +107,239 @@ namespace backend.Features.Users
         public async Task<bool> DeleteUserAsync(
             string userId,
             CancellationToken ct = default)
+        {
+            var user = await _db.Users
+                .FirstOrDefaultAsync(u => u.Id == userId, ct);
+
+            if (user == null)
+            {
+                return false; // allerede slettet / finnes ikke
+            }
+
+            await using var tx = await _db.Database.BeginTransactionAsync(ct);
+
+            var workoutSessionIds = await _db.WorkoutSessions
+                .Where(x => x.UserId == userId)
+                .Select(x => x.Id)
+                .ToListAsync(ct);
+
+            var workoutExerciseLogIds = workoutSessionIds.Count > 0
+                ? await _db.WorkoutExerciseLogs
+                    .Where(x => workoutSessionIds.Contains(x.WorkoutSessionId))
+                    .Select(x => x.Id)
+                    .ToListAsync(ct)
+                : [];
+
+            if (workoutExerciseLogIds.Count > 0)
+            {
+                var setLogs = await _db.SetLogs
+                    .Where(x => workoutExerciseLogIds.Contains(x.WorkoutExerciseLogId))
+                    .ToListAsync(ct);
+                if (setLogs.Count > 0)
                 {
-                    var user = await _db.Users
-                        .FirstOrDefaultAsync(u => u.Id == userId, ct);
-
-                    if (user == null)
-                    {
-                        return false; // allerede slettet / finnes ikke
-                    }
-
-                    _db.Users.Remove(user);
-                    await _db.SaveChangesAsync(ct);
-
-                    return true;
+                    _db.SetLogs.RemoveRange(setLogs);
                 }
+
+                var workoutExerciseLogs = await _db.WorkoutExerciseLogs
+                    .Where(x => workoutExerciseLogIds.Contains(x.Id))
+                    .ToListAsync(ct);
+                _db.WorkoutExerciseLogs.RemoveRange(workoutExerciseLogs);
+            }
+
+            if (workoutSessionIds.Count > 0)
+            {
+                var workoutSessions = await _db.WorkoutSessions
+                    .Where(x => workoutSessionIds.Contains(x.Id))
+                    .ToListAsync(ct);
+                _db.WorkoutSessions.RemoveRange(workoutSessions);
+            }
+
+            var weightLogs = await _db.WeightLogs
+                .Where(x => x.UserId == userId)
+                .ToListAsync(ct);
+            if (weightLogs.Count > 0)
+            {
+                _db.WeightLogs.RemoveRange(weightLogs);
+            }
+
+            var foodLogs = await _db.FoodLogs
+                .Where(x => x.UserId == userId)
+                .ToListAsync(ct);
+            if (foodLogs.Count > 0)
+            {
+                _db.FoodLogs.RemoveRange(foodLogs);
+            }
+
+            var refreshTokens = await _db.RefreshTokens
+                .Where(x => x.UserId == userId)
+                .ToListAsync(ct);
+            if (refreshTokens.Count > 0)
+            {
+                _db.RefreshTokens.RemoveRange(refreshTokens);
+            }
+
+            var composedMealIds = await _db.ComposedMeals
+                .Where(x => x.UserId == userId)
+                .Select(x => x.Id)
+                .ToListAsync(ct);
+            if (composedMealIds.Count > 0)
+            {
+                var composedMealIngredients = await _db.ComposedMealIngredients
+                    .Where(x => composedMealIds.Contains(x.ComposedMealId))
+                    .ToListAsync(ct);
+                if (composedMealIngredients.Count > 0)
+                {
+                    _db.ComposedMealIngredients.RemoveRange(composedMealIngredients);
+                }
+
+                var composedMeals = await _db.ComposedMeals
+                    .Where(x => composedMealIds.Contains(x.Id))
+                    .ToListAsync(ct);
+                _db.ComposedMeals.RemoveRange(composedMeals);
+            }
+
+            var workoutIds = await _db.Workouts
+                .Where(x => x.UserId == userId)
+                .Select(x => x.Id)
+                .ToListAsync(ct);
+            var exerciseIds = await _db.Exercises
+                .Where(x => x.UserId == userId)
+                .Select(x => x.Id)
+                .ToListAsync(ct);
+
+            if (workoutIds.Count > 0 || exerciseIds.Count > 0)
+            {
+                var workoutExercises = await _db.WorkoutExercises
+                    .Where(x =>
+                        workoutIds.Contains(x.WorkoutId) ||
+                        exerciseIds.Contains(x.ExerciseId))
+                    .ToListAsync(ct);
+                if (workoutExercises.Count > 0)
+                {
+                    _db.WorkoutExercises.RemoveRange(workoutExercises);
+                }
+            }
+
+            if (workoutIds.Count > 0)
+            {
+                var workouts = await _db.Workouts
+                    .Where(x => workoutIds.Contains(x.Id))
+                    .ToListAsync(ct);
+                _db.Workouts.RemoveRange(workouts);
+            }
+
+            var workoutPrograms = await _db.WorkoutPrograms
+                .Where(x => x.UserId == userId)
+                .ToListAsync(ct);
+            if (workoutPrograms.Count > 0)
+            {
+                _db.WorkoutPrograms.RemoveRange(workoutPrograms);
+            }
+
+            if (exerciseIds.Count > 0)
+            {
+                var exercises = await _db.Exercises
+                    .Where(x => exerciseIds.Contains(x.Id))
+                    .ToListAsync(ct);
+                _db.Exercises.RemoveRange(exercises);
+            }
+
+            var settings = await _db.UserSettings
+                .Where(x => x.UserId == userId)
+                .ToListAsync(ct);
+            if (settings.Count > 0)
+            {
+                _db.UserSettings.RemoveRange(settings);
+            }
+
+            await _db.SaveChangesAsync(ct);
+
+            await AssertUserDataDeletedAsync(
+                userId,
+                workoutSessionIds,
+                workoutExerciseLogIds,
+                composedMealIds,
+                workoutIds,
+                exerciseIds,
+                ct);
+
+            _db.Users.Remove(user);
+            await _db.SaveChangesAsync(ct);
+
+            var hasUserRow = await _db.Users.AnyAsync(x => x.Id == userId, ct);
+            var hasSettingsRow = await _db.UserSettings.AnyAsync(x => x.UserId == userId, ct);
+            if (hasUserRow || hasSettingsRow)
+            {
+                throw new InvalidOperationException(
+                    "User deletion verification failed. Residual user records remain."
+                );
+            }
+
+            await tx.CommitAsync(ct);
+
+            return true;
+        }
+
+        private async Task AssertUserDataDeletedAsync(
+            string userId,
+            IReadOnlyCollection<Guid> workoutSessionIds,
+            IReadOnlyCollection<Guid> workoutExerciseLogIds,
+            IReadOnlyCollection<Guid> composedMealIds,
+            IReadOnlyCollection<Guid> workoutIds,
+            IReadOnlyCollection<Guid> exerciseIds,
+            CancellationToken ct)
+        {
+            var hasWeightLogs = await _db.WeightLogs.AnyAsync(x => x.UserId == userId, ct);
+            var hasFoodLogs = await _db.FoodLogs.AnyAsync(x => x.UserId == userId, ct);
+            var hasRefreshTokens = await _db.RefreshTokens.AnyAsync(x => x.UserId == userId, ct);
+            var hasComposedMeals = await _db.ComposedMeals.AnyAsync(x => x.UserId == userId, ct);
+            var hasWorkoutSessions = await _db.WorkoutSessions.AnyAsync(x => x.UserId == userId, ct);
+            var hasWorkouts = await _db.Workouts.AnyAsync(x => x.UserId == userId, ct);
+            var hasWorkoutPrograms = await _db.WorkoutPrograms.AnyAsync(x => x.UserId == userId, ct);
+            var hasExercises = await _db.Exercises.AnyAsync(x => x.UserId == userId, ct);
+
+            var hasComposedMealIngredients =
+                composedMealIds.Count > 0 &&
+                await _db.ComposedMealIngredients.AnyAsync(
+                    x => composedMealIds.Contains(x.ComposedMealId),
+                    ct);
+
+            var hasWorkoutExerciseLogs =
+                workoutSessionIds.Count > 0 &&
+                await _db.WorkoutExerciseLogs.AnyAsync(
+                    x => workoutSessionIds.Contains(x.WorkoutSessionId),
+                    ct);
+
+            var hasSetLogs =
+                workoutExerciseLogIds.Count > 0 &&
+                await _db.SetLogs.AnyAsync(
+                    x => workoutExerciseLogIds.Contains(x.WorkoutExerciseLogId),
+                    ct);
+
+            var hasWorkoutExercises =
+                (workoutIds.Count > 0 || exerciseIds.Count > 0) &&
+                await _db.WorkoutExercises.AnyAsync(
+                    x => workoutIds.Contains(x.WorkoutId) || exerciseIds.Contains(x.ExerciseId),
+                    ct);
+
+            if (hasWeightLogs ||
+                hasFoodLogs ||
+                hasRefreshTokens ||
+                hasComposedMeals ||
+                hasComposedMealIngredients ||
+                hasWorkoutSessions ||
+                hasWorkoutExerciseLogs ||
+                hasSetLogs ||
+                hasWorkouts ||
+                hasWorkoutExercises ||
+                hasWorkoutPrograms ||
+                hasExercises)
+            {
+                throw new InvalidOperationException(
+                    "User deletion verification failed. Residual domain records remain."
+                );
+            }
+        }
 
         public async Task<User?> GetUserAsync(
             string userId,

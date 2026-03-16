@@ -29,12 +29,14 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<WeightService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddScoped<FoodService>();
 builder.Services.AddScoped<ExerciseService>();
 builder.Services.AddScoped<WorkoutService>();
 builder.Services.AddScoped<WorkoutProgramService>();
 builder.Services.AddScoped<WorkoutSessionService>();
 
+builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<BarcodeLookupService>();
 
 // Forwarded headers
@@ -47,6 +49,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 // Settings
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("Jwt"));
+
+builder.Services.Configure<RefreshTokenSettings>(
+    builder.Configuration.GetSection("RefreshToken"));
 
 builder.Services.Configure<AppleSettings>(
     builder.Configuration.GetSection("AppleSettings"));

@@ -1,158 +1,447 @@
-// progress/ExerciseProgressChart.tsx
-
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
+import type {
+  PreparedProgressPoint,
+  ProgressMetricKind,
+  ProgressTimeRange,
+  ProgressUnit,
+} from "@/utils/exercise/progressChart";
+import {
+  prepareProgressSeries,
+  PROGRESS_TIME_RANGE_OPTIONS,
+} from "@/utils/exercise/progressChart";
 import { Ionicons } from "@expo/vector-icons";
+import { scaleLinear } from "d3-scale";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useMemo, useState } from "react";
-import type { TextStyle, ViewStyle } from "react-native";
-import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
-import { BarChart, LineChart } from "react-native-chart-kit";
-
-/**
- * Premium Dark Ocean theme
- */
-const colors = {
-  card: "rgba(2,6,23,0.18)",
-  surface: "rgba(255,255,255,0.04)",
-  surfaceStrong: "rgba(255,255,255,0.06)",
-  border: "rgba(255,255,255,0.08)",
-  borderSoft: "rgba(255,255,255,0.05)",
-  text: "#E5ECFF",
-  textMuted: "rgba(148,163,184,0.9)",
-  muted2: "rgba(148,163,184,0.7)",
-  accent: "#06b6d4",
-  accentDim: "rgba(6,182,212,0.2)",
-  accentBg: "rgba(6,182,212,0.08)",
-  chartLine: "rgba(6,182,212,0.95)",
-  chartBar: "rgba(6,182,212,0.85)",
-  chartGrid: "rgba(148,163,184,0.12)",
-  chartBg: "rgba(2,6,23,0.30)",
-  green: "rgba(34, 197, 94, 0.9)",
-  red: "rgba(239, 68, 68, 0.9)",
-};
+import React, { useEffect, useMemo, useState } from "react";
+import type { ColorSchemeName, TextStyle, ViewStyle } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from "react-native";
+import Svg, {
+  Circle,
+  Defs,
+  G,
+  Path,
+  Rect,
+  Stop,
+  Line as SvgLine,
+  LinearGradient as SvgLinearGradient,
+  Text as SvgText,
+} from "react-native-svg";
 
 export type ExerciseProgressPoint = {
-  timestampUtc: string; // ISO-string
+  timestampUtc: string;
   value: number;
+  unit?: ProgressUnit;
 };
 
 type Props = {
   data: ExerciseProgressPoint[];
-
-  // Text / labels
   title?: string;
   showTitle?: boolean;
-
-  // Size
   height?: number;
-
-  // ✅ NEW: chart type selector
   variant?: "line" | "bar";
-
-  // Grid / lines
-  showInnerLines?: boolean;
-  showVerticalLines?: boolean;
+  range?: ProgressTimeRange;
+  onRangeChange?: (range: ProgressTimeRange) => void;
+  metricKind?: ProgressMetricKind;
   showOuterLines?: boolean;
-  segments?: number;
-
-  // Labels control (X/Y)
-  showVerticalLabels?: boolean; // X-axis labels
-  showHorizontalLabels?: boolean; // Y-axis labels
-
-  // Colors
-  barColor?: string;
-  backgroundGradientFrom?: string;
-  backgroundGradientTo?: string;
-  labelColor?: string;
-  gridLineColor?: string;
-
-  // Y-axis
-  fromZero?: boolean;
-  decimalPlaces?: number;
-
-  // Label density
+  showVerticalLines?: boolean;
   minXLabels?: number;
   maxXLabels?: number;
-
-  // Values on bars (only applies to Bar)
-  showValuesOnTopOfBars?: boolean;
 };
 
-const screenWidth = Dimensions.get("window").width;
+type Palette = {
+  card: string;
+  surface: string;
+  surfaceStrong: string;
+  border: string;
+  borderSoft: string;
+  text: string;
+  textMuted: string;
+  muted2: string;
+  accent: string;
+  accentDim: string;
+  accentBg: string;
+  raw: string;
+  rawFill: string;
+  trend: string;
+  grid: string;
+  chartBgTop: string;
+  chartBgBottom: string;
+  tooltipBg: string;
+  tooltipBorder: string;
+  guide: string;
+  pr: string;
+  warning: string;
+  success: string;
+  danger: string;
+};
+
+const PAD_LEFT = 44;
+const PAD_RIGHT = 16;
+const PAD_TOP = 18;
+const PAD_BOTTOM = 34;
+
+function getPalette(scheme: ColorSchemeName): Palette {
+  if (scheme === "light") {
+    return {
+      card: "rgba(255,255,255,0.92)",
+      surface: "rgba(15,23,42,0.05)",
+      surfaceStrong: "rgba(15,23,42,0.08)",
+      border: "rgba(15,23,42,0.10)",
+      borderSoft: "rgba(15,23,42,0.08)",
+      text: "#0f172a",
+      textMuted: "rgba(15,23,42,0.80)",
+      muted2: "rgba(15,23,42,0.58)",
+      accent: "#0891b2",
+      accentDim: "rgba(8,145,178,0.18)",
+      accentBg: "rgba(8,145,178,0.08)",
+      raw: "#0f766e",
+      rawFill: "rgba(15,118,110,0.22)",
+      trend: "#d97706",
+      grid: "rgba(15,23,42,0.10)",
+      chartBgTop: "rgba(248,250,252,0.92)",
+      chartBgBottom: "rgba(241,245,249,0.96)",
+      tooltipBg: "rgba(255,255,255,0.96)",
+      tooltipBorder: "rgba(15,23,42,0.10)",
+      guide: "rgba(15,23,42,0.18)",
+      pr: "#f59e0b",
+      warning: "#b45309",
+      success: "#15803d",
+      danger: "#dc2626",
+    };
+  }
+
+  return {
+    card: "rgba(2,6,23,0.18)",
+    surface: "rgba(255,255,255,0.04)",
+    surfaceStrong: "rgba(255,255,255,0.06)",
+    border: "rgba(255,255,255,0.08)",
+    borderSoft: "rgba(255,255,255,0.05)",
+    text: "#E5ECFF",
+    textMuted: "rgba(226,232,240,0.92)",
+    muted2: "rgba(148,163,184,0.78)",
+    accent: "#22d3ee",
+    accentDim: "rgba(34,211,238,0.22)",
+    accentBg: "rgba(34,211,238,0.10)",
+    raw: "rgba(34,211,238,0.95)",
+    rawFill: "rgba(34,211,238,0.22)",
+    trend: "#fbbf24",
+    grid: "rgba(148,163,184,0.12)",
+    chartBgTop: "rgba(2,6,23,0.30)",
+    chartBgBottom: "rgba(2,6,23,0.56)",
+    tooltipBg: "rgba(8,15,29,0.96)",
+    tooltipBorder: "rgba(255,255,255,0.08)",
+    guide: "rgba(148,163,184,0.20)",
+    pr: "#fbbf24",
+    warning: "#f59e0b",
+    success: "#22c55e",
+    danger: "#f87171",
+  };
+}
+
+function formatValue(value: number, unitLabel: string) {
+  const decimals = value < 10 ? 1 : 0;
+  return `${value.toFixed(decimals)} ${unitLabel}`;
+}
+
+function getPointSlotWidth(pointCount: number) {
+  if (pointCount <= 5) return 64;
+  if (pointCount <= 12) return 44;
+  if (pointCount <= 24) return 34;
+  return 28;
+}
+
+function buildLinePath(
+  points: PreparedProgressPoint[],
+  getX: (index: number) => number,
+  getY: (value: number) => number,
+  accessor: (point: PreparedProgressPoint) => number | null
+) {
+  const segments: string[] = [];
+  let activeSegment = "";
+
+  points.forEach((point, index) => {
+    const value = accessor(point);
+    if (value == null) return;
+
+    const x = getX(index);
+    const y = getY(value);
+
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+    if (!activeSegment || point.hasGapBefore) {
+      if (activeSegment) {
+        segments.push(activeSegment);
+      }
+      activeSegment = `M ${x} ${y}`;
+      return;
+    }
+
+    activeSegment += ` L ${x} ${y}`;
+  });
+
+  if (activeSegment) {
+    segments.push(activeSegment);
+  }
+
+  return segments;
+}
+
+function getVisibleLabelIndexes(
+  total: number,
+  minLabels: number,
+  maxLabels: number
+) {
+  if (total <= maxLabels) {
+    return new Set(Array.from({ length: total }, (_, index) => index));
+  }
+
+  const desired = Math.max(minLabels, Math.min(maxLabels, total));
+  const step = Math.ceil(total / desired);
+  const indexes = new Set<number>();
+
+  for (let index = 0; index < total; index += step) {
+    indexes.add(index);
+  }
+  indexes.add(total - 1);
+
+  return indexes;
+}
+
+function createStyles(colors: Palette) {
+  return StyleSheet.create<{
+    card: ViewStyle;
+    header: ViewStyle;
+    iconCircle: ViewStyle;
+    title: TextStyle;
+    subtitle: TextStyle;
+    statsRow: ViewStyle;
+    statBox: ViewStyle;
+    statDivider: ViewStyle;
+    statLabel: TextStyle;
+    statValue: TextStyle;
+    rangeRow: ViewStyle;
+    rangePill: ViewStyle;
+    rangePillActive: ViewStyle;
+    rangePillText: TextStyle;
+    rangePillTextActive: TextStyle;
+    chartOuter: ViewStyle;
+    chartBackground: ViewStyle;
+    chartGradient: ViewStyle;
+    emptyState: ViewStyle;
+    emptyIcon: ViewStyle;
+    emptyText: TextStyle;
+    emptySubtext: TextStyle;
+  }>({
+    card: {
+      width: "100%",
+      paddingVertical: 18,
+      paddingHorizontal: 18,
+      borderRadius: 22,
+      marginBottom: 16,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      marginBottom: 16,
+    },
+    iconCircle: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.accentBg,
+      borderWidth: 1,
+      borderColor: colors.accentDim,
+    },
+    title: {
+      fontSize: 16,
+      color: colors.text,
+      letterSpacing: 0.1,
+      marginBottom: 2,
+    },
+    subtitle: {
+      fontSize: 12,
+      color: colors.muted2,
+      letterSpacing: 0.1,
+    },
+    statsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 5,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.borderSoft,
+      marginBottom: 12,
+    },
+    statBox: {
+      flex: 1,
+      alignItems: "center",
+      gap: 3,
+    },
+    statDivider: {
+      width: 1,
+      height: 26,
+      backgroundColor: colors.borderSoft,
+    },
+    statLabel: {
+      fontSize: 9,
+      fontWeight: "600",
+      color: colors.muted2,
+      letterSpacing: 0.2,
+      textTransform: "uppercase",
+    },
+    statValue: {
+      fontSize: 12,
+      fontWeight: "500",
+      color: colors.text,
+      letterSpacing: 0.1,
+    },
+    rangeRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginBottom: 12,
+      justifyContent: "center",
+    },
+    rangePill: {
+      minWidth: 40,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: 1,
+      borderColor: colors.borderSoft,
+    },
+    rangePillActive: {
+      backgroundColor: colors.accentBg,
+      borderColor: colors.accentDim,
+    },
+    rangePillText: {
+      fontSize: 8,
+      fontWeight: "700",
+      color: colors.muted2,
+      letterSpacing: 0.1,
+    },
+    rangePillTextActive: {
+      color: colors.text,
+    },
+    chartOuter: {
+      width: "100%",
+      overflow: "hidden",
+    },
+    chartBackground: {
+      borderRadius: 16,
+      overflow: "hidden",
+      backgroundColor: colors.chartBgBottom,
+      borderWidth: 1,
+      borderColor: colors.borderSoft,
+      position: "relative",
+    },
+    chartGradient: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 0,
+    },
+    emptyState: {
+      alignItems: "center",
+      paddingVertical: 40,
+      paddingHorizontal: 20,
+    },
+    emptyIcon: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.borderSoft,
+      marginBottom: 16,
+    },
+    emptyText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.textMuted,
+      textAlign: "center",
+      marginBottom: 6,
+    },
+    emptySubtext: {
+      fontSize: 12,
+      fontWeight: "500",
+      color: colors.muted2,
+      textAlign: "center",
+      lineHeight: 18,
+    },
+  });
+}
 
 export function ExerciseProgressChart({
   data,
-
   title = "Progresjon",
   showTitle = true,
-
-  height,
-
-  variant: initialVariant = "bar",
-
-  showInnerLines = true,
-  showVerticalLines = false,
+  height = 250,
+  variant = "line",
+  range = "20",
+  onRangeChange,
+  metricKind,
   showOuterLines = false,
-  segments = 5,
-
-  showVerticalLabels = true,
-  showHorizontalLabels = true,
-
-  barColor,
-  backgroundGradientFrom = "rgba(15,23,42,0.95)",
-  backgroundGradientTo = "rgba(15,23,42,0.95)",
-  labelColor,
-  gridLineColor,
-
-  fromZero = true,
-  decimalPlaces = 0,
-
   minXLabels = 3,
   maxXLabels = 6,
-
-  showValuesOnTopOfBars,
 }: Props) {
-  const [containerWidth, setContainerWidth] = useState<number | null>(null);
-  const [variant, setVariant] = useState<"line" | "bar">(initialVariant);
+  const scheme = useColorScheme();
+  const colors = useMemo(() => getPalette(scheme), [scheme]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  const dailyData = useMemo(() => {
-    if (!data || data.length === 0) return [];
+  const effectiveMetric: ProgressMetricKind =
+    metricKind ?? (variant === "bar" ? "volumeKg" : "weight");
 
-    const sorted = [...data].sort(
-      (a, b) =>
-        new Date(a.timestampUtc).getTime() - new Date(b.timestampUtc).getTime()
-    );
+  const prepared = useMemo(
+    () =>
+      prepareProgressSeries({
+        data,
+        metric: effectiveMetric,
+        range,
+      }),
+    [data, effectiveMetric, range]
+  );
 
-    return sorted.map((item) => {
-      const d = new Date(item.timestampUtc);
-      const v = Number(item.value);
-      return {
-        label: d.toLocaleDateString("nb-NO", {
-          day: "numeric",
-          month: "short",
-        }),
-        value: Number.isFinite(v) ? Math.max(0, v) : 0,
-      };
+  useEffect(() => {
+    if (!prepared.points.length) {
+      setSelectedKey(null);
+      return;
+    }
+
+    setSelectedKey((current) => {
+      if (current && prepared.points.some((point) => point.key === current)) {
+        return current;
+      }
+      return prepared.points[prepared.points.length - 1].key;
     });
-  }, [data]);
+  }, [prepared.points]);
 
-  const stats = useMemo(() => {
-    if (dailyData.length === 0) return null;
-    const values = dailyData.map((d) => d.value);
-    const max = Math.max(...values);
-    const min = Math.min(...values);
-    const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
-    const latest = values[values.length - 1];
-    const first = values[0];
-    const change = latest - first;
-    const changePercent =
-      first > 0 ? ((change / first) * 100).toFixed(1) : "0.0";
-
-    return { max, min, avg, latest, change, changePercent };
-  }, [dailyData]);
-
-  if (!dailyData.length) {
+  if (!prepared.points.length) {
     return (
       <View style={[generalStyles.newCard, styles.card]}>
         <View style={styles.header}>
@@ -164,7 +453,7 @@ export function ExerciseProgressChart({
               <Text style={[typography.bodyBold, styles.title]}>{title}</Text>
             )}
             <Text style={[typography.body, styles.subtitle]}>
-              Spor din progresjon
+              Ingen data i valgt periode
             </Text>
           </View>
         </View>
@@ -181,169 +470,184 @@ export function ExerciseProgressChart({
             Ingen data tilgjengelig ennå
           </Text>
           <Text style={[typography.body, styles.emptySubtext]}>
-            Start å logge økter for å se progresjon
+            Grafen hopper over manglende eller ugyldige logger og viser først
+            noe når det finnes gyldige datapunkter.
           </Text>
         </View>
       </View>
     );
   }
 
-  // --- ORIGINAL labels/values ---
-  const labels = dailyData.map((w) => w.label);
-  const values = dailyData.map((w) => w.value);
+  const selectedPoint =
+    prepared.points.find((point) => point.key === selectedKey) ??
+    prepared.points[prepared.points.length - 1];
 
-  // ✅ ONLY ADDITION: ghost value for BAR chart only (extra slot at end)
-  const barLabels = variant === "bar" ? [...labels, ""] : labels;
-  const barValues = variant === "bar" ? [...values, 0] : values;
+  const slotWidth = getPointSlotWidth(prepared.points.length);
+  const minChartWidth =
+    PAD_LEFT + PAD_RIGHT + slotWidth * prepared.points.length;
+  const chartWidth = Math.max(containerWidth, minChartWidth);
+  const innerWidth = Math.max(10, chartWidth - PAD_LEFT - PAD_RIGHT);
+  const innerHeight = Math.max(80, height - PAD_TOP - PAD_BOTTOM);
 
-  // X-label density (use barLabels so spacing matches the rendered chart)
-  const totalPoints = barLabels.length;
-  const minAllowedX = Math.min(minXLabels, totalPoints);
-  const maxAllowedX = Math.min(Math.max(maxXLabels, minAllowedX), totalPoints);
+  const yScale = scaleLinear()
+    .domain([prepared.yDomain.paddedMin, prepared.yDomain.paddedMax])
+    .range([innerHeight, 0]);
 
-  let limitedLabels = barLabels;
-  if (maxAllowedX > 0 && totalPoints > maxAllowedX) {
-    const step = Math.ceil(totalPoints / maxAllowedX);
-    limitedLabels = barLabels.map((label, index) =>
-      index % step === 0 ? label : ""
+  const getX = (index: number) => {
+    if (prepared.points.length === 1) {
+      return PAD_LEFT + innerWidth / 2;
+    }
+    const step = innerWidth / (prepared.points.length - 1);
+    return PAD_LEFT + step * index;
+  };
+
+  const getY = (value: number) => PAD_TOP + yScale(value);
+
+  const rawSegments = buildLinePath(prepared.points, getX, getY, (point) =>
+    variant === "line" ? point.clampedValue : null
+  );
+  const trendSegments = buildLinePath(
+    prepared.points,
+    getX,
+    getY,
+    (point) => point.trendClampedValue
+  );
+
+  const labelIndexes = getVisibleLabelIndexes(
+    prepared.points.length,
+    minXLabels,
+    maxXLabels
+  );
+  const tickCount = 4;
+  const yTicks = Array.from({ length: tickCount + 1 }, (_, index) => {
+    const ratio = index / tickCount;
+    return (
+      prepared.yDomain.paddedMax -
+      (prepared.yDomain.paddedMax - prepared.yDomain.paddedMin) * ratio
     );
-  }
+  });
 
-  const fallbackWidth = screenWidth - 48;
-  const effectiveContainerWidth = containerWidth ?? fallbackWidth;
-
-  const chartWidth = effectiveContainerWidth;
-  const chartHeight = height ?? 220;
-
-  // Heuristic: show values on top only if not too many bars
-  const autoShowValues = barValues.length <= 12;
-  const effectiveShowValues =
-    typeof showValuesOnTopOfBars === "boolean"
-      ? showValuesOnTopOfBars
-      : autoShowValues;
-
-  // Color overrides
-  const effectiveBarColor =
-    barColor || (variant === "line" ? colors.chartLine : colors.chartBar);
-  const effectiveLabelColor = labelColor || colors.muted2;
-  const effectiveGridLineColor = gridLineColor || colors.chartGrid;
-
+  const selectedIndex = prepared.points.findIndex(
+    (point) => point.key === selectedPoint.key
+  );
+  const selectedX = getX(selectedIndex);
   return (
     <View style={[generalStyles.newCard, styles.card]}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.iconCircle}>
           <Ionicons name="analytics" size={20} color={colors.accent} />
         </View>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           {showTitle && (
-            <Text style={[typography.bodyBold, styles.title]}>{title}</Text>
+            <Text style={[typography.bodyBold, styles.title]} numberOfLines={1}>
+              {title}
+            </Text>
           )}
-          <Text style={[typography.body, styles.subtitle]}>
-            {dailyData.length} økter
+          <Text style={[typography.body, styles.subtitle]} numberOfLines={2}>
+            {prepared.rangeLabel} • {prepared.points.length}{" "}
+            {prepared.bucket === "week" ? "ukepunkter" : "punkter"}
           </Text>
-        </View>
-
-        {/* Chart Type Toggle */}
-        <View style={styles.variantToggle}>
-          <Pressable
-            onPress={() => setVariant("bar")}
-            style={[
-              styles.variantButton,
-              variant === "bar" && styles.variantButtonActive,
-            ]}
-          >
-            <Ionicons
-              name="bar-chart"
-              size={14}
-              color={variant === "bar" ? colors.accent : colors.muted2}
-            />
-          </Pressable>
-          <Pressable
-            onPress={() => setVariant("line")}
-            style={[
-              styles.variantButton,
-              variant === "line" && styles.variantButtonActive,
-            ]}
-          >
-            <Ionicons
-              name="stats-chart"
-              size={14}
-              color={variant === "line" ? colors.accent : colors.muted2}
-            />
-          </Pressable>
         </View>
       </View>
 
-      {/* Stats Row */}
-      {stats && (
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Maks</Text>
-            <Text style={styles.statValue}>{stats.max.toFixed(1)}</Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Snitt</Text>
-            <Text style={styles.statValue}>{stats.avg.toFixed(1)}</Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Min</Text>
-            <Text style={styles.statValue}>{stats.min.toFixed(1)}</Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Endring</Text>
-            <View style={styles.changeRow}>
-              <Ionicons
-                name={stats.change >= 0 ? "trending-up" : "trending-down"}
-                size={12}
-                color={stats.change >= 0 ? colors.green : colors.red}
-              />
-              <Text
-                style={[
-                  styles.statValue,
-                  {
-                    color: stats.change >= 0 ? colors.green : colors.red,
-                    fontSize: 12,
-                  },
+      {!!onRangeChange && (
+        <View style={styles.rangeRow}>
+          {PROGRESS_TIME_RANGE_OPTIONS.map((option) => {
+            const active = option.value === range;
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => onRangeChange(option.value)}
+                style={({ pressed }) => [
+                  styles.rangePill,
+                  active && styles.rangePillActive,
+                  pressed && { opacity: 0.92 },
                 ]}
               >
-                {stats.changePercent}%
-              </Text>
-            </View>
-          </View>
+                <Text
+                  style={[
+                    styles.rangePillText,
+                    active && styles.rangePillTextActive,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       )}
 
-      {/* Chart */}
+      <View style={styles.statsRow}>
+        <View style={styles.statBox}>
+          <Text style={styles.statLabel}>Total</Text>
+          <Text
+            style={[
+              styles.statValue,
+              prepared.totalChange != null && {
+                color:
+                  prepared.totalChange >= 0 ? colors.success : colors.danger,
+              },
+            ]}
+          >
+            {prepared.totalChange == null
+              ? "--"
+              : `${prepared.totalChange >= 0 ? "+" : ""}${formatValue(
+                  prepared.totalChange,
+                  prepared.unitLabel
+                )}`}
+          </Text>
+        </View>
+
+        <View style={styles.statDivider} />
+
+        <View style={styles.statBox}>
+          <Text style={styles.statLabel}>Snitt / uke</Text>
+          <Text style={styles.statValue}>
+            {prepared.averageChangePerWeek == null
+              ? "--"
+              : `${prepared.averageChangePerWeek >= 0 ? "+" : ""}${formatValue(
+                  prepared.averageChangePerWeek,
+                  prepared.unitLabel
+                )}`}
+          </Text>
+        </View>
+
+        <View style={styles.statDivider} />
+
+        <View style={styles.statBox}>
+          <Text style={styles.statLabel}>Siste</Text>
+          <Text style={styles.statValue}>
+            {formatValue(selectedPoint.value, prepared.unitLabel)}
+          </Text>
+        </View>
+      </View>
+
       <View
         style={styles.chartOuter}
-        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+        onLayout={(event) => {
+          const nextWidth = event.nativeEvent.layout.width;
+          if (nextWidth !== containerWidth) {
+            setContainerWidth(nextWidth);
+          }
+        }}
       >
-        {chartWidth > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View
             style={[
               styles.chartBackground,
               {
                 width: chartWidth,
-                height: chartHeight,
+                height,
+                borderWidth: showOuterLines ? 1 : 0,
               },
             ]}
           >
-            {/* Gradient Overlay */}
             <LinearGradient
               colors={[
-                "rgba(6,182,212,0.08)",
-                "rgba(6,182,212,0.03)",
-                "rgba(6,182,212,0.00)",
+                colors.chartBgTop,
+                colors.chartBgBottom,
+                colors.chartBgBottom,
               ]}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
@@ -351,267 +655,186 @@ export function ExerciseProgressChart({
               pointerEvents="none"
             />
 
-            {variant === "line" ? (
-              <LineChart
-                data={{
-                  labels: labels,
-                  datasets: [{ data: values, strokeWidth: 3 }],
-                }}
-                width={chartWidth}
-                height={chartHeight}
-                fromZero={fromZero}
-                withInnerLines={showInnerLines}
-                withOuterLines={showOuterLines}
-                segments={segments}
-                withVerticalLabels={showVerticalLabels}
-                withHorizontalLabels={showHorizontalLabels}
-                yAxisLabel=""
-                yAxisSuffix=""
-                chartConfig={{
-                  backgroundGradientFrom: "transparent",
-                  backgroundGradientTo: "transparent",
-                  decimalPlaces,
-                  color: () => effectiveBarColor,
-                  labelColor: () => effectiveLabelColor,
-                  propsForBackgroundLines: {
-                    stroke: effectiveGridLineColor,
-                    strokeDasharray: "4,4",
-                  },
-                  propsForVerticalLabels: { fontSize: "9" },
-                  propsForDots: {
-                    r: "0",
-                  },
-                }}
-                style={StyleSheet.absoluteFillObject}
-                bezier
-              />
-            ) : (
-              <BarChart
-                data={{
-                  labels: limitedLabels,
-                  datasets: [{ data: barValues }],
-                }}
-                width={chartWidth}
-                height={chartHeight}
-                fromZero={fromZero}
-                withInnerLines={showInnerLines}
-                segments={segments}
-                withVerticalLabels={showVerticalLabels}
-                withHorizontalLabels={showHorizontalLabels}
-                yAxisLabel=""
-                yAxisSuffix=""
-                showValuesOnTopOfBars={effectiveShowValues}
-                chartConfig={{
-                  backgroundGradientFrom: "transparent",
-                  backgroundGradientTo: "transparent",
-                  decimalPlaces,
-                  color: () => effectiveBarColor,
-                  labelColor: () => effectiveLabelColor,
-                  propsForBackgroundLines: {
-                    stroke: effectiveGridLineColor,
-                    strokeDasharray: "4,4",
-                  },
-                  barPercentage: 0.7,
-                  propsForLabels: { fontSize: "9" },
-                }}
-                style={StyleSheet.absoluteFillObject}
-                flatColor
-              />
-            )}
+            <Svg width={chartWidth} height={height}>
+              <Defs>
+                <SvgLinearGradient
+                  id="progressRawFill"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <Stop offset="0" stopColor={colors.rawFill} />
+                  <Stop offset="1" stopColor="transparent" />
+                </SvgLinearGradient>
+              </Defs>
+
+              <G>
+                {yTicks.map((tick, index) => {
+                  const y = getY(tick);
+                  return (
+                    <G key={`tick-${index}`}>
+                      <SvgLine
+                        x1={PAD_LEFT}
+                        x2={chartWidth - PAD_RIGHT}
+                        y1={y}
+                        y2={y}
+                        stroke={colors.grid}
+                        strokeWidth={1}
+                        strokeDasharray="4,4"
+                      />
+                      <SvgText
+                        x={PAD_LEFT - 8}
+                        y={y + 3}
+                        textAnchor="end"
+                        fontSize={9}
+                        fill={colors.muted2}
+                        fontWeight="600"
+                      >
+                        {tick < 10 ? tick.toFixed(1) : tick.toFixed(0)}
+                      </SvgText>
+                    </G>
+                  );
+                })}
+
+                <SvgLine
+                  x1={selectedX}
+                  x2={selectedX}
+                  y1={PAD_TOP}
+                  y2={height - PAD_BOTTOM}
+                  stroke={colors.guide}
+                  strokeWidth={1}
+                  strokeDasharray="3,4"
+                />
+
+                {variant === "bar" &&
+                  prepared.points.map((point, index) => {
+                    const x = getX(index);
+                    const barWidth = Math.min(18, slotWidth * 0.62);
+                    const top = getY(point.clampedValue);
+                    const barHeight = Math.max(4, height - PAD_BOTTOM - top);
+                    return (
+                      <Rect
+                        key={`bar-${point.key}`}
+                        x={x - barWidth / 2}
+                        y={top}
+                        width={barWidth}
+                        height={barHeight}
+                        rx={4}
+                        fill={colors.rawFill}
+                        stroke={point.isOutlier ? colors.warning : colors.raw}
+                        strokeWidth={point.key === selectedPoint.key ? 1.6 : 1}
+                      />
+                    );
+                  })}
+
+                {rawSegments.map((segment) => (
+                  <Path
+                    key={segment}
+                    d={segment}
+                    fill="none"
+                    stroke={colors.raw}
+                    strokeWidth={variant === "line" ? 1.8 : 0}
+                  />
+                ))}
+
+                {trendSegments.map((segment) => (
+                  <Path
+                    key={`trend-${segment}`}
+                    d={segment}
+                    fill="none"
+                    stroke={colors.trend}
+                    strokeWidth={1.35}
+                    strokeDasharray="6,6"
+                    opacity={0.95}
+                  />
+                ))}
+
+                {prepared.points.map((point, index) => {
+                  const x = getX(index);
+                  const y = getY(point.clampedValue);
+                  const showDot =
+                    variant === "line" &&
+                    (prepared.points.length <= 12 ||
+                      point.key === selectedPoint.key ||
+                      point.isPr ||
+                      point.isOutlier);
+
+                  return (
+                    <G key={`point-${point.key}`}>
+                      {showDot && (
+                        <>
+                          <Circle
+                            cx={x}
+                            cy={y}
+                            r={point.key === selectedPoint.key ? 4.1 : 2.8}
+                            fill={point.isOutlier ? colors.warning : colors.raw}
+                          />
+                          {point.isPr && (
+                            <Circle
+                              cx={x}
+                              cy={y}
+                              r={point.key === selectedPoint.key ? 6.1 : 4.9}
+                              fill="none"
+                              stroke={colors.pr}
+                              strokeWidth={1.1}
+                            />
+                          )}
+                        </>
+                      )}
+
+                      {point.key === selectedPoint.key && (
+                        <Circle
+                          cx={x}
+                          cy={y}
+                          r={8.2}
+                          fill="transparent"
+                          stroke={colors.accent}
+                          strokeWidth={1}
+                        />
+                      )}
+
+                      <Circle
+                        cx={x}
+                        cy={y}
+                        r={Math.max(12, slotWidth * 0.34)}
+                        fill="transparent"
+                        onPress={() => setSelectedKey(point.key)}
+                      />
+
+                      {labelIndexes.has(index) && (
+                        <SvgText
+                          x={x}
+                          y={height - 12}
+                          textAnchor="middle"
+                          fontSize={10}
+                          fill={colors.muted2}
+                          fontWeight="600"
+                        >
+                          {point.shortLabel}
+                        </SvgText>
+                      )}
+
+                      {point.isPr && point.key === selectedPoint.key && (
+                        <SvgText
+                          x={x}
+                          y={Math.max(14, y - 12)}
+                          textAnchor="middle"
+                          fontSize={10}
+                          fill={colors.pr}
+                          fontWeight="700"
+                        >
+                          PR
+                        </SvgText>
+                      )}
+                    </G>
+                  );
+                })}
+              </G>
+            </Svg>
           </View>
-        )}
+        </ScrollView>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create<{
-  card: ViewStyle;
-  header: ViewStyle;
-  iconCircle: ViewStyle;
-  title: TextStyle;
-  subtitle: TextStyle;
-  variantToggle: ViewStyle;
-  variantButton: ViewStyle;
-  variantButtonActive: ViewStyle;
-  statsRow: ViewStyle;
-  statBox: ViewStyle;
-  statDivider: ViewStyle;
-  statLabel: TextStyle;
-  statValue: TextStyle;
-  changeRow: ViewStyle;
-  chartOuter: ViewStyle;
-  chartBackground: ViewStyle;
-  chartGradient: ViewStyle;
-  emptyState: ViewStyle;
-  emptyIcon: ViewStyle;
-  emptyText: TextStyle;
-  emptySubtext: TextStyle;
-}>({
-  card: {
-    width: "100%",
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-    borderRadius: 22,
-    marginBottom: 16,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 16,
-  },
-
-  iconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.accentBg,
-    borderWidth: 1,
-    borderColor: colors.accentDim,
-  },
-
-  title: {
-    fontSize: 16,
-    color: colors.text,
-    letterSpacing: 0.1,
-    marginBottom: 2,
-  },
-
-  subtitle: {
-    fontSize: 12,
-    color: colors.muted2,
-    letterSpacing: 0.1,
-  },
-
-  variantToggle: {
-    flexDirection: "row",
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 3,
-    gap: 3,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-  },
-
-  variantButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  variantButtonActive: {
-    backgroundColor: colors.accentBg,
-    borderWidth: 1,
-    borderColor: colors.accentDim,
-  },
-
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    marginBottom: 16,
-  },
-
-  statBox: {
-    flex: 1,
-    alignItems: "center",
-    gap: 4,
-  },
-
-  statDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: colors.borderSoft,
-  },
-
-  statLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: colors.muted2,
-    letterSpacing: 0.2,
-    textTransform: "uppercase",
-  },
-
-  statValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.text,
-    letterSpacing: 0.1,
-  },
-
-  changeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-
-  chartOuter: {
-    width: "100%",
-  },
-
-  chartBackground: {
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: colors.chartBg,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    position: "relative",
-  },
-
-  chartGradient: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 0,
-  },
-
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-  },
-
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    marginBottom: 16,
-  },
-
-  emptyText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textMuted,
-    textAlign: "center",
-    marginBottom: 6,
-  },
-
-  emptySubtext: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: colors.muted2,
-    textAlign: "center",
-    lineHeight: 18,
-  },
-});

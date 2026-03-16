@@ -37,10 +37,10 @@ import {
 
 import ExerciseHistoryList from "./progress/ExerciseHistoryList";
 import { StatRow } from "./progress/StatRow";
-import { YearSummaryCard } from "./progress/YearSummaryCard";
 
-import { estimate1RMFromTopSet } from "@/utils/exercise/oneRepMax";
 import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
+import { estimate1RMFromTopSet } from "@/utils/exercise/oneRepMax";
+import { type ProgressTimeRange } from "@/utils/exercise/progressChart";
 
 type ProgressTabProps = {
   selectedExerciseId: string | null;
@@ -81,6 +81,7 @@ export default function ProgressTab({
   const [search, setSearch] = useState("");
   const [metric, setMetric] = useState<Metric>("weight");
   const [volumeMetric, setVolumeMetric] = useState<VolumeMetric>("sets");
+  const [timeRange, setTimeRange] = useState<ProgressTimeRange>("20");
   const [searchFocused, setSearchFocused] = useState(false);
 
   // Keep selected exercise in sync with visible list
@@ -90,7 +91,9 @@ export default function ProgressTab({
       return;
     }
 
-    const selectedIsVisible = exercises.some((ex) => ex.id === selectedExerciseId);
+    const selectedIsVisible = exercises.some(
+      (ex) => ex.id === selectedExerciseId
+    );
     if (!selectedIsVisible) {
       onSelectExercise(exercises[0].id);
     }
@@ -177,78 +180,6 @@ export default function ProgressTab({
     return { pr: prVal, lastEst1Rm: last, diffToPr: diff };
   }, [setsHistoryData]);
 
-  const { yearWeightIncrease, yearVolumeIncreaseKg } = useMemo(() => {
-    // Weight increase (1RM) stays on aggregated history, as before
-    let yearWeight = 0;
-
-    if (sortedHistory.length > 0) {
-      const now = new Date();
-      const oneYearAgo = new Date();
-      oneYearAgo.setFullYear(now.getFullYear() - 1);
-
-      const pointsLastYear = sortedHistory.filter(
-        (h) => new Date(h.performedAtUtc) >= oneYearAgo
-      );
-
-      if (pointsLastYear.length >= 2) {
-        const first = pointsLastYear[0];
-        const last = pointsLastYear[pointsLastYear.length - 1];
-        yearWeight = getOneRm(last, false) - getOneRm(first, false);
-      }
-    }
-
-    // Volume increase: best set volume now vs ~1 year ago (from sets history)
-    let yearVolume = 0;
-
-    if (setsHistoryData && setsHistoryData.length > 0) {
-      const sorted = [...setsHistoryData].sort(
-        (a, b) =>
-          new Date(b.performedAtUtc).getTime() -
-          new Date(a.performedAtUtc).getTime()
-      );
-
-      const latest = sorted[0] ?? null;
-      if (latest) {
-        const now = new Date();
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(now.getFullYear() - 1);
-        const targetTs = oneYearAgo.getTime();
-
-        // Pick session closest to 1-year-ago timestamp
-        let baseline: ExerciseSessionSetsDto | null = null;
-        let bestDelta = Number.POSITIVE_INFINITY;
-
-        for (const s of sorted) {
-          const t = Date.parse(s.performedAtUtc);
-          if (!Number.isFinite(t)) continue;
-
-          const d = Math.abs(t - targetTs);
-          if (d < bestDelta) {
-            bestDelta = d;
-            baseline = s;
-          }
-        }
-
-        // Best single set volume in kg: max(weight * reps)
-        const bestSetVolumeKg = (session: ExerciseSessionSetsDto) => {
-          let best = 0;
-          for (const set of session.sets ?? []) {
-            const w = set.weightKg ?? 0;
-            const r = set.reps ?? 0;
-            if (w > 0 && r > 0) best = Math.max(best, w * r);
-          }
-          return best;
-        };
-
-        if (baseline) {
-          yearVolume = bestSetVolumeKg(latest) - bestSetVolumeKg(baseline);
-        }
-      }
-    }
-
-    return { yearWeightIncrease: yearWeight, yearVolumeIncreaseKg: yearVolume };
-  }, [sortedHistory, setsHistoryData]);
-
   // Single-series chart data (from aggregated history)
   const chartData: ExerciseProgressPoint[] = useMemo(() => {
     if (sortedHistory.length === 0) return [];
@@ -291,10 +222,10 @@ export default function ProgressTab({
 
   const chartTitle =
     metric === "weight"
-      ? "Estimated 1RM"
+      ? "Estimert 1RM"
       : volumeMetric === "sets"
-      ? "Training volume (sets)"
-      : "Training volume (total kg)";
+      ? "Treningsvolum (sett)"
+      : "Treningsvolum";
 
   const showResults = search.trim().length > 0;
 
@@ -478,9 +409,10 @@ export default function ProgressTab({
           title="1RM & volume"
           metric={metric}
           volumeMetric={volumeMetric}
+          range={timeRange}
+          onRangeChange={setTimeRange}
           weightData={combinedWeightData}
           volumeData={combinedVolumeData}
-          showVerticalLines={false}
           showOuterLines={false}
         />
       ) : (
@@ -488,15 +420,18 @@ export default function ProgressTab({
           data={chartData}
           title={chartTitle}
           variant={metric === "weight" ? "line" : "bar"}
-          showVerticalLines={false}
+          range={timeRange}
+          onRangeChange={setTimeRange}
+          metricKind={
+            metric === "weight"
+              ? "weight"
+              : volumeMetric === "sets"
+              ? "volumeSets"
+              : "volumeKg"
+          }
           showOuterLines={false}
         />
       )}
-
-      <YearSummaryCard
-        weightIncrease={yearWeightIncrease}
-        volumeIncreaseKg={yearVolumeIncreaseKg}
-      />
 
       <ExerciseHistoryList history={setsHistoryData} />
     </ScrollView>
@@ -536,9 +471,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.10)",
   },
   selectedPillText: {
+    flexShrink: 1,
     color: "rgba(226,232,240,0.86)",
     fontSize: 12.5,
-    fontWeight: "800",
+    fontWeight: "600",
   },
 
   // SEARCH

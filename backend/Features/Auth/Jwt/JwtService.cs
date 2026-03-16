@@ -7,6 +7,8 @@ using backend.Features.Users;
 
 namespace backend.Features.Auth
 {
+    public sealed record AccessTokenResult(string Token, DateTime ExpiresAtUtc);
+
     public class JwtService
     {
         private readonly JwtSettings _settings;
@@ -21,6 +23,13 @@ namespace backend.Features.Auth
         // Generate token from User entity
         public string GenerateToken(User user)
         {
+            return GenerateAccessToken(user).Token;
+        }
+
+        public AccessTokenResult GenerateAccessToken(User user)
+        {
+            var expiresAtUtc = DateTime.UtcNow.AddMinutes(_settings.ExpirationMinutes);
+
             var claims = new List<Claim>
             {
                 // User id
@@ -43,11 +52,14 @@ namespace backend.Features.Auth
                 issuer: _settings.Issuer,
                 audience: _settings.Audience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(_settings.ExpirationMinutes),
+                expires: expiresAtUtc,
                 signingCredentials: credentials
             );
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            return new AccessTokenResult(
+                new JwtSecurityTokenHandler().WriteToken(token),
+                expiresAtUtc
+            );
         }
     }
 }

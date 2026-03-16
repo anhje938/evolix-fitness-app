@@ -215,9 +215,9 @@ const styles = StyleSheet.create({
 
   statLabel: {
     flex: 1,
-    fontSize: 11.5,
+    fontSize: 10,
     color: "rgba(226,232,240,0.70)",
-    fontWeight: "700",
+    fontWeight: "600",
     letterSpacing: 0.2,
   },
 
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   },
 
   statValue: {
-    fontSize: 24, // slimmer
+    fontSize: 17,
     fontWeight: "600",
     letterSpacing: -0.2,
     fontVariant: ["tabular-nums"],

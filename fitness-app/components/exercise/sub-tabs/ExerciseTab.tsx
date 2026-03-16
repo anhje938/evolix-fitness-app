@@ -17,15 +17,18 @@ import { useExercises } from "@/hooks/useExercises";
 import { MuscleFilterBar } from "../MuscleFilterBar";
 
 import { CreateExercise } from "@/api/exercise/exercise";
+import { fetchMyUser } from "@/api/user";
 import { queryClient } from "@/config/queryClient";
 import AddButton from "../AddButton";
 import { AddExerciseModal } from "./exercise/AddExerciseModal";
 
+import { useAuth } from "@/context/AuthProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { MuscleFilterValue } from "@/types/muscles";
 import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { LinearGradient } from "expo-linear-gradient";
 import ExerciseCard from "./exercise/ExerciseCard";
+import { useEffect } from "react";
 
 type Props = {
   onPressExercise: (exerciseId: string) => void;
@@ -49,7 +52,9 @@ export default function ExerciseTab({ onPressExercise }: Props) {
   const [muscleFilter, setMuscleFilter] = useState<MuscleFilterValue>("ALL");
   const [openAdd, setOpenAdd] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
+  const { token, authReady } = useAuth();
   const { userSettings } = useUserSettings();
   const { data, isLoading, error } = useExercises();
   const exercises = useMemo(() => {
@@ -60,6 +65,30 @@ export default function ExerciseTab({ onPressExercise }: Props) {
 
   const exerciseIds = useMemo(() => exercises.map((e) => e.id), [exercises]);
   const { data: setsHistoryMap } = useAllExerciseSetsHistory(exerciseIds);
+
+  useEffect(() => {
+    if (!authReady || !token) {
+      setIsAdmin(false);
+      return;
+    }
+
+    let alive = true;
+
+    (async () => {
+      try {
+        const me = await fetchMyUser(token);
+        if (!alive) return;
+        setIsAdmin(!!me?.isAdmin);
+      } catch {
+        if (!alive) return;
+        setIsAdmin(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [authReady, token]);
 
   const filteredExercises = useMemo(() => {
     const s = search.toLowerCase().trim();
@@ -199,6 +228,7 @@ export default function ExerciseTab({ onPressExercise }: Props) {
             key={ex.id}
             exercise={ex}
             sessions={setsHistoryMap?.[ex.id] ?? []}
+            isAdmin={isAdmin}
             onPress={() => onPressExercise(ex.id)}
           />
         ))}

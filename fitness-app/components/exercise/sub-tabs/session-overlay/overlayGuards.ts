@@ -108,3 +108,26 @@ export function findInvalidCompletedSets(exercises: SessionExercise[]) {
 
   return issues;
 }
+
+export function findSuspiciousWeightSets(
+  exercises: SessionExercise[],
+  thresholdKg = 500
+) {
+  const issues: { exerciseName: string; setIndex: number; weight: number }[] = [];
+
+  for (const ex of exercises) {
+    ex.sets.forEach((s, idx) => {
+      if (!s.completed) return;
+      if (s.weight == null || !Number.isFinite(s.weight)) return;
+      if (s.weight < thresholdKg) return;
+
+      issues.push({
+        exerciseName: ex.name,
+        setIndex: idx + 1,
+        weight: s.weight,
+      });
+    });
+  }
+
+  return issues;
+}

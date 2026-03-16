@@ -1,7 +1,6 @@
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { Food } from "@/types/meal";
-import { parseISO } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { memo, useMemo } from "react";
@@ -23,24 +22,68 @@ type MealCardProps = {
 };
 
 const ACCENT = {
-  main: "rgba(45, 212, 191, 0.62)",
   soft: "rgba(45, 212, 191, 0.22)",
   softer: "rgba(45, 212, 191, 0.12)",
   deepBg: "rgba(2, 6, 23, 0.22)",
 };
+
+function toLocalDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function toRounded(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.round(n);
+}
+
+function formatTime(utc: string): string {
+  const parsed = new Date(utc);
+  if (Number.isNaN(parsed.getTime())) return "--:--";
+  return parsed.toLocaleTimeString("nb-NO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatServings(value: number | null | undefined): string {
+  const safe = Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : 1;
+  if (Number.isInteger(safe)) return `${safe}`;
+  return safe.toFixed(1).replace(".", ",");
+}
+
+function getSourceLabel(meal: Food): string | null {
+  if (meal.sourceType === "composedMeal") {
+    return `Matrett - ${formatServings(meal.sourceServings)} porsjoner`;
+  }
+  if (meal.sourceType === "qr") return "Skannet produkt";
+  if (meal.sourceType === "quickAdd") return "Hurtigregistrert";
+  if (meal.sourceType === "manual") return "Manuell registrering";
+  return null;
+}
 
 export const MealCard = memo(function MealCard({
   foodList = [],
   onEditMeal,
   onDeleteMeal,
 }: MealCardProps) {
-  const todayKey = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayKey = useMemo(() => toLocalDateKey(new Date()), []);
 
   const todaysMeals = useMemo(() => {
-    return foodList.filter((meal) => {
-      if (!meal.timestampUtc) return false;
-      return meal.timestampUtc.slice(0, 10) === todayKey;
-    });
+    return [...foodList]
+      .filter((meal) => {
+        if (!meal.timestampUtc) return false;
+        const parsed = new Date(meal.timestampUtc);
+        if (Number.isNaN(parsed.getTime())) return false;
+        return toLocalDateKey(parsed) === todayKey;
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.timestampUtc).getTime() - new Date(a.timestampUtc).getTime()
+      );
   }, [foodList, todayKey]);
 
   const openMenu = (meal: Food) => {
@@ -62,7 +105,6 @@ export const MealCard = memo(function MealCard({
         text: "Slett",
         style: "destructive",
         onPress: () => {
-          // keep Alert handler sync; run async safely
           Promise.resolve(onDeleteMeal(String(meal.id))).catch((e) => {
             console.log("onDeleteMeal failed:", e);
           });
@@ -72,19 +114,14 @@ export const MealCard = memo(function MealCard({
 
     buttons.push({ text: "Avbryt", style: "cancel" });
 
-    Alert.alert(
-      meal.title?.trim() ? meal.title : "Måltid",
-      "Hva vil du gjøre?",
-      buttons,
-      { cancelable: true }
-    );
+    Alert.alert(meal.title?.trim() ? meal.title : "Måltid", "Hva vil du gjøre?", buttons, {
+      cancelable: true,
+    });
   };
 
-  // Premium tom-state (samme ocean/cyan tema som resten av appen)
   if (todaysMeals.length === 0) {
     return (
       <View style={[generalStyles.newCard, styles.emptyCard]}>
-        {/* Sheen for depth */}
         <View pointerEvents="none" style={styles.sheenWrap}>
           <LinearGradient
             colors={[
@@ -98,7 +135,6 @@ export const MealCard = memo(function MealCard({
           />
         </View>
 
-        {/* Accent bar */}
         <LinearGradient
           colors={[
             "rgba(20, 184, 166, 0.80)",
@@ -111,13 +147,11 @@ export const MealCard = memo(function MealCard({
         />
 
         <View style={styles.emptyIconWrap}>
-          <Text style={styles.emptyIconText}>🍽</Text>
+          <Ionicons name="restaurant-outline" size={16} color="rgba(45, 212, 191, 0.9)" />
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={[typography.bodyBlack, styles.emptyTitle]}>
-            Ingen måltider registrert i dag
-          </Text>
+          <Text style={[typography.bodyBlack, styles.emptyTitle]}>Ingen måltider registrert i dag</Text>
           <Text style={[typography.body, styles.emptySub]}>
             Logg et måltid for å se kalorier og makroer her.
           </Text>
@@ -130,18 +164,20 @@ export const MealCard = memo(function MealCard({
 
   return (
     <View style={styles.carouselWrap}>
-      {showSwipeHint && (
-        <View style={styles.swipeHintRow}>
-          <Ionicons
-            name="swap-horizontal"
-            size={12}
-            color="rgba(153,246,228,0.92)"
-          />
-          <Text style={[typography.body, styles.swipeHintText]}>
-            Sveip for flere
-          </Text>
-        </View>
-      )}
+      <View style={styles.topRow}>
+        <Text style={[typography.bodyBlack, styles.cardsTitle]}>Dagens måltider</Text>
+
+        {showSwipeHint && (
+          <View style={styles.swipeHintRow}>
+            <Ionicons
+              name="swap-horizontal"
+              size={12}
+              color="rgba(153,246,228,0.92)"
+            />
+            <Text style={[typography.body, styles.swipeHintText]}>Sveip for flere</Text>
+          </View>
+        )}
+      </View>
 
       <ScrollView
         horizontal
@@ -153,17 +189,14 @@ export const MealCard = memo(function MealCard({
         style={styles.scroll}
       >
         {todaysMeals.map((meal) => {
-          const iso = parseISO(meal.timestampUtc);
+          const sourceLabel = getSourceLabel(meal);
 
           return (
             <Pressable
               key={meal.id}
               onPress={() => openMenu(meal)}
               android_ripple={{ color: "rgba(255,255,255,0.04)" }}
-              style={({ pressed }) => [
-                styles.cardPressable,
-                pressed && styles.cardPressed,
-              ]}
+              style={({ pressed }) => [styles.cardPressable, pressed && styles.cardPressed]}
             >
               <View style={[generalStyles.newCard, styles.card]}>
                 <Pressable
@@ -184,24 +217,21 @@ export const MealCard = memo(function MealCard({
                   />
                 </Pressable>
 
-                {/* Contrast layer under sheen */}
                 <View pointerEvents="none" style={styles.tintLayer} />
 
-                {/* Diagonal sheen */}
                 <View pointerEvents="none" style={styles.sheenWrap}>
-                <LinearGradient
-                  colors={[
-                    "rgba(45, 212, 191, 0.16)",
-                    "rgba(20, 184, 166, 0.08)",
-                    "rgba(2, 6, 23, 0.00)",
-                  ]}
+                  <LinearGradient
+                    colors={[
+                      "rgba(45, 212, 191, 0.16)",
+                      "rgba(20, 184, 166, 0.08)",
+                      "rgba(2, 6, 23, 0.00)",
+                    ]}
                     start={{ x: 0.12, y: 0 }}
                     end={{ x: 0.9, y: 1 }}
                     style={styles.sheen}
                   />
                 </View>
 
-                {/* Accent bar for interactivity */}
                 <LinearGradient
                   colors={[
                     "rgba(20, 184, 166, 0.82)",
@@ -213,55 +243,54 @@ export const MealCard = memo(function MealCard({
                   style={styles.accentBar}
                 />
 
-              {/* Header */}
-              <View style={styles.header}>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    numberOfLines={2}
-                    ellipsizeMode="tail"
-                    style={[typography.bodyBlack, styles.title]}
-                  >
-                    {meal.title || "Måltid"}
-                  </Text>
+                <View style={styles.header}>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      numberOfLines={2}
+                      ellipsizeMode="tail"
+                      style={[typography.bodyBlack, styles.title]}
+                    >
+                      {meal.title || "Måltid"}
+                    </Text>
 
-                  <View style={styles.metaRow}>
-                    <ClockIcon height={12} width={12} />
-                    <Text style={[typography.body, styles.metaText]}>
-                      {iso.time}
+                    <View style={styles.metaRow}>
+                      <ClockIcon height={12} width={12} />
+                      <Text style={[typography.body, styles.metaText]}>{formatTime(meal.timestampUtc)}</Text>
+                    </View>
+
+                    {sourceLabel && (
+                      <View style={styles.sourceChip}>
+                        <Ionicons name="sparkles-outline" size={11} color="#99F6E4" />
+                        <Text style={styles.sourceText}>{sourceLabel}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.kcalChip}>
+                    <View pointerEvents="none" style={styles.kcalGlowWrap}>
+                      <LinearGradient
+                        colors={[
+                          "rgba(45, 212, 191, 0.14)",
+                          "rgba(20, 184, 166, 0.10)",
+                          "rgba(2, 6, 23, 0.00)",
+                        ]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.kcalGlow}
+                      />
+                    </View>
+
+                    <FireIcon height={16} width={16} />
+                    <Text style={[typography.bodyBlack, styles.kcalText]}>
+                      {toRounded(meal.calories)} kcal
                     </Text>
                   </View>
                 </View>
 
-                {/* Calories */}
-                <View style={styles.kcalChip}>
-                  <View pointerEvents="none" style={styles.kcalGlowWrap}>
-                    <LinearGradient
-                      colors={[
-                        "rgba(45, 212, 191, 0.14)",
-                        "rgba(20, 184, 166, 0.10)",
-                        "rgba(2, 6, 23, 0.00)",
-                      ]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.kcalGlow}
-                    />
-                  </View>
-
-                  <FireIcon height={16} width={16} />
-                  <Text style={[typography.bodyBlack, styles.kcalText]}>
-                    {Math.round(meal.calories)} kcal
-                  </Text>
-                </View>
-              </View>
-
-                {/* Macros */}
                 <View style={styles.macrosRow}>
-                  <MacroPill
-                    label="Protein"
-                    value={`${Math.round(meal.proteins)}g`}
-                  />
-                  <MacroPill label="Karbo" value={`${Math.round(meal.carbs)}g`} />
-                  <MacroPill label="Fett" value={`${Math.round(meal.fats)}g`} />
+                  <MacroPill label="Protein" value={`${toRounded(meal.proteins)}g`} />
+                  <MacroPill label="Karbo" value={`${toRounded(meal.carbs)}g`} />
+                  <MacroPill label="Fett" value={`${toRounded(meal.fats)}g`} />
                 </View>
               </View>
             </Pressable>
@@ -302,13 +331,23 @@ const styles = StyleSheet.create({
   carouselWrap: {
     width: "100%",
   },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+    paddingHorizontal: 2,
+  },
+  cardsTitle: {
+    color: "#E2E8F0",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
   swipeHintRow: {
-    alignSelf: "flex-end",
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    marginBottom: 6,
-    marginRight: 6,
     paddingVertical: 4,
     paddingHorizontal: 9,
     borderRadius: 999,
@@ -333,7 +372,6 @@ const styles = StyleSheet.create({
     paddingRight: 14,
   },
 
-  // Pressable wrapper so ripple/pressed doesn't mess with card layout
   cardPressable: {
     borderRadius: 18,
   },
@@ -412,6 +450,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     color: "#CBD5E1",
+  },
+  sourceChip: {
+    marginTop: 7,
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(45,212,191,0.3)",
+    backgroundColor: "rgba(2,6,23,0.36)",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  sourceText: {
+    color: "#99F6E4",
+    fontSize: 10,
+    fontWeight: "700",
   },
 
   kcalChip: {
@@ -532,10 +588,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyIconText: {
-    fontSize: 16,
-    color: "rgba(45, 212, 191, 0.85)",
-  },
   emptyTitle: {
     color: "#E2E8F0",
     fontSize: 14,
@@ -548,3 +600,4 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 });
+

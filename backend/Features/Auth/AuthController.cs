@@ -1,8 +1,10 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
+using System.Security.Claims;
 using System.Text.Json;
 using backend.Auth;
 using backend.Common;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -110,7 +112,10 @@ namespace backend.Features.Auth
 
             try
             {
-                var result = await _auth.HandleAppleLoginAsync(request.IdToken, ct);
+                var result = await _auth.HandleAppleLoginAsync(
+                    request.IdToken,
+                    BuildRequestContext(),
+                    ct);
 
                 _logger.LogInformation("Apple login OK. traceId={traceId}", reqId);
                 return Ok(result);
@@ -155,12 +160,71 @@ namespace backend.Features.Auth
             }
         }
 
+        [HttpPost("refresh")]
+        public async Task<ActionResult<AuthResponse>> Refresh(
+            [FromBody] RefreshTokenRequest request,
+            CancellationToken ct = default)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.RefreshToken))
+                return BadRequest("refreshToken is required");
+
+            try
+            {
+                var result = await _auth.RefreshAsync(
+                    request.RefreshToken,
+                    BuildRequestContext(),
+                    ct);
+                return Ok(result);
+            }
+            catch (SecurityTokenException ex)
+            {
+                _logger.LogWarning(ex, "Refresh token validation failed. traceId={traceId}", HttpContext.TraceIdentifier);
+                return Unauthorized(new { error = "Invalid refresh token", traceId = HttpContext.TraceIdentifier });
+            }
+        }
+
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout(
+            [FromBody] RefreshTokenRequest request,
+            CancellationToken ct = default)
+        {
+            if (request != null && !string.IsNullOrWhiteSpace(request.RefreshToken))
+            {
+                await _auth.LogoutAsync(request.RefreshToken, BuildRequestContext(), ct);
+            }
+
+            return NoContent();
+        }
+
+        [Authorize]
+        [HttpPost("logout-all")]
+        public async Task<IActionResult> LogoutAll(CancellationToken ct = default)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("sub");
+
+            if (string.IsNullOrWhiteSpace(userId))
+                return Unauthorized();
+
+            await _auth.LogoutAllAsync(userId, ct);
+            return NoContent();
+        }
+
         // Hjelpefunksjon om du senere vil logge en kort "fingerprint" av tokenet uten å logge tokenet selv
         private static string Sha256Short(string input)
         {
             using var sha = SHA256.Create();
             var bytes = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(input));
             return Convert.ToHexString(bytes).Substring(0, 12);
+        }
+
+        private RefreshTokenRequestContext BuildRequestContext()
+        {
+            return new RefreshTokenRequestContext
+            {
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                UserAgent = Request.Headers.UserAgent.ToString(),
+            };
         }
     }
 }

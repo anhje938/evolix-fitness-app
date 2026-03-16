@@ -134,6 +134,9 @@ namespace backend.Features.Training.WorkoutSessions
         // Topp-sett vekt for denne økten (kg)
         public double? TopSetWeightKg { get; set; }
 
+        // Reps for topp-settet i denne økten
+        public int? TopSetReps { get; set; }
+
         // Antall sett totalt for denne økten
         public int TotalSets { get; set; }
 

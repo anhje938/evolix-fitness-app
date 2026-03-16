@@ -21,6 +21,6 @@ namespace backend.Features.Training.Workouts
         public string? UserId { get; set; }
         public bool IsCustom => UserId != null;
 
-        public List<Exercise> Exercises { get; set; } = new();
+        public List<WorkoutExercise> WorkoutExercises { get; set; } = new();
     }
 }

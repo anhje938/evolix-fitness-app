@@ -116,10 +116,12 @@ const ui = {
 export default function ExerciseCard({
   exercise,
   sessions,
+  isAdmin = false,
   onPress,
 }: {
   exercise: Exercise;
   sessions: ExerciseSessionSetsDto[];
+  isAdmin?: boolean;
   onPress: () => void;
 }) {
   const [editOpen, setEditOpen] = useState(false);
@@ -132,7 +134,7 @@ export default function ExerciseCard({
   const [description, setDescription] = useState("");
 
   const isGlobal = exercise.userId == null;
-  const canEdit = !isGlobal;
+  const canEdit = isAdmin || !isGlobal;
 
   const [specificGroups, setSpecificGroups] = useState<string[]>([]);
 
@@ -360,7 +362,7 @@ export default function ExerciseCard({
                   ]}
                 >
                   <View style={styles.iconBtnInner}>
-                    <Ionicons name="pencil-outline" size={14} color={ui.text} />
+                    <Ionicons name="pencil-outline" size={12} color={ui.text} />
                   </View>
                 </Pressable>
               )}
@@ -369,77 +371,86 @@ export default function ExerciseCard({
             {/* chips */}
             {(displayMuscleChips.length > 0 ||
               displayEquipmentList.length > 0) && (
-              <View style={styles.chipsWrap}>
-                {displayMuscleChips.map((m, idx) => {
-                  const variant = idx % 2 === 0 ? "indigo" : "cyan";
-                  return (
-                    <View
-                      key={`m-${m}`}
-                      style={[
-                        styles.pill,
-                        variant === "indigo"
-                          ? styles.pillIndigo
-                          : styles.pillCyan,
-                      ]}
-                    >
-                      <Text
-                        style={[typography.bodyBlack, styles.pillText]}
-                        numberOfLines={1}
-                      >
-                        {m}
-                      </Text>
-                    </View>
-                  );
-                })}
-
-                {displayEquipmentList.map((eq) => (
-                  <View key={`eq-${eq}`} style={styles.pill}>
-                    <Text
-                      style={[typography.bodyBlack, styles.pillText]}
-                      numberOfLines={1}
-                    >
-                      {eq}
-                    </Text>
+              <View style={styles.chipsSection}>
+                {displayMuscleChips.length > 0 && (
+                  <View style={styles.chipsWrap}>
+                    {displayMuscleChips.map((m, idx) => {
+                      const variant = idx % 2 === 0 ? "indigo" : "cyan";
+                      return (
+                        <View
+                          key={`m-${m}`}
+                          style={[
+                            styles.pill,
+                            variant === "indigo"
+                              ? styles.pillIndigo
+                              : styles.pillCyan,
+                          ]}
+                        >
+                          <Text
+                            style={[typography.bodyBlack, styles.pillText]}
+                            numberOfLines={1}
+                          >
+                            {m}
+                          </Text>
+                        </View>
+                      );
+                    })}
                   </View>
-                ))}
+                )}
+
+                {displayEquipmentList.length > 0 && (
+                  <View style={styles.equipmentWrap}>
+                    {displayEquipmentList.map((eq) => (
+                      <View key={`eq-${eq}`} style={styles.pill}>
+                        <Text
+                          style={[typography.bodyBlack, styles.pillText]}
+                          numberOfLines={1}
+                        >
+                          {eq}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             )}
           </View>
 
           {/* PR box */}
           <View style={styles.prBox}>
-            <Text style={styles.prLabel}>Beste 1RM</Text>
+            <Text style={styles.prLabel}>Estimert PR</Text>
             <Text style={styles.prValue}>{formatKg(vm.pr1Rm)}</Text>
-            <Text style={styles.prHint}>(est.)</Text>
           </View>
         </View>
 
         {/* STATS */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Siste 1RM</Text>
-            <Text style={styles.statValue}>{formatKg(vm.last1Rm)}</Text>
+        <View style={styles.statsChartRow}>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Siste 1RM</Text>
+              <Text style={styles.statValue}>{formatKg(vm.last1Rm)}</Text>
+            </View>
+
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Økter</Text>
+              <Text style={styles.statValue}>
+                {vm.sortedSessionsCount ?? "--"}
+              </Text>
+            </View>
+
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Fremgang</Text>
+              <Text style={[styles.statValue, { color: progressColor }]}>
+                {vm.progress != null
+                  ? `${vm.progress > 0 ? "+" : ""}${vm.progress}kg`
+                  : "--"}
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Økter</Text>
-            <Text style={styles.statValue}>
-              {vm.sortedSessionsCount ?? "--"}
-            </Text>
+          <View style={styles.chartWrap}>
+            <MiniExerciseChart data={vm.miniHistory} height={78} />
           </View>
-
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Fremgang</Text>
-            <Text style={[styles.statValue, { color: progressColor }]}>
-              {vm.progress != null
-                ? `${vm.progress > 0 ? "+" : ""}${vm.progress}kg`
-                : "--"}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.chartWrap}>
-          <MiniExerciseChart data={vm.miniHistory} />
         </View>
       </Pressable>
 
@@ -718,9 +729,9 @@ const styles = StyleSheet.create({
 
   iconBtn: { alignSelf: "flex-start" },
   iconBtnInner: {
-    width: 34,
-    height: 34,
-    borderRadius: 13,
+    width: 25,
+    height: 25,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.05)",
@@ -729,16 +740,25 @@ const styles = StyleSheet.create({
   },
   iconPressed: { opacity: 0.88, transform: [{ scale: 0.985 }] },
 
-  chipsWrap: {
+  chipsSection: {
     marginTop: 10,
+    gap: 8,
+  },
+  chipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  equipmentWrap: {
+    marginTop: 4,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
   },
   pill: {
     maxWidth: "100%",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 999,
     backgroundColor: ui.pillBg,
     borderWidth: 1,
@@ -754,9 +774,9 @@ const styles = StyleSheet.create({
   },
   pillText: {
     color: "rgba(226,232,240,0.82)",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.12,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.08,
   },
 
   prBox: {
@@ -767,32 +787,32 @@ const styles = StyleSheet.create({
   prLabel: {
     fontSize: 11,
     color: ui.muted2,
-    fontWeight: "700",
+    fontWeight: "500",
     letterSpacing: 0.12,
   },
   prValue: {
-    fontSize: 20,
+    fontSize: 17,
     color: newColors.text.accent,
     marginTop: 3,
-    fontWeight: "800",
+    fontWeight: "600",
     letterSpacing: 0.12,
   },
-  prHint: {
-    marginTop: 1,
-    fontSize: 11,
-    color: ui.muted2,
-    fontWeight: "700",
-  },
 
-  statsRow: {
+  statsChartRow: {
     marginTop: 14,
     flexDirection: "row",
-    gap: 10,
+    alignItems: "stretch",
+    gap: 12,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: ui.divider,
   },
-  statItem: { flex: 1 },
+  statsRow: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 10,
+  },
+  statItem: { flex: 1, justifyContent: "center" },
   statLabel: {
     fontSize: 11,
     color: ui.muted2,
@@ -801,17 +821,15 @@ const styles = StyleSheet.create({
   },
   statValue: {
     marginTop: 4,
-    fontSize: 14,
+    fontSize: 12,
     color: ui.text,
-    fontWeight: "800",
+    fontWeight: "600",
     letterSpacing: 0.1,
   },
 
   chartWrap: {
-    marginTop: 14,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
+    width: 120,
+    justifyContent: "center",
   },
 
   // Modal

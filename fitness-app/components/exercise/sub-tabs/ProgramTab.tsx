@@ -18,9 +18,10 @@ import { queryClient } from "@/config/queryClient";
 import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
 import { useUserSettings } from "@/context/UserSettingsProvider";
+import { useExercises } from "@/hooks/useExercises";
 import { usePrograms } from "@/hooks/usePrograms";
 import { useWorkouts } from "@/hooks/useWorkouts";
-import { Program, Workout } from "@/types/exercise";
+import { Exercise, Program, Workout } from "@/types/exercise";
 import {
   isUserCreatedProgram,
   isUserCreatedWorkout,
@@ -53,6 +54,7 @@ export default function ProgramTab() {
     error: workoutsError,
     refetch: refetchWorkouts,
   } = useWorkouts();
+  const { data: exercisesData = [] } = useExercises();
 
   const programs = useMemo(() => {
     const all = (programsData ?? []) as Program[];
@@ -152,6 +154,14 @@ export default function ProgramTab() {
     }
     return map;
   }, [workouts]);
+
+  const exerciseMap = useMemo(() => {
+    const map = new Map<string, Exercise>();
+    for (const exercise of exercisesData as Exercise[]) {
+      map.set(exercise.id, exercise);
+    }
+    return map;
+  }, [exercisesData]);
 
   const editingInitialWorkoutIds = useMemo(() => {
     if (!editingProgram) return [];
@@ -266,6 +276,7 @@ export default function ProgramTab() {
       <ProgramList
         programs={programs}
         workoutsByProgramId={workoutsByProgramId}
+        exerciseMap={exerciseMap}
         onEdit={(programId) => {
           const p = programs.find((x) => x.id === programId);
           if (p) setEditingProgram(p);

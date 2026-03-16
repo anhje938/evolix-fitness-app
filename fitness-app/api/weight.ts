@@ -1,5 +1,6 @@
 // api/weight.ts
 import { Weight } from "@/types/weight";
+import { authFetch } from "./authSession";
 import { API_BASE_URL } from "./baseUrl";
 
 export async function PostWeight(
@@ -7,14 +8,17 @@ export async function PostWeight(
   weightKg: number,
   timestampUtc: string
 ) {
-  const res = await fetch(`${API_BASE_URL}/weight`, {
+  const res = await authFetch(
+    `${API_BASE_URL}/weight`,
+    {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ weightKg, timestampUtc }),
-  });
+    },
+    { token }
+  );
 
   if (!res.ok) {
     const errorText = await res.text().catch(() => "");
@@ -25,13 +29,16 @@ export async function PostWeight(
 }
 
 export async function getUserWeights(token: string): Promise<Weight[]> {
-  const res = await fetch(`${API_BASE_URL}/weight`, {
+  const res = await authFetch(
+    `${API_BASE_URL}/weight`,
+    {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
-  });
+    },
+    { token }
+  );
 
   if (!res.ok) {
     const errorText = await res.text().catch(() => "");

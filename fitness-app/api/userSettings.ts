@@ -5,6 +5,7 @@ import {
   type UserSettings,
 } from "@/types/userSettings";
 import { ADVANCED_MUSCLE_FILTERS } from "@/types/muscles";
+import { authFetch } from "./authSession";
 import { API_BASE_URL } from "./baseUrl";
 
 const USER_SETTINGS_PATH = "user/me/settings";
@@ -287,13 +288,16 @@ function buildError(status: number, body: string) {
 export async function fetchUserSettings(token: string): Promise<UserSettings | null> {
   if (!token) return null;
 
-  const res = await fetch(`${API_BASE_URL}/${USER_SETTINGS_PATH}`, {
+  const res = await authFetch(
+    `${API_BASE_URL}/${USER_SETTINGS_PATH}`,
+    {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
-  });
+    },
+    { token }
+  );
 
   if (res.status === 404 || res.status === 405) return null;
   const text = await res.text().catch(() => "");
@@ -314,14 +318,17 @@ export async function upsertUserSettings(
   if (!token) throw new Error("Missing token");
 
   const payload = normalizeUserSettings(settings);
-  const res = await fetch(`${API_BASE_URL}/${USER_SETTINGS_PATH}`, {
+  const res = await authFetch(
+    `${API_BASE_URL}/${USER_SETTINGS_PATH}`,
+    {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(toBackendDto(payload)),
-  });
+    },
+    { token }
+  );
 
   const text = await res.text().catch(() => "");
   if (!res.ok) throw buildError(res.status, text);

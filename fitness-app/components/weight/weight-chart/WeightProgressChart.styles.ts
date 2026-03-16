@@ -161,7 +161,7 @@ export const styles = StyleSheet.create<{
 
   statValue: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "500",
     color: "#E2E8F0",
     letterSpacing: -0.3,
   },

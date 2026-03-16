@@ -1,4 +1,5 @@
 // api/training/workoutSession.ts (oppdatert)
+import { authFetch } from "@/api/authSession";
 import { WorkoutSession } from "@/types/exercise";
 import { API_BASE_URL } from "../baseUrl";
 
@@ -77,14 +78,17 @@ export async function postWorkoutSession(
     title: session.name,
   };
 
-  const startRes = await fetch(`${API_BASE_URL}/workoutsession`, {
+  const startRes = await authFetch(
+    `${API_BASE_URL}/workoutsession`,
+    {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(startBody),
-  });
+    },
+    { token }
+  );
 
   if (!startRes.ok) {
     const text = await startRes.text().catch(() => "");
@@ -112,16 +116,16 @@ export async function postWorkoutSession(
         notes: null,
       };
 
-      const setRes = await fetch(
+      const setRes = await authFetch(
         `${API_BASE_URL}/workoutsession/${sessionId}/sets`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
-        }
+        },
+        { token }
       );
 
       if (!setRes.ok) {
@@ -134,14 +138,13 @@ export async function postWorkoutSession(
   
 
   // ---------- 3) Fullfør session ----------
-  const finishRes = await fetch(
+  const finishRes = await authFetch(
     `${API_BASE_URL}/workoutsession/${sessionId}/finish`,
     {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
+      headers: {},
+    },
+    { token }
   );
 
   if (!finishRes.ok) {
@@ -180,14 +183,17 @@ export async function putWorkoutSession(
     })),
   };
 
-  const res = await fetch(`${API_BASE_URL}/workoutsession/${sessionId}`, {
+  const res = await authFetch(
+    `${API_BASE_URL}/workoutsession/${sessionId}`,
+    {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
-  });
+    },
+    { token }
+  );
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -197,10 +203,14 @@ export async function putWorkoutSession(
 
 
 export async function deleteWorkoutSession(sessionId: string, token: string) {
-  const res = await fetch(`${API_BASE_URL}/workoutsession/${sessionId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const res = await authFetch(
+    `${API_BASE_URL}/workoutsession/${sessionId}`,
+    {
+      method: "DELETE",
+      headers: {},
+    },
+    { token }
+  );
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");

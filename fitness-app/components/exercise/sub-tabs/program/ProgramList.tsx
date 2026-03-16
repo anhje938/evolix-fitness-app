@@ -2,11 +2,10 @@
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { useWorkoutSession } from "@/context/workoutSessionContext";
-import { useExercises } from "@/hooks/useExercises";
 import type { Exercise, Program, Workout } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { memo, useCallback, useMemo, useState } from "react";
+import React, { memo, useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ProgramWorkoutCard } from "./ProgramWorkoutCard";
 
@@ -64,12 +63,14 @@ const colors = {
 type Props = {
   programs: Program[];
   workoutsByProgramId: Map<string, Workout[]>;
+  exerciseMap: Map<string, Exercise>;
   onEdit?: (programId: string) => void;
 };
 
 export const ProgramList = memo(function ProgramList({
   programs,
   workoutsByProgramId,
+  exerciseMap,
   onEdit,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -104,6 +105,7 @@ export const ProgramList = memo(function ProgramList({
           key={program.id}
           program={program}
           sessions={workoutsByProgramId.get(program.id) ?? []}
+          exerciseMap={exerciseMap}
           expanded={expandedId === program.id}
           onToggle={() => toggleExpanded(program.id)}
           onEdit={onEdit}
@@ -116,6 +118,7 @@ export const ProgramList = memo(function ProgramList({
 type ItemProps = {
   program: Program;
   sessions: Workout[];
+  exerciseMap: Map<string, Exercise>;
   expanded: boolean;
   onToggle: () => void;
   onEdit?: (programId: string) => void;
@@ -124,18 +127,12 @@ type ItemProps = {
 const ProgramListItem = memo(function ProgramListItem({
   program,
   sessions,
+  exerciseMap,
   expanded,
   onToggle,
   onEdit,
 }: ItemProps) {
   const { openProgramSession } = useWorkoutSession();
-  const { data: allExercises = [] } = useExercises();
-
-  const exerciseMap = useMemo(() => {
-    const map = new Map<string, Exercise>();
-    (allExercises as Exercise[]).forEach((ex) => map.set(ex.id, ex));
-    return map;
-  }, [allExercises]);
 
   const workoutCount = sessions.length;
 

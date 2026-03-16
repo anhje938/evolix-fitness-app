@@ -20,8 +20,9 @@ namespace backend.Features.Training.WorkoutPrograms
         public async Task<List<WorkoutProgramResponse>> GetUserWorkoutPrograms(string userId, CancellationToken ct)
         {
             return await _db.WorkoutPrograms
-                .Where(p => p.UserId == userId || p.UserId == null) 
-                .Include(p => p.Workouts)
+                .AsNoTracking()
+                .Where(p => p.UserId == userId || p.UserId == null)
+                .OrderBy(p => p.Name)
                 .Select(p => new WorkoutProgramResponse
                 {
                     Id = p.Id,
@@ -29,12 +30,15 @@ namespace backend.Features.Training.WorkoutPrograms
                     Goal = p.Goal,
                     Level = p.Level,
                     IsCustom = p.IsCustom,
-                    Workouts = p.Workouts.Select(w => new WorkoutInProgramResponse
-                    {
-                        Id = w.Id,
-                        Name = w.Name,
-                        Description = w.Description
-                    }).ToList()
+                    Workouts = p.Workouts
+                        .OrderBy(w => w.Name)
+                        .Select(w => new WorkoutInProgramResponse
+                        {
+                            Id = w.Id,
+                            Name = w.Name,
+                            Description = w.Description
+                        })
+                        .ToList()
                 })
                 .ToListAsync(ct);
         }

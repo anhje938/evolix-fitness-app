@@ -1,9 +1,23 @@
-// app/(tabs)/food.tsx
-import { DeleteUserMeal, PostUserMeal, UpdateUserMeal } from "@/api/food";
+import {
+  CreateComposedMeal,
+  DeleteComposedMeal,
+  DeleteUserMeal,
+  FetchComposedMealHistory,
+  FetchComposedMeals,
+  LogComposedMeal,
+  PostUserMeal,
+  RelogComposedMealFromHistory,
+  SetComposedMealFavorite,
+  UpdateComposedMeal as UpdateComposedMealApi,
+  UpdateUserMeal,
+} from "@/api/food";
 import { DarkOceanBackground } from "@/components/DarkOceanBackground";
 import { AddMealButton } from "@/components/food/addMealButton";
 import { AddMealSheet } from "@/components/food/addMealSheet";
 import { AddMealSheetQR } from "@/components/food/addMealSheetQR";
+import { ComposedMealEditorSheet } from "@/components/food/ComposedMealEditorSheet";
+import { ComposedMealLogSheet } from "@/components/food/ComposedMealLogSheet";
+import { ComposedMealsSection } from "@/components/food/composedMealsSection";
 import { EditMealSheet } from "@/components/food/EditMealSheet";
 import { FoodHistory } from "@/components/food/foodHistory";
 import { MealCard } from "@/components/food/mealCard";
@@ -13,19 +27,29 @@ import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
 import { useFoodContext } from "@/context/FoodProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
-import type { Food, FoodDto } from "@/types/meal";
+import type {
+  ComposedMeal,
+  ComposedMealHistoryItem,
+  Food,
+  FoodDto,
+  UpsertComposedMealDto,
+} from "@/types/meal";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Match HomePage accents (reference vibe)
 const circleAccents = {
-  calories: "rgba(255,159,28,1)", // orange
-  protein: "rgba(168,85,247,1)", // purple
-  carbs: "rgba(6,182,212,1)", // cyan
-  fat: "rgba(34,197,94,1)", // green
+  calories: "rgba(255,159,28,1)",
+  protein: "rgba(168,85,247,1)",
+  carbs: "rgba(6,182,212,1)",
+  fat: "rgba(34,197,94,1)",
+};
+
+type LogSheetTarget = {
+  meal: ComposedMeal;
+  defaultServings: number;
 };
 
 function clampPct(p: number) {
@@ -41,19 +65,37 @@ function calcPct(current: number, goal: number) {
   return clampPct((c / g) * 100);
 }
 
+function sortFoodsByTimestampDesc(list: Food[]) {
+  return [...list].sort(
+    (a, b) =>
+      new Date(b.timestampUtc).getTime() - new Date(a.timestampUtc).getTime()
+  );
+}
+
 export default function FoodPage() {
   const insets = useSafeAreaInsets();
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<"manual" | "qr">("manual");
 
-  const { token } = useAuth();
-  const { userSettings } = useUserSettings();
-
-  // ✅ Editing sheet state
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingMeal, setEditingMeal] = useState<Food | null>(null);
 
-  const { todayTotals, foodList, setFoodList } = useFoodContext();
+  const [composedMeals, setComposedMeals] = useState<ComposedMeal[]>([]);
+  const [composedHistory, setComposedHistory] = useState<
+    ComposedMealHistoryItem[]
+  >([]);
+  const [isLoadingComposedMeals, setIsLoadingComposedMeals] = useState(false);
+
+  const [isComposedEditorOpen, setIsComposedEditorOpen] = useState(false);
+  const [editingComposedMeal, setEditingComposedMeal] =
+    useState<ComposedMeal | null>(null);
+  const [logSheetTarget, setLogSheetTarget] = useState<LogSheetTarget | null>(
+    null
+  );
+
+  const { token } = useAuth();
+  const { userSettings } = useUserSettings();
+  const { todayTotals, foodList, setFoodList, refreshMeals } = useFoodContext();
 
   const onClose = () => setIsOpen(false);
 
@@ -62,11 +104,54 @@ export default function FoodPage() {
     setEditingMeal(null);
   };
 
+  const closeComposedEditor = () => {
+    setIsComposedEditorOpen(false);
+    setEditingComposedMeal(null);
+  };
+
+  const closeLogSheet = () => {
+    setLogSheetTarget(null);
+  };
+
+  const refreshComposedData = useCallback(async () => {
+    if (!token) {
+      setComposedMeals([]);
+      setComposedHistory([]);
+      return;
+    }
+
+    setIsLoadingComposedMeals(true);
+    try {
+      const [meals, history] = await Promise.all([
+        FetchComposedMeals(token),
+        FetchComposedMealHistory(token, 25),
+      ]);
+      setComposedMeals(meals);
+      setComposedHistory(history);
+    } catch (error) {
+      console.log("Could not load composed meals", error);
+    } finally {
+      setIsLoadingComposedMeals(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void refreshComposedData();
+  }, [refreshComposedData]);
+
+  const appendLoggedFood = (created: Food) => {
+    setFoodList((prev) => sortFoodsByTimestampDesc([created, ...prev]));
+  };
+
   const handlePostMeal = async (values: FoodDto) => {
     try {
       if (!token) return;
-      const created = await PostUserMeal(token, values);
-      setFoodList((prev) => [created, ...prev]);
+      const created = await PostUserMeal(token, {
+        ...values,
+        sourceType: values.sourceType ?? (mode === "qr" ? "qr" : "quickAdd"),
+      });
+      appendLoggedFood(created);
+      void refreshMeals();
       setIsOpen(false);
     } catch (error) {
       console.log("Could not save meal to backend", error);
@@ -74,85 +159,258 @@ export default function FoodPage() {
     }
   };
 
-  // ✅ MealCard -> "Rediger"
-  const handleEditFromCard = (meal: Food) => {
+  const handleEditFromCard = async (meal: Food) => {
+    const composedMealId =
+      meal.sourceType === "composedMeal" && meal.sourceComposedMealId
+        ? String(meal.sourceComposedMealId)
+        : null;
+
+    if (composedMealId) {
+      let target =
+        composedMeals.find((x) => String(x.id) === composedMealId) ?? null;
+
+      if (!target && token) {
+        try {
+          const latestMeals = await FetchComposedMeals(token);
+          setComposedMeals(latestMeals);
+          target =
+            latestMeals.find((x) => String(x.id) === composedMealId) ?? null;
+        } catch (error) {
+          console.log("Could not refresh composed meals before edit", error);
+        }
+      }
+
+      if (target) {
+        closeEdit();
+        setEditingComposedMeal(target);
+        setIsComposedEditorOpen(true);
+        return;
+      }
+
+      Alert.alert(
+        "Kunne ikke åpne retten",
+        "Denne måltidsloggen kommer fra en rett som ikke ble funnet. Den kan være slettet."
+      );
+      return;
+    }
+
+    closeComposedEditor();
     setEditingMeal(meal);
     setIsEditOpen(true);
   };
 
-  // ✅ MealCard -> "Slett" (optimistic + rollback)
   const handleDeleteFromCard = async (mealId: string) => {
     const prev = foodList;
 
-    // optimistic remove
     setFoodList((p) => p.filter((m) => String(m.id) !== String(mealId)));
 
     try {
       if (!token) return;
       await DeleteUserMeal(token, mealId);
+      void refreshMeals();
     } catch (e) {
       console.log("DeleteUserMeal failed:", e);
       setFoodList(prev);
 
-      Alert.alert(
-        "Kunne ikke slette",
-        "Noe gikk galt. Prøv igjen.",
-        [{ text: "OK" }],
-        { cancelable: true }
-      );
+      Alert.alert("Kunne ikke slette", "Noe gikk galt. Prøv igjen.", [
+        { text: "OK" },
+      ]);
     }
   };
 
-  // ✅ Edit sheet -> submit (optimistic update + rollback)
   const handleUpdateMeal = async (mealId: string, values: FoodDto) => {
     const prev = foodList;
 
-    // optimistic update locally (keep same id)
     setFoodList((p) =>
-      p.map((m) =>
-        String(m.id) === String(mealId)
-          ? ({
-              ...m,
-              title: values.title,
-              calories: values.calories,
-              proteins: values.proteins,
-              carbs: values.carbs,
-              fats: values.fats,
-              timestampUtc: values.timestampUtc,
-            } as any)
-          : m
+      sortFoodsByTimestampDesc(
+        p.map((m) =>
+          String(m.id) === String(mealId)
+            ? {
+                ...m,
+                title: values.title,
+                calories: values.calories,
+                proteins: values.proteins,
+                carbs: values.carbs,
+                fats: values.fats,
+                timestampUtc: values.timestampUtc,
+              }
+            : m
+        )
       )
     );
 
     try {
-      if (!token) return;
+      if (!token) {
+        closeEdit();
+        return;
+      }
       const updated = await UpdateUserMeal(token, mealId, values);
-
-      // ensure local list matches backend response (and keeps sorting)
-      setFoodList((p) => {
-        const next = p.map((m) =>
-          String(m.id) === String(mealId) ? updated : m
-        );
-        // if you rely on timestamp sort:
-        next.sort(
-          (a: any, b: any) =>
-            new Date(b.timestampUtc).getTime() -
-            new Date(a.timestampUtc).getTime()
-        );
-        return next;
-      });
-
+      setFoodList((p) =>
+        sortFoodsByTimestampDesc(
+          p.map((m) => (String(m.id) === String(mealId) ? updated : m))
+        )
+      );
+      void refreshMeals();
       closeEdit();
     } catch (e) {
       console.log("UpdateUserMeal failed:", e);
       setFoodList(prev);
 
+      Alert.alert("Kunne ikke oppdatere", "Noe gikk galt. Prøv igjen.", [
+        { text: "OK" },
+      ]);
+    }
+  };
+
+  const openCreateComposedMeal = () => {
+    setEditingComposedMeal(null);
+    setIsComposedEditorOpen(true);
+  };
+
+  const openEditComposedMeal = (meal: ComposedMeal) => {
+    setEditingComposedMeal(meal);
+    setIsComposedEditorOpen(true);
+  };
+
+  const handleSaveComposedMeal = async (dto: UpsertComposedMealDto) => {
+    try {
+      if (!token) return;
+      if (editingComposedMeal) {
+        await UpdateComposedMealApi(token, String(editingComposedMeal.id), dto);
+      } else {
+        await CreateComposedMeal(token, dto);
+      }
+      closeComposedEditor();
+      await refreshComposedData();
+    } catch (error) {
+      console.log("Could not save composed meal", error);
       Alert.alert(
-        "Kunne ikke oppdatere",
-        "Noe gikk galt. Prøv igjen.",
-        [{ text: "OK" }],
-        { cancelable: true }
+        "Kunne ikke lagre rett",
+        "Sjekk ingrediensene og prøv igjen."
       );
+    }
+  };
+
+  const handleDeleteComposedMeal = (meal: ComposedMeal) => {
+    Alert.alert(
+      "Slette retten?",
+      `Rett "${meal.name}" blir slettet permanent.`,
+      [
+        { text: "Avbryt", style: "cancel" },
+        {
+          text: "Slett",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              if (!token) return;
+              await DeleteComposedMeal(token, String(meal.id));
+              setComposedMeals((prev) =>
+                prev.filter((x) => String(x.id) !== String(meal.id))
+              );
+              setComposedHistory((prev) =>
+                prev.filter((x) => String(x.composedMealId) !== String(meal.id))
+              );
+              if (String(logSheetTarget?.meal?.id) === String(meal.id)) {
+                closeLogSheet();
+              }
+              await refreshComposedData();
+            } catch (error) {
+              console.log("Could not delete composed meal", error);
+              Alert.alert("Kunne ikke slette rett", "Prøv igjen.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleToggleFavoriteComposedMeal = async (meal: ComposedMeal) => {
+    if (!token) return;
+    const prev = composedMeals;
+    setComposedMeals((list) =>
+      list.map((x) =>
+        String(x.id) === String(meal.id)
+          ? { ...x, isFavorite: !x.isFavorite }
+          : x
+      )
+    );
+    try {
+      const updated = await SetComposedMealFavorite(
+        token,
+        String(meal.id),
+        !meal.isFavorite
+      );
+      setComposedMeals((list) =>
+        list.map((x) => (String(x.id) === String(meal.id) ? updated : x))
+      );
+      await refreshComposedData();
+    } catch (error) {
+      console.log("Could not toggle favorite", error);
+      setComposedMeals(prev);
+      Alert.alert("Kunne ikke oppdatere favoritt", "Prøv igjen.");
+    }
+  };
+
+  const openLogSheetForComposedMeal = (meal: ComposedMeal, servings = 1) => {
+    setLogSheetTarget({
+      meal,
+      defaultServings: servings > 0 ? servings : 1,
+    });
+  };
+
+  const handleSubmitLogSheet = async (payload: {
+    servings: number;
+    timestampUtc: string;
+    totals: {
+      calories: number;
+      proteins: number;
+      carbs: number;
+      fats: number;
+    };
+    isCustomized: boolean;
+  }) => {
+    try {
+      if (!token || !logSheetTarget) return;
+      const created = payload.isCustomized
+        ? await PostUserMeal(token, {
+            title: logSheetTarget.meal.name,
+            calories: Math.round(payload.totals.calories),
+            proteins: Math.round(payload.totals.proteins),
+            carbs: Math.round(payload.totals.carbs),
+            fats: Math.round(payload.totals.fats),
+            timestampUtc: payload.timestampUtc,
+            sourceType: "manual",
+          })
+        : await LogComposedMeal(token, String(logSheetTarget.meal.id), {
+            servings: payload.servings,
+            timestampUtc: payload.timestampUtc,
+          });
+      appendLoggedFood(created);
+      void refreshMeals();
+      closeLogSheet();
+      if (!payload.isCustomized) {
+        await refreshComposedData();
+      }
+    } catch (error) {
+      console.log("Could not log composed meal (custom)", error);
+      Alert.alert("Kunne ikke logge rett", "Prøv igjen.");
+    }
+  };
+
+  const handleRelogSameFromHistory = async (item: ComposedMealHistoryItem) => {
+    try {
+      if (!token) return;
+      const created = await RelogComposedMealFromHistory(
+        token,
+        item.foodLogId,
+        {}
+      );
+      appendLoggedFood(created);
+      void refreshMeals();
+      await refreshComposedData();
+    } catch (error) {
+      console.log("Could not relog from history", error);
+      Alert.alert("Kunne ikke logge på nytt", "Prøv igjen.");
     }
   };
 
@@ -174,7 +432,6 @@ export default function FoodPage() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* GOALS CARD (same vibe as Home) */}
         <View style={[generalStyles.newCard, styles.goalsCard]}>
           <View pointerEvents="none" style={styles.goalsSheenWrap}>
             <LinearGradient
@@ -202,7 +459,6 @@ export default function FoodPage() {
             </Text>
           </View>
 
-          {/* TOP: Calories */}
           <View style={styles.topArea}>
             <ProgressCircle
               percentage={calcPct(calories, calorieGoal)}
@@ -227,7 +483,6 @@ export default function FoodPage() {
             </Text>
           </View>
 
-          {/* BOTTOM: macros */}
           <View style={styles.bottomRow}>
             <View style={styles.bottomTile}>
               <ProgressCircle
@@ -291,25 +546,32 @@ export default function FoodPage() {
           </View>
         </View>
 
-        {/* MEALCARDS (long-press menu hooks) */}
         <MealCard
           foodList={foodList}
           onEditMeal={handleEditFromCard}
           onDeleteMeal={handleDeleteFromCard}
         />
 
-        {/* FOOD HISTORY */}
+        <ComposedMealsSection
+          meals={composedMeals}
+          history={composedHistory}
+          isLoading={isLoadingComposedMeals}
+          onCreate={openCreateComposedMeal}
+          onEdit={openEditComposedMeal}
+          onDelete={handleDeleteComposedMeal}
+          onToggleFavorite={handleToggleFavoriteComposedMeal}
+          onOpenLogSheet={openLogSheetForComposedMeal}
+        />
+
         <FoodHistory foodList={foodList} />
       </ScrollView>
 
-      {/* FOOTER: BUTTON */}
       <View style={styles.footerContainer}>
         {!isOpen && (
           <AddMealButton onPress={() => setIsOpen(true)} key="add-button" />
         )}
       </View>
 
-      {/* SHEETS */}
       {isOpen && mode === "manual" && (
         <AddMealSheet
           mode={mode}
@@ -332,12 +594,26 @@ export default function FoodPage() {
         />
       )}
 
-      {/* ✅ EDIT SHEET */}
       <EditMealSheet
         isOpen={isEditOpen}
         onClose={closeEdit}
         meal={editingMeal}
         onSubmit={handleUpdateMeal}
+      />
+
+      <ComposedMealEditorSheet
+        isOpen={isComposedEditorOpen}
+        initialMeal={editingComposedMeal}
+        onClose={closeComposedEditor}
+        onSubmit={handleSaveComposedMeal}
+      />
+
+      <ComposedMealLogSheet
+        isOpen={!!logSheetTarget}
+        meal={logSheetTarget?.meal ?? null}
+        defaultServings={logSheetTarget?.defaultServings ?? 1}
+        onClose={closeLogSheet}
+        onSubmit={handleSubmitLogSheet}
       />
     </DarkOceanBackground>
   );
@@ -352,7 +628,20 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     width: "100%",
   },
-
+  sectionIntro: {
+    width: "100%",
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    color: "#F8FAFC",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  sectionSubTitle: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "rgba(148,163,184,0.92)",
+  },
   goalsCard: {
     position: "relative",
     overflow: "hidden",
@@ -371,7 +660,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 1,
   },
-
   goalsSheenWrap: {
     position: "absolute",
     top: -45,
@@ -391,7 +679,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 10,
   },
-
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -399,45 +686,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     marginBottom: 10,
   },
-
   headerTitle: {
     color: "rgba(229,236,255,0.95)",
     fontSize: 13,
     fontWeight: "400",
   },
-
   topArea: {
     alignItems: "center",
     justifyContent: "center",
     paddingBottom: 10,
   },
-
   topLabel: {
     marginTop: 10,
     color: "rgba(229,236,255,0.85)",
     fontSize: 13,
     fontWeight: "400",
   },
-
   bottomRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
     marginTop: 2,
   },
-
   bottomTile: {
     width: "32%",
     alignItems: "center",
   },
-
   macroLabel: {
     marginTop: 10,
     color: "rgba(229,236,255,0.85)",
     fontSize: 13,
     fontWeight: "400",
   },
-
   circleValueTop: {
     color: "rgba(255,255,255,0.96)",
     fontWeight: "600",
@@ -447,7 +727,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     opacity: 0.95,
   },
-
   circleValue: {
     color: "rgba(255,255,255,0.96)",
     fontWeight: "600",
@@ -457,7 +736,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     opacity: 0.95,
   },
-
   footerContainer: {
     position: "absolute",
     bottom: 10,

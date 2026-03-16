@@ -1,6 +1,8 @@
 import { API_BASE_URL } from "./baseUrl";
+import { authFetch } from "./authSession";
 
 const USER_ME_PATH = "user/me";
+const USER_DELETE_TIMEOUT_MS = 15000;
 
 function buildError(status: number, body: string) {
   return new Error(body || `User request failed with status ${status}`);
@@ -9,12 +11,28 @@ function buildError(status: number, body: string) {
 export async function deleteMyUser(token: string): Promise<void> {
   if (!token) throw new Error("Missing token");
 
-  const res = await fetch(`${API_BASE_URL}/${USER_ME_PATH}`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), USER_DELETE_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await authFetch(
+      `${API_BASE_URL}/${USER_ME_PATH}`,
+      {
+      method: "DELETE",
+      headers: {},
+      signal: controller.signal,
+      },
+      { token }
+    );
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Sletting av konto tok for lang tid. Prøv igjen.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (res.ok) return;
 
@@ -26,17 +44,20 @@ export type UserMe = {
   userId: string;
   email?: string | null;
   displayName?: string | null;
+  isAdmin?: boolean;
 };
 
 export async function fetchMyUser(token: string): Promise<UserMe | null> {
   if (!token) throw new Error("Missing token");
 
-  const res = await fetch(`${API_BASE_URL}/${USER_ME_PATH}`, {
+  const res = await authFetch(
+    `${API_BASE_URL}/${USER_ME_PATH}`,
+    {
     method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
+    headers: {},
     },
-  });
+    { token }
+  );
 
   const text = await res.text().catch(() => "");
 

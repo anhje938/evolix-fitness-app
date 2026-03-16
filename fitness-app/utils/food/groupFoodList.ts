@@ -1,10 +1,20 @@
 import { Food } from "@/types/meal";
 import { calcTotalMacros } from "./calculateTotalMacros";
 
-// DAILY: eksisterende funksjon (uendret)
+function toLocalDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+// DAILY: grupperer etter lokal dato for mer intuitiv "i dag"-visning
 export function groupMealsByDate(meals: Food[]) {
   return meals.reduce((acc, meal) => {
-    const dateKey = meal.timestampUtc.split("T")[0]; // "2025-02-03"
+    const dateObj = new Date(meal.timestampUtc);
+    if (Number.isNaN(dateObj.getTime())) return acc;
+
+    const dateKey = toLocalDateKey(dateObj);
 
     if (!acc[dateKey]) {
       acc[dateKey] = [];

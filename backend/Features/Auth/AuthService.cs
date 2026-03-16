@@ -8,20 +8,21 @@ namespace backend.Features.Auth
     {
         private readonly IAppleTokenService _appleTokenService;
         private readonly UserService _userService;
-        private readonly JwtService _jwtService;
+        private readonly RefreshTokenService _refreshTokenService;
 
         public AuthService(
             IAppleTokenService appleTokenService,
             UserService userService,
-            JwtService jwtService)
+            RefreshTokenService refreshTokenService)
         {
             _appleTokenService = appleTokenService;
             _userService = userService;
-            _jwtService = jwtService;
+            _refreshTokenService = refreshTokenService;
         }
 
         public async Task<AuthResponse> HandleAppleLoginAsync(
             string idToken,
+            RefreshTokenRequestContext context,
             CancellationToken ct = default)
         {
             var claims = await _appleTokenService.ValidateIdTokenAsync(idToken, ct);
@@ -33,14 +34,28 @@ namespace backend.Features.Auth
                 claims.Email,
                 ct);
 
-            var jwt = _jwtService.GenerateToken(user);
-            
-            return new AuthResponse
-            {
-                UserId = user.Id,
-                Email = user.Email,
-                Jwt = jwt
-            };
+            return await _refreshTokenService.IssueTokensAsync(user, context, ct);
+        }
+
+        public Task<AuthResponse> RefreshAsync(
+            string refreshToken,
+            RefreshTokenRequestContext context,
+            CancellationToken ct = default)
+        {
+            return _refreshTokenService.RefreshAsync(refreshToken, context, ct);
+        }
+
+        public Task LogoutAsync(
+            string refreshToken,
+            RefreshTokenRequestContext context,
+            CancellationToken ct = default)
+        {
+            return _refreshTokenService.RevokeAsync(refreshToken, context, ct);
+        }
+
+        public Task LogoutAllAsync(string userId, CancellationToken ct = default)
+        {
+            return _refreshTokenService.RevokeAllForUserAsync(userId, ct);
         }
     }
 }

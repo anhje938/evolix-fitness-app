@@ -1,6 +1,5 @@
-import * as SecureStore from "expo-secure-store";
+import { authFetch, getValidAccessToken } from "@/api/authSession";
 import { API_BASE_URL } from "../baseUrl";
-
 
 export type SessionDetailsDto = {
   id: string;
@@ -24,16 +23,21 @@ export type SessionDetailsDto = {
   }>;
 };
 
-export async function getSessionDetails(sessionId: string): Promise<SessionDetailsDto> {
-  const token = await SecureStore.getItemAsync("token");
+export async function getSessionDetails(
+  sessionId: string
+): Promise<SessionDetailsDto> {
+  const token = await getValidAccessToken();
   if (!token) throw new Error("Mangler auth-token");
 
-  const res = await fetch(`${API_BASE_URL}/workoutsession/${sessionId}/details`, {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  const res = await authFetch(
+    `${API_BASE_URL}/workoutsession/${sessionId}/details`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+      },
     },
-  });
+    { token }
+  );
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");

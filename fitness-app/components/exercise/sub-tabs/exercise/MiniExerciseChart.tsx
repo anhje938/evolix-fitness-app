@@ -26,8 +26,8 @@ export function MiniExerciseChart({
 
   const cappedData = useMemo(() => {
     if (!data || data.length === 0) return [];
-    if (data.length <= 40) return data;
-    return data.slice(-40);
+    if (data.length < 10) return data;
+    return data.slice(-15);
   }, [data]);
 
   const values = useMemo(() => {
@@ -42,12 +42,24 @@ export function MiniExerciseChart({
     const min = Math.min(...raw);
     const max = Math.max(...raw);
 
+    if (raw.length === 1) {
+      return [raw[0], raw[0]];
+    }
+
     if (min === max) {
       return raw.map((v) => v + 0.01);
     }
 
     return raw;
   }, [cappedData]);
+
+  const chartWidth = useMemo(() => {
+    if (width <= 0 || values.length <= 1) return width;
+
+    // react-native-chart-kit spaces the last point at (n-1)/n of the width.
+    // Scale the internal chart width so the visible last point lands on the edge.
+    return Math.ceil((width * values.length) / (values.length - 1));
+  }, [width, values.length]);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
@@ -65,7 +77,7 @@ export function MiniExerciseChart({
       }}
       onLayout={handleLayout}
     >
-      {width > 0 && (
+      {chartWidth > 0 && (
         <LineChart
           data={{
             labels: values.map(() => ""),
@@ -77,7 +89,7 @@ export function MiniExerciseChart({
               },
             ],
           }}
-          width={width}
+          width={chartWidth}
           height={height}
           withDots={false}
           withInnerLines={false}

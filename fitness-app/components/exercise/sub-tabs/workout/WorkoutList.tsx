@@ -433,16 +433,16 @@ const styles = StyleSheet.create({
     borderColor: colors.insetStroke,
   },
   cardInner: {
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 13,
+    gap: 10,
   },
 
   // HEADER
   topRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
+    gap: 10,
   },
   headerPress: {
     flex: 1,
@@ -457,14 +457,14 @@ const styles = StyleSheet.create({
   headerTopLine: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
     minWidth: 0,
   },
 
   iconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.iconBg,
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
 
   title: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 15,
     letterSpacing: 0.12,
     flexShrink: 1,
   },
@@ -500,24 +500,24 @@ const styles = StyleSheet.create({
   description: {
     color: colors.muted2,
     fontSize: 12.5,
-    lineHeight: 17,
-    marginTop: 6,
+    lineHeight: 16,
+    marginTop: 5,
     fontWeight: "500",
   },
 
   // META PILLS
   metaRow: {
-    marginTop: 10,
+    marginTop: 8,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 6,
   },
   metaPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 999,
     borderWidth: 1,
   },
@@ -566,11 +566,11 @@ const styles = StyleSheet.create({
 
   // DROPDOWN
   dropdown: {
-    marginTop: 6,
-    paddingTop: 12,
+    marginTop: 4,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: colors.divider,
-    gap: 12,
+    gap: 10,
   },
   dropdownHeader: {
     flexDirection: "row",
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingHorizontal: 10,
     borderRadius: 14,
     borderWidth: 1,
@@ -650,11 +650,11 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 2,
+    marginTop: 0,
   },
   primaryWrap: { flex: 1 },
   primary: {
-    paddingVertical: 13,
+    paddingVertical: 12,
     borderRadius: 999,
     flexDirection: "row",
     justifyContent: "center",

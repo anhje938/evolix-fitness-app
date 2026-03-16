@@ -22,7 +22,11 @@ namespace backend.Data
         public DbSet<WeightLog> WeightLogs => Set<WeightLog>();
         public DbSet<User> Users => Set<User>();
         public DbSet<FoodLog> FoodLogs => Set<FoodLog>();
+        public DbSet<backend.Features.Auth.RefreshToken> RefreshTokens => Set<backend.Features.Auth.RefreshToken>();
+        public DbSet<ComposedMeal> ComposedMeals => Set<ComposedMeal>();
+        public DbSet<ComposedMealIngredient> ComposedMealIngredients => Set<ComposedMealIngredient>();
         public DbSet<Workout> Workouts => Set<Workout>();
+        public DbSet<WorkoutExercise> WorkoutExercises => Set<WorkoutExercise>();
         public DbSet<WorkoutProgram> WorkoutPrograms => Set<WorkoutProgram>();
         public DbSet<Exercise> Exercises => Set<Exercise>();
         public DbSet<UserSettings> UserSettings => Set<UserSettings>();
@@ -49,10 +53,22 @@ namespace backend.Data
                 .HasForeignKey(w => w.WorkoutProgramId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Workout * - * Exercises 
-            modelBuilder.Entity<Workout>()
-                .HasMany(w => w.Exercises)
-                .WithMany(e => e.Workouts);
+            modelBuilder.Entity<WorkoutExercise>(b =>
+            {
+                b.HasKey(x => new { x.WorkoutId, x.ExerciseId });
+
+                b.HasIndex(x => new { x.WorkoutId, x.Order });
+
+                b.HasOne(x => x.Workout)
+                    .WithMany(w => w.WorkoutExercises)
+                    .HasForeignKey(x => x.WorkoutId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne(x => x.Exercise)
+                    .WithMany(e => e.WorkoutExercises)
+                    .HasForeignKey(x => x.ExerciseId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
             // ==============================
             // Logging-relasjoner
@@ -106,6 +122,65 @@ namespace backend.Data
             modelBuilder.Entity<SetLog>(b =>
             {
                 b.HasKey(x => x.Id);
+            });
+
+            // ==============================
+            // Food
+            // ==============================
+            modelBuilder.Entity<FoodLog>(b =>
+            {
+                b.HasKey(x => x.Id);
+
+                b.Property(x => x.SourceType).HasMaxLength(50);
+                b.Property(x => x.SourceServings).HasPrecision(10, 2);
+
+                b.HasIndex(x => x.UserId);
+                b.HasIndex(x => new { x.UserId, x.TimestampUtc });
+                b.HasIndex(x => new { x.UserId, x.SourceComposedMealId });
+            });
+
+            modelBuilder.Entity<ComposedMeal>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Name).IsRequired().HasMaxLength(120);
+                b.HasIndex(x => x.UserId);
+                b.HasIndex(x => new { x.UserId, x.IsFavorite });
+                b.HasIndex(x => new { x.UserId, x.UpdatedUtc });
+
+                b.HasMany(x => x.Ingredients)
+                    .WithOne(i => i.ComposedMeal)
+                    .HasForeignKey(i => i.ComposedMealId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ComposedMealIngredient>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Name).IsRequired().HasMaxLength(120);
+                b.Property(x => x.AmountGrams).HasPrecision(10, 2);
+                b.HasIndex(x => new { x.ComposedMealId, x.SortOrder });
+            });
+
+            modelBuilder.Entity<backend.Features.Auth.RefreshToken>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.TokenHash).IsRequired().HasMaxLength(128);
+                b.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+                b.Property(x => x.CreatedByIp).HasMaxLength(64);
+                b.Property(x => x.CreatedByUserAgent).HasMaxLength(512);
+                b.Property(x => x.LastUsedByIp).HasMaxLength(64);
+                b.Property(x => x.LastUsedByUserAgent).HasMaxLength(512);
+                b.Property(x => x.RevokedReason).HasMaxLength(200);
+
+                b.HasIndex(x => x.TokenHash).IsUnique();
+                b.HasIndex(x => x.UserId);
+                b.HasIndex(x => new { x.UserId, x.RevokedAtUtc });
+                b.HasIndex(x => new { x.SessionFamilyId, x.RevokedAtUtc });
+
+                b.HasOne(x => x.User)
+                    .WithMany(x => x.RefreshTokens)
+                    .HasForeignKey(x => x.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // ==============================

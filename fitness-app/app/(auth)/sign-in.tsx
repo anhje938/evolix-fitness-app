@@ -35,7 +35,7 @@ function decodeAppleJwtPayload(token: string): Record<string, unknown> | null {
 }
 
 export default function SignIn() {
-  const { setToken } = useAuth();
+  const { setAuthSession } = useAuth();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Animations
@@ -121,8 +121,8 @@ export default function SignIn() {
         throw new Error("Apple Sign-In returnerte ikke identity token.");
       }
 
-      const jwt = await loginWithApple(identityToken);
-      await setToken(jwt);
+      const session = await loginWithApple(identityToken);
+      await setAuthSession(session);
       router.replace("/(tabs)/home");
     } catch (error) {
       console.log("Login error:", error);

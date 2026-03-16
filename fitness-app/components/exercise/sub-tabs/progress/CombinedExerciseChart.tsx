@@ -1,313 +1,499 @@
-// progress/CombinedExerciseChart.tsx
-
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
-import { Ionicons } from "@expo/vector-icons";
-import { max, min } from "d3-array";
+import type {
+  PreparedProgressPoint,
+  ProgressTimeRange,
+  ProgressUnit,
+} from "@/utils/exercise/progressChart";
 import {
-  scaleBand,
-  scaleLinear,
-  type ScaleBand,
-  type ScaleLinear,
-} from "d3-scale";
-import { curveMonotoneX, line as d3Line, type Line as D3Line } from "d3-shape";
+  prepareProgressSeries,
+  PROGRESS_TIME_RANGE_OPTIONS,
+} from "@/utils/exercise/progressChart";
+import { Ionicons } from "@expo/vector-icons";
+import { scaleLinear } from "d3-scale";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useMemo, useState } from "react";
-import type { TextStyle, ViewStyle } from "react-native";
-import { Dimensions, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import type { ColorSchemeName, TextStyle, ViewStyle } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from "react-native";
 import Svg, {
   Circle,
-  Defs,
   G,
   Path,
   Rect,
-  Stop,
   Line as SvgLine,
-  LinearGradient as SvgLinearGradient,
   Text as SvgText,
 } from "react-native-svg";
 
-/**
- * Premium Dark Ocean theme
- */
-const colors = {
-  card: "rgba(2,6,23,0.18)",
-  surface: "rgba(255,255,255,0.04)",
-  border: "rgba(255,255,255,0.08)",
-  borderSoft: "rgba(255,255,255,0.05)",
-  text: "#E5ECFF",
-  textMuted: "rgba(148,163,184,0.9)",
-  muted2: "rgba(148,163,184,0.7)",
-  accent: "#06b6d4",
-  accentDim: "rgba(6,182,212,0.2)",
-  accentBg: "rgba(6,182,212,0.08)",
-
-  // chart
-  grid: "rgba(148,163,184,0.12)",
-  plotTop: "rgba(2,6,23,0.30)",
-  plotBottom: "rgba(2,6,23,0.50)",
-  chartBg: "rgba(2,6,23,0.30)",
-
-  // series
-  line: "rgba(6,182,212,0.95)", // ✅ 1RM
-  bar: "rgba(6,182,212,0.35)", // ✅ volum
-  barStroke: "rgba(6,182,212,0.25)",
-
-  green: "rgba(34, 197, 94, 0.9)",
-  red: "rgba(239, 68, 68, 0.9)",
-};
-
 export type ExerciseProgressPoint = {
-  timestampUtc: string; // ISO-string
+  timestampUtc: string;
   value: number;
+  unit?: ProgressUnit;
 };
 
 type Props = {
   title?: string;
   showTitle?: boolean;
   height?: number;
-
   metric?: "weight" | "volume" | "both";
   volumeMetric?: "sets" | "kg";
-
-  weightData: ExerciseProgressPoint[]; // 1RM (line)
-  volumeData: ExerciseProgressPoint[]; // volume (bars)
-
+  range?: ProgressTimeRange;
+  onRangeChange?: (range: ProgressTimeRange) => void;
+  weightData: ExerciseProgressPoint[];
+  volumeData: ExerciseProgressPoint[];
   showOuterLines?: boolean;
-  showVerticalLines?: boolean; // (not used, parity)
-  segments?: number;
+};
 
-  minXLabels?: number;
-  maxXLabels?: number;
-
-  backgroundGradientFrom?: string;
-  labelColor?: string;
-  gridLineColor?: string;
-
-  barColor?: string;
-  lineColor?: string;
-
-  fromZero?: boolean;
-  decimalPlaces?: number;
+type Palette = {
+  card: string;
+  surface: string;
+  surfaceStrong: string;
+  border: string;
+  borderSoft: string;
+  text: string;
+  textMuted: string;
+  muted2: string;
+  accent: string;
+  accentBg: string;
+  accentDim: string;
+  weight: string;
+  trend: string;
+  volume: string;
+  volumeStroke: string;
+  grid: string;
+  chartBgTop: string;
+  chartBgBottom: string;
+  tooltipBg: string;
+  tooltipBorder: string;
+  guide: string;
+  pr: string;
+  success: string;
+  warning: string;
+  danger: string;
 };
 
 type MergedPoint = {
-  ts: string;
-  label: string;
-  oneRm: number;
-  volume: number;
+  key: string;
+  shortLabel: string;
+  fullLabel: string;
+  weight: PreparedProgressPoint | null;
+  volume: PreparedProgressPoint | null;
 };
 
-const screenWidth = Dimensions.get("window").width;
+const PAD_LEFT = 44;
+const PAD_RIGHT = 44;
+const PAD_TOP = 18;
+const PAD_BOTTOM = 34;
 
-function clamp(n: number, a: number, b: number) {
-  return Math.max(a, Math.min(b, n));
+function getPalette(scheme: ColorSchemeName): Palette {
+  if (scheme === "light") {
+    return {
+      card: "rgba(255,255,255,0.92)",
+      surface: "rgba(15,23,42,0.05)",
+      surfaceStrong: "rgba(15,23,42,0.08)",
+      border: "rgba(15,23,42,0.10)",
+      borderSoft: "rgba(15,23,42,0.08)",
+      text: "#0f172a",
+      textMuted: "rgba(15,23,42,0.82)",
+      muted2: "rgba(15,23,42,0.58)",
+      accent: "#0891b2",
+      accentBg: "rgba(8,145,178,0.08)",
+      accentDim: "rgba(8,145,178,0.18)",
+      weight: "#0f766e",
+      trend: "#d97706",
+      volume: "rgba(2,132,199,0.28)",
+      volumeStroke: "rgba(2,132,199,0.60)",
+      grid: "rgba(15,23,42,0.10)",
+      chartBgTop: "rgba(248,250,252,0.92)",
+      chartBgBottom: "rgba(241,245,249,0.96)",
+      tooltipBg: "rgba(255,255,255,0.96)",
+      tooltipBorder: "rgba(15,23,42,0.10)",
+      guide: "rgba(15,23,42,0.18)",
+      pr: "#f59e0b",
+      success: "#15803d",
+      warning: "#b45309",
+      danger: "#dc2626",
+    };
+  }
+
+  return {
+    card: "rgba(2,6,23,0.18)",
+    surface: "rgba(255,255,255,0.04)",
+    surfaceStrong: "rgba(255,255,255,0.06)",
+    border: "rgba(255,255,255,0.08)",
+    borderSoft: "rgba(255,255,255,0.05)",
+    text: "#E5ECFF",
+    textMuted: "rgba(226,232,240,0.92)",
+    muted2: "rgba(148,163,184,0.78)",
+    accent: "#22d3ee",
+    accentBg: "rgba(34,211,238,0.10)",
+    accentDim: "rgba(34,211,238,0.22)",
+    weight: "rgba(34,211,238,0.95)",
+    trend: "#fbbf24",
+    volume: "rgba(59,130,246,0.32)",
+    volumeStroke: "rgba(59,130,246,0.68)",
+    grid: "rgba(148,163,184,0.12)",
+    chartBgTop: "rgba(2,6,23,0.30)",
+    chartBgBottom: "rgba(2,6,23,0.56)",
+    tooltipBg: "rgba(8,15,29,0.96)",
+    tooltipBorder: "rgba(255,255,255,0.08)",
+    guide: "rgba(148,163,184,0.20)",
+    pr: "#fbbf24",
+    success: "#22c55e",
+    warning: "#f59e0b",
+    danger: "#f87171",
+  };
+}
+
+function formatValue(value: number | null, unit: string) {
+  if (value == null) return "--";
+  const decimals = value < 10 ? 1 : 0;
+  return `${value.toFixed(decimals)} ${unit}`;
+}
+
+function getSlotWidth(pointCount: number) {
+  if (pointCount <= 5) return 64;
+  if (pointCount <= 12) return 44;
+  if (pointCount <= 24) return 34;
+  return 28;
+}
+
+function getVisibleLabelIndexes(total: number) {
+  const maxLabels = total <= 8 ? total : 6;
+  const step = Math.max(1, Math.ceil(total / maxLabels));
+  const indexes = new Set<number>();
+  for (let index = 0; index < total; index += step) {
+    indexes.add(index);
+  }
+  indexes.add(total - 1);
+  return indexes;
+}
+
+function buildLineSegments(
+  points: MergedPoint[],
+  getX: (index: number) => number,
+  getY: (value: number) => number,
+  accessor: (point: MergedPoint) => number | null,
+  gapAccessor: (point: MergedPoint) => boolean
+) {
+  const segments: string[] = [];
+  let active = "";
+
+  points.forEach((point, index) => {
+    const value = accessor(point);
+    if (value == null) return;
+
+    const x = getX(index);
+    const y = getY(value);
+
+    if (!active || gapAccessor(point)) {
+      if (active) segments.push(active);
+      active = `M ${x} ${y}`;
+      return;
+    }
+
+    active += ` L ${x} ${y}`;
+  });
+
+  if (active) {
+    segments.push(active);
+  }
+
+  return segments;
+}
+
+function createStyles(colors: Palette) {
+  return StyleSheet.create<{
+    card: ViewStyle;
+    header: ViewStyle;
+    iconCircle: ViewStyle;
+    title: TextStyle;
+    subtitle: TextStyle;
+    trendPill: ViewStyle;
+    trendText: TextStyle;
+    statsRow: ViewStyle;
+    statBox: ViewStyle;
+    statDivider: ViewStyle;
+    statLabel: TextStyle;
+    statValue: TextStyle;
+    rangeRow: ViewStyle;
+    rangePill: ViewStyle;
+    rangePillActive: ViewStyle;
+    rangePillText: TextStyle;
+    rangePillTextActive: TextStyle;
+    chartOuter: ViewStyle;
+    chartBackground: ViewStyle;
+    chartGradient: ViewStyle;
+    emptyState: ViewStyle;
+    emptyIcon: ViewStyle;
+    emptyText: TextStyle;
+    emptySubtext: TextStyle;
+  }>({
+    card: {
+      width: "100%",
+      paddingVertical: 18,
+      paddingHorizontal: 18,
+      borderRadius: 22,
+      marginBottom: 16,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      marginBottom: 16,
+    },
+    iconCircle: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.accentBg,
+      borderWidth: 1,
+      borderColor: colors.accentDim,
+    },
+    title: {
+      fontSize: 16,
+      color: colors.text,
+      letterSpacing: 0.1,
+      marginBottom: 2,
+    },
+    subtitle: {
+      fontSize: 12,
+      color: colors.muted2,
+      letterSpacing: 0.1,
+    },
+    trendPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: 1,
+      borderColor: colors.borderSoft,
+    },
+    trendText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.textMuted,
+      letterSpacing: 0.1,
+    },
+    statsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.borderSoft,
+      marginBottom: 12,
+    },
+    statBox: {
+      flex: 1,
+      alignItems: "center",
+      gap: 3,
+    },
+    statDivider: {
+      width: 1,
+      height: 26,
+      backgroundColor: colors.borderSoft,
+    },
+    statLabel: {
+      fontSize: 10,
+      fontWeight: "600",
+      color: colors.muted2,
+      letterSpacing: 0.2,
+      textTransform: "uppercase",
+    },
+    statValue: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.text,
+      letterSpacing: 0.1,
+    },
+    rangeRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginBottom: 12,
+      justifyContent: "center",
+    },
+    rangePill: {
+      minWidth: 50,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 999,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: 1,
+      borderColor: colors.borderSoft,
+    },
+    rangePillActive: {
+      backgroundColor: colors.accentBg,
+      borderColor: colors.accentDim,
+    },
+    rangePillText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.muted2,
+      letterSpacing: 0.1,
+    },
+    rangePillTextActive: {
+      color: colors.text,
+    },
+    chartOuter: {
+      width: "100%",
+      overflow: "hidden",
+    },
+    chartBackground: {
+      borderRadius: 16,
+      overflow: "hidden",
+      backgroundColor: colors.chartBgBottom,
+      borderWidth: 1,
+      borderColor: colors.borderSoft,
+      position: "relative",
+    },
+    chartGradient: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 0,
+    },
+    emptyState: {
+      alignItems: "center",
+      paddingVertical: 40,
+      paddingHorizontal: 20,
+    },
+    emptyIcon: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.borderSoft,
+      marginBottom: 16,
+    },
+    emptyText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.textMuted,
+      textAlign: "center",
+      marginBottom: 6,
+    },
+    emptySubtext: {
+      fontSize: 12,
+      fontWeight: "500",
+      color: colors.muted2,
+      textAlign: "center",
+      lineHeight: 18,
+    },
+  });
 }
 
 export function CombinedExerciseChart({
-  title = "1RM & volum",
+  title = "1RM og volum",
   showTitle = true,
-  height,
-
-  metric,
-  volumeMetric,
-
+  height = 260,
+  metric = "both",
+  volumeMetric = "kg",
+  range = "20",
+  onRangeChange,
   weightData,
   volumeData,
-
   showOuterLines = false,
-  showVerticalLines = false,
-  segments = 5,
-
-  minXLabels = 3,
-  maxXLabels = 6,
-
-  backgroundGradientFrom,
-  labelColor,
-  gridLineColor,
-
-  barColor,
-  lineColor,
-
-  fromZero = true,
-  decimalPlaces = 0,
 }: Props) {
-  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  const scheme = useColorScheme();
+  const colors = useMemo(() => getPalette(scheme), [scheme]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  /**
-   * ============================================================
-   *  VISUAL TWEAKS - Premium Dark Ocean
-   * ============================================================
-   */
+  const weightSeries = useMemo(
+    () =>
+      prepareProgressSeries({
+        data: weightData,
+        metric: "weight",
+        range,
+      }),
+    [range, weightData]
+  );
 
-  // --- Layout / sizing
-  const CARD_PADDING_X = 18;
-  const CHART_HEIGHT = height ?? 240;
+  const volumeSeries = useMemo(
+    () =>
+      prepareProgressSeries({
+        data: volumeData,
+        metric: volumeMetric === "kg" ? "volumeKg" : "volumeSets",
+        range,
+        forcedBucket: weightSeries.bucket,
+      }),
+    [range, volumeData, volumeMetric, weightSeries.bucket]
+  );
 
-  const PAD_TOP = 14;
-  const PAD_BOTTOM = 28;
-  const PAD_LEFT = 42;
-  const PAD_RIGHT = 42;
+  const merged = useMemo<MergedPoint[]>(() => {
+    const map = new Map<string, MergedPoint>();
 
-  // inner plot box
-  const PLOT_RADIUS = 16;
-  const PLOT_GRAD_TOP = "rgba(2,6,23,0.40)";
-  const PLOT_GRAD_BOTTOM = "rgba(2,6,23,0.60)";
+    for (const point of weightSeries.points) {
+      map.set(point.key, {
+        key: point.key,
+        shortLabel: point.shortLabel,
+        fullLabel: point.fullLabel,
+        weight: point,
+        volume: null,
+      });
+    }
 
-  const OUTER_BORDER_WIDTH = showOuterLines ? 1 : 0;
+    for (const point of volumeSeries.points) {
+      const existing = map.get(point.key);
+      if (existing) {
+        existing.volume = point;
+        continue;
+      }
 
-  // --- X axis (labels)
-  const X_LABEL_FONT_SIZE = 10;
-  const X_LABEL_Y_OFFSET = 18;
-  const X_LABEL_TEXT_ANCHOR: "start" | "middle" | "end" = "middle";
-  const X_LABEL_ROTATE_DEG = 0;
+      map.set(point.key, {
+        key: point.key,
+        shortLabel: point.shortLabel,
+        fullLabel: point.fullLabel,
+        weight: null,
+        volume: point,
+      });
+    }
 
-  // --- Y axes (labels)
-  const Y_LEFT_FONT_SIZE = 9;
-  const Y_RIGHT_FONT_SIZE = 9;
-
-  const Y_LABEL_DY = 3;
-  const Y_LEFT_X_OFFSET = 8;
-  const Y_RIGHT_X_OFFSET = 8;
-  const Y_LEFT_SUFFIX = " kg";
-  const Y_RIGHT_SUFFIX = ""; // evt: volumeMetric === "kg" ? "kg" : ""
-
-  // --- Grid
-  const GRID_STROKE_WIDTH = 1;
-  const GRID_DASHARRAY = "4,4";
-  const GRID_USE_LEFT_AXIS_TICKS = true;
-
-  // --- Band scale spacing (DENSE MODE)
-  const X_PADDING_INNER = 0.22;
-  const X_PADDING_OUTER = 0.18;
-
-  // --- Bars (common)
-  const BAR_WIDTH_FACTOR = 0.6;
-  const BAR_RADIUS = 3;
-  const BAR_OPACITY = 1;
-
-  // --- Line
-  const LINE_WIDTH = 2.5;
-  const LINE_CURVE = curveMonotoneX;
-  const LINE_OPACITY = 1;
-
-  // --- Dots
-  const DOT_RADIUS = 0;
-  const DOT_OPACITY = 0;
-  const LAST_DOT_RADIUS = 4;
-  const LAST_DOT_OPACITY = 1;
-
-  // --- Legend
-  const LEGEND_X = 10;
-  const LEGEND_Y = 14;
-  const LEGEND_FONT_SIZE = 11;
-
-  const LEGEND_BAR_SWATCH_SIZE = 10;
-  const LEGEND_BAR_SWATCH_RADIUS = 3;
-  const LEGEND_BAR_SWATCH_Y = -8;
-
-  const LEGEND_BAR_TEXT_X = 16;
-  const LEGEND_BAR_TEXT_Y = 0;
-
-  const LEGEND_LINE_X1 = 70;
-  const LEGEND_LINE_X2 = 90;
-  const LEGEND_LINE_Y = -3;
-  const LEGEND_LINE_WIDTH = 2.5;
-
-  const LEGEND_LINE_TEXT_X = 96;
-  const LEGEND_LINE_TEXT_Y = 0;
-
-  const volumeLegend = "Volum";
-  const oneLegend = "1RM";
-
-  // --- Layers
-  const SHOW_PLOT_BG = true;
-  const SHOW_GRID = true;
-  const SHOW_BARS = true;
-  const SHOW_LINE = true;
-  const SHOW_DOTS = false;
-  const SHOW_LAST_DOT = true;
-  const SHOW_X_LABELS = true;
-  const SHOW_LEGEND = true;
-
-  /**
-   * ============================================================
-   *  ✅ SPARSE MODE (få punkter) – fast størrelse, venstrejustert
-   * ============================================================
-   */
-  const ENABLE_SPARSE_MODE = true;
-  const SPARSE_MAX_POINTS = 6;
-  const SPARSE_LEFT_INSET = 6;
-  const SPARSE_BAR_WIDTH_PX = 18;
-  const SPARSE_GAP_PX = 10;
-
-  // Color overrides
-  const effectiveBarColor = barColor || colors.bar;
-  const effectiveLineColor = lineColor || colors.line;
-  const effectiveLabelColor = labelColor || colors.muted2;
-  const effectiveGridLineColor = gridLineColor || colors.grid;
-
-  /**
-   * ============================================================
-   *  DATA + MERGE
-   * ============================================================
-   */
-  const merged: MergedPoint[] = useMemo(() => {
-    const wMap = new Map<string, number>(
-      (weightData ?? []).map((p) => [p.timestampUtc, p.value])
+    return Array.from(map.values()).sort(
+      (a, b) =>
+        Date.parse(a.weight?.timestampUtc ?? a.volume?.timestampUtc ?? "") -
+        Date.parse(b.weight?.timestampUtc ?? b.volume?.timestampUtc ?? "")
     );
-    const vMap = new Map<string, number>(
-      (volumeData ?? []).map((p) => [p.timestampUtc, p.value])
-    );
+  }, [volumeSeries.points, weightSeries.points]);
 
-    const allTs = Array.from(
-      new Set<string>([...wMap.keys(), ...vMap.keys()])
-    ).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+  useEffect(() => {
+    if (!merged.length) {
+      setSelectedKey(null);
+      return;
+    }
 
-    return allTs.map((ts) => {
-      const d = new Date(ts);
-      const one = Number(wMap.get(ts) ?? 0);
-      const vol = Number(vMap.get(ts) ?? 0);
-
-      return {
-        ts,
-        label: d.toLocaleDateString("nb-NO", {
-          day: "numeric",
-          month: "short",
-        }),
-        oneRm: Number.isFinite(one) ? Math.max(0, one) : 0,
-        volume: Number.isFinite(vol) ? Math.max(0, vol) : 0,
-      };
+    setSelectedKey((current) => {
+      if (current && merged.some((point) => point.key === current)) {
+        return current;
+      }
+      return merged[merged.length - 1].key;
     });
-  }, [weightData, volumeData]);
-
-  const stats = useMemo(() => {
-    if (merged.length === 0) return null;
-    const oneRmValues = merged.map((d) => d.oneRm).filter((v) => v > 0);
-    const volumeValues = merged.map((d) => d.volume).filter((v) => v > 0);
-
-    if (oneRmValues.length === 0 && volumeValues.length === 0) return null;
-
-    const maxOneRm = oneRmValues.length > 0 ? Math.max(...oneRmValues) : 0;
-    const maxVolume = volumeValues.length > 0 ? Math.max(...volumeValues) : 0;
-    const latestOneRm =
-      oneRmValues.length > 0 ? oneRmValues[oneRmValues.length - 1] : 0;
-    const latestVolume =
-      volumeValues.length > 0 ? volumeValues[volumeValues.length - 1] : 0;
-
-    const firstOneRm = oneRmValues.length > 0 ? oneRmValues[0] : 0;
-    const changeOneRm = latestOneRm - firstOneRm;
-    const changePercentOneRm =
-      firstOneRm > 0 ? ((changeOneRm / firstOneRm) * 100).toFixed(1) : "0.0";
-
-    return {
-      maxOneRm,
-      maxVolume,
-      latestOneRm,
-      latestVolume,
-      changeOneRm,
-      changePercentOneRm,
-    };
   }, [merged]);
 
   if (!merged.length) {
@@ -322,7 +508,7 @@ export function CombinedExerciseChart({
               <Text style={[typography.bodyBold, styles.title]}>{title}</Text>
             )}
             <Text style={[typography.body, styles.subtitle]}>
-              1RM (linje) + volum (søyler)
+              Ingen data i valgt periode
             </Text>
           </View>
         </View>
@@ -335,141 +521,65 @@ export function CombinedExerciseChart({
             Ingen data tilgjengelig ennå
           </Text>
           <Text style={[typography.body, styles.emptySubtext]}>
-            Start å logge økter for å se progresjon
+            Kombinasjonsgrafen viser først noe når både dato og verdi kan brukes
+            på en trygg måte.
           </Text>
         </View>
       </View>
     );
   }
 
-  const fallbackWidth = screenWidth - (CARD_PADDING_X * 2 + 12);
-  const chartWidth = containerWidth ?? fallbackWidth;
-  const chartHeight = CHART_HEIGHT;
+  const selected =
+    merged.find((point) => point.key === selectedKey) ??
+    merged[merged.length - 1];
 
-  const pad = {
-    top: PAD_TOP,
-    bottom: PAD_BOTTOM,
-    left: PAD_LEFT,
-    right: PAD_RIGHT,
-  };
+  const slotWidth = getSlotWidth(merged.length);
+  const minChartWidth = PAD_LEFT + PAD_RIGHT + slotWidth * merged.length;
+  const chartWidth = Math.max(containerWidth, minChartWidth);
+  const innerWidth = Math.max(10, chartWidth - PAD_LEFT - PAD_RIGHT);
+  const innerHeight = Math.max(90, height - PAD_TOP - PAD_BOTTOM);
 
-  const innerW = Math.max(10, chartWidth - pad.left - pad.right);
-  const innerH = Math.max(10, chartHeight - pad.top - pad.bottom);
+  const weightScale = scaleLinear()
+    .domain([weightSeries.yDomain.paddedMin, weightSeries.yDomain.paddedMax])
+    .range([innerHeight, 0]);
+  const volumeScale = scaleLinear()
+    .domain([0, volumeSeries.yDomain.paddedMax])
+    .range([innerHeight, 0]);
 
-  const oneMax = max(merged, (d) => d.oneRm) ?? 0;
-  const oneMin = min(merged, (d) => d.oneRm) ?? 0;
-
-  const volMax = max(merged, (d) => d.volume) ?? 0;
-  const volMin = 0;
-
-  const yOne: ScaleLinear<number, number> = scaleLinear<number>()
-    .domain([fromZero ? 0 : Math.min(oneMin, 0), Math.max(oneMax, 1)])
-    .nice(segments)
-    .range([innerH, 0]);
-
-  const yVol: ScaleLinear<number, number> = scaleLinear<number>()
-    .domain([volMin, Math.max(volMax, 1)])
-    .nice(segments)
-    .range([innerH, 0]);
-
-  // X label density
-  const totalPoints = merged.length;
-  const minAllowedX = Math.min(minXLabels, totalPoints);
-  const maxAllowedX = Math.min(Math.max(maxXLabels, minAllowedX), totalPoints);
-
-  let showX: boolean[] = merged.map(() => true);
-  if (maxAllowedX > 0 && totalPoints > maxAllowedX) {
-    const step = Math.ceil(totalPoints / maxAllowedX);
-    showX = merged.map((_, i) => i % step === 0);
-  }
-
-  const ticks = (GRID_USE_LEFT_AXIS_TICKS ? yOne : yVol).ticks(segments);
-
-  const fmt = (n: number) => n.toFixed(decimalPlaces);
-  const rightLabelForY = (y: number) => fmt(yVol.invert(y));
-
-  /**
-   * ============================================================
-   *  ✅ X LAYOUT: SPARSE vs DENSE
-   * ============================================================
-   */
-
-  const useSparse =
-    ENABLE_SPARSE_MODE &&
-    merged.length > 0 &&
-    merged.length <= SPARSE_MAX_POINTS;
-
-  // DENSE: use scaleBand (current behavior)
-  const xDense: ScaleBand<string> = scaleBand<string>()
-    .domain(merged.map((d) => d.ts))
-    .range([0, innerW])
-    .paddingInner(X_PADDING_INNER)
-    .paddingOuter(X_PADDING_OUTER);
-
-  // Helper: get bar-left + bandW + centerX for each point
-  const getX = (d: MergedPoint, idx: number) => {
-    if (useSparse) {
-      const slotW = SPARSE_BAR_WIDTH_PX + SPARSE_GAP_PX;
-      const bx = SPARSE_LEFT_INSET + idx * slotW;
-      const bwBase = SPARSE_BAR_WIDTH_PX;
-      const bw = bwBase * BAR_WIDTH_FACTOR;
-      const bxCentered = bx + (bwBase - bw) / 2;
-      const cx = bx + bwBase / 2;
-      return { bx: bxCentered, bw, cx };
+  const getX = (index: number) => {
+    if (merged.length === 1) {
+      return PAD_LEFT + innerWidth / 2;
     }
-
-    const bxBand = xDense(d.ts);
-    const bandW = xDense.bandwidth();
-    const bw = bandW * BAR_WIDTH_FACTOR;
-    const bxCentered = (bxBand ?? 0) + (bandW - bw) / 2;
-    const cx = (bxBand ?? 0) + bandW / 2;
-    return { bx: bxCentered, bw, cx };
+    const step = innerWidth / (merged.length - 1);
+    return PAD_LEFT + step * index;
   };
 
-  // Line path
-  const lineGenerator: D3Line<{ x: number; y: number }> = d3Line<{
-    x: number;
-    y: number;
-  }>()
-    .x((p) => p.x)
-    .y((p) => p.y)
-    .curve(LINE_CURVE);
+  const weightLine = buildLineSegments(
+    merged,
+    getX,
+    (value) => PAD_TOP + weightScale(value),
+    (point) =>
+      point.weight && metric !== "volume" ? point.weight.clampedValue : null,
+    (point) => point.weight?.hasGapBefore ?? false
+  );
+  const trendLine = buildLineSegments(
+    merged,
+    getX,
+    (value) => PAD_TOP + weightScale(value),
+    (point) =>
+      point.weight && metric !== "volume"
+        ? point.weight.trendClampedValue
+        : null,
+    (point) => point.weight?.hasGapBefore ?? false
+  );
 
-  const linePoints = merged.map((d, idx) => {
-    const { cx } = getX(d, idx);
-    return { x: cx, y: yOne(d.oneRm) };
-  });
-  const linePath = lineGenerator(linePoints) ?? "";
-
-  const last = merged[merged.length - 1];
-  const lastIdx = merged.length - 1;
-  const lastCx = getX(last, lastIdx).cx;
-  const lastCy = yOne(last.oneRm);
-
-  let lastNonZeroOne = { point: merged[merged.length - 1], idx: merged.length - 1 };
-  for (let i = merged.length - 1; i >= 0; i--) {
-    if (merged[i].oneRm > 0) {
-      lastNonZeroOne = { point: merged[i], idx: i };
-      break;
-    }
-  }
-
-  const changeUp = (stats?.changeOneRm ?? 0) > 0;
-  const changeDown = (stats?.changeOneRm ?? 0) < 0;
-
-  const leftLabel = (n: number) => {
-    if (n < 10) return n.toFixed(1);
-    return n.toFixed(0);
-  };
-
-  const fmtSmart = (n: number, dp: number) => {
-    if (n < 10) return n.toFixed(dp);
-    return n.toFixed(0);
-  };
-
+  const labelIndexes = getVisibleLabelIndexes(merged.length);
+  const ticks = Array.from({ length: 5 }, (_, index) => index / 4);
+  const selectedIndex = merged.findIndex((point) => point.key === selected.key);
+  const selectedX = getX(selectedIndex);
+  const trendChange = weightSeries.totalChange ?? 0;
   return (
     <View style={[generalStyles.newCard, styles.card]}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.iconCircle}>
           <Ionicons name="analytics" size={20} color={colors.accent} />
@@ -481,494 +591,379 @@ export function CombinedExerciseChart({
               {title}
             </Text>
           )}
-          <Text style={[typography.body, styles.subtitle]} numberOfLines={1}>
-            {merged.length} økter • 1RM + volum
+          <Text style={[typography.body, styles.subtitle]} numberOfLines={2}>
+            {weightSeries.rangeLabel} • {merged.length}{" "}
+            {weightSeries.bucket === "week" ? "ukepunkter" : "punkter"}
           </Text>
         </View>
 
-        {!!stats && (
-          <View
+        <View style={styles.trendPill}>
+          <Ionicons
+            name={
+              trendChange > 0
+                ? "trending-up"
+                : trendChange < 0
+                ? "trending-down"
+                : "remove"
+            }
+            size={12}
+            color={
+              trendChange > 0
+                ? colors.success
+                : trendChange < 0
+                ? colors.danger
+                : colors.textMuted
+            }
+          />
+          <Text
             style={[
-              styles.trendPill,
-              changeUp && styles.trendPillUp,
-              changeDown && styles.trendPillDown,
+              styles.trendText,
+              {
+                color:
+                  trendChange > 0
+                    ? colors.success
+                    : trendChange < 0
+                    ? colors.danger
+                    : colors.textMuted,
+              },
             ]}
           >
-            <Ionicons
-              name={
-                changeUp
-                  ? "trending-up"
-                  : changeDown
-                  ? "trending-down"
-                  : "remove"
-              }
-              size={12}
-              color={
-                changeUp
-                  ? colors.green
-                  : changeDown
-                  ? colors.red
-                  : colors.textMuted
-              }
-            />
-            <Text
-              style={[
-                styles.trendText,
-                changeUp && { color: colors.green },
-                changeDown && { color: colors.red },
-              ]}
-              numberOfLines={1}
-            >
-              {stats.changePercentOneRm === "0.0"
-                ? "0.0%"
-                : `${stats.changePercentOneRm}%`}
-            </Text>
-          </View>
-        )}
+            {weightSeries.totalChangePercent == null
+              ? "--"
+              : `${
+                  weightSeries.totalChangePercent >= 0 ? "+" : ""
+                }${weightSeries.totalChangePercent.toFixed(1)}%`}
+          </Text>
+        </View>
       </View>
 
-      {/* Stats Row */}
-      {stats && (
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Maks 1RM</Text>
-            <Text style={styles.statValue}>
-              {fmtSmart(stats.maxOneRm, 1)} kg
-            </Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Maks vol</Text>
-            <Text style={styles.statValue}>
-              {volumeMetric === "kg"
-                ? `${fmtSmart(stats.maxVolume, 0)} kg`
-                : `${fmtSmart(stats.maxVolume, 0)}`}
-            </Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Endring</Text>
-            <Text
-              style={[
-                styles.statValue,
-                {
-                  color: stats.changeOneRm >= 0 ? colors.green : colors.red,
-                  fontSize: 12,
-                },
-              ]}
-            >
-              {stats.changeOneRm >= 0 ? "+" : ""}
-              {fmtSmart(stats.changeOneRm, 1)} kg
-            </Text>
-          </View>
+      {!!onRangeChange && (
+        <View style={styles.rangeRow}>
+          {PROGRESS_TIME_RANGE_OPTIONS.map((option) => {
+            const active = option.value === range;
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => onRangeChange(option.value)}
+                style={({ pressed }) => [
+                  styles.rangePill,
+                  active && styles.rangePillActive,
+                  pressed && { opacity: 0.92 },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.rangePillText,
+                    active && styles.rangePillTextActive,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       )}
 
-      {/* Chart */}
+      <View style={styles.statsRow}>
+        <View style={styles.statBox}>
+          <Text style={styles.statLabel}>1RM total</Text>
+          <Text
+            style={[
+              styles.statValue,
+              {
+                color:
+                  (weightSeries.totalChange ?? 0) >= 0
+                    ? colors.success
+                    : colors.danger,
+              },
+            ]}
+          >
+            {weightSeries.totalChange == null
+              ? "--"
+              : `${weightSeries.totalChange >= 0 ? "+" : ""}${formatValue(
+                  weightSeries.totalChange,
+                  weightSeries.unitLabel
+                )}`}
+          </Text>
+        </View>
+
+        <View style={styles.statDivider} />
+
+        <View style={styles.statBox}>
+          <Text style={styles.statLabel}>Volum siste</Text>
+          <Text style={styles.statValue}>
+            {formatValue(
+              selected.volume?.value ?? null,
+              volumeSeries.unitLabel
+            )}
+          </Text>
+        </View>
+
+        <View style={styles.statDivider} />
+
+        <View style={styles.statBox}>
+          <Text style={styles.statLabel}>Snitt / uke</Text>
+          <Text style={styles.statValue}>
+            {weightSeries.averageChangePerWeek == null
+              ? "--"
+              : `${
+                  weightSeries.averageChangePerWeek >= 0 ? "+" : ""
+                }${formatValue(
+                  weightSeries.averageChangePerWeek,
+                  weightSeries.unitLabel
+                )}`}
+          </Text>
+        </View>
+      </View>
+
       <View
         style={styles.chartOuter}
-        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+        onLayout={(event) => {
+          const nextWidth = event.nativeEvent.layout.width;
+          if (nextWidth !== containerWidth) {
+            setContainerWidth(nextWidth);
+          }
+        }}
       >
-        <View
-          style={[
-            styles.chartBackground,
-            {
-              width: chartWidth,
-              height: chartHeight,
-              borderWidth: OUTER_BORDER_WIDTH,
-              borderColor: showOuterLines
-                ? effectiveGridLineColor
-                : "transparent",
-            },
-          ]}
-        >
-          {/* Gradient Overlay */}
-          <LinearGradient
-            colors={[
-              "rgba(6,182,212,0.08)",
-              "rgba(6,182,212,0.03)",
-              "rgba(6,182,212,0.00)",
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View
+            style={[
+              styles.chartBackground,
+              {
+                width: chartWidth,
+                height,
+                borderWidth: showOuterLines ? 1 : 1,
+              },
             ]}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            style={styles.chartGradient}
-            pointerEvents="none"
-          />
+          >
+            <LinearGradient
+              colors={[
+                colors.chartBgTop,
+                colors.chartBgBottom,
+                colors.chartBgBottom,
+              ]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={styles.chartGradient}
+              pointerEvents="none"
+            />
 
-          <Svg width={chartWidth} height={chartHeight}>
-            <Defs>
-              <SvgLinearGradient id="plotGrad" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={colors.plotTop} />
-                <Stop offset="1" stopColor={colors.plotBottom} />
-              </SvgLinearGradient>
+            <Svg width={chartWidth} height={height}>
+              {ticks.map((tick, index) => {
+                const y = PAD_TOP + innerHeight * tick;
+                const weightTick =
+                  weightSeries.yDomain.paddedMax -
+                  (weightSeries.yDomain.paddedMax -
+                    weightSeries.yDomain.paddedMin) *
+                    tick;
+                const volumeTick =
+                  volumeSeries.yDomain.paddedMax -
+                  volumeSeries.yDomain.paddedMax * tick;
 
-              {/* Bar gradient */}
-              <SvgLinearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="rgba(6,182,212,0.40)" />
-                <Stop offset="1" stopColor="rgba(6,182,212,0.30)" />
-              </SvgLinearGradient>
-            </Defs>
-
-            <G x={pad.left} y={pad.top}>
-              {/* Plot background */}
-              <Rect
-                x={0}
-                y={0}
-                width={innerW}
-                height={innerH}
-                rx={PLOT_RADIUS}
-                fill="url(#plotGrad)"
-              />
-
-              {/* Legend */}
-              <G x={LEGEND_X} y={LEGEND_Y}>
-                {/* Bars */}
-                <Rect
-                  x={0}
-                  y={-8}
-                  width={10}
-                  height={10}
-                  rx={3}
-                  fill={effectiveBarColor}
-                  stroke={colors.barStroke}
-                  strokeWidth={1}
-                />
-                <SvgText
-                  x={16}
-                  y={0}
-                  fill={effectiveLabelColor}
-                  fontSize={11}
-                  fontWeight="600"
-                >
-                  Volum
-                </SvgText>
-
-                {/* Line */}
-                <SvgLine
-                  x1={68}
-                  x2={88}
-                  y1={-3}
-                  y2={-3}
-                  stroke={effectiveLineColor}
-                  strokeWidth={2.6}
-                />
-                <SvgText
-                  x={94}
-                  y={0}
-                  fill={effectiveLabelColor}
-                  fontSize={11}
-                  fontWeight="600"
-                >
-                  1RM
-                </SvgText>
-              </G>
-
-              {/* Grid + Y labels */}
-              {ticks.map((t, idx) => {
-                const y = yOne(t);
                 return (
-                  <G key={`grid-${idx}`}>
+                  <G key={`grid-${index}`}>
                     <SvgLine
-                      x1={0}
-                      x2={innerW}
+                      x1={PAD_LEFT}
+                      x2={chartWidth - PAD_RIGHT}
                       y1={y}
                       y2={y}
-                      stroke={effectiveGridLineColor}
-                      strokeWidth={GRID_STROKE_WIDTH}
-                      strokeDasharray={GRID_DASHARRAY}
+                      stroke={colors.grid}
+                      strokeWidth={1}
+                      strokeDasharray="4,4"
                     />
-
-                    {/* Left (1RM) */}
                     <SvgText
-                      x={-Y_LEFT_X_OFFSET}
-                      y={y + Y_LABEL_DY}
-                      fill={effectiveLabelColor}
-                      fontSize={Y_LEFT_FONT_SIZE}
+                      x={PAD_LEFT - 8}
+                      y={y + 3}
                       textAnchor="end"
+                      fontSize={9}
+                      fill={colors.muted2}
                       fontWeight="600"
                     >
-                      {leftLabel(t)}
+                      {weightTick < 10
+                        ? weightTick.toFixed(1)
+                        : weightTick.toFixed(0)}
                     </SvgText>
-
-                    {/* Right (Volume) */}
                     <SvgText
-                      x={innerW + Y_RIGHT_X_OFFSET}
-                      y={y + Y_LABEL_DY}
-                      fill={effectiveLabelColor}
-                      fontSize={Y_RIGHT_FONT_SIZE}
-                      textAnchor="start"
+                      x={chartWidth - PAD_RIGHT + 8}
+                      y={y + 3}
+                      fontSize={9}
+                      fill={colors.muted2}
                       fontWeight="600"
                     >
-                      {rightLabelForY(y)}
+                      {volumeTick < 10
+                        ? volumeTick.toFixed(1)
+                        : volumeTick.toFixed(0)}
                     </SvgText>
                   </G>
                 );
               })}
 
-              {/* Bars = volume */}
-              {merged.map((d, idx) => {
-                const { bx, bw } = getX(d, idx);
-                const top = yVol(d.volume);
-                const h = clamp(innerH - top, 0, innerH);
+              <SvgLine
+                x1={selectedX}
+                x2={selectedX}
+                y1={PAD_TOP}
+                y2={height - PAD_BOTTOM}
+                stroke={colors.guide}
+                strokeWidth={1}
+                strokeDasharray="3,4"
+              />
 
-                if (metric === "weight") return null;
-                return (
-                  <Rect
-                    key={`bar-${d.ts}`}
-                    x={bx}
-                    y={top}
-                    width={bw}
-                    height={h}
-                    rx={BAR_RADIUS}
-                    ry={BAR_RADIUS}
-                    fill="url(#barGrad)"
-                    stroke={colors.barStroke}
-                    strokeWidth={1}
-                    opacity={1}
+              {metric !== "weight" &&
+                merged.map((point, index) => {
+                  if (!point.volume) return null;
+
+                  const x = getX(index);
+                  const barWidth = Math.min(18, slotWidth * 0.62);
+                  const top = PAD_TOP + volumeScale(point.volume.clampedValue);
+                  const barHeight = Math.max(4, height - PAD_BOTTOM - top);
+
+                  return (
+                    <Rect
+                      key={`volume-${point.key}`}
+                      x={x - barWidth / 2}
+                      y={top}
+                      width={barWidth}
+                      height={barHeight}
+                      rx={4}
+                      fill={colors.volume}
+                      stroke={colors.volumeStroke}
+                      strokeWidth={point.key === selected.key ? 1.6 : 1}
+                    />
+                  );
+                })}
+
+              {metric !== "volume" &&
+                weightLine.map((segment) => (
+                  <Path
+                    key={`weight-${segment}`}
+                    d={segment}
+                    fill="none"
+                    stroke={colors.weight}
+                    strokeWidth={1.8}
                   />
-                );
-              })}
+                ))}
 
-              {/* Line = 1RM */}
-              {metric !== "volume" && !!linePath && (
-                <Path
-                  d={linePath}
-                  fill="none"
-                  stroke={effectiveLineColor}
-                  strokeWidth={LINE_WIDTH}
-                  opacity={1}
-                />
-              )}
+              {metric !== "volume" &&
+                trendLine.map((segment) => (
+                  <Path
+                    key={`trend-${segment}`}
+                    d={segment}
+                    fill="none"
+                    stroke={colors.trend}
+                    strokeWidth={1.35}
+                    strokeDasharray="6,6"
+                  />
+                ))}
 
-              {/* Last dot (1RM) */}
-              {metric !== "volume" && lastNonZeroOne.point.oneRm > 0 && (
-                <Circle
-                  cx={lastCx}
-                  cy={lastCy}
-                  r={LAST_DOT_RADIUS}
-                  fill={effectiveLineColor}
-                  opacity={1}
-                />
-              )}
-
-              {/* X labels */}
-              {merged.map((d, idx) => {
-                if (!showX[idx]) return null;
-
-                const { cx } = getX(d, idx);
-                const yText = innerH + X_LABEL_Y_OFFSET;
+              {merged.map((point, index) => {
+                const x = getX(index);
+                const y =
+                  point.weight != null
+                    ? PAD_TOP + weightScale(point.weight.clampedValue)
+                    : PAD_TOP + innerHeight * 0.3;
+                const showDot =
+                  point.weight != null &&
+                  metric !== "volume" &&
+                  (merged.length <= 12 ||
+                    point.key === selected.key ||
+                    point.weight.isPr ||
+                    point.weight.isOutlier);
 
                 return (
-                  <SvgText
-                    key={`xl-${d.ts}`}
-                    x={cx}
-                    y={yText}
-                    fill={effectiveLabelColor}
-                    fontSize={X_LABEL_FONT_SIZE}
-                    textAnchor="middle"
-                    fontWeight="600"
-                  >
-                    {d.label}
-                  </SvgText>
+                  <G key={`merged-${point.key}`}>
+                    {showDot && point.weight && (
+                      <>
+                        <Circle
+                          cx={x}
+                          cy={y}
+                          r={point.key === selected.key ? 4.1 : 2.8}
+                          fill={
+                            point.weight.isOutlier
+                              ? colors.warning
+                              : colors.weight
+                          }
+                        />
+                        {point.weight.isPr && (
+                          <Circle
+                            cx={x}
+                            cy={y}
+                            r={point.key === selected.key ? 6.1 : 4.9}
+                            fill="none"
+                            stroke={colors.pr}
+                            strokeWidth={1.1}
+                          />
+                        )}
+                      </>
+                    )}
+
+                    {point.key === selected.key && (
+                      <Circle
+                        cx={x}
+                        cy={y}
+                        r={8.2}
+                        fill="transparent"
+                        stroke={colors.accent}
+                        strokeWidth={1}
+                      />
+                    )}
+
+                    {point.volume ? (
+                      <Rect
+                        x={x - Math.min(18, slotWidth * 0.62) / 2}
+                        y={PAD_TOP + volumeScale(point.volume.clampedValue)}
+                        width={Math.min(18, slotWidth * 0.62)}
+                        height={Math.max(
+                          20,
+                          height -
+                            PAD_BOTTOM -
+                            (PAD_TOP + volumeScale(point.volume.clampedValue))
+                        )}
+                        fill="transparent"
+                        onPress={() => setSelectedKey(point.key)}
+                      />
+                    ) : point.weight ? (
+                      <Circle
+                        cx={x}
+                        cy={y}
+                        r={Math.max(12, slotWidth * 0.34)}
+                        fill="transparent"
+                        onPress={() => setSelectedKey(point.key)}
+                      />
+                    ) : null}
+
+                    {labelIndexes.has(index) && (
+                      <SvgText
+                        x={x}
+                        y={height - 12}
+                        textAnchor="middle"
+                        fontSize={10}
+                        fill={colors.muted2}
+                        fontWeight="600"
+                      >
+                        {point.shortLabel}
+                      </SvgText>
+                    )}
+
+                    {point.key === selected.key && point.weight?.isPr && (
+                      <SvgText
+                        x={x}
+                        y={Math.max(14, y - 12)}
+                        textAnchor="middle"
+                        fontSize={10}
+                        fill={colors.pr}
+                        fontWeight="700"
+                      >
+                        PR
+                      </SvgText>
+                    )}
+                  </G>
                 );
               })}
-            </G>
-          </Svg>
-        </View>
+            </Svg>
+          </View>
+        </ScrollView>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create<{
-  card: ViewStyle;
-  header: ViewStyle;
-  iconCircle: ViewStyle;
-  title: TextStyle;
-  subtitle: TextStyle;
-
-  trendPill: ViewStyle;
-  trendPillUp: ViewStyle;
-  trendPillDown: ViewStyle;
-  trendText: TextStyle;
-
-  statsRow: ViewStyle;
-  statBox: ViewStyle;
-  statDivider: ViewStyle;
-  statLabel: TextStyle;
-  statValue: TextStyle;
-
-  chartOuter: ViewStyle;
-  chartBackground: ViewStyle;
-  chartGradient: ViewStyle;
-
-  emptyState: ViewStyle;
-  emptyIcon: ViewStyle;
-  emptyText: TextStyle;
-  emptySubtext: TextStyle;
-}>({
-  card: {
-    width: "100%",
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-    borderRadius: 22,
-    marginBottom: 16,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 16,
-  },
-
-  iconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.accentBg,
-    borderWidth: 1,
-    borderColor: colors.accentDim,
-  },
-
-  title: {
-    fontSize: 16,
-    color: colors.text,
-    letterSpacing: 0.1,
-    marginBottom: 2,
-  },
-
-  subtitle: {
-    fontSize: 12,
-    color: colors.muted2,
-    letterSpacing: 0.1,
-  },
-
-  trendPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-  },
-  trendPillUp: {
-    backgroundColor: "rgba(34,197,94,0.12)",
-    borderColor: "rgba(34,197,94,0.25)",
-  },
-  trendPillDown: {
-    backgroundColor: "rgba(239,68,68,0.12)",
-    borderColor: "rgba(239,68,68,0.25)",
-  },
-  trendText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.textMuted,
-    letterSpacing: 0.1,
-  },
-
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    marginBottom: 16,
-  },
-
-  statBox: {
-    flex: 1,
-    alignItems: "center",
-    gap: 4,
-  },
-
-  statDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: colors.borderSoft,
-  },
-
-  statLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: colors.muted2,
-    letterSpacing: 0.2,
-    textTransform: "uppercase",
-  },
-
-  statValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.text,
-    letterSpacing: 0.1,
-  },
-
-  chartOuter: { width: "100%" },
-
-  chartBackground: {
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: colors.chartBg,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    position: "relative",
-  },
-
-  chartGradient: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 0,
-  },
-
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-  },
-
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    marginBottom: 16,
-  },
-
-  emptyText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textMuted,
-    textAlign: "center",
-    marginBottom: 6,
-  },
-
-  emptySubtext: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: colors.muted2,
-    textAlign: "center",
-    lineHeight: 18,
-  },
-});

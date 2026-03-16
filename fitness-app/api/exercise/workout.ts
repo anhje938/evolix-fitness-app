@@ -1,6 +1,6 @@
+import { authFetch, getValidAccessToken } from "@/api/authSession";
 import { Workout } from "@/types/exercise";
 import { API_BASE_URL } from "../baseUrl";
-import * as SecureStore from "expo-secure-store"
 
 export type CreateWorkoutPayload = {
   name: string;
@@ -13,16 +13,20 @@ export type CreateWorkoutPayload = {
 export async function PostWorkoutForUser(
   payload: CreateWorkoutPayload
 ): Promise<Workout> {
-  const token = await SecureStore.getItemAsync("token")
+  const token = await getValidAccessToken();
+  if (!token) throw new Error("Mangler auth-token");
 
-  const res = await fetch(`${API_BASE_URL}/workout`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  const res = await authFetch(
+    `${API_BASE_URL}/workout`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
+    { token }
+  );
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -33,24 +37,19 @@ export async function PostWorkoutForUser(
 }
 
 export async function GetWorkouts(): Promise<Workout[]> {
-    const token = await SecureStore.getItemAsync("token");
-  
-    const res = await fetch(`${API_BASE_URL}/workout`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-  
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(text || "Kunne ikke hente workouts");
-    }
+  const token = await getValidAccessToken();
+  if (!token) throw new Error("Mangler auth-token");
 
-    return res.json();
+  const res = await authFetch(`${API_BASE_URL}/workout`, { method: "GET" }, { token });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || "Kunne ikke hente workouts");
   }
 
-  
+  return res.json();
+}
+
 export type UpdateWorkoutPayload = {
   name: string;
   description?: string;
@@ -63,16 +62,20 @@ export async function UpdateWorkoutForUser(
   id: string,
   payload: UpdateWorkoutPayload
 ): Promise<void> {
-  const token = await SecureStore.getItemAsync("token")
+  const token = await getValidAccessToken();
+  if (!token) throw new Error("Mangler auth-token");
 
-  const res = await fetch(`${API_BASE_URL}/workout/${id}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  const res = await authFetch(
+    `${API_BASE_URL}/workout/${id}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
+    { token }
+  );
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -81,15 +84,16 @@ export async function UpdateWorkoutForUser(
 }
 
 export async function DeleteWorkoutForUser(id: string): Promise<void> {
-  
-  const token = await SecureStore.getItemAsync("token");
+  const token = await getValidAccessToken();
+  if (!token) throw new Error("Mangler auth-token");
 
-  const res = await fetch(`${API_BASE_URL}/workout/${id}`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
+  const res = await authFetch(
+    `${API_BASE_URL}/workout/${id}`,
+    {
+      method: "DELETE",
     },
-  });
+    { token }
+  );
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");

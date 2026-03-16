@@ -1,8 +1,5 @@
 import { typography } from "@/config/typography";
-import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useWorkoutSession } from "@/context/workoutSessionContext";
-import { useExercises } from "@/hooks/useExercises";
-import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { formatDuration } from "@/utils/session-overlay/formatDuration";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,10 +19,13 @@ import {
 import { Divider, ExerciseBlock, IconBtn, Stat } from "./ExerciseBlocks";
 import { DraggableMinimizedBar } from "./MinimizedWorkoutBar";
 import {
+  findSuspiciousWeightSets,
   findInvalidCompletedSets,
   normalizeTitle,
   validateSessionForSave,
 } from "./overlayGuards";
+
+const SUSPICIOUS_WEIGHT_THRESHOLD_KG = 500;
 
 /**
  * Premium Dark Ocean colors
@@ -55,7 +55,6 @@ export function WorkoutSessionOverlay() {
     session,
     toggleMinimized,
     closeSession,
-    addExercise,
     addSet,
     updateSet,
     removeSet,
@@ -64,12 +63,7 @@ export function WorkoutSessionOverlay() {
     deleteSession,
   } = useWorkoutSession();
 
-  const { userSettings } = useUserSettings();
-  const { data: exercises = [] } = useExercises();
-
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [showExercisePicker, setShowExercisePicker] = useState(false);
-  const [search, setSearch] = useState("");
   const [titleDraft, setTitleDraft] = useState("");
   const titleInputRef = useRef<RNTextInput | null>(null);
 
@@ -104,6 +98,12 @@ export function WorkoutSessionOverlay() {
       return;
     }
     if (next !== session?.name) renameSession(next);
+  };
+
+  const getTitleForSave = () => {
+    const next = normalizeTitle(titleDraft);
+    if (next) return next;
+    return session?.name ?? "Fri økt";
   };
 
   const isEditingCompletedSession = !!session?.id && !!session?.finishedAtUtc;
@@ -152,17 +152,6 @@ export function WorkoutSessionOverlay() {
     return { sets, completed, exercises: visibleExercises.length };
   }, [visibleExercises]);
 
-  const availableExercises = useMemo(() => {
-    if (!userSettings.showOnlyCustomTrainingContent) return exercises;
-    return exercises.filter(isUserCreatedExercise);
-  }, [exercises, userSettings.showOnlyCustomTrainingContent]);
-
-  const filteredExercises = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return availableExercises;
-    return availableExercises.filter((ex) => ex.name.toLowerCase().includes(q));
-  }, [availableExercises, search]);
-
   const handleClose = () => {
     if (isEditingCompletedSession) {
       Alert.alert(
@@ -190,8 +179,33 @@ export function WorkoutSessionOverlay() {
     );
   };
 
+  const handleAbortClose = () => {
+    if (isEditingCompletedSession) {
+      handleClose();
+      return;
+    }
+
+    if (totals.exercises <= 0) {
+      closeSession();
+      return;
+    }
+
+    const message =
+      totals.completed > 0
+        ? `Du har fullfÃ¸rt ${totals.completed} sett. Vil du avbryte Ã¸kten?`
+        : totals.sets > 0
+          ? "Du har lagt til Ã¸velser eller sett som ikke er lagret. Vil du avbryte Ã¸kten?"
+          : "Vil du avbryte Ã¸kten?";
+
+    Alert.alert("Avbryt Ã¸kt?", message, [
+      { text: "Fortsett", style: "cancel" },
+      { text: "Avbryt", style: "destructive", onPress: closeSession },
+    ]);
+  };
+
   const handleFinish = async () => {
     if (!session) return;
+    const nameOverride = getTitleForSave();
     commitTitle();
 
     const beforeSaveAction = isEditingCompletedSession
@@ -222,10 +236,33 @@ export function WorkoutSessionOverlay() {
       return;
     }
 
-    setShowExercisePicker(false);
+    const suspiciousWeights = findSuspiciousWeightSets(
+      session.exercises,
+      SUSPICIOUS_WEIGHT_THRESHOLD_KG
+    );
+    if (suspiciousWeights.length > 0) {
+      const first = suspiciousWeights[0];
+      const shouldContinue = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          "Uvanlig høy vekt",
+          suspiciousWeights.length > 1
+            ? `Vi fant ${suspiciousWeights.length} sett med minst ${SUSPICIOUS_WEIGHT_THRESHOLD_KG} kg.\n\nEksempel:\n${first.exerciseName} - sett ${first.setIndex}: ${first.weight} kg\n\nEr du sikker på at dette stemmer?`
+            : `Dette settet er registrert med ${first.weight} kg:\n\n${first.exerciseName} - sett ${first.setIndex}\n\nEr du sikker på at dette stemmer?`,
+          [
+            { text: "Gå tilbake", style: "cancel", onPress: () => resolve(false) },
+            { text: "Ja, lagre", onPress: () => resolve(true) },
+          ]
+        );
+      });
+
+      if (!shouldContinue) {
+        return;
+      }
+    }
+
     Keyboard.dismiss();
 
-    await finishAndSave();
+    await finishAndSave({ nameOverride });
   };
 
   if (!isOpen || !session) return null;
@@ -248,27 +285,30 @@ export function WorkoutSessionOverlay() {
 
   return (
     <Modal visible={isOpen} animationType="fade" transparent>
-      <Pressable style={styles.backdrop} onPress={Keyboard.dismiss}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
-          {/* Glass overlay */}
-          <LinearGradient
-            colors={[
-              "rgba(255,255,255,0.06)",
-              "rgba(255,255,255,0.02)",
-              "rgba(255,255,255,0.00)",
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
+      <View style={styles.modalRoot}>
+        <Pressable style={styles.backdrop} onPress={Keyboard.dismiss} />
+        <View style={styles.sheetWrap} pointerEvents="box-none">
+          <View style={styles.sheet}>
+            {/* Glass overlay */}
+            <LinearGradient
+              colors={[
+                "rgba(255,255,255,0.06)",
+                "rgba(255,255,255,0.02)",
+                "rgba(255,255,255,0.00)",
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
 
           {/* HEADER */}
           <View style={styles.headerRow}>
             <IconBtn
               icon="close-outline"
-              onPress={handleClose}
+              onPress={handleAbortClose}
               label={closeButtonLabel}
+              tone="danger"
             />
 
             <View style={styles.headerCenter}>
@@ -395,107 +435,6 @@ export function WorkoutSessionOverlay() {
             </View>
           )}
 
-          {/* ADD EXERCISE */}
-          <View style={styles.addExerciseWrapper}>
-            <Pressable
-              onPress={() => setShowExercisePicker((p) => !p)}
-              style={({ pressed }) => [
-                styles.addExerciseBtn,
-                pressed && { opacity: 0.95 },
-              ]}
-            >
-              <View style={styles.addExerciseGradient}>
-                <Ionicons name="add" size={18} color={overlayColors.accent} />
-                <Text style={[typography.body, styles.addExerciseText]}>
-                  Legg til øvelse
-                </Text>
-              </View>
-            </Pressable>
-
-            {showExercisePicker && (
-              <View style={styles.exercisePicker}>
-                <View style={styles.exercisePickerHeader}>
-                  <View style={styles.searchWrap}>
-                    <Ionicons
-                      name="search"
-                      size={14}
-                      color={overlayColors.muted2}
-                      style={{ marginRight: 8 }}
-                    />
-                    <TextInput
-                      style={[styles.searchInput, typography.body]}
-                      placeholder="Søk..."
-                      placeholderTextColor={overlayColors.muted2}
-                      value={search}
-                      onChangeText={setSearch}
-                      returnKeyType="done"
-                      blurOnSubmit
-                    />
-                  </View>
-
-                  <Pressable
-                    onPress={() => {
-                      setShowExercisePicker(false);
-                      setSearch("");
-                      Keyboard.dismiss();
-                    }}
-                    hitSlop={8}
-                    style={styles.closeSearchButton}
-                  >
-                    <Text style={[typography.body, styles.closeSearchText]}>
-                      Lukk
-                    </Text>
-                  </Pressable>
-                </View>
-
-                <ScrollView
-                  style={styles.exerciseList}
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={false}
-                >
-                  {filteredExercises.map((ex) => (
-                    <Pressable
-                      key={ex.id}
-                      style={({ pressed }) => [
-                        styles.exerciseRow,
-                        pressed && { opacity: 0.92 },
-                      ]}
-                      onPress={() => {
-                        addExercise({
-                          exerciseId: ex.id,
-                          name: ex.name,
-                          muscle: ex.muscle,
-                        });
-                        setShowExercisePicker(false);
-                        setSearch("");
-                      }}
-                    >
-                      <View style={{ flex: 1, paddingRight: 10 }}>
-                        <Text style={[typography.body, styles.exerciseName]}>
-                          {ex.name}
-                        </Text>
-                        {!!ex.muscle && (
-                          <Text
-                            style={[typography.body, styles.exerciseMuscle]}
-                          >
-                            {ex.muscle}
-                          </Text>
-                        )}
-                      </View>
-                      <View style={styles.exerciseAddBadge}>
-                        <Ionicons
-                          name="add"
-                          size={14}
-                          color={overlayColors.accent}
-                        />
-                      </View>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          </View>
-
           {/* CONTENT */}
           <ScrollView
             style={styles.content}
@@ -549,8 +488,9 @@ export function WorkoutSessionOverlay() {
               </View>
             </Pressable>
           </View>
-        </Pressable>
-      </Pressable>
+          </View>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -562,9 +502,17 @@ export function WorkoutSessionOverlay() {
  */
 
 const styles = StyleSheet.create({
-  backdrop: {
+  modalRoot: {
     flex: 1,
+  },
+
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: overlayColors.backdrop,
+  },
+
+  sheetWrap: {
+    flex: 1,
     justifyContent: "flex-start",
     paddingTop: 36,
   },
@@ -687,117 +635,6 @@ const styles = StyleSheet.create({
     color: overlayColors.danger,
     fontSize: 13,
     fontWeight: "700",
-  },
-
-  // Add exercise
-  addExerciseWrapper: { paddingHorizontal: 16, marginBottom: 10 },
-
-  addExerciseBtn: {
-    borderRadius: 14,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: overlayColors.accentDim,
-    backgroundColor: overlayColors.accentBg,
-  },
-
-  addExerciseGradient: {
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-  },
-
-  addExerciseText: {
-    color: overlayColors.accent,
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-  },
-
-  // Exercise picker
-  exercisePicker: {
-    marginTop: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: overlayColors.border,
-    backgroundColor: overlayColors.container,
-    padding: 12,
-  },
-
-  exercisePickerHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 10,
-  },
-
-  searchWrap: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: overlayColors.input,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    borderWidth: 1,
-    borderColor: overlayColors.border,
-  },
-
-  searchInput: {
-    flex: 1,
-    paddingVertical: 0,
-    color: overlayColors.text,
-    fontSize: 12,
-    fontWeight: "400",
-  },
-
-  closeSearchButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-
-  closeSearchText: {
-    color: overlayColors.accent,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-
-  exerciseList: { maxHeight: 240 },
-
-  exerciseRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: overlayColors.border,
-  },
-
-  exerciseName: {
-    color: overlayColors.text,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-
-  exerciseMuscle: {
-    color: overlayColors.muted2,
-    fontSize: 11,
-    marginTop: 2,
-  },
-
-  exerciseAddBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: overlayColors.accentBg,
-    borderWidth: 1,
-    borderColor: overlayColors.accentDim,
   },
 
   // Content

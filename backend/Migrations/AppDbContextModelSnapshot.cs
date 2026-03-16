@@ -22,19 +22,150 @@ namespace backend.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("ExerciseWorkout", b =>
+            modelBuilder.Entity("backend.Features.Auth.RefreshToken", b =>
                 {
-                    b.Property<Guid>("ExercisesId")
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("WorkoutsId")
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("CreatedByUserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastUsedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastUsedByIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("LastUsedByUserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<Guid?>("ReplacedByTokenId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.HasKey("ExercisesId", "WorkoutsId");
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
 
-                    b.HasIndex("WorkoutsId");
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
-                    b.ToTable("ExerciseWorkout", (string)null);
+                    b.Property<Guid>("SessionFamilyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("SessionFamilyId", "RevokedAtUtc");
+
+                    b.HasIndex("UserId", "RevokedAtUtc");
+
+                    b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("backend.Features.Food.ComposedMeal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsFavorite")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastUsedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime>("UpdatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "IsFavorite");
+
+                    b.HasIndex("UserId", "UpdatedUtc");
+
+                    b.ToTable("ComposedMeals");
+                });
+
+            modelBuilder.Entity("backend.Features.Food.ComposedMealIngredient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("AmountGrams")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("Calories")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Carbs")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ComposedMealId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Fats")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int>("Proteins")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComposedMealId", "SortOrder");
+
+                    b.ToTable("ComposedMealIngredients");
                 });
 
             modelBuilder.Entity("backend.Features.Food.FoodLog", b =>
@@ -55,6 +186,17 @@ namespace backend.Migrations
                     b.Property<int>("Proteins")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("SourceComposedMealId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("SourceServings")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("SourceType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<DateTime>("TimestampUtc")
                         .HasColumnType("datetime2");
 
@@ -64,11 +206,17 @@ namespace backend.Migrations
 
                     b.Property<string>("UserId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("FoodLogs", (string)null);
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "SourceComposedMealId");
+
+                    b.HasIndex("UserId", "TimestampUtc");
+
+                    b.ToTable("FoodLogs");
                 });
 
             modelBuilder.Entity("backend.Features.Training.Exercises.Exercise", b =>
@@ -98,7 +246,7 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Exercises", (string)null);
+                    b.ToTable("Exercises");
                 });
 
             modelBuilder.Entity("backend.Features.Training.WorkoutPrograms.WorkoutProgram", b =>
@@ -122,7 +270,7 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WorkoutPrograms", (string)null);
+                    b.ToTable("WorkoutPrograms");
                 });
 
             modelBuilder.Entity("backend.Features.Training.WorkoutSessions.Entities.SetLog", b =>
@@ -162,7 +310,7 @@ namespace backend.Migrations
 
                     b.HasIndex("WorkoutExerciseLogId");
 
-                    b.ToTable("SetLogs", (string)null);
+                    b.ToTable("SetLogs");
                 });
 
             modelBuilder.Entity("backend.Features.Training.WorkoutSessions.Entities.WorkoutExerciseLog", b =>
@@ -189,7 +337,7 @@ namespace backend.Migrations
 
                     b.HasIndex("WorkoutSessionId");
 
-                    b.ToTable("WorkoutExerciseLogs", (string)null);
+                    b.ToTable("WorkoutExerciseLogs");
                 });
 
             modelBuilder.Entity("backend.Features.Training.WorkoutSessions.Entities.WorkoutSession", b =>
@@ -235,7 +383,7 @@ namespace backend.Migrations
 
                     b.HasIndex("WorkoutProgramId");
 
-                    b.ToTable("WorkoutSessions", (string)null);
+                    b.ToTable("WorkoutSessions");
                 });
 
             modelBuilder.Entity("backend.Features.Training.Workouts.Workout", b =>
@@ -264,7 +412,27 @@ namespace backend.Migrations
 
                     b.HasIndex("WorkoutProgramId");
 
-                    b.ToTable("Workouts", (string)null);
+                    b.ToTable("Workouts");
+                });
+
+            modelBuilder.Entity("backend.Features.Training.Workouts.WorkoutExercise", b =>
+                {
+                    b.Property<Guid>("WorkoutId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ExerciseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.HasKey("WorkoutId", "ExerciseId");
+
+                    b.HasIndex("ExerciseId");
+
+                    b.HasIndex("WorkoutId", "Order");
+
+                    b.ToTable("WorkoutExercises");
                 });
 
             modelBuilder.Entity("backend.Features.Users.User", b =>
@@ -286,7 +454,7 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("backend.Features.Users.UserSettings", b =>
@@ -347,7 +515,7 @@ namespace backend.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("UserSettings", (string)null);
+                    b.ToTable("UserSettings");
                 });
 
             modelBuilder.Entity("backend.Features.Weight.WeightLog", b =>
@@ -370,22 +538,29 @@ namespace backend.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("WeightLogs", (string)null);
+                    b.ToTable("WeightLogs");
                 });
 
-            modelBuilder.Entity("ExerciseWorkout", b =>
+            modelBuilder.Entity("backend.Features.Auth.RefreshToken", b =>
                 {
-                    b.HasOne("backend.Features.Training.Exercises.Exercise", null)
-                        .WithMany()
-                        .HasForeignKey("ExercisesId")
+                    b.HasOne("backend.Features.Users.User", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("backend.Features.Training.Workouts.Workout", null)
-                        .WithMany()
-                        .HasForeignKey("WorkoutsId")
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("backend.Features.Food.ComposedMealIngredient", b =>
+                {
+                    b.HasOne("backend.Features.Food.ComposedMeal", "ComposedMeal")
+                        .WithMany("Ingredients")
+                        .HasForeignKey("ComposedMealId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("ComposedMeal");
                 });
 
             modelBuilder.Entity("backend.Features.Training.WorkoutSessions.Entities.SetLog", b =>
@@ -445,6 +620,25 @@ namespace backend.Migrations
                     b.Navigation("WorkoutProgram");
                 });
 
+            modelBuilder.Entity("backend.Features.Training.Workouts.WorkoutExercise", b =>
+                {
+                    b.HasOne("backend.Features.Training.Exercises.Exercise", "Exercise")
+                        .WithMany("WorkoutExercises")
+                        .HasForeignKey("ExerciseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Features.Training.Workouts.Workout", "Workout")
+                        .WithMany("WorkoutExercises")
+                        .HasForeignKey("WorkoutId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Exercise");
+
+                    b.Navigation("Workout");
+                });
+
             modelBuilder.Entity("backend.Features.Users.UserSettings", b =>
                 {
                     b.HasOne("backend.Features.Users.User", "User")
@@ -467,6 +661,16 @@ namespace backend.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("backend.Features.Food.ComposedMeal", b =>
+                {
+                    b.Navigation("Ingredients");
+                });
+
+            modelBuilder.Entity("backend.Features.Training.Exercises.Exercise", b =>
+                {
+                    b.Navigation("WorkoutExercises");
+                });
+
             modelBuilder.Entity("backend.Features.Training.WorkoutPrograms.WorkoutProgram", b =>
                 {
                     b.Navigation("Workouts");
@@ -482,8 +686,15 @@ namespace backend.Migrations
                     b.Navigation("ExerciseLogs");
                 });
 
+            modelBuilder.Entity("backend.Features.Training.Workouts.Workout", b =>
+                {
+                    b.Navigation("WorkoutExercises");
+                });
+
             modelBuilder.Entity("backend.Features.Users.User", b =>
                 {
+                    b.Navigation("RefreshTokens");
+
                     b.Navigation("Settings")
                         .IsRequired();
                 });

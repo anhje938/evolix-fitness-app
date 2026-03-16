@@ -233,10 +233,11 @@ function uniq(list: HomeGoalTile[]) {
 }
 
 const SECTION_GAP = 18;
+const HOME_HEADER_HIDE_OFFSET = 48;
 
 export default function HomePage() {
   const insets = useSafeAreaInsets();
-  const { token, setToken } = useAuth();
+  const { token, setToken, logout } = useAuth();
   const { todayTotals } = useFoodContext();
   const { progressionLast7, lastWeight } = useWeightContext();
   const {
@@ -260,6 +261,8 @@ export default function HomePage() {
     anchor: PopupAnchor | null;
   } | null>(null);
   const popupAnim = useRef(new Animated.Value(0)).current;
+  const homeScrollRef = useRef<ScrollView | null>(null);
+  const didApplyInitialHomeOffsetRef = useRef(false);
   const [anatomyCardSize, setAnatomyCardSize] = useState({
     width: 0,
     height: 0,
@@ -331,6 +334,19 @@ export default function HomePage() {
       }),
     ]).start();
   }, [musclePopup, popupAnim]);
+
+  const applyInitialHomeOffset = useCallback(() => {
+    if (didApplyInitialHomeOffsetRef.current) return;
+    didApplyInitialHomeOffsetRef.current = true;
+
+    requestAnimationFrame(() => {
+      homeScrollRef.current?.scrollTo({
+        x: 0,
+        y: HOME_HEADER_HIDE_OFFSET,
+        animated: false,
+      });
+    });
+  }, []);
 
   const filteredRecoveryMap = useMemo(() => {
     const hidden = new Set<string>(userSettings.recoveryMapHiddenMuscles ?? []);
@@ -534,7 +550,7 @@ export default function HomePage() {
   }, [todayTotals, userSettings]);
 
   const logOutUser = async () => {
-    await setToken(null);
+    await logout();
     router.replace("/(auth)/sign-in");
   };
 
@@ -552,7 +568,8 @@ export default function HomePage() {
     userSettings.homeSectionOrder
   );
 
-  const homeSections: Array<{ key: HomeSectionKey; content: React.ReactNode }> = [];
+  const homeSections: Array<{ key: HomeSectionKey; content: React.ReactNode }> =
+    [];
 
   for (const sectionKey of orderedHomeSections) {
     if (sectionKey === "quickStart") {
@@ -590,7 +607,9 @@ export default function HomePage() {
               style={styles.goalsAccentBar}
             />
             <View style={styles.goalsHeader}>
-              <Text style={[typography.body, styles.goalsTitle]}>Dagens mål</Text>
+              <Text style={[typography.body, styles.goalsTitle]}>
+                Dagens mål
+              </Text>
             </View>
 
             {topKey && (
@@ -614,7 +633,10 @@ export default function HomePage() {
                   fractionStyle={styles.circleFractionTop}
                 />
 
-                <Text style={[typography.body, styles.topLabel]} numberOfLines={1}>
+                <Text
+                  style={[typography.body, styles.topLabel]}
+                  numberOfLines={1}
+                >
                   {labelMap.calories}
                 </Text>
               </View>
@@ -653,7 +675,10 @@ export default function HomePage() {
                         fractionStyle={styles.circleFraction}
                       />
 
-                      <Text style={[typography.body, styles.macroLabel]} numberOfLines={1}>
+                      <Text
+                        style={[typography.body, styles.macroLabel]}
+                        numberOfLines={1}
+                      >
                         {shortLabelMap[k]}
                       </Text>
                     </View>
@@ -713,7 +738,9 @@ export default function HomePage() {
           />
 
           <View style={styles.anatomyHeader}>
-            <Text style={[typography.body, styles.anatomyTitle]}>Restitusjonskart</Text>
+            <Text style={[typography.body, styles.anatomyTitle]}>
+              Restitusjonskart
+            </Text>
           </View>
 
           <LinearGradient
@@ -821,7 +848,9 @@ export default function HomePage() {
                 <View style={styles.musclePopupHeader}>
                   <View style={styles.musclePopupTitleRow}>
                     <View style={styles.musclePopupDot} />
-                    <Text style={styles.musclePopupTitle}>{musclePopup.muscle}</Text>
+                    <Text style={styles.musclePopupTitle}>
+                      {musclePopup.muscle}
+                    </Text>
                   </View>
 
                   <Pressable
@@ -832,24 +861,47 @@ export default function HomePage() {
                     onPress={() => setMusclePopup(null)}
                     hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                   >
-                    <Ionicons name="close" size={13} color="rgba(226,232,240,0.92)" />
+                    <Ionicons
+                      name="close"
+                      size={13}
+                      color="rgba(226,232,240,0.92)"
+                    />
                   </Pressable>
                 </View>
 
                 <View style={styles.musclePopupMetricRow}>
                   <View style={styles.musclePopupMetricLabel}>
-                    <Ionicons name="time-outline" size={12} color="rgba(148,163,184,0.95)" />
-                    <Text style={styles.musclePopupMetricLabelText}>Sist trent</Text>
+                    <Ionicons
+                      name="time-outline"
+                      size={12}
+                      color="rgba(148,163,184,0.95)"
+                    />
+                    <Text style={styles.musclePopupMetricLabelText}>
+                      Sist trent
+                    </Text>
                   </View>
-                  <Text style={styles.musclePopupMetricValue}>{musclePopup.lastTrained}</Text>
+                  <Text style={styles.musclePopupMetricValue}>
+                    {musclePopup.lastTrained}
+                  </Text>
                 </View>
 
                 <View style={styles.musclePopupMetricRow}>
                   <View style={styles.musclePopupMetricLabel}>
-                    <Ionicons name="sparkles-outline" size={12} color="rgba(148,163,184,0.95)" />
-                    <Text style={styles.musclePopupMetricLabelText}>Estimert klar</Text>
+                    <Ionicons
+                      name="sparkles-outline"
+                      size={12}
+                      color="rgba(148,163,184,0.95)"
+                    />
+                    <Text style={styles.musclePopupMetricLabelText}>
+                      Estimert klar
+                    </Text>
                   </View>
-                  <Text style={[styles.musclePopupMetricValue, styles.musclePopupMetricValueReady]}>
+                  <Text
+                    style={[
+                      styles.musclePopupMetricValue,
+                      styles.musclePopupMetricValueReady,
+                    ]}
+                  >
                     {musclePopup.estimatedReady}
                   </Text>
                 </View>
@@ -865,41 +917,33 @@ export default function HomePage() {
       style={[styles.screen, { paddingTop: insets.top + 6 }]}
     >
       <ScrollView
+        ref={homeScrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        onContentSizeChange={applyInitialHomeOffset}
       >
         {/* HEADER */}
         <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            <Text
-              style={[typography.h2, { marginBottom: 5 }]}
-              numberOfLines={1}
-            >
-              {displayName
-                ? `Velkommen tilbake, ${displayName}`
-                : "Velkommen tilbake"}
-            </Text>
-            <Text style={[typography.body, styles.subGreeting]}>
-              Klar for neste progresjon i dag?
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.settingsButton}
+          <Pressable
+            style={({ pressed }) => [
+              styles.settingsButton,
+              pressed && styles.settingsButtonPressed,
+            ]}
             onPress={() => setSettingsVisible(true)}
-            activeOpacity={0.85}
           >
             <View style={styles.settingsIconWrap}>
-              <SettingsLogo height={22} width={22} />
+              <SettingsLogo height={16} width={16} />
             </View>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {homeSections.map((section, index) => (
           <View
             key={section.key}
             style={
-              index === homeSections.length - 1 ? styles.sectionLast : styles.section
+              index === homeSections.length - 1
+                ? styles.sectionLast
+                : styles.section
             }
           >
             {section.content}
@@ -936,7 +980,7 @@ const styles = StyleSheet.create({
 
   headerRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     alignItems: "flex-start",
     gap: 12,
     marginBottom: 14,
@@ -950,16 +994,23 @@ const styles = StyleSheet.create({
     color: ui.muted,
   },
 
-  settingsButton: { padding: 4 },
+  settingsButton: {
+    padding: 1,
+    alignSelf: "flex-end",
+  },
+  settingsButtonPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.98 }],
+  },
   settingsIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: ui.pillBg,
+    backgroundColor: "rgba(8,47,73,0.34)",
     borderWidth: 1,
-    borderColor: ui.pillBorder,
+    borderColor: "rgba(125,211,252,0.16)",
   },
 
   goalsCard: {
@@ -1252,7 +1303,3 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
 });
-
-
-
-

@@ -1,3 +1,4 @@
+import { clearStoredAuthSession } from "@/api/authSession";
 import CloseIcon from "@/assets/icons/white-x.svg";
 import { typography } from "@/config/typography";
 import {
@@ -10,7 +11,6 @@ import {
   type RecoveryMapMuscleKey,
   type UserSettings,
 } from "@/types/userSettings";
-import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -131,7 +131,6 @@ type Props = {
   onDeleteAccount?: () => Promise<void> | void;
 };
 
-const AUTH_TOKEN_KEY = "token";
 const DELETE_CONFIRM_WORD = "SLETT";
 const ALL_HOME_SECTIONS: HomeSectionKey[] = [
   "quickStart",
@@ -333,7 +332,7 @@ export default function SettingsModal({
               }
 
               // Fallback: delete locally stored JWT
-              await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+              await clearStoredAuthSession();
             } catch {
               // Keep it quiet, but you can add toast if you want
             }

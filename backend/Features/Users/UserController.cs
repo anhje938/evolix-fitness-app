@@ -35,7 +35,8 @@ namespace backend.Features.Users
             {
                 userId = user.Id,
                 email = user.Email,
-                displayName = BuildDisplayName(user.Email)
+                displayName = BuildDisplayName(user.Email),
+                isAdmin = user.IsAdmin
             });
         }
 
