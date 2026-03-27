@@ -24,7 +24,7 @@ import DraggableFlatList, {
 } from "react-native-draggable-flatlist";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import CreateProgramModal from "./CreateProgramModal";
+import { AddWorkoutModal } from "../workout/AddWorkoutModal";
 
 type Props = {
   visible: boolean;
@@ -38,7 +38,11 @@ type Props = {
 
   onDelete: () => void;
 
-  onCreateWorkout: (name: string) => Promise<Workout>;
+  onCreateWorkout: (data: {
+    name: string;
+    description?: string;
+    dayLabel?: string;
+  }) => Promise<Workout>;
 
   isBusy?: boolean;
 };
@@ -198,15 +202,23 @@ export default function EditProgramModal({
     );
   };
 
-  const handleCreateWorkout = async (workoutName: string) => {
-    const trimmed = (workoutName ?? "").trim();
+  const handleCreateWorkout = async (data: {
+    name: string;
+    description?: string;
+    dayLabel?: string;
+  }) => {
+    const trimmed = (data.name ?? "").trim();
     if (!trimmed) return;
 
     setLocalError(null);
     setCreatingWorkout(true);
 
     try {
-      const created = await onCreateWorkout(trimmed);
+      const created = await onCreateWorkout({
+        name: trimmed,
+        description: data.description,
+        dayLabel: data.dayLabel,
+      });
 
       setSelectedWorkoutIds((prev) => {
         if (prev.includes(created.id)) return prev;
@@ -571,7 +583,7 @@ export default function EditProgramModal({
             </View>
 
             {/* OVERLAY MODAL: "Ny økt" */}
-            <CreateProgramModal
+            <AddWorkoutModal
               visible={openCreateWorkout}
               onClose={() => setOpenCreateWorkout(false)}
               onSubmit={handleCreateWorkout}

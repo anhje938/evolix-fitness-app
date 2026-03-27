@@ -1,4 +1,4 @@
-import { loginWithApple } from "@/api/auth";
+import { AuthRequestError, loginWithApple } from "@/api/auth";
 import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
@@ -114,6 +114,10 @@ export default function SignIn() {
         }
       } catch (error: any) {
         if (error?.code === "ERR_REQUEST_CANCELED") return;
+        console.log("Apple native sign-in error:", {
+          code: error?.code ?? null,
+          message: error?.message ?? null,
+        });
         throw error;
       }
 
@@ -124,11 +128,18 @@ export default function SignIn() {
       const session = await loginWithApple(identityToken);
       await setAuthSession(session);
       router.replace("/(tabs)/home");
-    } catch (error) {
-      console.log("Login error:", error);
+    } catch (error: unknown) {
+      const detail =
+        error instanceof AuthRequestError
+          ? `API ${error.status}: ${error.message}`
+          : error instanceof Error
+            ? error.message
+            : "Ukjent feil";
+
+      console.log("Login error:", detail, error);
       Alert.alert(
         "Innlogging feilet",
-        "Kunne ikke logge inn med Apple. Prøv igjen."
+        __DEV__ ? detail : "Kunne ikke logge inn med Apple. Prøv igjen."
       );
     } finally {
       setIsLoggingIn(false);

@@ -8,6 +8,8 @@ namespace backend.Features.Training.WorkoutSessions.Entities
     {
         public Guid Id { get; set; }
         public string UserId { get; set; } = null!;
+        public string? ClientRequestId { get; set; }
+        public string? SubmissionHash { get; set; }
 
         public Guid? WorkoutId { get; set; }
         public Workout? Workout { get; set; }   

@@ -349,8 +349,16 @@ namespace backend.Migrations
                     b.Property<DateTime?>("FinishedAtUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ClientRequestId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SubmissionHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<DateTime>("StartedAtUtc")
                         .HasColumnType("datetime2");
@@ -369,7 +377,8 @@ namespace backend.Migrations
 
                     b.Property<string>("UserId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<Guid?>("WorkoutId")
                         .HasColumnType("uniqueidentifier");
@@ -382,6 +391,14 @@ namespace backend.Migrations
                     b.HasIndex("WorkoutId");
 
                     b.HasIndex("WorkoutProgramId");
+
+                    b.HasIndex("UserId", "ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("[ClientRequestId] IS NOT NULL");
+
+                    b.HasIndex("UserId", "SubmissionHash")
+                        .IsUnique()
+                        .HasFilter("[SubmissionHash] IS NOT NULL");
 
                     b.ToTable("WorkoutSessions");
                 });

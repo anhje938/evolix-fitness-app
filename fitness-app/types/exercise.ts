@@ -8,6 +8,14 @@ export type Exercise = {
     userId: string,
 }
 
+export type CreateExercisePayload = {
+  name: string;
+  description?: string;
+  muscle?: string;
+  equipment?: string;
+  specificMuscleGroups?: string;
+};
+
 export type Workout = {
   id: string;               
   name: string;
@@ -103,6 +111,7 @@ export type SessionExercise = {
 
 export type WorkoutSession = {
   id?: string;
+  clientRequestId?: string | null;
   mode: SessionMode;
   name: string;
   workoutProgramId?: string | null;

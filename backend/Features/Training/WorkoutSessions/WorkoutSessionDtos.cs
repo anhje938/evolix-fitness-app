@@ -15,6 +15,20 @@ namespace backend.Features.Training.WorkoutSessions
         public string? Title { get; set; }
     }
 
+    public class CompleteWorkoutSessionRequest
+    {
+        [Required]
+        [MaxLength(100)]
+        public string ClientRequestId { get; set; } = null!;
+
+        public Guid? WorkoutId { get; set; }
+        public DateTime? StartedAtUtc { get; set; }
+        public string? Title { get; set; }
+        public string? Notes { get; set; }
+
+        public List<UpdateWorkoutSessionExerciseLogRequest> ExerciseLogs { get; set; } = new();
+    }
+
     // Request DTO for replacing an existing workout session
     public class UpdateWorkoutSessionRequest
     {

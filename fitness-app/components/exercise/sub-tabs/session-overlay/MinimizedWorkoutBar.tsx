@@ -1,4 +1,5 @@
 import { typography } from "@/config/typography";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import React, { memo, useEffect, useMemo, useRef } from "react";
 import {
@@ -10,26 +11,25 @@ import {
   View,
 } from "react-native";
 import {
-  State as GestureState,
   PanGestureHandler,
+  State as GestureState,
 } from "react-native-gesture-handler";
 import { clamp } from "./overlayGuards";
 
 const overlayColors = {
   container: "rgba(15,23,42,0.98)",
-  surface: "rgba(255,255,255,0.04)",
   border: "rgba(255,255,255,0.08)",
   borderSoft: "rgba(255,255,255,0.05)",
+  borderAccent: "rgba(34,211,238,0.18)",
   text: "#E5ECFF",
-  muted2: "rgba(148,163,184,0.7)",
+  textStrong: "#F8FBFF",
+  muted2: "rgba(148,163,184,0.72)",
   accent: "#06b6d4",
-  accentDim: "rgba(6,182,212,0.2)",
   accentBg: "rgba(6,182,212,0.08)",
+  success: "#34d399",
+  successGlow: "rgba(52,211,153,0.24)",
 };
 
-/**
- * ✅ Persist minimized bar position across unmount/mount.
- */
 let lastMinimizedBarPos: { x: number; y: number } | null = null;
 
 type MinimizedWorkoutBarProps = {
@@ -38,13 +38,6 @@ type MinimizedWorkoutBarProps = {
   onExpand: () => void;
 };
 
-/**
- * ✅ RNGH: activeOffsetX/Y creates a "deadzone" so taps feel like taps,
- * drags only activate after moving ~8px.
- *
- * ✅ Keep minimized bar at same position across minimize cycles.
- * ✅ Premium Dark Ocean design with shadow.
- */
 export const DraggableMinimizedBar = memo(function DraggableMinimizedBar({
   title,
   subtitle,
@@ -52,8 +45,8 @@ export const DraggableMinimizedBar = memo(function DraggableMinimizedBar({
 }: MinimizedWorkoutBarProps) {
   const screen = Dimensions.get("window");
 
-  const BAR_W = 352;
-  const BAR_H = 62;
+  const BAR_W = Math.min(screen.width - 24, 382);
+  const BAR_H = 68;
 
   const DEFAULT_BOTTOM = 86;
   const EXTRA_UP = 100;
@@ -68,6 +61,10 @@ export const DraggableMinimizedBar = memo(function DraggableMinimizedBar({
   const baseY = useRef(new Animated.Value(startY)).current;
   const dragX = useRef(new Animated.Value(0)).current;
   const dragY = useRef(new Animated.Value(0)).current;
+  const entranceOpacity = useRef(new Animated.Value(0)).current;
+  const entranceScale = useRef(new Animated.Value(0.96)).current;
+  const entranceLift = useRef(new Animated.Value(18)).current;
+  const pulseAnim = useRef(new Animated.Value(0)).current;
 
   const baseXNum = useRef(startX);
   const baseYNum = useRef(startY);
@@ -78,15 +75,67 @@ export const DraggableMinimizedBar = memo(function DraggableMinimizedBar({
 
   const pressArmedRef = useRef(false);
   const dragStartedRef = useRef(false);
+  const expandInFlightRef = useRef(false);
 
   useEffect(() => {
-    const sx = dragX.addListener(({ value }) => (dragXNum.current = value));
-    const sy = dragY.addListener(({ value }) => (dragYNum.current = value));
+    const sx = dragX.addListener(({ value }) => {
+      dragXNum.current = value;
+    });
+    const sy = dragY.addListener(({ value }) => {
+      dragYNum.current = value;
+    });
+
     return () => {
       dragX.removeListener(sx);
       dragY.removeListener(sy);
     };
   }, [dragX, dragY]);
+
+  useEffect(() => {
+    entranceOpacity.setValue(0);
+    entranceScale.setValue(0.96);
+    entranceLift.setValue(18);
+
+    Animated.parallel([
+      Animated.timing(entranceOpacity, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.spring(entranceScale, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 19,
+        bounciness: 0,
+      }),
+      Animated.spring(entranceLift, {
+        toValue: 0,
+        useNativeDriver: true,
+        speed: 20,
+        bounciness: 0,
+      }),
+    ]).start();
+  }, [entranceLift, entranceOpacity, entranceScale]);
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 1400,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
 
   const onGestureEvent = useMemo(
     () =>
@@ -149,8 +198,40 @@ export const DraggableMinimizedBar = memo(function DraggableMinimizedBar({
   const handlePress = () => {
     if (!pressArmedRef.current) return;
     if (dragStartedRef.current) return;
-    onExpand();
+    if (expandInFlightRef.current) return;
+
+    expandInFlightRef.current = true;
+
+    Animated.parallel([
+      Animated.timing(entranceOpacity, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(entranceScale, {
+        toValue: 0.985,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(entranceLift, {
+        toValue: 12,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      expandInFlightRef.current = false;
+      if (finished) onExpand();
+    });
   };
+
+  const pulseScale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.8],
+  });
+  const pulseOpacity = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.55, 0],
+  });
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
@@ -165,7 +246,14 @@ export const DraggableMinimizedBar = memo(function DraggableMinimizedBar({
           style={[
             styles.floatingWrap,
             { width: BAR_W, height: BAR_H },
-            { transform: [{ translateX: tx }, { translateY: ty }] },
+            {
+              opacity: entranceOpacity,
+              transform: [
+                { translateX: tx },
+                { translateY: Animated.add(ty, entranceLift) },
+                { scale: entranceScale },
+              ],
+            },
           ]}
         >
           <Pressable
@@ -179,19 +267,56 @@ export const DraggableMinimizedBar = memo(function DraggableMinimizedBar({
             }}
             style={({ pressed }) => [
               styles.floatingPress,
-              pressed && { opacity: 0.96 },
+              pressed && styles.floatingPressPressed,
             ]}
           >
+            <LinearGradient
+              colors={[
+                "rgba(30,41,59,0.98)",
+                "rgba(15,23,42,0.98)",
+                "rgba(8,15,28,0.99)",
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+            <LinearGradient
+              colors={["rgba(34,211,238,0.12)", "rgba(34,211,238,0.00)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.accentRail}
+            />
+            <View style={styles.topSheen} pointerEvents="none" />
+
             <View style={styles.floatingInner}>
               <View style={styles.floatingIcon}>
+                <LinearGradient
+                  colors={["rgba(34,211,238,0.22)", "rgba(6,182,212,0.06)"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFillObject}
+                />
                 <Ionicons
                   name="barbell-outline"
                   size={18}
-                  color={overlayColors.text}
+                  color={overlayColors.textStrong}
                 />
+                <View style={styles.liveDotWrap}>
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[
+                      styles.liveDotHalo,
+                      {
+                        opacity: pulseOpacity,
+                        transform: [{ scale: pulseScale }],
+                      },
+                    ]}
+                  />
+                  <View style={styles.liveDot} />
+                </View>
               </View>
 
-              <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={styles.textBlock}>
                 <Text
                   style={[typography.bodyBold, styles.floatingTitle]}
                   numberOfLines={1}
@@ -207,6 +332,12 @@ export const DraggableMinimizedBar = memo(function DraggableMinimizedBar({
               </View>
 
               <View style={styles.floatingChip}>
+                <LinearGradient
+                  colors={["rgba(34,211,238,0.16)", "rgba(34,211,238,0.05)"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFillObject}
+                />
                 <Ionicons
                   name="chevron-up"
                   size={18}
@@ -231,16 +362,37 @@ const styles = StyleSheet.create({
 
   floatingPress: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: "hidden",
     backgroundColor: overlayColors.container,
     borderWidth: 1,
     borderColor: overlayColors.border,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.34,
+    shadowRadius: 24,
+    elevation: 14,
+  },
+
+  floatingPressPressed: {
+    opacity: 0.98,
+  },
+
+  accentRail: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 98,
+  },
+
+  topSheen: {
+    position: "absolute",
+    top: 0,
+    left: 18,
+    right: 18,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
 
   floatingInner: {
@@ -248,22 +400,60 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
-    gap: 12,
+    paddingVertical: 8,
+    gap: 10,
   },
 
   floatingIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: overlayColors.accentBg,
     borderWidth: 1,
-    borderColor: overlayColors.accentDim,
+    borderColor: overlayColors.borderAccent,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+
+  liveDotWrap: {
+    position: "absolute",
+    right: 2,
+    top: 2,
+    width: 10,
+    height: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  liveDotHalo: {
+    position: "absolute",
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: overlayColors.successGlow,
+  },
+
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: overlayColors.success,
+  },
+
+  textBlock: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: "center",
   },
 
   floatingTitle: {
-    color: overlayColors.text,
+    color: overlayColors.textStrong,
     fontSize: 14,
     fontWeight: "700",
     letterSpacing: 0.1,
@@ -271,19 +461,20 @@ const styles = StyleSheet.create({
 
   floatingSubtitle: {
     color: overlayColors.muted2,
-    fontSize: 12,
-    marginTop: 1,
+    fontSize: 11,
     letterSpacing: 0.1,
+    marginTop: 0,
   },
 
   floatingChip: {
     width: 38,
     height: 38,
-    borderRadius: 12,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: overlayColors.accentBg,
     borderWidth: 1,
-    borderColor: overlayColors.accentDim,
+    borderColor: overlayColors.borderAccent,
+    overflow: "hidden",
   },
 });

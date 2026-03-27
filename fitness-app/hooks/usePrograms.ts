@@ -7,6 +7,9 @@ export function usePrograms() {
       queryKey: ["programs"],
       queryFn: GetProgramsForUser,
       staleTime: 1000 * 60 * 10, // 10 min
+      gcTime: 1000 * 60 * 30,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
     });
   }
   

@@ -39,7 +39,7 @@ type Props = {
     dayLabel?: string;
     description?: string;
     exerciseIds: string[];
-  }, options?: { closeModal?: boolean }) => void;
+  }, options?: { closeModal?: boolean }) => void | Promise<void>;
 
   onDelete: () => void;
 };
@@ -95,6 +95,41 @@ const colors = {
   dangerText: "rgba(254,202,202,0.98)",
 };
 
+type WorkoutDraftSnapshot = {
+  name: string;
+  dayLabel?: string;
+  description?: string;
+  exerciseIds: string[];
+};
+
+function normalizeWorkoutDraftSnapshot(
+  snapshot: WorkoutDraftSnapshot
+): WorkoutDraftSnapshot {
+  return {
+    name: snapshot.name.trim(),
+    dayLabel: snapshot.dayLabel?.trim() || undefined,
+    description: snapshot.description?.trim() || undefined,
+    exerciseIds: [...snapshot.exerciseIds],
+  };
+}
+
+function areWorkoutDraftSnapshotsEqual(
+  a: WorkoutDraftSnapshot | null,
+  b: WorkoutDraftSnapshot
+) {
+  if (!a) return false;
+  if (
+    a.name !== b.name ||
+    a.dayLabel !== b.dayLabel ||
+    a.description !== b.description ||
+    a.exerciseIds.length !== b.exerciseIds.length
+  ) {
+    return false;
+  }
+
+  return a.exerciseIds.every((id, index) => id === b.exerciseIds[index]);
+}
+
 export function EditWorkoutModal({
   visible,
   onClose,
@@ -120,7 +155,8 @@ export function EditWorkoutModal({
 
   // --- Autosave (debounced) ---
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSavedIdsRef = useRef<string[] | null>(null);
+  const lastSavedSnapshotRef = useRef<WorkoutDraftSnapshot | null>(null);
+  const autosaveReadyRef = useRef(false);
 
   const clearAutosaveTimer = () => {
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
@@ -133,34 +169,6 @@ export function EditWorkoutModal({
     };
   }, []);
 
-  const saveToApiDebounced = (nextIds: string[]) => {
-    // Avoid spamming if same as last saved
-    const last = lastSavedIdsRef.current;
-    if (
-      last &&
-      last.length === nextIds.length &&
-      last.every((v, i) => v === nextIds[i])
-    ) {
-      return;
-    }
-
-    clearAutosaveTimer();
-
-    autosaveTimer.current = setTimeout(() => {
-      const trimmedName = (name.trim() || initialName.trim()).trim();
-      if (!trimmedName) return;
-
-      onSubmit({
-        name: trimmedName,
-        dayLabel: dayLabel.trim() || undefined,
-        description: description.trim() || undefined,
-        exerciseIds: nextIds,
-      }, { closeModal: false });
-
-      lastSavedIdsRef.current = nextIds;
-    }, 350);
-  };
-
   useEffect(() => {
     if (!visible) return;
 
@@ -171,7 +179,13 @@ export function EditWorkoutModal({
     setSearch("");
     setFocusField(null);
 
-    lastSavedIdsRef.current = initialExerciseIds;
+    lastSavedSnapshotRef.current = normalizeWorkoutDraftSnapshot({
+      name: initialName,
+      dayLabel: initialDayLabel,
+      description: initialDescription,
+      exerciseIds: initialExerciseIds,
+    });
+    autosaveReadyRef.current = false;
     clearAutosaveTimer();
   }, [
     visible,
@@ -180,6 +194,49 @@ export function EditWorkoutModal({
     initialDescription,
     initialExerciseIds,
   ]);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const snapshot = normalizeWorkoutDraftSnapshot({
+      name,
+      dayLabel,
+      description,
+      exerciseIds: selectedExerciseIds,
+    });
+
+    if (!autosaveReadyRef.current) {
+      autosaveReadyRef.current = true;
+      return;
+    }
+
+    if (
+      !snapshot.name ||
+      areWorkoutDraftSnapshotsEqual(lastSavedSnapshotRef.current, snapshot)
+    ) {
+      clearAutosaveTimer();
+      return;
+    }
+
+    clearAutosaveTimer();
+    autosaveTimer.current = setTimeout(() => {
+      void Promise.resolve(
+        onSubmit(
+          {
+            name: snapshot.name,
+            dayLabel: snapshot.dayLabel,
+            description: snapshot.description,
+            exerciseIds: snapshot.exerciseIds,
+          },
+          { closeModal: false }
+        )
+      )
+        .then(() => {
+          lastSavedSnapshotRef.current = snapshot;
+        })
+        .catch(() => {});
+    }, 350);
+  }, [visible, name, dayLabel, description, selectedExerciseIds, onSubmit]);
 
   const selectedSet = useMemo(
     () => new Set(selectedExerciseIds),
@@ -213,28 +270,39 @@ export function EditWorkoutModal({
 
   const toggleExercise = (id: string) => {
     setSelectedExerciseIds((prev) => {
-      const next = prev.includes(id)
-        ? prev.filter((x) => x !== id)
-        : [...prev, id]; // add to end (order)
-
-      saveToApiDebounced(next); // autosave selection/order
-      return next;
+      return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
     });
   };
 
-  const handleSubmit = () => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-
-    // If user presses save, flush pending and save immediately
-    clearAutosaveTimer();
-    onSubmit({
-      name: trimmed,
-      dayLabel: dayLabel.trim() || undefined,
-      description: description.trim() || undefined,
+  const getCurrentSnapshot = () =>
+    normalizeWorkoutDraftSnapshot({
+      name,
+      dayLabel,
+      description,
       exerciseIds: selectedExerciseIds,
-    }, { closeModal: true });
-    lastSavedIdsRef.current = selectedExerciseIds;
+    });
+
+  const handleSubmit = async () => {
+    const snapshot = getCurrentSnapshot();
+    if (!snapshot.name) return;
+
+    clearAutosaveTimer();
+    try {
+      await Promise.resolve(
+        onSubmit(
+          {
+            name: snapshot.name,
+            dayLabel: snapshot.dayLabel,
+            description: snapshot.description,
+            exerciseIds: snapshot.exerciseIds,
+          },
+          { closeModal: true }
+        )
+      );
+      lastSavedSnapshotRef.current = snapshot;
+    } catch {
+      // Let parent surface save failures.
+    }
   };
 
   const confirmDelete = () => {
@@ -242,6 +310,50 @@ export function EditWorkoutModal({
       { text: "Avbryt", style: "cancel" },
       { text: "Slett", style: "destructive", onPress: onDelete },
     ]);
+  };
+
+  const handleCloseRequest = async () => {
+    clearAutosaveTimer();
+
+    const snapshot = getCurrentSnapshot();
+    if (areWorkoutDraftSnapshotsEqual(lastSavedSnapshotRef.current, snapshot)) {
+      onClose();
+      return;
+    }
+
+    if (!snapshot.name) {
+      Alert.alert(
+        "Forkast endringer?",
+        "Navn må fylles ut før endringene kan lagres.",
+        [
+          { text: "Fortsett redigering", style: "cancel" },
+          {
+            text: "Forkast endringer",
+            style: "destructive",
+            onPress: onClose,
+          },
+        ]
+      );
+      return;
+    }
+
+    try {
+      await Promise.resolve(
+        onSubmit(
+          {
+            name: snapshot.name,
+            dayLabel: snapshot.dayLabel,
+            description: snapshot.description,
+            exerciseIds: snapshot.exerciseIds,
+          },
+          { closeModal: false }
+        )
+      );
+      lastSavedSnapshotRef.current = snapshot;
+      onClose();
+    } catch {
+      // Keep the modal open if save fails.
+    }
   };
 
   const renderSelectedItem = ({
@@ -385,7 +497,12 @@ export function EditWorkoutModal({
       >
         <SafeAreaView style={styles.overlay}>
           {/* Backdrop click closes */}
-          <Pressable style={styles.backdrop} onPress={onClose} />
+          <Pressable
+            style={styles.backdrop}
+            onPress={() => {
+              void handleCloseRequest();
+            }}
+          />
 
           {/* Sheet */}
           <View style={styles.sheet}>
@@ -452,7 +569,9 @@ export function EditWorkoutModal({
                 </Pressable>
 
                 <Pressable
-                  onPress={onClose}
+                  onPress={() => {
+                    void handleCloseRequest();
+                  }}
                   hitSlop={12}
                   style={({ pressed }) => [
                     styles.iconBtn,
@@ -561,17 +680,15 @@ export function EditWorkoutModal({
                       legge til.
                     </Text>
                   ) : (
-                    <DraggableFlatList
-                      data={selectedExercises}
-                      keyExtractor={(item) => item.id}
-                      onDragEnd={({ data }: DragEndParams<Exercise>) => {
-                        const nextIds = data.map((x) => x.id);
-                        setSelectedExerciseIds(nextIds);
-                        saveToApiDebounced(nextIds); // autosave on reorder
-                      }}
-                      renderItem={renderSelectedItem}
-                      scrollEnabled={false}
-                      activationDistance={10}
+                      <DraggableFlatList
+                        data={selectedExercises}
+                        keyExtractor={(item) => item.id}
+                        onDragEnd={({ data }: DragEndParams<Exercise>) => {
+                          setSelectedExerciseIds(data.map((x) => x.id));
+                        }}
+                        renderItem={renderSelectedItem}
+                        scrollEnabled={false}
+                        activationDistance={10}
                       containerStyle={styles.selectedList}
                     />
                   )}
@@ -625,7 +742,9 @@ export function EditWorkoutModal({
             {/* STICKY CTA */}
             <View style={styles.footer}>
               <Pressable
-                onPress={handleSubmit}
+                onPress={() => {
+                  void handleSubmit();
+                }}
                 style={({ pressed }) => [
                   styles.ctaWrap,
                   pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },

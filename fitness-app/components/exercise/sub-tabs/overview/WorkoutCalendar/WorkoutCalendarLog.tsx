@@ -7,22 +7,22 @@ import { WorkoutCalendarLogPopUp } from "./WorkoutCalendarPopUp";
 
 const colors = {
   backdrop: "rgba(0,0,0,0.70)",
-  card: "rgba(2,6,23,0.16)",
-  cardStrong: "#0f172a",
+  card: "rgba(15,23,42,0.42)",
+  cardStrong: "#0b1220",
   surface: "rgba(255,255,255,0.04)",
-  surfaceStrong: "rgba(255,255,255,0.06)",
-  border: "rgba(255,255,255,0.07)",
+  surfaceStrong: "rgba(255,255,255,0.07)",
+  border: "rgba(255,255,255,0.09)",
   borderSoft: "rgba(255,255,255,0.05)",
-  text: "#E5ECFF",
-  textMuted: "rgba(226,232,240,0.95)",
-  muted: "rgba(148,163,184,0.9)",
-  muted2: "rgba(148,163,184,0.7)",
-  accent: "#06b6d4",
-  accentDim: "rgba(6,182,212,0.2)",
-  accentBg: "rgba(6,182,212,0.08)",
-  green: "rgba(34, 197, 94, 0.9)",
-  greenBg: "rgba(34, 197, 94, 0.12)",
-  orange: "rgba(251, 191, 36, 0.9)",
+  text: "rgba(241,245,249,0.96)",
+  textMuted: "rgba(226,232,240,0.92)",
+  muted: "rgba(148,163,184,0.84)",
+  muted2: "rgba(148,163,184,0.68)",
+  accent: "#22d3ee",
+  accentDim: "rgba(34,211,238,0.18)",
+  accentBg: "rgba(34,211,238,0.10)",
+  green: "rgba(52,211,153,0.92)",
+  greenBg: "rgba(16,185,129,0.14)",
+  orange: "rgba(251, 191, 36, 0.92)",
   orangeBg: "rgba(251, 191, 36, 0.12)",
 };
 
@@ -144,15 +144,20 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
           container: {
             backgroundColor:
               count > 2
-                ? colors.accentBg
+                ? "rgba(34,211,238,0.12)"
                 : count > 1
-                ? "rgba(6,182,212,0.05)"
-                : "rgba(6,182,212,0.03)",
+                ? "rgba(34,211,238,0.08)"
+                : "rgba(34,211,238,0.04)",
             borderRadius: 8,
+            borderWidth: 1,
+            borderColor:
+              count > 1
+                ? "rgba(34,211,238,0.16)"
+                : "rgba(34,211,238,0.08)",
           },
           text: {
             color: colors.text,
-            fontWeight: count > 1 ? "700" : "600",
+            fontWeight: count > 1 ? "600" : "500",
           },
         },
       };
@@ -167,12 +172,12 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
           container: {
             backgroundColor: colors.accentDim,
             borderRadius: 8,
-            borderWidth: 1.5,
+            borderWidth: 1,
             borderColor: colors.accent,
           },
           text: {
             color: colors.text,
-            fontWeight: "700",
+            fontWeight: "600",
           },
         },
       };
@@ -192,10 +197,10 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
         backgroundColor: "transparent",
         calendarBackground: "transparent",
         textSectionTitleColor: colors.muted,
-        textSectionTitleFontWeight: "700",
+        textSectionTitleFontWeight: "600",
         monthTextColor: colors.text,
-        textMonthFontWeight: "700",
-        textMonthFontSize: 16,
+        textMonthFontWeight: "600",
+        textMonthFontSize: 15,
         dayTextColor: colors.textMuted,
         todayTextColor: colors.accent,
         selectedDayTextColor: colors.text,
@@ -203,8 +208,8 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
         dotColor: colors.accent,
         selectedDotColor: colors.accent,
         textDisabledColor: colors.muted2,
-        textDayFontWeight: "600",
-        textDayFontSize: 14,
+        textDayFontWeight: "500",
+        textDayFontSize: 13,
       } as any),
     []
   );
@@ -282,30 +287,31 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
 });
 
 const styles = StyleSheet.create({
-  wrap: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20 },
+  wrap: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 18 },
 
   statsContainer: {
     flexDirection: "row",
-    gap: 10,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 14,
   },
 
   statBox: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 9,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 18,
+    paddingVertical: 11,
+    paddingHorizontal: 10,
   },
 
   statIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.orangeBg,
@@ -316,44 +322,49 @@ const styles = StyleSheet.create({
   },
 
   statLabel: {
-    fontSize: 9,
-    fontWeight: "600",
+    fontSize: 9.5,
+    fontWeight: "500",
     color: colors.muted,
-    letterSpacing: 0.3,
+    letterSpacing: 0.35,
     textTransform: "uppercase",
     marginBottom: 2,
   },
 
   statValue: {
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 12.5,
+    fontWeight: "600",
     color: colors.text,
-    letterSpacing: -0.2,
+    letterSpacing: 0,
   },
 
   calendarCard: {
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 20,
+    borderRadius: 22,
     overflow: "hidden",
-    paddingBottom: 12,
+    paddingBottom: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
 
   calendarHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSoft,
   },
 
   calendarHeaderIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.accentBg,
@@ -362,14 +373,14 @@ const styles = StyleSheet.create({
   },
 
   calendarHeaderText: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "500",
     color: colors.text,
-    letterSpacing: 0.1,
+    letterSpacing: 0,
   },
 
   calendar: {
-    borderRadius: 20,
-    paddingHorizontal: 8,
+    borderRadius: 22,
+    paddingHorizontal: 10,
   },
 });

@@ -29,9 +29,9 @@ export default memo(function QuickStart({
         <LinearGradient
           pointerEvents="none"
           colors={[
-            "rgba(34,211,238,0.18)",
-            "rgba(59,130,246,0.10)",
-            "rgba(168,85,247,0.08)",
+            "rgba(34,211,238,0.16)",
+            "rgba(59,130,246,0.11)",
+            "rgba(16,185,129,0.06)",
             "rgba(0,0,0,0)",
           ]}
           start={{ x: 0, y: 0.1 }}
@@ -68,13 +68,13 @@ export default memo(function QuickStart({
           <Ionicons
             name="flash-outline"
             size={20}
-            color="rgba(56,189,248,0.95)"
+            color="rgba(34,211,238,0.96)"
           />
         </View>
 
         {/* text */}
         <View style={styles.textCol}>
-          <Text style={[typography.bodyBold, styles.title]} numberOfLines={1}>
+          <Text style={[typography.body, styles.title]} numberOfLines={1}>
             Hurtigstart økt
           </Text>
           <Text style={[typography.body, styles.subtitle]} numberOfLines={1}>
@@ -84,13 +84,13 @@ export default memo(function QuickStart({
 
         {/* right CTA */}
         <LinearGradient
-          colors={["rgba(56,189,248,0.14)", "rgba(168,85,247,0.10)"]}
+          colors={["rgba(34,211,238,0.12)", "rgba(59,130,246,0.10)"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.ctaChip}
         >
           <Ionicons name="play" size={14} color="rgba(226,232,240,0.95)" />
-          <Text style={[typography.bodyBold, styles.ctaText]}>Start</Text>
+          <Text style={[typography.body, styles.ctaText]}>Start</Text>
         </LinearGradient>
       </View>
     </Pressable>
@@ -99,7 +99,7 @@ export default memo(function QuickStart({
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingTop: 12,
+    paddingTop: 10,
   },
   pressed: {
     transform: [{ scale: 0.995 }],
@@ -107,21 +107,21 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    borderRadius: 18,
-    paddingVertical: 12,
+    borderRadius: 20,
+    paddingVertical: 11,
     paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
     overflow: "hidden",
 
-    backgroundColor: "rgba(2,6,23,0.18)",
+    backgroundColor: "rgba(15,23,42,0.42)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(255,255,255,0.08)",
 
     shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
     elevation: 2,
   },
 
@@ -140,17 +140,17 @@ const styles = StyleSheet.create({
   },
 
   iconShell: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: 11,
     overflow: "hidden",
 
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "rgba(255,255,255,0.035)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: "rgba(255,255,255,0.08)",
   },
 
   textCol: {
@@ -159,36 +159,36 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    color: "rgba(226,232,240,0.94)",
-    fontSize: 14,
-    letterSpacing: 0.1,
-    fontWeight: "600",
+    color: "rgba(241,245,249,0.96)",
+    fontSize: 13.5,
+    letterSpacing: 0.05,
+    fontWeight: "400",
   },
 
   subtitle: {
-    color: "rgba(148,163,184,0.88)",
+    color: "rgba(148,163,184,0.82)",
     marginTop: 2,
-    fontSize: 11,
-    letterSpacing: 0.1,
-    fontWeight: "600",
+    fontSize: 10.5,
+    letterSpacing: 0.05,
+    fontWeight: "400",
   },
 
   ctaChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingVertical: 8,
+    paddingVertical: 7,
     paddingHorizontal: 10,
-    borderRadius: 14,
+    borderRadius: 13,
 
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: "rgba(255,255,255,0.10)",
   },
 
   ctaText: {
     color: "rgba(226,232,240,0.95)",
-    fontSize: 12,
-    letterSpacing: 0.1,
-    fontWeight: "600",
+    fontSize: 11.5,
+    letterSpacing: 0.05,
+    fontWeight: "400",
   },
 });

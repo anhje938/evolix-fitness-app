@@ -1,3 +1,11 @@
+import { getCompletedWorkouts } from "@/api/exercise/completedWorkouts";
+import { getExercisesForUser } from "@/api/exercise/exercise";
+import {
+  getExerciseHistory,
+  getExerciseSetsHistory,
+} from "@/api/exercise/exerchiseHistory";
+import { GetProgramsForUser } from "@/api/exercise/program";
+import { GetWorkouts } from "@/api/exercise/workout";
 import { DarkOceanBackground } from "@/components/DarkOceanBackground";
 import NavButtons from "@/components/exercise/NavigationButtons";
 import ExerciseTab from "@/components/exercise/sub-tabs/ExerciseTab";
@@ -7,8 +15,15 @@ import ProgressTab from "@/components/exercise/sub-tabs/ProgressTab";
 import { WorkoutTab } from "@/components/exercise/sub-tabs/WorkoutTab";
 import { TrainingTabsProvider } from "@/context/trainingTabsContext";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useCallback, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  InteractionManager,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type PageKey =
@@ -20,77 +35,171 @@ type PageKey =
 
 function ExerciseContent() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [page, setPage] = useState<PageKey>("overview");
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(
     null
   );
   const [showExerciseReturn, setShowExerciseReturn] = useState(false);
-  const [keepExerciseTabMounted, setKeepExerciseTabMounted] = useState(false);
+  const [mountedPages, setMountedPages] = useState<PageKey[]>(["overview"]);
 
-  const handleSetPage = useCallback((nextPage: PageKey) => {
-    setPage(nextPage);
-
-    if (nextPage !== "progression") {
-      setShowExerciseReturn(false);
-    }
-
-    if (nextPage !== "exercises" && nextPage !== "progression") {
-      setKeepExerciseTabMounted(false);
-    }
+  const keepPageMounted = useCallback((nextPage: PageKey) => {
+    setMountedPages((prev) =>
+      prev.includes(nextPage) ? prev : [...prev, nextPage]
+    );
   }, []);
 
-  const goToProgressionWithExercise = useCallback((id: string) => {
-    setSelectedExerciseId(id);
-    setKeepExerciseTabMounted(true);
-    setShowExerciseReturn(true);
-    setPage("progression");
-  }, []);
+  const handleSetPage = useCallback(
+    (nextPage: PageKey) => {
+      keepPageMounted(nextPage);
+      setPage(nextPage);
+
+      if (nextPage !== "progression") {
+        setShowExerciseReturn(false);
+      }
+    },
+    [keepPageMounted]
+  );
+
+  const goToProgressionWithExercise = useCallback(
+    (id: string) => {
+      keepPageMounted("exercises");
+      keepPageMounted("progression");
+      setSelectedExerciseId(id);
+      setShowExerciseReturn(true);
+      setPage("progression");
+
+      void queryClient.prefetchQuery({
+        queryKey: ["exerciseHistory", id],
+        queryFn: () => getExerciseHistory(id),
+        staleTime: 1000 * 60 * 5,
+      });
+      void queryClient.prefetchQuery({
+        queryKey: ["exerciseSetsHistory", id],
+        queryFn: () => getExerciseSetsHistory(id),
+        staleTime: 1000 * 60 * 5,
+      });
+    },
+    [keepPageMounted, queryClient]
+  );
 
   const handleReturnToExercises = useCallback(() => {
+    keepPageMounted("exercises");
     setShowExerciseReturn(false);
     setPage("exercises");
-  }, []);
+  }, [keepPageMounted]);
 
-  const shouldRenderExerciseTab = page === "exercises" || keepExerciseTabMounted;
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      void Promise.allSettled([
+        queryClient.prefetchQuery({
+          queryKey: ["completedWorkouts"],
+          queryFn: getCompletedWorkouts,
+          staleTime: 1000 * 60 * 2,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: ["exercises"],
+          queryFn: getExercisesForUser,
+          staleTime: 1000 * 60 * 10,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: ["workouts"],
+          queryFn: GetWorkouts,
+          staleTime: 1000 * 60 * 10,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: ["programs"],
+          queryFn: GetProgramsForUser,
+          staleTime: 1000 * 60 * 10,
+        }),
+      ]);
+    });
+
+    return () => {
+      task.cancel();
+    };
+  }, [queryClient]);
+
+  const isPageMounted = useCallback(
+    (pageKey: PageKey) => mountedPages.includes(pageKey),
+    [mountedPages]
+  );
+
+  const getPageStyle = useCallback(
+    (pageKey: PageKey) => [
+      styles.pageWrap,
+      page === pageKey ? styles.pageVisible : styles.pageHidden,
+    ],
+    [page]
+  );
+
+  const progressionPageStyle = useMemo(
+    () => [styles.pageWrap, styles.pageVisible],
+    []
+  );
 
   return (
-    <DarkOceanBackground style={[styles.container, { paddingTop: insets.top + 6 }]}>
+    <DarkOceanBackground
+      style={[styles.container, { paddingTop: insets.top + 6 }]}
+    >
       <NavButtons setPage={handleSetPage} page={page} />
 
-      {page === "overview" && <OverviewTab />}
+      {isPageMounted("overview") && (
+        <View
+          pointerEvents={page === "overview" ? "auto" : "none"}
+          style={getPageStyle("overview")}
+        >
+          <OverviewTab />
+        </View>
+      )}
 
-      {shouldRenderExerciseTab && (
+      {isPageMounted("exercises") && (
         <View
           pointerEvents={page === "exercises" ? "auto" : "none"}
-          style={[
-            styles.pageWrap,
-            page === "exercises" ? styles.pageVisible : styles.pageHidden,
-          ]}
+          style={getPageStyle("exercises")}
         >
           <ExerciseTab onPressExercise={goToProgressionWithExercise} />
         </View>
       )}
 
-      {page === "progression" && (
-        <>
+      {isPageMounted("progression") && (
+        <View
+          pointerEvents={page === "progression" ? "auto" : "none"}
+          style={page === "progression" ? progressionPageStyle : styles.pageHidden}
+        >
           <ProgressTab
             selectedExerciseId={selectedExerciseId}
             onSelectExercise={setSelectedExerciseId}
           />
-          {showExerciseReturn && (
+          {page === "progression" && showExerciseReturn && (
             <Pressable
               onPress={handleReturnToExercises}
               style={styles.returnButton}
             >
               <Ionicons name="chevron-back" size={18} color="#ffffff" />
-              <Text style={styles.returnLabel}>Til øvelser</Text>
+              <Text style={styles.returnLabel}>Til ovelser</Text>
             </Pressable>
           )}
-        </>
+        </View>
       )}
 
-      {page === "workouts" && <WorkoutTab />}
-      {page === "programs" && <ProgramTab />}
+      {isPageMounted("workouts") && (
+        <View
+          pointerEvents={page === "workouts" ? "auto" : "none"}
+          style={getPageStyle("workouts")}
+        >
+          <WorkoutTab />
+        </View>
+      )}
+
+      {isPageMounted("programs") && (
+        <View
+          pointerEvents={page === "programs" ? "auto" : "none"}
+          style={getPageStyle("programs")}
+        >
+          <ProgramTab />
+        </View>
+      )}
     </DarkOceanBackground>
   );
 }

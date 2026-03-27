@@ -781,7 +781,7 @@ export function ComposedMealLogSheet({
 const styles = StyleSheet.create({
   absoluteWrapper: {
     position: "absolute",
-    top: 0,
+    top: 20,
     bottom: 0,
     left: 0,
     right: 0,

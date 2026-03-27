@@ -1,4 +1,3 @@
-// context/workoutSessionContext.tsx
 import type {
   SessionExercise,
   SessionMode,
@@ -8,25 +7,37 @@ import type {
 import React, {
   createContext,
   type ReactNode,
+  type SetStateAction,
   useCallback,
   useContext,
+  useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { Alert } from "react-native";
+import { Alert, AppState, type AppStateStatus } from "react-native";
 
-import { getValidAccessToken } from "@/api/authSession";
+import {
+  getAccessTokenUserId,
+  getValidAccessToken,
+} from "@/api/authSession";
+import type { CompletedWorkoutSummaryDto } from "@/api/exercise/completedWorkouts";
 import { getSessionDetails } from "@/api/exercise/sessionDetails";
 import {
   deleteWorkoutSession,
   postWorkoutSession,
   putWorkoutSession,
 } from "@/api/exercise/workoutSession";
-import type { CompletedWorkoutSummaryDto } from "@/api/exercise/completedWorkouts";
-
+import { useAuth } from "@/context/AuthProvider";
+import {
+  clearStoredActiveWorkoutSession,
+  loadStoredActiveWorkoutSession,
+  saveStoredActiveWorkoutSession,
+} from "@/utils/activeWorkoutSessionStorage";
 import { useQueryClient } from "@tanstack/react-query";
 
-// ---- TYPES ----
+const AUTOSAVE_DELAY_MS = 350;
 
 type OpenProgramSessionArgs = {
   workoutProgramId?: string | null;
@@ -42,20 +53,16 @@ type OpenProgramSessionArgs = {
 type WorkoutSessionContextValue = {
   isOpen: boolean;
   isMinimized: boolean;
+  isSaving: boolean;
   session: WorkoutSession | null;
 
   openQuickSession: (name?: string) => void;
   openProgramSession: (args: OpenProgramSessionArgs) => void;
-
   openCompletedSession: (sessionId: string) => Promise<void>;
 
   closeSession: () => void;
   toggleMinimized: () => void;
-
-  /** Endrer navn/tittel lokalt i overlay */
   renameSession: (name: string) => void;
-
-  /** Sletter HEL utfÃ¸rt Ã¸kt (kun nÃ¥r session.id finnes) */
   deleteSession: () => Promise<void>;
 
   addExercise: (payload: {
@@ -65,19 +72,18 @@ type WorkoutSessionContextValue = {
   }) => void;
 
   addSet: (sessionExerciseId: string) => void;
-
   updateSet: (
     sessionExerciseId: string,
     setId: string,
     partial: Partial<SessionSet>
   ) => void;
-
   removeSet: (sessionExerciseId: string, setId: string) => void;
 
-  finishAndSave: (options?: { nameOverride?: string }) => Promise<void>;
+  finishAndSave: (options?: {
+    nameOverride?: string;
+    onSuccess?: () => void | Promise<void>;
+  }) => Promise<void>;
 };
-
-// ---- CONTEXT SETUP ----
 
 const WorkoutSessionContext = createContext<
   WorkoutSessionContextValue | undefined
@@ -99,8 +105,35 @@ type ProviderProps = {
 
 const makeLocalId = () => Math.random().toString(36).slice(2, 10);
 
+const makeClientRequestId = () =>
+  `ws_${Date.now().toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 10)}${Math.random().toString(36).slice(2, 10)}`;
+
 function normalizeName(input: string) {
   return input.replace(/\s+/g, " ").trim();
+}
+
+function ensureActiveSessionClientRequestId(
+  session: WorkoutSession
+): WorkoutSession {
+  if (session.finishedAtUtc) return session;
+
+  const clientRequestId = session.clientRequestId?.trim() || makeClientRequestId();
+  if (clientRequestId === session.clientRequestId) {
+    return session;
+  }
+
+  return {
+    ...session,
+    clientRequestId,
+  };
+}
+
+function resolveNextState<T>(prev: T, next: SetStateAction<T>): T {
+  return typeof next === "function"
+    ? (next as (current: T) => T)(prev)
+    : next;
 }
 
 function toOptimisticCompletedWorkout(
@@ -132,7 +165,7 @@ function toOptimisticCompletedWorkout(
 
   return {
     id: sessionId,
-    name: session.name ?? "Ã˜kt",
+    name: session.name ?? "Økt",
     mode: session.workoutId ? "program" : "quick",
     startedAtUtc: session.startedAtUtc,
     finishedAtUtc,
@@ -144,178 +177,447 @@ function toOptimisticCompletedWorkout(
   };
 }
 
-// ---- PROVIDER ----
-
 export function WorkoutSessionProvider({ children }: ProviderProps) {
   const queryClient = useQueryClient();
+  const { authReady, token } = useAuth();
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hydratedScopeKey, setHydratedScopeKey] = useState<string | null>(null);
 
-  const focusActiveSession = useCallback((message: string) => {
-    if (!session || session.finishedAtUtc) return false;
+  const authUserId = useMemo(() => getAccessTokenUserId(token), [token]);
+  const storageScopeKey = authUserId ? `user:${authUserId}` : null;
+  const hasHydratedStoredSession =
+    authReady && (!storageScopeKey || hydratedScopeKey === storageScopeKey);
 
-    setIsOpen(true);
-    setIsMinimized(false);
-    Alert.alert("Økt allerede i gang", message);
-    return true;
-  }, [session]);
+  const previousStorageScopeKeyRef = useRef<string | null>(null);
+  const draftScopeKeyRef = useRef<string | null>(null);
+  const sessionRef = useRef<WorkoutSession | null>(null);
+  const isOpenRef = useRef(false);
+  const isMinimizedRef = useRef(false);
+  const hasHydratedStoredSessionRef = useRef(false);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const finishAndSavePromiseRef = useRef<Promise<void> | null>(null);
+  const activeClientRequestIdRef = useRef<string | null>(null);
 
-  // --- OPEN / CLOSE ---
+  const setSessionState = useCallback(
+    (next: SetStateAction<WorkoutSession | null>) => {
+      setSession((prev) => {
+        const resolved = resolveNextState(prev, next);
+        sessionRef.current = resolved;
+        return resolved;
+      });
+    },
+    []
+  );
 
-  const openQuickSession = useCallback((name?: string) => {
+  const setIsOpenState = useCallback((next: SetStateAction<boolean>) => {
+    setIsOpen((prev) => {
+      const resolved = resolveNextState(prev, next);
+      isOpenRef.current = resolved;
+      return resolved;
+    });
+  }, []);
+
+  const setIsMinimizedState = useCallback((next: SetStateAction<boolean>) => {
+    setIsMinimized((prev) => {
+      const resolved = resolveNextState(prev, next);
+      isMinimizedRef.current = resolved;
+      return resolved;
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    sessionRef.current = session;
+    isOpenRef.current = isOpen;
+    isMinimizedRef.current = isMinimized;
+    hasHydratedStoredSessionRef.current = hasHydratedStoredSession;
+  }, [hasHydratedStoredSession, isMinimized, isOpen, session]);
+
+  useEffect(() => {
+    if (!session || session.finishedAtUtc) {
+      activeClientRequestIdRef.current = null;
+      return;
+    }
+
+    if (!session.clientRequestId?.trim()) {
+      const normalized = ensureActiveSessionClientRequestId(session);
+      activeClientRequestIdRef.current = normalized.clientRequestId ?? null;
+
+      if (normalized !== session) {
+        setSessionState(normalized);
+      }
+      return;
+    }
+
+    activeClientRequestIdRef.current = session.clientRequestId.trim();
+  }, [session, setSessionState]);
+
+  const persistActiveSessionNow = useCallback(async () => {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+
+    if (!hasHydratedStoredSessionRef.current) return;
+
+    const draftScopeKey = draftScopeKeyRef.current;
+    const currentSession = sessionRef.current;
+
     if (
-      focusActiveSession(
-        "Du har allerede en aktiv økt. Fortsett den før du starter en ny hurtigøkt."
-      )
+      !draftScopeKey ||
+      !currentSession ||
+      currentSession.finishedAtUtc ||
+      !isOpenRef.current
     ) {
       return;
     }
 
-    const now = new Date().toISOString();
+    await saveStoredActiveWorkoutSession({
+      scopeKey: draftScopeKey,
+      session: currentSession,
+      isMinimized: isMinimizedRef.current,
+    });
+  }, []);
 
-    const newSession: WorkoutSession = {
-      id: undefined,
-      mode: "quick" as SessionMode,
-      name: name || "Fri Ã¸kt",
-      workoutProgramId: null,
-      workoutId: null,
-      startedAtUtc: now,
-      finishedAtUtc: null,
-      exercises: [],
+  useEffect(() => {
+    if (!authReady) return;
+
+    const previousStorageScopeKey = previousStorageScopeKeyRef.current;
+    previousStorageScopeKeyRef.current = storageScopeKey;
+
+    if (previousStorageScopeKey !== storageScopeKey) {
+      draftScopeKeyRef.current = null;
+      setSessionState(null);
+      setIsOpenState(false);
+      setIsMinimizedState(false);
+    }
+
+    if (!storageScopeKey) {
+      setHydratedScopeKey(null);
+      return;
+    }
+
+    if (hydratedScopeKey === storageScopeKey) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      let restored: Awaited<
+        ReturnType<typeof loadStoredActiveWorkoutSession>
+      > | null = null;
+
+      try {
+        restored = await loadStoredActiveWorkoutSession(storageScopeKey);
+      } finally {
+        if (cancelled) return;
+
+        if (restored) {
+          const restoredSession = ensureActiveSessionClientRequestId(
+            restored.session
+          );
+          draftScopeKeyRef.current = storageScopeKey;
+          activeClientRequestIdRef.current =
+            restoredSession.clientRequestId ?? null;
+          setSessionState(restoredSession);
+          setIsOpenState(true);
+          setIsMinimizedState(restored.isMinimized);
+        } else if (
+          !sessionRef.current ||
+          draftScopeKeyRef.current === storageScopeKey
+        ) {
+          draftScopeKeyRef.current = null;
+          setSessionState(null);
+          setIsOpenState(false);
+          setIsMinimizedState(false);
+        }
+
+        setHydratedScopeKey(storageScopeKey);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
     };
+  }, [
+    authReady,
+    hydratedScopeKey,
+    setIsMinimizedState,
+    setIsOpenState,
+    setSessionState,
+    storageScopeKey,
+  ]);
 
-    setSession(newSession);
-    setIsOpen(true);
-    setIsMinimized(false);
-  }, [focusActiveSession]);
+  useEffect(() => {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
 
-  const openProgramSession = useCallback((args: OpenProgramSessionArgs) => {
-    if (
-      focusActiveSession(
-        "Du har allerede en aktiv økt. Fullfør eller avbryt den før du starter en ny planlagt økt."
-      )
-    ) {
+    if (!hasHydratedStoredSession) return;
+    if (!session || session.finishedAtUtc || !isOpen || !draftScopeKeyRef.current) {
       return;
     }
 
-    const now = new Date().toISOString();
+    autosaveTimerRef.current = setTimeout(() => {
+      autosaveTimerRef.current = null;
+      void persistActiveSessionNow().catch((error) => {
+        console.log("Failed to persist workout session", error);
+      });
+    }, AUTOSAVE_DELAY_MS);
 
-    const exercises: SessionExercise[] = args.exercises.map((ex, index) => ({
-      id: makeLocalId(),
-      exerciseId: ex.exerciseId,
-      name: ex.name,
-      muscle: ex.muscle ?? null,
-      order: index + 1,
-      sets: [],
-    }));
-
-    const newSession: WorkoutSession = {
-      id: undefined,
-      mode: "program" as SessionMode,
-      name: args.name,
-      workoutProgramId: args.workoutProgramId ?? null,
-      workoutId: args.workoutId ?? null,
-      startedAtUtc: now,
-      finishedAtUtc: null,
-      exercises,
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
     };
+  }, [hasHydratedStoredSession, isMinimized, isOpen, persistActiveSessionNow, session]);
 
-    setSession(newSession);
-    setIsOpen(true);
-    setIsMinimized(false);
-  }, [focusActiveSession]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextState;
 
-  /**
-   * Ã…pne en tidligere Ã¸kt i overlay (utfÃ¸rt Ã¸kt)
-   * Viktig: behold backend-idâ€™er pÃ¥ logs/sets
-   */
-  const openCompletedSession = useCallback(async (sessionId: string) => {
-    if (
-      focusActiveSession(
-        "Du har allerede en aktiv økt. Fullfør eller avbryt den før du åpner en tidligere økt."
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const dto = await getSessionDetails(sessionId);
-
-      const exercises: SessionExercise[] = dto.exerciseLogs
-        .slice()
-        .sort((a: any, b: any) => a.order - b.order)
-        .map((log: any) => {
-          const sets: SessionSet[] = (log.sets ?? [])
-            .slice()
-            .sort((a: any, b: any) => a.setNumber - b.setNumber)
-            .map((s: any) => ({
-              id: String(s.id), // backend setId
-              reps: s.reps ?? null,
-              weight: s.weightKg ?? null,
-              completed: true,
-            }));
-
-          return {
-            id: String(log.id), // backend logId
-            exerciseId: String(log.exerciseId),
-            name: log.name,
-            muscle: log.muscle ?? null,
-            order: log.order,
-            sets,
-          };
+      if (
+        previousState === "active" &&
+        (nextState === "inactive" || nextState === "background")
+      ) {
+        void persistActiveSessionNow().catch((error) => {
+          console.log("Failed to flush workout session", error);
         });
+      }
+    });
 
-      const mapped: WorkoutSession = {
-        id: String(dto.id), // backend sessionId
-        mode: dto.workoutId
-          ? ("program" as SessionMode)
-          : ("quick" as SessionMode),
-        name: dto.title ?? "Ã˜kt",
-        workoutProgramId: dto.workoutProgramId ?? null,
-        workoutId: dto.workoutId ?? null,
-        startedAtUtc: dto.startedAtUtc,
-        finishedAtUtc: dto.finishedAtUtc ?? null,
+    return () => {
+      subscription.remove();
+      void persistActiveSessionNow().catch(() => {});
+    };
+  }, [persistActiveSessionNow]);
+
+  const focusActiveSession = useCallback(
+    (message: string) => {
+      if (!authReady) {
+        Alert.alert(
+          "Laster bruker",
+          "Vent et øyeblikk før du starter eller gjenopptar en økt."
+        );
+        return true;
+      }
+
+      if (!storageScopeKey) {
+        Alert.alert(
+          "Mangler bruker",
+          "Kunne ikke knytte økten til en bruker. Logg inn på nytt."
+        );
+        return true;
+      }
+
+      if (!hasHydratedStoredSession) {
+        Alert.alert(
+          "Gjenoppretter økt",
+          "Vent et øyeblikk mens vi henter en aktiv økt."
+        );
+        return true;
+      }
+
+      if (!session || session.finishedAtUtc) return false;
+
+      setIsOpenState(true);
+      setIsMinimizedState(false);
+      Alert.alert("Økt allerede i gang", message);
+      return true;
+    },
+    [
+      authReady,
+      hasHydratedStoredSession,
+      session,
+      setIsMinimizedState,
+      setIsOpenState,
+      storageScopeKey,
+    ]
+  );
+
+  const openQuickSession = useCallback(
+    (name?: string) => {
+      if (
+        focusActiveSession(
+          "Du har allerede en aktiv økt. Fortsett den før du starter en ny hurtigøkt."
+        )
+      ) {
+        return;
+      }
+
+      const now = new Date().toISOString();
+
+      const newSession: WorkoutSession = {
+        id: undefined,
+        clientRequestId: makeClientRequestId(),
+        mode: "quick" as SessionMode,
+        name: name || "Fri økt",
+        workoutProgramId: null,
+        workoutId: null,
+        startedAtUtc: now,
+        finishedAtUtc: null,
+        exercises: [],
+      };
+
+      draftScopeKeyRef.current = storageScopeKey;
+      activeClientRequestIdRef.current = newSession.clientRequestId ?? null;
+      setSessionState(newSession);
+      setIsOpenState(true);
+      setIsMinimizedState(false);
+    },
+    [focusActiveSession, setIsMinimizedState, setIsOpenState, setSessionState, storageScopeKey]
+  );
+
+  const openProgramSession = useCallback(
+    (args: OpenProgramSessionArgs) => {
+      if (
+        focusActiveSession(
+          "Du har allerede en aktiv økt. Fullfør eller avbryt den før du starter en ny planlagt økt."
+        )
+      ) {
+        return;
+      }
+
+      const now = new Date().toISOString();
+
+      const exercises: SessionExercise[] = args.exercises.map((ex, index) => ({
+        id: makeLocalId(),
+        exerciseId: ex.exerciseId,
+        name: ex.name,
+        muscle: ex.muscle ?? null,
+        order: index + 1,
+        sets: [],
+      }));
+
+      const newSession: WorkoutSession = {
+        id: undefined,
+        clientRequestId: makeClientRequestId(),
+        mode: "program" as SessionMode,
+        name: args.name,
+        workoutProgramId: args.workoutProgramId ?? null,
+        workoutId: args.workoutId ?? null,
+        startedAtUtc: now,
+        finishedAtUtc: null,
         exercises,
       };
 
-      setSession(mapped);
-      setIsOpen(true);
-      setIsMinimized(false);
-    } catch (err) {
-      console.log("âŒ openCompletedSession error", err);
-      Alert.alert(
-        "Kunne ikke Ã¥pne Ã¸kten",
-        "PrÃ¸v igjen. Hvis feilen fortsetter, Ã¥pne appen pÃ¥ nytt."
-      );
-    }
-  }, [focusActiveSession]);
+      draftScopeKeyRef.current = storageScopeKey;
+      activeClientRequestIdRef.current = newSession.clientRequestId ?? null;
+      setSessionState(newSession);
+      setIsOpenState(true);
+      setIsMinimizedState(false);
+    },
+    [focusActiveSession, setIsMinimizedState, setIsOpenState, setSessionState, storageScopeKey]
+  );
+
+  const openCompletedSession = useCallback(
+    async (sessionId: string) => {
+      if (
+        focusActiveSession(
+          "Du har allerede en aktiv økt. Fullfør eller avbryt den før du åpner en tidligere økt."
+        )
+      ) {
+        return;
+      }
+
+      try {
+        const dto = await getSessionDetails(sessionId);
+
+        const exercises: SessionExercise[] = dto.exerciseLogs
+          .slice()
+          .sort((a: any, b: any) => a.order - b.order)
+          .map((log: any) => {
+            const sets: SessionSet[] = (log.sets ?? [])
+              .slice()
+              .sort((a: any, b: any) => a.setNumber - b.setNumber)
+              .map((s: any) => ({
+                id: String(s.id),
+                reps: s.reps ?? null,
+                weight: s.weightKg ?? null,
+                completed: true,
+              }));
+
+            return {
+              id: String(log.id),
+              exerciseId: String(log.exerciseId),
+              name: log.name,
+              muscle: log.muscle ?? null,
+              order: log.order,
+              sets,
+            };
+          });
+
+        const mapped: WorkoutSession = {
+          id: String(dto.id),
+          clientRequestId: null,
+          mode: dto.workoutId ? ("program" as SessionMode) : ("quick" as SessionMode),
+          name: dto.title ?? "Økt",
+          workoutProgramId: dto.workoutProgramId ?? null,
+          workoutId: dto.workoutId ?? null,
+          startedAtUtc: dto.startedAtUtc,
+          finishedAtUtc: dto.finishedAtUtc ?? null,
+          exercises,
+        };
+
+        draftScopeKeyRef.current = null;
+        activeClientRequestIdRef.current = null;
+        setSessionState(mapped);
+        setIsOpenState(true);
+        setIsMinimizedState(false);
+      } catch (err) {
+        console.log("openCompletedSession error", err);
+        Alert.alert(
+          "Kunne ikke åpne økten",
+          "Prøv igjen. Hvis feilen fortsetter, åpne appen på nytt."
+        );
+      }
+    },
+    [focusActiveSession, setIsMinimizedState, setIsOpenState, setSessionState]
+  );
 
   const closeSession = useCallback(() => {
-    setSession(null);
-    setIsOpen(false);
-    setIsMinimized(false);
-  }, []);
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+
+    const draftScopeKey = draftScopeKeyRef.current;
+    draftScopeKeyRef.current = null;
+
+    if (draftScopeKey) {
+      void clearStoredActiveWorkoutSession(draftScopeKey).catch((error) => {
+        console.log("Failed to clear stored workout session", error);
+      });
+    }
+
+    setSessionState(null);
+    setIsOpenState(false);
+    setIsMinimizedState(false);
+    setIsSaving(false);
+    finishAndSavePromiseRef.current = null;
+    activeClientRequestIdRef.current = null;
+  }, [setIsMinimizedState, setIsOpenState, setSessionState]);
 
   const toggleMinimized = useCallback(() => {
-    setIsMinimized((prev) => !prev);
-  }, []);
-
-  // --- TITLE / NAME ---
+    setIsMinimizedState((prev) => !prev);
+  }, [setIsMinimizedState]);
 
   const renameSession = useCallback((name: string) => {
     const next = normalizeName(name);
 
-    setSession((prev) => {
+    setSessionState((prev) => {
       if (!prev) return prev;
       return { ...prev, name: next.length > 0 ? next : prev.name };
     });
-  }, []);
-
-  // --- DELETE WHOLE SESSION (BACKEND) ---
+  }, [setSessionState]);
 
   const deleteSession = useCallback(async () => {
-    if (!session?.id) return; // kan ikke slette noe som ikke finnes i backend
+    if (!session?.id) return;
 
     const sessionId = session.id;
     const previousCompleted =
@@ -324,7 +626,6 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
       ]) ?? [];
 
     try {
-      // Optimistic update: fjern økten fra historikk umiddelbart i UI.
       queryClient.setQueryData<CompletedWorkoutSummaryDto[]>(
         ["completedWorkouts"],
         (prev) => {
@@ -335,34 +636,29 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
 
       closeSession();
 
-      const token = await getValidAccessToken();
-      if (!token) throw new Error("Mangler auth-token for å slette økt");
+      const accessToken = await getValidAccessToken();
+      if (!accessToken) throw new Error("Mangler auth-token for å slette økt");
 
-      await deleteWorkoutSession(sessionId, token);
+      await deleteWorkoutSession(sessionId, accessToken);
       await queryClient.invalidateQueries({ queryKey: ["completedWorkouts"] });
     } catch (err) {
-      console.log("❌ deleteSession error", err);
+      console.log("deleteSession error", err);
       queryClient.setQueryData<CompletedWorkoutSummaryDto[]>(
         ["completedWorkouts"],
         previousCompleted
       );
-      Alert.alert(
-        "Kunne ikke slette økten",
-        "Prøv igjen om et øyeblikk."
-      );
+      Alert.alert("Kunne ikke slette økten", "Prøv igjen om et øyeblikk.");
     }
-  }, [session?.id, closeSession, queryClient]);
-
-  // --- EXERCISES / SETS (LOCAL STATE) ---
+  }, [closeSession, queryClient, session?.id]);
 
   const addExercise = useCallback(
     (payload: { exerciseId: string; name: string; muscle?: string | null }) => {
-      setSession((prev) => {
+      setSessionState((prev) => {
         if (!prev) return prev;
 
         const maxOrder =
           prev.exercises.length > 0
-            ? Math.max(...prev.exercises.map((e) => e.order))
+            ? Math.max(...prev.exercises.map((exercise) => exercise.order))
             : 0;
 
         const newExercise: SessionExercise = {
@@ -377,15 +673,15 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
         return { ...prev, exercises: [...prev.exercises, newExercise] };
       });
     },
-    []
+    [setSessionState]
   );
 
   const addSet = useCallback((sessionExerciseId: string) => {
-    setSession((prev) => {
+    setSessionState((prev) => {
       if (!prev) return prev;
 
-      const updatedExercises = prev.exercises.map((ex) => {
-        if (ex.id !== sessionExerciseId) return ex;
+      const updatedExercises = prev.exercises.map((exercise) => {
+        if (exercise.id !== sessionExerciseId) return exercise;
 
         const newSet: SessionSet = {
           id: `local_${makeLocalId()}`,
@@ -394,12 +690,12 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
           completed: false,
         };
 
-        return { ...ex, sets: [...ex.sets, newSet] };
+        return { ...exercise, sets: [...exercise.sets, newSet] };
       });
 
       return { ...prev, exercises: updatedExercises };
     });
-  }, []);
+  }, [setSessionState]);
 
   const updateSet = useCallback(
     (
@@ -407,121 +703,164 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
       setId: string,
       partial: Partial<SessionSet>
     ) => {
-      setSession((prev) => {
+      setSessionState((prev) => {
         if (!prev) return prev;
 
-        const updatedExercises = prev.exercises.map((ex) => {
-          if (ex.id !== sessionExerciseId) return ex;
+        const updatedExercises = prev.exercises.map((exercise) => {
+          if (exercise.id !== sessionExerciseId) return exercise;
 
-          const updatedSets = ex.sets.map((s) =>
-            s.id === setId ? { ...s, ...partial } : s
+          const updatedSets = exercise.sets.map((set) =>
+            set.id === setId ? { ...set, ...partial } : set
           );
 
-          return { ...ex, sets: updatedSets };
+          return { ...exercise, sets: updatedSets };
         });
 
         return { ...prev, exercises: updatedExercises };
       });
     },
-    []
+    [setSessionState]
   );
 
   const removeSet = useCallback((sessionExerciseId: string, setId: string) => {
-    setSession((prev) => {
+    setSessionState((prev) => {
       if (!prev) return prev;
 
       const updatedExercises = prev.exercises
-        .map((ex) => {
-          if (ex.id !== sessionExerciseId) return ex;
+        .map((exercise) => {
+          if (exercise.id !== sessionExerciseId) return exercise;
 
-          const remainingSets = ex.sets.filter((s) => s.id !== setId);
+          const remainingSets = exercise.sets.filter((set) => set.id !== setId);
           if (remainingSets.length === 0) return null;
 
-          return { ...ex, sets: remainingSets };
+          return { ...exercise, sets: remainingSets };
         })
-        .filter((ex): ex is SessionExercise => ex !== null);
+        .filter((exercise): exercise is SessionExercise => exercise !== null);
 
       return { ...prev, exercises: updatedExercises };
     });
-  }, []);
+  }, [setSessionState]);
 
-  // --- FINISH & SAVE TO BACKEND ---
-
-  const finishAndSave = useCallback(async (options?: { nameOverride?: string }) => {
-    if (!session) return;
-
-    try {
-      const editingCompletedSessionId =
-        session.id && session.finishedAtUtc ? session.id : null;
-
-      const filteredExercises: SessionExercise[] = session.exercises
-        .map((ex) => ({ ...ex, sets: ex.sets.filter((s) => s.completed) }))
-        .filter((ex) => ex.sets.length > 0);
-
-      if (filteredExercises.length === 0) {
-        closeSession();
-        return;
+  const finishAndSave = useCallback(
+    async (options?: {
+      nameOverride?: string;
+      onSuccess?: () => void | Promise<void>;
+    }) => {
+      if (!sessionRef.current) return;
+      if (finishAndSavePromiseRef.current) {
+        return finishAndSavePromiseRef.current;
       }
 
-      const sanitizedExercises: SessionExercise[] = filteredExercises
-        .map((ex) => ({
-          ...ex,
-          sets: ex.sets.filter((s) => (s.reps ?? 0) > 0),
-        }))
-        .filter((ex) => ex.sets.length > 0);
+      const run = (async () => {
+        setIsSaving(true);
 
-      if (sanitizedExercises.length === 0) {
-        closeSession();
-        return;
-      }
+        try {
+        const currentSession = sessionRef.current;
+        if (!currentSession) return;
 
-      const token = await getValidAccessToken();
-      if (!token) throw new Error("Mangler auth-token for Ã¥ lagre Ã¸kt");
+        const editingCompletedSessionId =
+          currentSession.id && currentSession.finishedAtUtc
+            ? currentSession.id
+            : null;
 
-      const nextName =
-        normalizeName(options?.nameOverride ?? session.name) || session.name;
+        const filteredExercises: SessionExercise[] = currentSession.exercises
+          .map((exercise) => ({
+            ...exercise,
+            sets: exercise.sets.filter((set) => set.completed),
+          }))
+          .filter((exercise) => exercise.sets.length > 0);
 
-      const payload: WorkoutSession = {
-        ...session,
-        name: nextName,
-        exercises: sanitizedExercises,
-      };
-
-      let savedSessionId = "";
-
-      if (editingCompletedSessionId) {
-        await putWorkoutSession(editingCompletedSessionId, payload, token);
-        savedSessionId = editingCompletedSessionId;
-      } else {
-        savedSessionId = await postWorkoutSession(payload, token);
-      }
-
-      const optimistic = toOptimisticCompletedWorkout(savedSessionId, payload);
-      queryClient.setQueryData<CompletedWorkoutSummaryDto[]>(
-        ["completedWorkouts"],
-        (prev) => {
-          const list = Array.isArray(prev) ? prev : [];
-          const withoutSaved = list.filter((x) => x.id !== savedSessionId);
-          return [optimistic, ...withoutSaved];
+        if (filteredExercises.length === 0) {
+          closeSession();
+          return;
         }
-      );
 
-      await queryClient.invalidateQueries({ queryKey: ["completedWorkouts"] });
+        const sanitizedExercises: SessionExercise[] = filteredExercises
+          .map((exercise) => ({
+            ...exercise,
+            sets: exercise.sets.filter((set) => (set.reps ?? 0) > 0),
+          }))
+          .filter((exercise) => exercise.sets.length > 0);
 
-      closeSession();
-    } catch (err) {
-      console.log("âŒ finishAndSave error", err);
-      Alert.alert(
-        "Kunne ikke lagre",
-        "Sjekk nettverk og prÃ¸v igjen. Ã˜kten er fortsatt Ã¥pen slik at du ikke mister data."
-      );
-    }
-  }, [session, closeSession, queryClient]);
+        if (sanitizedExercises.length === 0) {
+          closeSession();
+          return;
+        }
+
+        const accessToken = await getValidAccessToken();
+        if (!accessToken) throw new Error("Mangler auth-token for å lagre økt");
+
+        const nextName =
+          normalizeName(options?.nameOverride ?? currentSession.name) ||
+          currentSession.name;
+
+        const clientRequestId =
+          currentSession.clientRequestId?.trim() ||
+          activeClientRequestIdRef.current ||
+          makeClientRequestId();
+
+        activeClientRequestIdRef.current = clientRequestId;
+
+        if (clientRequestId !== currentSession.clientRequestId) {
+          setSessionState((prev) =>
+            prev ? { ...prev, clientRequestId } : prev
+          );
+        }
+
+        const payload: WorkoutSession = {
+          ...currentSession,
+          clientRequestId,
+          name: nextName,
+          exercises: sanitizedExercises,
+        };
+
+        let savedSessionId = "";
+
+        if (editingCompletedSessionId) {
+          await putWorkoutSession(editingCompletedSessionId, payload, accessToken);
+          savedSessionId = editingCompletedSessionId;
+        } else {
+          savedSessionId = await postWorkoutSession(payload, accessToken);
+        }
+
+        const optimistic = toOptimisticCompletedWorkout(savedSessionId, payload);
+        queryClient.setQueryData<CompletedWorkoutSummaryDto[]>(
+          ["completedWorkouts"],
+          (prev) => {
+            const list = Array.isArray(prev) ? prev : [];
+            const withoutSaved = list.filter((item) => item.id !== savedSessionId);
+            return [optimistic, ...withoutSaved];
+          }
+        );
+
+        await queryClient.invalidateQueries({ queryKey: ["completedWorkouts"] });
+
+        await options?.onSuccess?.();
+
+        closeSession();
+      } catch (err) {
+        console.log("finishAndSave error", err);
+        Alert.alert(
+          "Kunne ikke lagre",
+          "Sjekk nettverk og prøv igjen. Økten er fortsatt åpen slik at du ikke mister data."
+        );
+      } finally {
+        setIsSaving(false);
+        finishAndSavePromiseRef.current = null;
+      }
+      })();
+
+      finishAndSavePromiseRef.current = run;
+      return run;
+    },
+    [closeSession, queryClient, setSessionState]
+  );
 
   const value = useMemo<WorkoutSessionContextValue>(
     () => ({
       isOpen,
       isMinimized,
+      isSaving,
       session,
       openQuickSession,
       openProgramSession,
@@ -537,21 +876,22 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
       finishAndSave,
     }),
     [
-      isOpen,
-      isMinimized,
-      session,
-      openQuickSession,
-      openProgramSession,
-      openCompletedSession,
-      closeSession,
-      toggleMinimized,
-      renameSession,
-      deleteSession,
       addExercise,
       addSet,
-      updateSet,
-      removeSet,
+      closeSession,
+      deleteSession,
       finishAndSave,
+      isSaving,
+      isMinimized,
+      isOpen,
+      openCompletedSession,
+      openProgramSession,
+      openQuickSession,
+      removeSet,
+      renameSession,
+      session,
+      toggleMinimized,
+      updateSet,
     ]
   );
 

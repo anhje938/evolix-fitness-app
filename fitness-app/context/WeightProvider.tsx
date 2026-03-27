@@ -26,6 +26,13 @@ type WeightContextValue = {
 
 const WeightContext = createContext<WeightContextValue | undefined>(undefined);
 
+function sortWeightsByTimestampDesc(list: Weight[]) {
+  return [...list].sort(
+    (a, b) =>
+      new Date(b.timestampUtc).getTime() - new Date(a.timestampUtc).getTime()
+  );
+}
+
 export function WeightProvider({ children }: { children: ReactNode }) {
   const { token, authReady, setToken } = useAuth(); // eneste kilden til token
 
@@ -58,7 +65,7 @@ export function WeightProvider({ children }: { children: ReactNode }) {
       const data = await getUserWeights(token);
 
       if (!mountedRef.current) return;
-      setWeightList(Array.isArray(data) ? data : []);
+      setWeightList(Array.isArray(data) ? sortWeightsByTimestampDesc(data) : []);
     } catch (err: any) {
       if (!mountedRef.current) return;
       if (isUnauthorizedError(err)) {

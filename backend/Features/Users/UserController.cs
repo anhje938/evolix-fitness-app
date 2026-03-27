@@ -12,10 +12,14 @@ namespace backend.Features.Users
     {
 
         private readonly UserService _userService;
+        private readonly ILogger<UserController> _logger;
 
-        public UserController(UserService userService)
+        public UserController(
+            UserService userService,
+            ILogger<UserController> logger)
         {
             _userService = userService;
+            _logger = logger;
         }
 
         [Authorize]
@@ -46,9 +50,33 @@ namespace backend.Features.Users
         [HttpDelete("me")]
         public async Task<IActionResult> DeleteMe(CancellationToken ct)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var traceId = HttpContext.TraceIdentifier;
+            var nameIdentifier = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var sub = User.FindFirstValue("sub");
+            var userId = nameIdentifier ?? sub;
 
-            var deleted = await _userService.DeleteUserAsync(userId!, ct);
+            _logger.LogInformation(
+                "DeleteMe requested. traceId={TraceId} userId={UserId} nameIdentifier={NameIdentifier} sub={Sub}",
+                traceId,
+                userId,
+                nameIdentifier,
+                sub);
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                _logger.LogWarning(
+                    "DeleteMe unauthorized because no user id claim was found. traceId={TraceId}",
+                    traceId);
+                return Unauthorized();
+            }
+
+            var deleted = await _userService.DeleteUserAsync(userId, traceId, ct);
+
+            _logger.LogInformation(
+                "DeleteMe completed. traceId={TraceId} userId={UserId} deleted={Deleted}",
+                traceId,
+                userId,
+                deleted);
 
             return deleted ? NoContent() : NotFound();
         }

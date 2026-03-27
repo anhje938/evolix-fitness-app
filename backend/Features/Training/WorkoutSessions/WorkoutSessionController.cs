@@ -17,21 +17,9 @@ namespace backend.Features.Training.WorkoutSessions
             _workoutSessionService = workoutSessionService;
         }
 
-        // Starts a new workout session
-        [HttpPost]
-        public async Task<ActionResult<WorkoutSessionResponse>> StartSession(
-            [FromBody] StartWorkoutSessionRequest req,
-            CancellationToken ct)
+        private static WorkoutSessionResponse ToResponse(Entities.WorkoutSession session)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrWhiteSpace(userId))
-            {
-                return Unauthorized("User id missing in token.");
-            }
-
-            var session = await _workoutSessionService.StartWorkoutSession(userId, req, ct);
-
-            var response = new WorkoutSessionResponse
+            return new WorkoutSessionResponse
             {
                 Id = session.Id,
                 UserId = session.UserId,
@@ -45,8 +33,42 @@ namespace backend.Features.Training.WorkoutSessions
                 TotalReps = session.TotalReps,
                 TotalVolume = session.TotalVolume
             };
+        }
 
-            return Ok(response);
+        // Starts a new workout session
+        [HttpPost]
+        public async Task<ActionResult<WorkoutSessionResponse>> StartSession(
+            [FromBody] StartWorkoutSessionRequest req,
+            CancellationToken ct)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized("User id missing in token.");
+            }
+
+            var session = await _workoutSessionService.StartWorkoutSession(userId, req, ct);
+            return Ok(ToResponse(session));
+        }
+
+        [HttpPost("complete")]
+        public async Task<ActionResult<WorkoutSessionResponse>> CompleteSession(
+            [FromBody] CompleteWorkoutSessionRequest req,
+            CancellationToken ct)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized("User id missing in token.");
+            }
+
+            if (string.IsNullOrWhiteSpace(req.ClientRequestId))
+            {
+                return BadRequest("clientRequestId is required.");
+            }
+
+            var session = await _workoutSessionService.SaveCompletedSessionOnceAsync(userId, req, ct);
+            return Ok(ToResponse(session));
         }
 
         // Replaces an existing session (title + logs/sets)

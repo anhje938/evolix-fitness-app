@@ -913,7 +913,7 @@ export default function SettingsModal({
                           Muskler i restitusjonskart
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Standard er alle. Trykk for Ã¥ skjule eller vise muskler.
+                          Standard er alle. Trykk for å skjule eller vise muskler.
                         </Text>
                       </View>
 
@@ -1056,7 +1056,7 @@ export default function SettingsModal({
                     </View>
                   </View>
 
-                  {/* LOGG UT – nederst i scrollen */}
+                  {/* LOGG UT - nederst i scrollen */}
                   <View style={styles.section}>
                     <TouchableOpacity
                       style={[

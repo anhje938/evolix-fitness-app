@@ -301,15 +301,15 @@ export default function ProgramTab() {
           onSubmit={handleEditSave}
           onDelete={handleDelete}
           // ✅ NOW CREATES REAL WORKOUT + links it to this program + returns created workout
-          onCreateWorkout={async (name) => {
+          onCreateWorkout={async (data) => {
             if (!editingProgram) {
               throw new Error("Ingen valgt program.");
             }
 
             const created = await PostWorkoutForUser({
-              name,
-              description: undefined,
-              dayLabel: undefined,
+              name: data.name,
+              description: data.description,
+              dayLabel: data.dayLabel,
               exerciseIds: [],
               workoutProgramId: editingProgram.id,
             });

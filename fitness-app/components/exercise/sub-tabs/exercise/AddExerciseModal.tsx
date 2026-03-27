@@ -1,4 +1,5 @@
 import { ADVANCED_MUSCLE_FILTERS } from "@/types/muscles";
+import type { CreateExercisePayload } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
@@ -17,55 +18,59 @@ import { MuscleFilterBar } from "../../MuscleFilterBar";
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (data: {
-    name: string;
-    description?: string;
-    muscle?: string;
-    equipment?: string;
-    specificMuscleGroups?: string; // ✅ NY
-  }) => void;
+  onSubmit: (data: CreateExercisePayload) => void | Promise<void>;
+  initialName?: string;
+  isSubmitting?: boolean;
+  useModal?: boolean;
 };
 
-export function AddExerciseModal({ visible, onClose, onSubmit }: Props) {
+export function AddExerciseModal({
+  visible,
+  onClose,
+  onSubmit,
+  initialName,
+  isSubmitting = false,
+  useModal = true,
+}: Props) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedMuscle, setSelectedMuscle] = useState<string>("ALL");
   const [equipment, setEquipment] = useState("");
   const [specificGroups, setSpecificGroups] = useState<string[]>([]);
 
-  // Ta bort ALL fra advanced chips-lista
   const advancedSpecificList = useMemo(
     () => ADVANCED_MUSCLE_FILTERS.filter((x) => x.value !== "ALL"),
     []
   );
 
-  function toggleSpecific(v: string) {
+  function toggleSpecific(value: string) {
+    if (isSubmitting) return;
+
     setSpecificGroups((prev) =>
-      prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]
+      prev.includes(value)
+        ? prev.filter((item) => item !== value)
+        : [...prev, value]
     );
   }
 
-  // Reset når vi åpner/lukker
   useEffect(() => {
-    if (visible) {
-      setName("");
-      setDescription("");
-      setSelectedMuscle("ALL");
-      setEquipment("");
-      setSpecificGroups([]); // ✅ reset
-    }
-  }, [visible]);
+    if (!visible) return;
 
-  const handleSubmit = () => {
-    if (!name.trim()) return;
+    setName(initialName?.trim() ?? "");
+    setDescription("");
+    setSelectedMuscle("ALL");
+    setEquipment("");
+    setSpecificGroups([]);
+  }, [initialName, visible]);
+
+  const handleSubmit = async () => {
+    if (isSubmitting || !name.trim()) return;
 
     const muscleToSend = selectedMuscle === "ALL" ? undefined : selectedMuscle;
-
-    // ✅ lagre som CSV-string i backend-feltet "SpecificMuscleGroups"
     const specificToSend =
       specificGroups.length > 0 ? specificGroups.join(",") : undefined;
 
-    onSubmit({
+    await onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
       muscle: muscleToSend,
@@ -74,116 +79,125 @@ export function AddExerciseModal({ visible, onClose, onSubmit }: Props) {
     });
   };
 
-  return (
-    <Modal visible={visible} animationType="fade" transparent>
-      <View style={styles.overlay}>
-        <View style={styles.container}>
-          {/* HEADER */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Ny øvelse</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#ccc" />
-            </TouchableOpacity>
-          </View>
+  if (!visible) {
+    return null;
+  }
 
-          <ScrollView
-            style={{ maxHeight: 440 }}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* NAVN */}
-            <Text style={styles.label}>Navn</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="F.eks. Skrå benkpress"
-              placeholderTextColor="rgba(148,163,184,0.8)"
-              value={name}
-              onChangeText={setName}
-              returnKeyType="done"
-            />
-
-            {/* Primær muskelgruppe */}
-            <View>
-              <Text style={styles.label}>Primær muskelgruppe</Text>
-              <MuscleFilterBar
-                value={selectedMuscle}
-                onChange={setSelectedMuscle}
-                preset="basic"
-              />
-            </View>
-
-            {/* Spesifikke muskelgrupper */}
-            <>
-              <Text style={styles.label}>Spesifikke muskelgrupper</Text>
-
-              <View style={styles.chipWrap}>
-                {advancedSpecificList.map((item) => {
-                  const active = specificGroups.includes(item.value);
-
-                  return (
-                    <Pressable
-                      key={item.value}
-                      onPress={() => toggleSpecific(item.value)}
-                      style={[
-                        styles.multiChip,
-                        active && styles.multiChipActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.multiChipText,
-                          active && styles.multiChipTextActive,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {item.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              {!!specificGroups.length && (
-                <Text style={styles.selectedHint}>
-                  Valgt: {specificGroups.join(", ")}
-                </Text>
-              )}
-            </>
-
-            {/* UTSTYR */}
-            <Text style={styles.label}>Utstyr</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="F.eks. Stang, Manualer, Maskin..."
-              placeholderTextColor="rgba(148,163,184,0.8)"
-              value={equipment}
-              onChangeText={setEquipment}
-              returnKeyType="done"
-            />
-
-            {/* BESKRIVELSE */}
-            <Text style={styles.label}>Beskrivelse</Text>
-            <TextInput
-              style={[styles.input, styles.textarea]}
-              placeholder="Kort beskrivelse av øvelsen, teknikk eller fokus..."
-              placeholderTextColor="rgba(148,163,184,0.8)"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-            />
-          </ScrollView>
-
-          {/* KNAPP */}
-          <TouchableOpacity style={styles.buttonWrapper} onPress={handleSubmit}>
-            <LinearGradient
-              colors={["#3A7BD5", "#00d2ff"]}
-              style={styles.button}
-            >
-              <Ionicons name="save-outline" size={18} color="white" />
-              <Text style={styles.buttonText}>Opprett øvelse</Text>
-            </LinearGradient>
+  const content = (
+    <View style={[styles.overlay, !useModal && styles.inlineOverlay]}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Ny øvelse</Text>
+          <TouchableOpacity onPress={onClose} disabled={isSubmitting}>
+            <Ionicons name="close" size={24} color="#ccc" />
           </TouchableOpacity>
         </View>
+
+        <ScrollView style={{ maxHeight: 440 }} showsVerticalScrollIndicator={false}>
+          <Text style={styles.label}>Navn</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="F.eks. Skrå benkpress"
+            placeholderTextColor="rgba(148,163,184,0.8)"
+            value={name}
+            onChangeText={setName}
+            editable={!isSubmitting}
+            returnKeyType="done"
+          />
+
+          <View pointerEvents={isSubmitting ? "none" : "auto"}>
+            <Text style={styles.label}>Primær muskelgruppe</Text>
+            <MuscleFilterBar
+              value={selectedMuscle}
+              onChange={setSelectedMuscle}
+              preset="basic"
+            />
+          </View>
+
+          <>
+            <Text style={styles.label}>Spesifikke muskelgrupper</Text>
+
+            <View style={styles.chipWrap}>
+              {advancedSpecificList.map((item) => {
+                const active = specificGroups.includes(item.value);
+
+                return (
+                  <Pressable
+                    key={item.value}
+                    disabled={isSubmitting}
+                    onPress={() => toggleSpecific(item.value)}
+                    style={[
+                      styles.multiChip,
+                      active && styles.multiChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.multiChipText,
+                        active && styles.multiChipTextActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {!!specificGroups.length && (
+              <Text style={styles.selectedHint}>
+                Valgt: {specificGroups.join(", ")}
+              </Text>
+            )}
+          </>
+
+          <Text style={styles.label}>Utstyr</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="F.eks. Stang, manualer, maskin..."
+            placeholderTextColor="rgba(148,163,184,0.8)"
+            value={equipment}
+            onChangeText={setEquipment}
+            editable={!isSubmitting}
+            returnKeyType="done"
+          />
+
+          <Text style={styles.label}>Beskrivelse</Text>
+          <TextInput
+            style={[styles.input, styles.textarea]}
+            placeholder="Kort beskrivelse av øvelsen, teknikk eller fokus..."
+            placeholderTextColor="rgba(148,163,184,0.8)"
+            value={description}
+            onChangeText={setDescription}
+            editable={!isSubmitting}
+            multiline
+          />
+        </ScrollView>
+
+        <TouchableOpacity
+          style={[styles.buttonWrapper, isSubmitting && styles.buttonDisabled]}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        >
+          <LinearGradient colors={["#3A7BD5", "#00d2ff"]} style={styles.button}>
+            <Ionicons name="save-outline" size={18} color="white" />
+            <Text style={styles.buttonText}>
+              {isSubmitting ? "Oppretter..." : "Opprett øvelse"}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
+    </View>
+  );
+
+  if (!useModal) {
+    return content;
+  }
+
+  return (
+    <Modal visible animationType="fade" transparent onRequestClose={onClose}>
+      {content}
     </Modal>
   );
 }
@@ -194,6 +208,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     padding: 20,
+  },
+  inlineOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 40,
+    elevation: 40,
   },
   container: {
     backgroundColor: "#111827",
@@ -232,8 +251,6 @@ const styles = StyleSheet.create({
     height: 90,
     textAlignVertical: "top",
   },
-
-  // ✅ advanced chip grid
   chipWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -266,9 +283,11 @@ const styles = StyleSheet.create({
     color: "rgba(148,163,184,0.9)",
     fontSize: 12,
   },
-
   buttonWrapper: {
     marginTop: 14,
+  },
+  buttonDisabled: {
+    opacity: 0.72,
   },
   button: {
     paddingVertical: 14,

@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LineChart } from "react-native-chart-kit";
 import { PinchGestureHandler } from "react-native-gesture-handler";
 import {
@@ -9,6 +9,7 @@ import {
   LinearGradient as SvgLinearGradient,
   Text as SvgText,
 } from "react-native-svg";
+import { LinearGradient as ExpoLinearGradient } from "expo-linear-gradient";
 
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
@@ -145,12 +146,26 @@ export function WeightProgressChart({
   if (!chart.dailyData.length) {
     return (
       <View style={[generalStyles.newCard, styles.card]}>
+        <ExpoLinearGradient
+          pointerEvents="none"
+          colors={[
+            "rgba(34,211,238,0.16)",
+            "rgba(59,130,246,0.08)",
+            "rgba(2,6,23,0)",
+          ]}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.92, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View pointerEvents="none" style={styles.cardGlowTop} />
+        <View pointerEvents="none" style={styles.cardGlowBottom} />
+
         {showTitle && (
           <View style={styles.headerRow}>
             <View>
               <Text style={[typography.h2, styles.title]}>{title}</Text>
               <Text style={[typography.body, styles.meta]}>
-                {`0 m\u00e5linger \u00b7 siste ${weeks} uker`}
+                {`0 målinger · siste ${weeks} uker`}
               </Text>
             </View>
           </View>
@@ -162,10 +177,10 @@ export function WeightProgressChart({
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[typography.bodyBlack, styles.emptyTitle]}>
-              {"Ingen vektm\u00e5linger enn\u00e5"}
+              {"Ingen vektmålinger ennå"}
             </Text>
             <Text style={[typography.body, styles.emptySub]}>
-              {"Legg inn en m\u00e5ling for \u00e5 se utviklingen her."}
+              {"Legg inn en måling for å se utviklingen her."}
             </Text>
           </View>
         </View>
@@ -196,14 +211,26 @@ export function WeightProgressChart({
 
   return (
     <View style={[generalStyles.newCard, styles.card]}>
+      <ExpoLinearGradient
+        pointerEvents="none"
+        colors={[
+          "rgba(34,211,238,0.16)",
+          "rgba(59,130,246,0.08)",
+          "rgba(2,6,23,0)",
+        ]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.92, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View pointerEvents="none" style={styles.cardGlowTop} />
+      <View pointerEvents="none" style={styles.cardGlowBottom} />
+
       {/* Header */}
       <View style={styles.headerRow}>
         <View style={{ flex: 1, paddingRight: 10 }}>
-          {showTitle && (
-            <Text style={[typography.h2, styles.title]}>{title}</Text>
-          )}
+          {showTitle && <Text style={[typography.h2, styles.title]}>{title}</Text>}
           <Text style={[typography.body, styles.meta]}>
-            {`${chart.stats?.count} m\u00e5linger \u00b7 siste ${weeks} uker`}
+            {`${chart.stats?.count} målinger · siste ${weeks} uker`}
           </Text>
         </View>
 
@@ -264,7 +291,7 @@ export function WeightProgressChart({
                   color="#7dd3fc"
                 />
               </View>
-              <Text style={styles.statLabel}>Endring</Text>
+              <Text style={styles.statLabel}>Trend</Text>
             </View>
             <View style={styles.changeRow}>
               <Text
@@ -285,7 +312,7 @@ export function WeightProgressChart({
               <View style={styles.statIconWrap}>
                 <Ionicons name="scale-outline" size={12} color="#7dd3fc" />
               </View>
-              <Text style={styles.statLabel}>{"N\u00e5"}</Text>
+              <Text style={styles.statLabel}>Siste</Text>
             </View>
             <Text style={styles.statValue}>
               {chart.stats.last.toFixed(decimalPlaces)} kg
@@ -293,8 +320,6 @@ export function WeightProgressChart({
           </View>
         </View>
       )}
-
-      <Text style={styles.hint}>{"Knip for zoom \u00b7 dra for \u00e5 se mer"}</Text>
 
       {/* Goal indicator if goal is outside visible range */}
       {shouldShowGoalToggle && (
@@ -319,7 +344,7 @@ export function WeightProgressChart({
                   showGoalInChart && styles.goalHintTextActive,
                 ]}
               >
-                {showGoalInChart ? "Skjul m\u00e5l" : "Vis m\u00e5l"}
+                {showGoalInChart ? "Skjul mål" : "Vis mål"}
               </Text>
               <Text style={styles.goalHintValue}>
                 {`${chart.goal.toFixed(decimalPlaces)} kg`}
@@ -489,7 +514,7 @@ export function WeightProgressChart({
                           fontWeight="700"
                           textAnchor="end"
                         >
-                          {`M\u00e5l: ${chart.goal.toFixed(decimalPlaces)} kg`}
+                          {`Mål: ${chart.goal.toFixed(decimalPlaces)} kg`}
                         </SvgText>
 
                         {/* Gradient fill under line (kept for future use) */}
@@ -543,7 +568,7 @@ export function WeightProgressChart({
         <View style={styles.goalStats}>
           <View style={styles.goalStat}>
             <View style={styles.goalLabelRow}>
-              <Text style={styles.goalStatLabel}>{"M\u00e5l"}</Text>
+              <Text style={styles.goalStatLabel}>Mål</Text>
             </View>
             <View style={styles.goalValueRow}>
               <Text style={[styles.goalStatValue, styles.goalWeightValue]}>
@@ -569,7 +594,7 @@ export function WeightProgressChart({
           </View>
 
           <View style={styles.goalStat}>
-            <Text style={styles.goalStatLabel}>{"Tid til m\u00e5l"}</Text>
+            <Text style={styles.goalStatLabel}>Tid til mål</Text>
 
             {chart.stats.goalDirection === "correct" &&
             chart.stats.daysToGoal !== null ? (

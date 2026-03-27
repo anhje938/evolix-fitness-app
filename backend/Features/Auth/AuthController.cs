@@ -210,14 +210,6 @@ namespace backend.Features.Auth
             return NoContent();
         }
 
-        // Hjelpefunksjon om du senere vil logge en kort "fingerprint" av tokenet uten å logge tokenet selv
-        private static string Sha256Short(string input)
-        {
-            using var sha = SHA256.Create();
-            var bytes = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(input));
-            return Convert.ToHexString(bytes).Substring(0, 12);
-        }
-
         private RefreshTokenRequestContext BuildRequestContext()
         {
             return new RefreshTokenRequestContext

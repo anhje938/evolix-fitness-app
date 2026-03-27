@@ -1,31 +1,48 @@
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
+import { useWeightContext } from "@/context/WeightProvider";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
+  Dimensions,
+  Keyboard,
+  Modal,
+  Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  KeyboardAvoidingView,
-  TouchableWithoutFeedback,
-  Platform,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+
 import XIcon from "../../assets/icons/white-x.svg";
 import { AppDateTimePicker } from "../date/AppDateTimePicker";
-import { useWeightContext } from "@/context/WeightProvider";
 
 type AddWeightSheetProps = {
   isOpen: boolean;
   onClose: () => void;
-  // later this can take a payload object: { weightKg, date, time }
-  postWeight: (weightKg: number, timestampUtc: string) => void;
+  postWeight: (weightKg: number, timestampUtc: string) => void | Promise<void>;
 };
 
 const QUICK_ADJUSTS = [-0.5, -0.1, 0.1, 0.5, 1, 2];
+const SHEET_TOP_MARGIN = 108;
+const SHEET_BOTTOM_MARGIN = 40;
+const SHEET_HEIGHT =
+  Dimensions.get("window").height - SHEET_TOP_MARGIN - SHEET_BOTTOM_MARGIN;
+const ENTER_DURATION = 220;
+const EXIT_DURATION = 170;
+
+function formatWeightValue(value: number) {
+  return Number.isInteger(value) ? value.toString() : value.toFixed(1);
+}
+
+function formatDelta(delta: number) {
+  return `${delta > 0 ? "+" : ""}${delta.toFixed(1)} kg`;
+}
 
 export function AddWeightSheet({
   isOpen,
@@ -33,36 +50,121 @@ export function AddWeightSheet({
   postWeight,
 }: AddWeightSheetProps) {
   const { lastWeight } = useWeightContext();
+  const isClosingRef = useRef(false);
 
-  const [weightKg, setWeightKg] = useState((lastWeight ?? "").toString());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
-  const [selectedTime, setSelectedTime] = useState<Date | null>(new Date());
-  const [weightFocused, setWeightFocused] = useState(false);
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const sheetOpacity = useRef(new Animated.Value(0)).current;
+  const sheetTranslateY = useRef(new Animated.Value(28)).current;
+  const sheetScale = useRef(new Animated.Value(0.985)).current;
+
+  const [weightKg, setWeightKg] = useState(() => (lastWeight ?? "").toString());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(
+    () => new Date()
+  );
+  const [selectedTime, setSelectedTime] = useState<Date | null>(
+    () => new Date()
+  );
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 1,
+        duration: ENTER_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sheetOpacity, {
+        toValue: 1,
+        duration: ENTER_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.spring(sheetTranslateY, {
+        toValue: 0,
+        damping: 20,
+        mass: 0.95,
+        stiffness: 220,
+        useNativeDriver: true,
+      }),
+      Animated.spring(sheetScale, {
+        toValue: 1,
+        damping: 18,
+        mass: 0.9,
+        stiffness: 240,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [backdropOpacity, isOpen, sheetOpacity, sheetScale, sheetTranslateY]);
 
   if (!isOpen) return null;
 
-  const handleQuickAdjust = (delta: number) => {
-    // in the future this should use the last logged weight from backend
-    const current = parseFloat(weightKg.replace(",", "."));
-    if (isNaN(current)) {
-      setWeightKg(delta.toString());
-      return;
-    }
-    const next = +(current + delta).toFixed(1);
-    setWeightKg(next.toString());
+  const hasLastWeight =
+    typeof lastWeight === "number" && Number.isFinite(lastWeight);
+  const parsedWeight = Number.parseFloat(weightKg.replace(",", "."));
+  const deltaFromLast =
+    hasLastWeight && Number.isFinite(parsedWeight)
+      ? +(parsedWeight - lastWeight).toFixed(1)
+      : null;
+  const weightPlaceholder = hasLastWeight ? lastWeight.toFixed(1) : "85.0";
+
+  const handleRequestClose = () => {
+    if (isClosingRef.current) return;
+
+    isClosingRef.current = true;
+    Keyboard.dismiss();
+
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: EXIT_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sheetOpacity, {
+        toValue: 0,
+        duration: EXIT_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sheetTranslateY, {
+        toValue: 24,
+        duration: EXIT_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sheetScale, {
+        toValue: 0.985,
+        duration: EXIT_DURATION,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      isClosingRef.current = false;
+      onClose();
+    });
   };
 
-  const handleSave = () => {
-    const value = parseFloat(weightKg.replace(",", "."));
-    if (isNaN(value) || value <= 0) {
+  const handleQuickAdjust = (delta: number) => {
+    const current = Number.parseFloat(weightKg.replace(",", "."));
+    const baseValue = Number.isFinite(current)
+      ? current
+      : hasLastWeight
+        ? lastWeight
+        : 0;
+    const next = +(baseValue + delta).toFixed(1);
+
+    if (next <= 0) return;
+    setWeightKg(formatWeightValue(next));
+  };
+
+  const handleSave = async () => {
+    if (isSaving) return;
+
+    const value = Number.parseFloat(weightKg.replace(",", "."));
+    if (!Number.isFinite(value) || value <= 0) {
       Alert.alert("Ugyldig vekt", "Skriv inn en gyldig vekt i kg.");
       return;
     }
 
     const date = selectedDate ?? new Date();
     const time = selectedTime ?? new Date();
-
-    // Lag én Date med dato fra selectedDate og klokkeslett fra selectedTime
     const combined = new Date(
       date.getFullYear(),
       date.getMonth(),
@@ -73,334 +175,553 @@ export function AddWeightSheet({
       0
     );
 
-    const timestampUtc = combined.toISOString();
+    Keyboard.dismiss();
+    setIsSaving(true);
 
-    postWeight(value, timestampUtc);
+    try {
+      await Promise.resolve(postWeight(value, combined.toISOString()));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    // absolute wrapper so sheet always covers the whole screen
-    <View style={styles.absoluteWrapper} pointerEvents="box-none">
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
-      >
-        {/* Outer overlay: tap here should close the sheet */}
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.overlay}
-          onPress={onClose}
+    <Modal
+      visible={isOpen}
+      animationType="none"
+      transparent
+      hardwareAccelerated
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      onRequestClose={handleRequestClose}
+    >
+      <View style={styles.keyboardRoot}>
+        <Animated.View
+          style={[styles.backdrop, { opacity: backdropOpacity }]}
+          pointerEvents="box-none"
         >
-          {/* Inner wrapper: prevents taps inside the sheet from closing it */}
-          <View pointerEvents="box-none" style={styles.sheetWrapper}>
-            <TouchableWithoutFeedback onPress={() => {}}>
-              <View style={[generalStyles.newCard, styles.sheet]}>
-                {/* header */}
-                <View style={styles.headerRow}>
-                  <Text style={[typography.h2, styles.title]}>Logg vekt</Text>
-                  <TouchableOpacity
-                    onPress={onClose}
-                    style={styles.closeButton}
-                  >
-                    <XIcon height={18} width={18} />
-                  </TouchableOpacity>
-                </View>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={handleRequestClose}
+            accessibilityRole="button"
+            accessibilityLabel="Lukk logg vekt"
+          />
+        </Animated.View>
 
-                {/* weight input */}
-                <View style={styles.section}>
-                  <Text style={[typography.bodyBlack, styles.label]}>
-                    Vekt (kg)
-                  </Text>
-                  <View
-                    style={[
-                      styles.inputRow,
-                      weightFocused && styles.inputRowFocused,
-                    ]}
-                  >
-                    <TextInput
-                      style={styles.weightInput}
-                      placeholder="85.0"
-                      value={weightKg}
-                      onChangeText={setWeightKg}
-                      placeholderTextColor="rgba(148,163,184,0.8)"
-                      keyboardType="numeric"
-                      returnKeyType="done"
-                      onFocus={() => setWeightFocused(true)}
-                      onBlur={() => setWeightFocused(false)}
-                      blurOnSubmit
-                      onSubmitEditing={handleSave}
-                    />
-                    <Ionicons
-                      name="scale-outline"
-                      size={18}
-                      color="rgba(148,163,184,0.9)"
-                    />
-                  </View>
-                </View>
+        <View style={styles.sheetFrame} pointerEvents="box-none">
+          <Animated.View
+            style={[
+              styles.sheetAnimationWrap,
+              {
+                opacity: sheetOpacity,
+                transform: [
+                  { translateY: sheetTranslateY },
+                  { scale: sheetScale },
+                ],
+              },
+            ]}
+          >
+            <View style={[generalStyles.newCard, styles.sheet]}>
+              <LinearGradient
+                pointerEvents="none"
+                colors={[
+                  "rgba(56,189,248,0.22)",
+                  "rgba(2,132,199,0.12)",
+                  "rgba(2,6,23,0)",
+                ]}
+                start={{ x: 0.1, y: 0 }}
+                end={{ x: 0.95, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View pointerEvents="none" style={styles.orbTop} />
+              <View pointerEvents="none" style={styles.orbBottom} />
 
-                {/* date + time */}
-                <View style={[styles.section, styles.row]}>
-                  <View style={styles.dateTimeColumn}>
-                    <AppDateTimePicker
-                      label="Dato"
-                      mode="date"
-                      value={selectedDate}
-                      onChange={setSelectedDate}
-                    />
-                  </View>
-                  <View style={styles.dateTimeColumn}>
-                    <AppDateTimePicker
-                      label="Tid"
-                      mode="time"
-                      value={selectedTime}
-                      onChange={setSelectedTime}
-                    />
-                  </View>
-                </View>
-
-                {/* quick adjust */}
-                <View style={styles.section}>
-                  <Text style={[typography.bodyBlack, styles.label]}>
-                    Hurtigvalg
-                  </Text>
-
-                  <View style={styles.quickRow}>
-                    {QUICK_ADJUSTS.slice(0, 3).map((v) => (
-                      <TouchableOpacity
-                        key={`q1-${v}`}
-                        style={styles.quickButton}
-                        onPress={() => handleQuickAdjust(v)}
-                      >
-                        <Text style={styles.quickText}>
-                          {v > 0 ? `+${v} kg` : `${v} kg`}
+              <View style={styles.sheetContent}>
+                <View style={styles.contentLayout}>
+                  <View style={styles.mainStack}>
+                    <View style={styles.headerRow}>
+                      <View style={styles.headerCopy}>
+                        <Text style={[typography.h2, styles.title]}>
+                          Logg vekt
                         </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  <View style={styles.quickRow}>
-                    {QUICK_ADJUSTS.slice(3).map((v) => (
-                      <TouchableOpacity
-                        key={`q2-${v}`}
-                        style={styles.quickButton}
-                        onPress={() => handleQuickAdjust(v)}
-                      >
-                        <Text style={styles.quickText}>
-                          {v > 0 ? `+${v} kg` : `${v} kg`}
+                        <Text style={[typography.bodyBlack, styles.subtitle]}>
+                          Rask, stabil og presis logging med ren historikk.
                         </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        onPress={handleRequestClose}
+                        style={styles.closeButton}
+                        activeOpacity={0.82}
+                      >
+                        <XIcon height={18} width={18} />
                       </TouchableOpacity>
-                    ))}
+                    </View>
+
+                    <View style={styles.sectionCard}>
+                      <View style={styles.labelRow}>
+                        <Text style={[typography.bodyBlack, styles.label]}>
+                          Vekt (kg)
+                        </Text>
+
+                        {deltaFromLast !== null && (
+                          <View
+                            style={[
+                              styles.deltaChip,
+                              deltaFromLast <= 0
+                                ? styles.deltaChipDown
+                                : styles.deltaChipUp,
+                            ]}
+                          >
+                            <Ionicons
+                              name={
+                                deltaFromLast <= 0
+                                  ? "trending-down-outline"
+                                  : "trending-up-outline"
+                              }
+                              size={12}
+                              color={deltaFromLast <= 0 ? "#99F6E4" : "#BFDBFE"}
+                            />
+                            <Text style={styles.deltaChipText}>
+                              {formatDelta(deltaFromLast)}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <View style={styles.inputShell}>
+                        <TextInput
+                          style={styles.weightInput}
+                          placeholder={weightPlaceholder}
+                          value={weightKg}
+                          onChangeText={setWeightKg}
+                          placeholderTextColor="rgba(148,163,184,0.72)"
+                          keyboardType={
+                            Platform.OS === "ios" ? "decimal-pad" : "numeric"
+                          }
+                          returnKeyType="done"
+                          blurOnSubmit
+                          onSubmitEditing={() => {
+                            Keyboard.dismiss();
+                          }}
+                          autoCorrect={false}
+                          autoCapitalize="none"
+                        />
+
+                        <View style={styles.inputIconShell}>
+                          <Ionicons
+                            name="scale-outline"
+                            size={18}
+                            color="rgba(148,163,184,0.96)"
+                            pointerEvents="none"
+                          />
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={[styles.sectionCard, styles.dateCard]}>
+                      <View style={styles.sectionHeader}>
+                        <Text style={[typography.bodyBlack, styles.label]}>
+                          Tidspunkt
+                        </Text>
+                      </View>
+
+                      <View style={styles.dateRow}>
+                        <View style={styles.dateTimeColumn}>
+                          <AppDateTimePicker
+                            label="Dato"
+                            mode="date"
+                            value={selectedDate}
+                            onChange={setSelectedDate}
+                            compact
+                          />
+                        </View>
+
+                        <View style={styles.dateTimeColumn}>
+                          <AppDateTimePicker
+                            label="Tid"
+                            mode="time"
+                            value={selectedTime}
+                            onChange={setSelectedTime}
+                            compact
+                          />
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={[styles.sectionCard, styles.quickCard]}>
+                      <View style={styles.sectionHeader}>
+                        <Text style={[typography.bodyBlack, styles.label]}>
+                          Hurtigvalg
+                        </Text>
+                      </View>
+
+                      <View style={styles.quickGrid}>
+                        {QUICK_ADJUSTS.map((value) => (
+                          <TouchableOpacity
+                            key={value}
+                            style={styles.quickButton}
+                            onPress={() => handleQuickAdjust(value)}
+                            activeOpacity={0.86}
+                          >
+                            <LinearGradient
+                              pointerEvents="none"
+                              colors={[
+                                "rgba(255,255,255,0.08)",
+                                "rgba(255,255,255,0.02)",
+                              ]}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                              style={StyleSheet.absoluteFill}
+                            />
+                            <Text style={styles.quickText}>
+                              {value > 0 ? `+${value}` : value} kg
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+
+                    <View style={styles.tipCard}>
+                      <View style={styles.tipIconWrapper}>
+                        <Ionicons
+                          name="sparkles-outline"
+                          size={15}
+                          color="#67E8F9"
+                        />
+                      </View>
+
+                      <View style={styles.tipCopy}>
+                        <Text style={styles.tipTitle}>Renere data</Text>
+                        <Text style={styles.tipText}>
+                          Målinger på samme tidspunkt gir roligere trendlinjer og
+                          bedre sammenligning fra uke til uke.
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.footerBlock}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        void handleSave();
+                      }}
+                      style={styles.saveWrapper}
+                      activeOpacity={0.9}
+                      disabled={isSaving}
+                    >
+                      <LinearGradient
+                        colors={
+                          isSaving
+                            ? ["#1D4ED8", "#2563EB"]
+                            : ["#06B6D4", "#2563EB"]
+                        }
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.saveButton}
+                      >
+                        <LinearGradient
+                          pointerEvents="none"
+                          colors={[
+                            "rgba(255,255,255,0.2)",
+                            "rgba(255,255,255,0.03)",
+                            "rgba(255,255,255,0)",
+                          ]}
+                          start={{ x: 0.15, y: 0 }}
+                          end={{ x: 0.85, y: 1 }}
+                          style={StyleSheet.absoluteFill}
+                        />
+                        <Ionicons
+                          name={isSaving ? "hourglass-outline" : "save-outline"}
+                          size={18}
+                          color="#FFFFFF"
+                          style={styles.saveIcon}
+                        />
+                        <Text style={styles.saveText}>
+                          {isSaving ? "Lagrer..." : "Lagre vekt"}
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
                   </View>
                 </View>
-
-                {/* tip card */}
-                <View style={styles.tipCard}>
-                  <View style={styles.tipIconWrapper}>
-                    <Ionicons
-                      name="trending-up-outline"
-                      size={16}
-                      color="#22D3EE"
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.tipTitle}>
-                      Tips for nøyaktige målinger
-                    </Text>
-                    <Text style={styles.tipText}>
-                      Vei deg samme tid hver dag, helst om morgenen før frokost.
-                      Dette gir de mest konsistente resultatene.
-                    </Text>
-                  </View>
-                </View>
-
-                {/* save button */}
-                <TouchableOpacity
-                  onPress={handleSave}
-                  style={styles.saveWrapper}
-                >
-                  <LinearGradient
-                    colors={["#00C6FF", "#0078FF"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.saveButton}
-                  >
-                    <Ionicons
-                      name="save-outline"
-                      size={18}
-                      color="#FFFFFF"
-                      style={{ marginRight: 8 }}
-                    />
-                    <Text style={styles.saveText}>Lagre vekt</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
               </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-    </View>
+            </View>
+          </Animated.View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  // makes the sheet independent of page layout
-  absoluteWrapper: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 50,
-  },
-  // dark overlay behind the card
-  overlay: {
+  keyboardRoot: {
     flex: 1,
-    backgroundColor: "rgba(3,7,18,0.8)",
   },
-  // centers the sheet in the middle of the screen
-  sheetWrapper: {
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(2,6,23,0.74)",
+  },
+  sheetFrame: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "flex-end",
+    paddingHorizontal: 14,
+    paddingTop: SHEET_TOP_MARGIN,
+    paddingBottom: SHEET_BOTTOM_MARGIN,
+  },
+  sheetAnimationWrap: {
+    width: "100%",
     alignItems: "center",
-    paddingHorizontal: 16,
   },
   sheet: {
+    position: "relative",
     width: "100%",
-    maxWidth: 520,
+    maxWidth: 560,
+    height: SHEET_HEIGHT,
+    maxHeight: SHEET_HEIGHT,
+    overflow: "hidden",
     borderRadius: 28,
-    paddingHorizontal: 24,
-    paddingVertical: 22,
-    backgroundColor: "rgba(2,6,23,0.96)",
-    borderWidth: 0.8,
+    borderWidth: 1,
     borderColor: "rgba(56,189,248,0.16)",
+    backgroundColor: "rgba(2,6,23,0.985)",
+    shadowColor: "#020617",
+    shadowOpacity: 0.34,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: -8 },
+    elevation: 18,
+  },
+  orbTop: {
+    position: "absolute",
+    top: -54,
+    right: -36,
+    width: 172,
+    height: 172,
+    borderRadius: 999,
+    backgroundColor: "rgba(56,189,248,0.12)",
+  },
+  orbBottom: {
+    position: "absolute",
+    left: -36,
+    bottom: 118,
+    width: 144,
+    height: 144,
+    borderRadius: 999,
+    backgroundColor: "rgba(14,165,233,0.08)",
+  },
+  sheetContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 18,
+  },
+  contentLayout: {
+    flex: 1,
+  },
+  mainStack: {
+    rowGap: 17,
   },
   headerRow: {
     flexDirection: "row",
+    alignItems: "flex-start",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
+  },
+  headerCopy: {
+    flex: 1,
+    paddingRight: 12,
   },
   title: {
-    color: "#FFFFFF",
-    fontSize: 20,
+    color: "#F8FAFC",
+    fontSize: 21,
     fontWeight: "600",
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    marginTop: 4,
+    fontSize: 11,
+    lineHeight: 16,
+    color: "rgba(148,163,184,0.92)",
   },
   closeButton: {
-    padding: 6,
-    borderRadius: 999,
-    backgroundColor: "rgba(15,23,42,0.82)",
-    borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.16)",
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  section: {
-    marginTop: 16,
+  sectionCard: {
+    padding: 12,
+    borderRadius: 17,
+    backgroundColor: "rgba(15,23,42,0.58)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.1)",
+    shadowColor: "#020617",
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
   },
-  label: {
-    fontSize: 13,
-    color: "rgba(148,163,184,0.95)",
-    marginBottom: 6,
+  dateCard: {
+    paddingBottom: 13,
   },
-  inputRow: {
+  quickCard: {
+    paddingBottom: 13,
+  },
+  sectionHeader: {
+    marginBottom: 12,
+  },
+  labelRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: "rgba(15,23,42,0.7)",
-    borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.16)",
+    justifyContent: "space-between",
+    marginBottom: 12,
+    columnGap: 10,
   },
-  inputRowFocused: {
-    borderColor: "#38BDF8",
-    shadowColor: "#0EA5E9",
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
+  label: {
+    fontSize: 11,
+    color: "rgba(148,163,184,0.95)",
+  },
+  deltaChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    columnGap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  deltaChipDown: {
+    backgroundColor: "rgba(13,148,136,0.14)",
+    borderColor: "rgba(45,212,191,0.22)",
+  },
+  deltaChipUp: {
+    backgroundColor: "rgba(37,99,235,0.16)",
+    borderColor: "rgba(96,165,250,0.22)",
+  },
+  deltaChipText: {
+    ...typography.bodyBlack,
+    fontSize: 9,
+    color: "#E2E8F0",
+    fontWeight: "500",
+  },
+  inputShell: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 15,
+    backgroundColor: "rgba(2,6,23,0.52)",
+    borderWidth: 1,
+    borderColor: "rgba(56,189,248,0.16)",
   },
   weightInput: {
     flex: 1,
-    color: "#E5ECFF",
-    fontSize: 16,
-    marginRight: 8,
     width: "100%",
+    marginRight: 10,
+    color: "#F8FAFC",
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: "500",
+    letterSpacing: -0.1,
   },
-  row: {
+  inputIconShell: {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(15,23,42,0.92)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.12)",
+  },
+  dateRow: {
     flexDirection: "row",
-    columnGap: 16,
+    columnGap: 14,
   },
   dateTimeColumn: {
     flex: 1,
   },
-  quickRow: {
+  quickGrid: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
-    marginTop: 8,
+    rowGap: 12,
   },
   quickButton: {
-    flex: 1,
+    position: "relative",
+    width: "31.5%",
     paddingVertical: 10,
-    marginHorizontal: 4,
     borderRadius: 12,
-    backgroundColor: "rgba(15,23,42,0.72)",
-    borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.18)",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(2,6,23,0.58)",
+    borderWidth: 1,
+    borderColor: "rgba(56,189,248,0.14)",
+    overflow: "hidden",
   },
   quickText: {
-    color: "#E5ECFF",
-    fontSize: 13,
-    fontWeight: "500",
+    ...typography.bodyBlack,
+    fontSize: 11,
+    color: "#E2E8F0",
+    fontWeight: "600",
   },
   tipCard: {
-    marginTop: 18,
     flexDirection: "row",
     alignItems: "flex-start",
-    padding: 14,
+    padding: 12,
     borderRadius: 16,
-    backgroundColor: "rgba(8,47,73,0.62)",
-    borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.24)",
+    backgroundColor: "rgba(15,23,42,0.78)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.14)",
   },
   tipIconWrapper: {
-    width: 28,
-    height: 28,
+    width: 22,
+    height: 22,
     borderRadius: 999,
-    backgroundColor: "rgba(15,23,42,0.9)",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(8,47,73,0.9)",
     marginRight: 10,
+  },
+  tipCopy: {
+    flex: 1,
   },
   tipTitle: {
     ...typography.bodyBlack,
-    fontSize: 13,
-    color: "#E5ECFF",
-    fontWeight: "500",
-    marginBottom: 4,
+    fontSize: 11,
+    color: "#E2E8F0",
+    fontWeight: "600",
   },
   tipText: {
     ...typography.bodyBlack,
-    fontSize: 11,
+    marginTop: 3,
+    fontSize: 10,
+    lineHeight: 15,
     color: "rgba(148,163,184,0.95)",
   },
+  footerBlock: {
+    marginTop: "auto",
+    paddingTop: 18,
+  },
   saveWrapper: {
-    marginTop: 22,
+    width: "100%",
   },
   saveButton: {
+    position: "relative",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
-    borderRadius: 18,
-    shadowColor: "#0284c7",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.22,
-    shadowRadius: 6,
-    elevation: 2,
+    paddingVertical: 14,
+    borderRadius: 17,
+    overflow: "hidden",
+    shadowColor: "#2563EB",
+    shadowOpacity: 0.26,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  saveIcon: {
+    marginRight: 8,
   },
   saveText: {
     ...typography.bodyBlack,
-    fontSize: 15,
+    fontSize: 14,
     color: "#FFFFFF",
     fontWeight: "600",
   },

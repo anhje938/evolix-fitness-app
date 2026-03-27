@@ -1,34 +1,67 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import {
+  CameraView,
+  type BarcodeType,
+  useCameraPermissions,
+} from "expo-camera";
 
 type QRScannerProps = {
-  onScanned: (value: string) => void;
+  onScanned: (value: string) => void | Promise<void>;
   onCancel?: () => void;
   title?: string;
+  scanBoxSize?: number;
+  enabled?: boolean;
+  barcodeTypes?: BarcodeType[];
 };
+
+const DEFAULT_BOX_SIZE = 240;
+const DUPLICATE_SCAN_COOLDOWN_MS = 1500;
+const PRODUCT_BARCODE_TYPES: BarcodeType[] = [
+  "ean13",
+  "ean8",
+  "upc_a",
+  "upc_e",
+  "code128",
+  "code39",
+  "codabar",
+  "itf14",
+];
 
 export default function QRScanner({
   onScanned,
   onCancel,
   title = "Skann strekkode",
+  scanBoxSize = DEFAULT_BOX_SIZE,
+  enabled = true,
+  barcodeTypes = PRODUCT_BARCODE_TYPES,
 }: QRScannerProps) {
   const [permission, requestPermission] = useCameraPermissions();
-
-  // Ref used as a sync lock to prevent multiple rapid scans
+  const [cameraErrorMessage, setCameraErrorMessage] = useState<string | null>(
+    null
+  );
   const hasScannedRef = useRef(false);
+  const lastDeliveredValueRef = useRef<string | null>(null);
+  const lastDeliveredAtRef = useRef(0);
 
   useEffect(() => {
-    if (!permission) return;
-    if (!permission.granted) {
+    if (!permission?.granted) {
       requestPermission();
     }
-  }, [permission, requestPermission]);
+  }, [permission?.granted, requestPermission]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    hasScannedRef.current = false;
+    lastDeliveredValueRef.current = null;
+    lastDeliveredAtRef.current = 0;
+    setCameraErrorMessage(null);
+  }, [enabled]);
 
   if (!permission) {
     return (
       <View style={styles.center}>
-        <Text style={styles.text}>Sjekker kameratilgang…</Text>
+        <Text style={styles.text}>Sjekker kameratilgang...</Text>
       </View>
     );
   }
@@ -56,44 +89,115 @@ export default function QRScanner({
     );
   }
 
+  if (cameraErrorMessage) {
+    return (
+      <View style={styles.center}>
+        <Text style={[styles.text, { marginBottom: 20 }]}>
+          {cameraErrorMessage}
+        </Text>
+
+        {onCancel && (
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: "#333" }]}
+            onPress={onCancel}
+          >
+            <Text style={styles.buttonLabel}>Lukk</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }
+
   const handleScan = (result: {
     data: string;
     type: string;
     cornerPoints?: { x: number; y: number }[];
   }) => {
-    // Hard guard: avoid multiple callbacks for the same scan
-    if (hasScannedRef.current) return;
+    if (!enabled) return;
 
+    const nextValue = result.data.trim();
+    if (hasScannedRef.current || !nextValue) return;
+
+    const now = Date.now();
+    if (
+      lastDeliveredValueRef.current === nextValue &&
+      now - lastDeliveredAtRef.current < DUPLICATE_SCAN_COOLDOWN_MS
+    ) {
+      return;
+    }
+
+    lastDeliveredValueRef.current = nextValue;
+    lastDeliveredAtRef.current = now;
     hasScannedRef.current = true;
-    onScanned(result.data);
+
+    Promise.resolve(onScanned(nextValue)).catch((error) => {
+      console.log("QRScanner onScanned failed", error);
+      hasScannedRef.current = false;
+    });
   };
 
   return (
     <View style={styles.cameraContainer}>
-      {/* Camera view; onBarcodeScanned is disabled after first scan via ref */}
       <CameraView
         style={StyleSheet.absoluteFillObject}
         facing="back"
-        onBarcodeScanned={hasScannedRef.current ? undefined : handleScan}
+        barcodeScannerEnabled={enabled}
+        barcodeScannerSettings={{ barcodeTypes }}
+        onMountError={(event) => {
+          setCameraErrorMessage(
+            event.message || "Kameraet kunne ikke startes. Prøv igjen."
+          );
+        }}
+        onBarcodeScanned={
+          enabled && !hasScannedRef.current ? handleScan : undefined
+        }
       />
 
-      {/* Frame overlay above camera */}
       <View style={styles.overlay} pointerEvents="none">
         <View style={styles.dim} />
         <View style={styles.middleRow}>
           <View style={styles.dim} />
-          <View className="scanBox" style={styles.scanBox}>
-            <View style={styles.cornerTL} />
-            <View style={styles.cornerTR} />
-            <View style={styles.cornerBL} />
-            <View style={styles.cornerBR} />
+          <View
+            className="scanBox"
+            style={[
+              styles.scanBox,
+              {
+                width: scanBoxSize,
+                height: scanBoxSize,
+                borderRadius: Math.max(16, Math.round(scanBoxSize * 0.08)),
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.cornerTL,
+                getCornerStyle(scanBoxSize, "top", "left"),
+              ]}
+            />
+            <View
+              style={[
+                styles.cornerTR,
+                getCornerStyle(scanBoxSize, "top", "right"),
+              ]}
+            />
+            <View
+              style={[
+                styles.cornerBL,
+                getCornerStyle(scanBoxSize, "bottom", "left"),
+              ]}
+            />
+            <View
+              style={[
+                styles.cornerBR,
+                getCornerStyle(scanBoxSize, "bottom", "right"),
+              ]}
+            />
           </View>
           <View style={styles.dim} />
         </View>
         <View style={styles.dim} />
       </View>
 
-      {/* Optional title badge */}
       {title ? (
         <View style={styles.titleOverlay} pointerEvents="none">
           <Text style={styles.titleText}>{title}</Text>
@@ -103,7 +207,24 @@ export default function QRScanner({
   );
 }
 
-const BOX = 240;
+function getCornerStyle(
+  scanBoxSize: number,
+  vertical: "top" | "bottom",
+  horizontal: "left" | "right"
+) {
+  const size = Math.max(28, Math.round(scanBoxSize * 0.17));
+  const borderRadius = Math.max(8, Math.round(size * 0.2));
+
+  return {
+    width: size,
+    height: size,
+    borderRadius,
+    top: vertical === "top" ? -2 : undefined,
+    bottom: vertical === "bottom" ? -2 : undefined,
+    left: horizontal === "left" ? -2 : undefined,
+    right: horizontal === "right" ? -2 : undefined,
+  };
+}
 
 const styles = StyleSheet.create({
   cameraContainer: {
@@ -112,8 +233,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
   },
-
-  // Overlay above camera
   overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
@@ -126,58 +245,34 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   scanBox: {
-    width: BOX,
-    height: BOX,
     borderRadius: 20,
     borderColor: "rgba(255,255,255,0.25)",
     borderWidth: 1,
   },
   cornerTL: {
     position: "absolute",
-    top: -2,
-    left: -2,
-    width: 40,
-    height: 40,
     borderTopWidth: 4,
     borderLeftWidth: 4,
     borderColor: "white",
-    borderRadius: 8,
   },
   cornerTR: {
     position: "absolute",
-    top: -2,
-    right: -2,
-    width: 40,
-    height: 40,
     borderTopWidth: 4,
     borderRightWidth: 4,
     borderColor: "white",
-    borderRadius: 8,
   },
   cornerBL: {
     position: "absolute",
-    bottom: -2,
-    left: -2,
-    width: 40,
-    height: 40,
     borderBottomWidth: 4,
     borderLeftWidth: 4,
     borderColor: "white",
-    borderRadius: 8,
   },
   cornerBR: {
     position: "absolute",
-    bottom: -2,
-    right: -2,
-    width: 40,
-    height: 40,
     borderBottomWidth: 4,
     borderRightWidth: 4,
     borderColor: "white",
-    borderRadius: 8,
   },
-
-  // Center states
   center: {
     flex: 1,
     backgroundColor: "black",
@@ -202,7 +297,6 @@ const styles = StyleSheet.create({
     color: "black",
     fontWeight: "600",
   },
-
   titleOverlay: {
     position: "absolute",
     top: 10,

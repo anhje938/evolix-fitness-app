@@ -40,14 +40,30 @@ function authHeaders(json = false): HeadersInit {
 
 const BARCODE_FETCH_TIMEOUT_MS = 25000;
 
+function isAbortError(error: unknown): error is Error {
+  return error instanceof Error && error.name === "AbortError";
+}
+
 async function fetchWithTimeout(
   input: RequestInfo | URL,
   init: RequestInit = {},
   timeoutMs = BARCODE_FETCH_TIMEOUT_MS,
-  token?: string
+  token?: string,
+  externalSignal?: AbortSignal
 ): Promise<Response> {
   const controller = new AbortController();
+  const abortFromExternal = () => controller.abort();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      externalSignal.addEventListener("abort", abortFromExternal, {
+        once: true,
+      });
+    }
+  }
 
   try {
     return await authFetch(
@@ -60,6 +76,7 @@ async function fetchWithTimeout(
     );
   } finally {
     clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", abortFromExternal);
   }
 }
 
@@ -155,7 +172,8 @@ export async function PostUserMeal(token: string, dto: FoodDto): Promise<Food> {
 // SEND BARCODE TO BACKEND, RECEIVE FOOD
 export async function FetchFoodFromBarcode(
   token: string,
-  barcode: string
+  barcode: string,
+  options?: { signal?: AbortSignal }
 ): Promise<FoodFromBarcode> {
   if (!token) throw new Error("Missing token");
   const candidates = barcodeCandidates(barcode);
@@ -175,12 +193,17 @@ export async function FetchFoodFromBarcode(
           headers: authHeaders(),
         },
         BARCODE_FETCH_TIMEOUT_MS,
-        token
+        token,
+        options?.signal
       );
       text = await res.text().catch(() => "");
     } catch (error) {
+      if (options?.signal?.aborted) {
+        throw error;
+      }
+
       const message =
-        error instanceof Error && error.name === "AbortError"
+        isAbortError(error)
           ? "Barcode lookup timed out"
           : error instanceof Error
             ? error.message

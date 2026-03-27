@@ -22,6 +22,7 @@ import { EditMealSheet } from "@/components/food/EditMealSheet";
 import { FoodHistory } from "@/components/food/foodHistory";
 import { MealCard } from "@/components/food/mealCard";
 import { ProgressCircle } from "@/components/food/progressCircle";
+import { floatingActionButtonDock } from "@/config/floatingActionButton";
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
@@ -566,7 +567,7 @@ export default function FoodPage() {
         <FoodHistory foodList={foodList} />
       </ScrollView>
 
-      <View style={styles.footerContainer}>
+      <View pointerEvents="box-none" style={styles.footerContainer}>
         {!isOpen && (
           <AddMealButton onPress={() => setIsOpen(true)} key="add-button" />
         )}
@@ -737,11 +738,6 @@ const styles = StyleSheet.create({
     opacity: 0.95,
   },
   footerContainer: {
-    position: "absolute",
-    bottom: 10,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    zIndex: 10,
+    ...floatingActionButtonDock,
   },
 });

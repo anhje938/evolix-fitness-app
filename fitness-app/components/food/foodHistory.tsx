@@ -126,11 +126,11 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
     return (
       <View style={styles.dayRow}>
         <View style={styles.dayIconWrap}>
-          <Fontisto name="date" size={16} color="rgba(56,189,248,0.76)" />
+          <Fontisto name="date" size={14} color="rgba(56,189,248,0.74)" />
         </View>
 
         <View style={styles.dayTextCol}>
-          <Text style={[typography.bodyBlack, styles.dayTitle]}>
+          <Text style={[typography.body, styles.dayTitle]}>
             {dayLabel}
           </Text>
           <Text style={styles.dayMetaText}>
@@ -152,7 +152,7 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
 
         <View style={styles.dayRightCol}>
           <View style={styles.kcalPill}>
-            <Text style={[typography.bodyBlack, styles.kcalValue]}>
+            <Text style={[typography.body, styles.kcalValue]}>
               {total.totalCalories}
             </Text>
             <Text style={[typography.body, styles.kcalUnit]}>kcal</Text>
@@ -204,14 +204,14 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
                   <View style={styles.mealIconWrap}>
                     <Fontisto
                       name="shopping-basket"
-                      size={12}
+                      size={11}
                       color="rgba(56,189,248,0.68)"
                     />
                   </View>
 
                   <View style={styles.mealTextCol}>
                     <Text
-                      style={[typography.bodyBlack, styles.mealTitle]}
+                      style={[typography.body, styles.mealTitle]}
                       numberOfLines={1}
                     >
                       {meal.title}
@@ -222,7 +222,7 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
                   </View>
 
                   <View style={styles.mealRightCol}>
-                    <Text style={[typography.bodyBlack, styles.mealKcal]}>
+                    <Text style={[typography.body, styles.mealKcal]}>
                       {meal.calories} kcal
                     </Text>
 
@@ -278,7 +278,7 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
         style={styles.loadMoreBtn}
         onPress={onPress}
       >
-        <Text style={[typography.bodyBlack, styles.loadMoreText]}>
+        <Text style={[typography.body, styles.loadMoreText]}>
           Vis 50 til
         </Text>
       </TouchableOpacity>
@@ -289,7 +289,7 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
     <View style={[styles.container]}>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Text style={[typography.h2, styles.headerTitle]}>Matlogg</Text>
+          <Text style={[typography.body, styles.headerTitle]}>Matlogg</Text>
         </View>
 
         <View style={styles.segment}>
@@ -333,11 +333,11 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
 
       <View style={styles.summaryRow}>
         <View style={styles.summaryChip}>
-          <Ionicons name="calendar-outline" size={13} color="#38bdf8" />
+          <Ionicons name="calendar-outline" size={12} color="#38bdf8" />
           <Text style={styles.summaryChipText}>{trackedDays} dager</Text>
         </View>
         <View style={styles.summaryChip}>
-          <Ionicons name="pulse-outline" size={13} color="#38bdf8" />
+          <Ionicons name="pulse-outline" size={12} color="#38bdf8" />
           <Text style={styles.summaryChipText}>{avgMealsPerDay} per dag</Text>
         </View>
       </View>
@@ -347,7 +347,7 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
           <View style={styles.emptyIconWrap}>
             <Ionicons name="sparkles-outline" size={17} color="#38bdf8" />
           </View>
-          <Text style={[typography.bodyBlack, styles.emptyTitle]}>
+          <Text style={[typography.body, styles.emptyTitle]}>
             Ingen måltider logget ennå
           </Text>
           <Text style={[typography.body, styles.emptySub]}>
@@ -373,7 +373,7 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
         <View style={styles.modeContent}>
           {weeklyAverages && (
             <View style={[generalStyles.newCard, styles.weekCard]}>
-              <Text style={[typography.bodyBlack, styles.weekTitle]}>
+              <Text style={[typography.body, styles.weekTitle]}>
                 Gjennomsnitt per dag (siste 7 dager)
               </Text>
 
@@ -416,7 +416,7 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
           <View
             style={[generalStyles.newCard, styles.weekCard, { marginTop: 12 }]}
           >
-            <Text style={[typography.bodyBlack, styles.weekTitle]}>
+            <Text style={[typography.body, styles.weekTitle]}>
               Total ukentlig inntak
             </Text>
 
@@ -449,7 +449,7 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
             </View>
           </View>
 
-          <Text style={[typography.bodyBlack, styles.dailyOverviewTitle]}>
+          <Text style={[typography.body, styles.dailyOverviewTitle]}>
             Daglig oversikt
           </Text>
 
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 2,
+    marginBottom: 1,
     gap: 10,
   },
   headerLeft: {
@@ -488,22 +488,25 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
-    color: "#FFFFFF",
+    color: "rgba(241,245,249,0.96)",
+    fontSize: 16,
+    fontWeight: "400",
+    letterSpacing: 0.1,
   },
 
   segment: {
     flexDirection: "row",
-    padding: 3,
-    borderRadius: 13,
-    backgroundColor: "rgba(2,6,23,0.44)",
+    padding: 2,
+    borderRadius: 12,
+    backgroundColor: "rgba(2,6,23,0.42)",
     borderWidth: 0.8,
     borderColor: "rgba(255,255,255,0.10)",
   },
 
   segmentBtn: {
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 9,
   },
 
   segmentBtnActive: {
@@ -519,62 +522,62 @@ const styles = StyleSheet.create({
 
   segmentText: {
     ...typography.body,
-    fontSize: 12,
+    fontSize: 11.5,
     color: "rgba(148,163,184,0.85)",
-    fontWeight: "600",
+    fontWeight: "400",
     letterSpacing: 0.1,
   },
 
   segmentTextActive: {
     color: "#38bdf8",
-    fontWeight: "700",
+    fontWeight: "500",
   },
 
   summaryRow: {
     width: "100%",
-    marginTop: 10,
+    marginTop: 8,
     flexDirection: "row",
-    gap: 8,
+    gap: 7,
     flexWrap: "wrap",
   },
   summaryChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
+    gap: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
     borderRadius: 999,
-    backgroundColor: "rgba(6,182,212,0.10)",
+    backgroundColor: "rgba(6,182,212,0.09)",
     borderWidth: 0.8,
     borderColor: "rgba(56,189,248,0.16)",
   },
   summaryChipText: {
     ...typography.body,
     color: "rgba(224,242,254,0.95)",
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10.5,
+    fontWeight: "400",
   },
 
   modeContent: {
     width: "100%",
-    marginTop: 14,
+    marginTop: 12,
   },
 
   emptyStateCard: {
     width: "100%",
     marginTop: 14,
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
     alignItems: "center",
-    backgroundColor: "rgba(2,6,23,0.20)",
+    backgroundColor: "rgba(8,15,28,0.24)",
     borderWidth: 0.8,
     borderColor: "rgba(56,189,248,0.12)",
   },
   emptyIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(6,182,212,0.12)",
@@ -584,40 +587,42 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: "#F8FAFC",
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 13.5,
+    fontWeight: "500",
   },
   emptySub: {
     marginTop: 3,
-    fontSize: 12,
+    fontSize: 11.5,
     color: "rgba(148,163,184,0.9)",
+    fontWeight: "400",
   },
 
   dayCard: {
     position: "relative",
     overflow: "hidden",
     width: "100%",
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginVertical: 5,
-    backgroundColor: "rgba(2,6,23,0.22)",
+    borderRadius: 18,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    marginVertical: 4,
+    backgroundColor: "rgba(8,15,28,0.24)",
     borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.11)",
+    borderColor: "rgba(56,189,248,0.10)",
     shadowColor: "#0891b2",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.09,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
     elevation: 1,
   },
   dayCardAccent: {
     position: "absolute",
     top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
+    left: 16,
+    right: 16,
+    height: 1,
+    borderRadius: 999,
     backgroundColor: "rgba(56,189,248,0.58)",
-    opacity: 0.7,
+    opacity: 0.55,
   },
 
   dayRow: {
@@ -626,15 +631,15 @@ const styles = StyleSheet.create({
   },
 
   dayIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
-    backgroundColor: "rgba(6,182,212,0.10)",
+    marginRight: 10,
+    backgroundColor: "rgba(6,182,212,0.08)",
     borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.16)",
+    borderColor: "rgba(56,189,248,0.14)",
   },
 
   dayTextCol: {
@@ -643,28 +648,29 @@ const styles = StyleSheet.create({
 
   dayTitle: {
     color: "#F1F5F9",
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 13.5,
+    fontWeight: "500",
     letterSpacing: 0.1,
   },
   dayMetaText: {
     ...typography.body,
-    marginTop: 2,
+    marginTop: 1,
     color: "rgba(148,163,184,0.86)",
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10.5,
+    fontWeight: "400",
   },
 
   macroLine: {
     flexDirection: "row",
-    gap: 8,
-    marginTop: 6,
+    gap: 7,
+    marginTop: 4,
+    flexWrap: "wrap",
   },
 
   macroTag: {
     ...typography.body,
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10.5,
+    fontWeight: "400",
     letterSpacing: 0.05,
     color: "rgba(148,163,184,0.92)",
   },
@@ -675,62 +681,62 @@ const styles = StyleSheet.create({
 
   dayRightCol: {
     alignItems: "flex-end",
-    marginLeft: 10,
+    marginLeft: 8,
   },
 
   kcalPill: {
     flexDirection: "row",
     alignItems: "baseline",
-    gap: 5,
-    paddingVertical: 6,
-    paddingHorizontal: 11,
-    borderRadius: 10,
-    backgroundColor: "rgba(6,182,212,0.12)",
+    gap: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 9,
+    backgroundColor: "rgba(6,182,212,0.10)",
     borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.18)",
+    borderColor: "rgba(56,189,248,0.16)",
     shadowColor: "#0891b2",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.08,
     shadowRadius: 3,
   },
 
   kcalValue: {
     color: "#38bdf8",
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "500",
     letterSpacing: 0.05,
   },
 
   kcalUnit: {
     color: "rgba(148,163,184,0.80)",
-    fontSize: 10,
-    fontWeight: "600",
+    fontSize: 9.5,
+    fontWeight: "400",
   },
 
   expandedWrap: {
-    marginTop: 14,
+    marginTop: 10,
     borderTopWidth: 0.8,
     borderTopColor: "rgba(255,255,255,0.08)",
-    paddingTop: 12,
+    paddingTop: 10,
   },
 
   mealRow: {
-    paddingVertical: 11,
+    paddingVertical: 8,
     flexDirection: "row",
     alignItems: "center",
     position: "relative",
   },
 
   mealIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
+    width: 26,
+    height: 26,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 11,
-    backgroundColor: "rgba(6,182,212,0.10)",
+    marginRight: 9,
+    backgroundColor: "rgba(6,182,212,0.08)",
     borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.14)",
+    borderColor: "rgba(56,189,248,0.12)",
   },
 
   mealTextCol: {
@@ -739,40 +745,40 @@ const styles = StyleSheet.create({
 
   mealTitle: {
     color: "#F1F5F9",
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12.5,
+    fontWeight: "500",
     letterSpacing: 0.05,
   },
 
   mealSub: {
     color: "rgba(148,163,184,0.85)",
-    fontSize: 11,
-    fontWeight: "500",
-    marginTop: 3,
+    fontSize: 10.5,
+    fontWeight: "400",
+    marginTop: 2,
   },
 
   mealRightCol: {
     alignItems: "flex-end",
-    marginLeft: 10,
+    marginLeft: 8,
   },
 
   mealKcal: {
     color: "#38bdf8",
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 12.5,
+    fontWeight: "500",
     letterSpacing: 0.05,
   },
   mealMacroRow: {
-    marginTop: 4,
+    marginTop: 3,
     flexDirection: "row",
     gap: 4,
   },
   mealMacroChip: {
     ...typography.body,
-    fontSize: 10,
-    fontWeight: "700",
-    paddingVertical: 2,
-    paddingHorizontal: 6,
+    fontSize: 9.5,
+    fontWeight: "400",
+    paddingVertical: 1,
+    paddingHorizontal: 5,
     borderRadius: 7,
     overflow: "hidden",
   },
@@ -797,7 +803,7 @@ const styles = StyleSheet.create({
 
   rowDivider: {
     position: "absolute",
-    left: 41,
+    left: 35,
     right: 0,
     bottom: 0,
     height: 0.5,
@@ -805,37 +811,37 @@ const styles = StyleSheet.create({
   },
 
   weekCard: {
-    borderRadius: 16,
-    padding: 16,
-    backgroundColor: "rgba(2,6,23,0.22)",
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: "rgba(8,15,28,0.24)",
     borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.11)",
+    borderColor: "rgba(56,189,248,0.10)",
     shadowColor: "#0891b2",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.09,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
     elevation: 1,
   },
 
   weekTitle: {
     color: "#F1F5F9",
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 12.5,
+    fontWeight: "500",
     letterSpacing: 0.1,
-    marginBottom: 12,
+    marginBottom: 10,
   },
 
   weekGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 8,
   },
 
   weekCell: {
     width: "48%",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 11,
     backgroundColor: "rgba(255,255,255,0.04)",
     borderWidth: 0.8,
     borderColor: "rgba(255,255,255,0.10)",
@@ -843,70 +849,70 @@ const styles = StyleSheet.create({
 
   weekLabel: {
     ...typography.body,
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10.5,
+    fontWeight: "400",
     color: "rgba(148,163,184,0.85)",
     letterSpacing: 0.05,
   },
 
   weekValue: {
-    ...typography.bodyBlack,
-    fontSize: 19,
-    fontWeight: "700",
+    ...typography.body,
+    fontSize: 17,
+    fontWeight: "500",
     color: "#F8FAFC",
-    marginTop: 5,
+    marginTop: 4,
     letterSpacing: 0.05,
   },
 
   weekUnit: {
     ...typography.body,
     fontSize: 10,
-    fontWeight: "500",
+    fontWeight: "400",
     color: "rgba(148,163,184,0.80)",
-    marginTop: 3,
+    marginTop: 2,
   },
 
   weekTotal: {
-    ...typography.bodyBlack,
-    fontSize: 19,
-    fontWeight: "700",
+    ...typography.body,
+    fontSize: 17,
+    fontWeight: "500",
     color: "#F8FAFC",
-    marginTop: 5,
+    marginTop: 4,
     letterSpacing: 0.05,
   },
 
   weekMacroRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 14,
-    gap: 12,
+    marginTop: 12,
+    gap: 10,
   },
 
   weekMacroValue: {
-    ...typography.bodyBlack,
-    fontSize: 14,
-    fontWeight: "700",
-    marginTop: 5,
+    ...typography.body,
+    fontSize: 13,
+    fontWeight: "500",
+    marginTop: 4,
     letterSpacing: 0.05,
   },
 
   dailyOverviewTitle: {
     color: "rgba(148,163,184,0.85)",
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11.5,
+    fontWeight: "400",
     letterSpacing: 0.3,
     textTransform: "uppercase",
-    marginTop: 18,
-    marginBottom: 8,
+    marginTop: 16,
+    marginBottom: 7,
   },
 
   loadMoreBtn: {
-    marginTop: 14,
+    marginTop: 12,
     alignSelf: "center",
-    paddingVertical: 9,
-    paddingHorizontal: 18,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: "rgba(6,182,212,0.10)",
+    backgroundColor: "rgba(6,182,212,0.08)",
     borderWidth: 0.8,
     borderColor: "rgba(56,189,248,0.16)",
     shadowColor: "#0891b2",
@@ -917,8 +923,8 @@ const styles = StyleSheet.create({
 
   loadMoreText: {
     color: "#38bdf8",
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11.5,
+    fontWeight: "400",
     letterSpacing: 0.05,
   },
 });

@@ -1,24 +1,25 @@
 import { generalStyles } from "@/config/styles";
 import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { CreateExercisePayload, Exercise } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
 import {
+  FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type ViewToken,
 } from "react-native";
 
 import { useAllExerciseSetsHistory } from "@/hooks/useAllExerciseSetsHistory";
+import { useCreateExercise } from "@/hooks/useCreateExercise";
 import { useExercises } from "@/hooks/useExercises";
 import { MuscleFilterBar } from "../MuscleFilterBar";
 
-import { CreateExercise } from "@/api/exercise/exercise";
 import { fetchMyUser } from "@/api/user";
-import { queryClient } from "@/config/queryClient";
 import AddButton from "../AddButton";
 import { AddExerciseModal } from "./exercise/AddExerciseModal";
 
@@ -28,7 +29,6 @@ import { MuscleFilterValue } from "@/types/muscles";
 import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { LinearGradient } from "expo-linear-gradient";
 import ExerciseCard from "./exercise/ExerciseCard";
-import { useEffect } from "react";
 
 type Props = {
   onPressExercise: (exerciseId: string) => void;
@@ -48,11 +48,15 @@ const ui = {
 };
 
 export default function ExerciseTab({ onPressExercise }: Props) {
+  const HISTORY_PREVIEW_FALLBACK_COUNT = 8;
   const [search, setSearch] = useState("");
   const [muscleFilter, setMuscleFilter] = useState<MuscleFilterValue>("ALL");
   const [openAdd, setOpenAdd] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [visibleExerciseIds, setVisibleExerciseIds] = useState<string[]>([]);
+  const searchInputRef = useRef<TextInput | null>(null);
+  const createExerciseMutation = useCreateExercise();
 
   const { token, authReady } = useAuth();
   const { userSettings } = useUserSettings();
@@ -62,9 +66,6 @@ export default function ExerciseTab({ onPressExercise }: Props) {
     if (!userSettings.showOnlyCustomTrainingContent) return allExercises;
     return allExercises.filter(isUserCreatedExercise);
   }, [data, userSettings.showOnlyCustomTrainingContent]);
-
-  const exerciseIds = useMemo(() => exercises.map((e) => e.id), [exercises]);
-  const { data: setsHistoryMap } = useAllExerciseSetsHistory(exerciseIds);
 
   useEffect(() => {
     if (!authReady || !token) {
@@ -105,15 +106,41 @@ export default function ExerciseTab({ onPressExercise }: Props) {
     });
   }, [exercises, search, muscleFilter]);
 
-  const handleCreateExercise = async (payload: {
-    name: string;
-    description?: string;
-    muscle?: string;
-    equipment?: string;
-  }) => {
+  const historyExerciseIds = useMemo(() => {
+    const visibleIdSet = new Set(visibleExerciseIds);
+    const visibleIds = filteredExercises
+      .filter((exercise) => visibleIdSet.has(exercise.id))
+      .map((exercise) => exercise.id);
+
+    if (visibleIds.length > 0) return visibleIds;
+
+    return filteredExercises
+      .slice(0, HISTORY_PREVIEW_FALLBACK_COUNT)
+      .map((exercise) => exercise.id);
+  }, [filteredExercises, visibleExerciseIds]);
+
+  const { data: setsHistoryMap } = useAllExerciseSetsHistory(historyExerciseIds);
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const nextIds = viewableItems
+        .map((item) => {
+          const exercise = item.item as Exercise | undefined;
+          return exercise?.id ?? "";
+        })
+        .filter((id) => id.length > 0);
+
+      setVisibleExerciseIds(nextIds);
+    }
+  );
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 25,
+  });
+
+  const handleCreateExercise = async (payload: CreateExercisePayload) => {
     try {
-      await CreateExercise(payload);
-      queryClient.invalidateQueries({ queryKey: ["exercises"] });
+      await createExerciseMutation.mutateAsync(payload);
       setOpenAdd(false);
     } catch (err) {
       console.log("Feil ved oppretting av øvelse", err);
@@ -136,104 +163,109 @@ export default function ExerciseTab({ onPressExercise }: Props) {
 
   return (
     <>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
+      <FlatList
+        data={filteredExercises}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <ExerciseCard
+            exercise={item}
+            sessions={setsHistoryMap?.[item.id] ?? []}
+            isAdmin={isAdmin}
+            onPress={() => onPressExercise(item.id)}
+          />
+        )}
         style={styles.container}
-        contentContainerStyle={{ paddingBottom: 44 }}
-      >
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={[typography.h2, styles.headerTitle]}>Øvelser</Text>
-            <Text style={[typography.body, styles.headerSub]}>
-              Bibliotek + historikk. Trykk på en øvelse for detaljer.
-            </Text>
-          </View>
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        onViewableItemsChanged={onViewableItemsChanged.current}
+        viewabilityConfig={viewabilityConfig.current}
+        ListHeaderComponent={
+          <>
+            <View style={styles.headerRow}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[typography.h2, styles.headerTitle]}>Øvelser</Text>
+                <Text style={[typography.body, styles.headerSub]}>
+                  Bibliotek + historikk. Trykk på en øvelse for detaljer.
+                </Text>
+              </View>
 
-          <AddButton setOpen={setOpenAdd} open={openAdd} />
-        </View>
+              <AddButton setOpen={setOpenAdd} open={openAdd} />
+            </View>
 
-        {/* Search */}
-        <View
-          style={[
-            generalStyles.newCard,
-            styles.searchWrap,
-            searchFocused && styles.searchWrapFocused,
-          ]}
-        >
-          {/* subtle sheen */}
-          <LinearGradient
-            colors={[
-              "rgba(255,255,255,0.06)",
-              "rgba(255,255,255,0.02)",
-              "rgba(255,255,255,0.00)",
-            ]}
-            start={{ x: 0.06, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
-          <LinearGradient
-            colors={[ui.sheenA, ui.sheenB, "rgba(255,255,255,0.00)"]}
-            start={{ x: 1, y: 0 }}
-            end={{ x: 0.25, y: 1 }}
-            style={styles.searchSheen}
-            pointerEvents="none"
-          />
-
-          <View style={styles.searchIcon}>
-            <Ionicons name="search-outline" size={16} color={ui.muted} />
-          </View>
-
-          <TextInput
-            returnKeyType="done"
-            placeholder="Søk etter øvelser..."
-            placeholderTextColor={ui.muted2}
-            style={[typography.body, styles.input]}
-            value={search}
-            onChangeText={setSearch}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-            clearButtonMode="while-editing"
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
-
-          {!!search.length && (
             <Pressable
-              hitSlop={10}
-              onPress={() => setSearch("")}
-              style={({ pressed }) => [
-                styles.clearBtn,
-                pressed && { opacity: 0.85 },
+              onPress={() => searchInputRef.current?.focus()}
+              style={[
+                generalStyles.newCard,
+                styles.searchWrap,
+                searchFocused && styles.searchWrapFocused,
               ]}
             >
-              <Ionicons name="close" size={16} color={ui.text} />
+              <LinearGradient
+                colors={[
+                  "rgba(255,255,255,0.06)",
+                  "rgba(255,255,255,0.02)",
+                  "rgba(255,255,255,0.00)",
+                ]}
+                start={{ x: 0.06, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
+              <LinearGradient
+                colors={[ui.sheenA, ui.sheenB, "rgba(255,255,255,0.00)"]}
+                start={{ x: 1, y: 0 }}
+                end={{ x: 0.25, y: 1 }}
+                style={styles.searchSheen}
+                pointerEvents="none"
+              />
+
+              <View style={styles.searchIcon}>
+                <Ionicons name="search-outline" size={16} color={ui.muted} />
+              </View>
+
+              <TextInput
+                ref={searchInputRef}
+                returnKeyType="done"
+                placeholder="Søk etter øvelser..."
+                placeholderTextColor={ui.muted2}
+                style={[typography.body, styles.input]}
+                value={search}
+                onChangeText={setSearch}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                clearButtonMode="while-editing"
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+
+              {!!search.length && (
+                <Pressable
+                  hitSlop={10}
+                  onPress={() => {
+                    setSearch("");
+                    searchInputRef.current?.focus();
+                  }}
+                  style={({ pressed }) => [
+                    styles.clearBtn,
+                    pressed && { opacity: 0.85 },
+                  ]}
+                >
+                  <Ionicons name="close" size={16} color={ui.text} />
+                </Pressable>
+              )}
             </Pressable>
-          )}
-        </View>
 
-        {/* Muscle filter */}
-        <View style={{ marginBottom: 12 }}>
-          <MuscleFilterBar
-            value={muscleFilter}
-            onChange={(v) => setMuscleFilter(v as MuscleFilterValue)}
-            preset={"basic"}
-          />
-        </View>
-
-        {/* Cards */}
-        {filteredExercises.map((ex) => (
-          <ExerciseCard
-            key={ex.id}
-            exercise={ex}
-            sessions={setsHistoryMap?.[ex.id] ?? []}
-            isAdmin={isAdmin}
-            onPress={() => onPressExercise(ex.id)}
-          />
-        ))}
-
-        {filteredExercises.length === 0 && (
+            <View style={{ marginBottom: 12 }}>
+              <MuscleFilterBar
+                value={muscleFilter}
+                onChange={(v) => setMuscleFilter(v as MuscleFilterValue)}
+                preset={"basic"}
+              />
+            </View>
+          </>
+        }
+        ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <Text style={[typography.bodyBold, styles.emptyTitle]}>
               Ingen treff
@@ -242,13 +274,14 @@ export default function ExerciseTab({ onPressExercise }: Props) {
               Prøv et annet søk eller bytt muskel-filter.
             </Text>
           </View>
-        )}
-      </ScrollView>
+        }
+      />
 
       <AddExerciseModal
         visible={openAdd}
         onClose={() => setOpenAdd(false)}
         onSubmit={handleCreateExercise}
+        isSubmitting={createExerciseMutation.isPending}
       />
     </>
   );
@@ -260,6 +293,9 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     paddingVertical: 16,
     paddingHorizontal: 14,
+  },
+  content: {
+    paddingBottom: 44,
   },
 
   headerRow: {
@@ -290,7 +326,8 @@ const styles = StyleSheet.create({
     borderColor: ui.inputStroke,
     overflow: "hidden",
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 9,
+    minHeight: 48,
   },
   searchWrapFocused: {
     borderColor: ui.inputStrokeFocus,
@@ -317,14 +354,14 @@ const styles = StyleSheet.create({
 
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     color: newColors.text.primary,
     paddingVertical: 0,
   },
 
   clearBtn: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",

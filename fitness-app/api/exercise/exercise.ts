@@ -1,5 +1,5 @@
 import { getValidAccessToken, authFetch } from "@/api/authSession";
-import { Exercise } from "@/types/exercise";
+import { type CreateExercisePayload, Exercise } from "@/types/exercise";
 import { API_BASE_URL } from "../baseUrl";
 
 export async function getExercisesForUser() {
@@ -25,13 +25,7 @@ export async function getExercisesForUser() {
   return data;
 }
 
-export async function CreateExercise(payload: {
-  name: string;
-  description?: string;
-  muscle?: string;
-  equipment?: string;
-  specificMuscleGroups?: string;
-}) {
+export async function CreateExercise(payload: CreateExercisePayload) {
   const token = await getValidAccessToken();
   if (!token) throw new Error("Mangler auth-token");
 
@@ -52,7 +46,8 @@ export async function CreateExercise(payload: {
     throw new Error(text || `Kunne ikke opprette øvelse (status: ${res.status})`);
   }
 
-  return res.json();
+  const data: Exercise = await res.json();
+  return data;
 }
 
 export async function UpdateExercise(

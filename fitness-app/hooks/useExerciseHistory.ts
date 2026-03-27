@@ -10,6 +10,10 @@ export function useExerciseHistory(exerciseId: string | null) {
   return useQuery<ExerciseHistoryPointDto[]>({
     queryKey: ["exerciseHistory", exerciseId],
     enabled: !!exerciseId,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     queryFn: () => {
       if (!exerciseId) return Promise.resolve([]);
       return getExerciseHistory(exerciseId);
@@ -22,6 +26,10 @@ export function useAllExerciseHistory(exerciseIds: string[]) {
   return useQuery<Record<string, ExerciseHistoryPointDto[]>>({
     queryKey: ["exerciseHistoryBulk", exerciseIds],
     enabled: exerciseIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const entries = await Promise.all(
         exerciseIds.map(async (id) => {

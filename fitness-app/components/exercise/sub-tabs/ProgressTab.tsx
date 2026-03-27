@@ -11,7 +11,7 @@ import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useExercises } from "@/hooks/useExercises";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -36,6 +36,7 @@ import {
 } from "./progress/ExerciseProgressChart";
 
 import ExerciseHistoryList from "./progress/ExerciseHistoryList";
+import { ProgressWindowSummary } from "./progress/ProgressWindowSummary";
 import { StatRow } from "./progress/StatRow";
 
 import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
@@ -46,6 +47,65 @@ type ProgressTabProps = {
   selectedExerciseId: string | null;
   onSelectExercise: (exerciseId: string | null) => void;
 };
+
+type DailyBestPoint = {
+  date: string;
+  timestampUtc: string;
+  est1Rm: number;
+};
+
+function getSessionBest1Rm(session: ExerciseSessionSetsDto) {
+  let best = 0;
+
+  for (const set of session.sets ?? []) {
+    const est = estimate1RMFromTopSet(
+      set.weightKg,
+      set.reps,
+      { roundTo: 1, conservative: true, allowHighRep: true },
+      "ensemble"
+    );
+    if (est.oneRm > best) best = est.oneRm;
+  }
+
+  return best;
+}
+
+function buildDailyBestPoints(
+  sessions: ExerciseSessionSetsDto[]
+): DailyBestPoint[] {
+  const byDate = new Map<string, DailyBestPoint>();
+
+  for (const session of sessions) {
+    const sessionBest1Rm = getSessionBest1Rm(session);
+    const sessionDate = new Date(session.performedAtUtc)
+      .toISOString()
+      .split("T")[0];
+    const existing = byDate.get(sessionDate);
+
+    if (!existing) {
+      byDate.set(sessionDate, {
+        date: sessionDate,
+        timestampUtc: session.performedAtUtc,
+        est1Rm: sessionBest1Rm,
+      });
+      continue;
+    }
+
+    if (
+      new Date(session.performedAtUtc).getTime() >
+      new Date(existing.timestampUtc).getTime()
+    ) {
+      existing.timestampUtc = session.performedAtUtc;
+    }
+
+    existing.est1Rm = Math.max(existing.est1Rm, sessionBest1Rm);
+  }
+
+  return [...byDate.values()].sort(
+    (a, b) =>
+      new Date(a.timestampUtc).getTime() - new Date(b.timestampUtc).getTime()
+  );
+}
 
 const ui = {
   text: "rgba(255,255,255,0.94)",
@@ -72,6 +132,7 @@ export default function ProgressTab({
 }: ProgressTabProps) {
   const { userSettings } = useUserSettings();
   const { data: exerciseData } = useExercises();
+  const searchInputRef = useRef<TextInput | null>(null);
   const exercises = useMemo(() => {
     const allExercises = exerciseData ?? [];
     if (!userSettings.showOnlyCustomTrainingContent) return allExercises;
@@ -152,32 +213,53 @@ export default function ProgressTab({
     );
 
     // Best-set 1RM inside a session
-    const sessionBest1Rm = (session: ExerciseSessionSetsDto) => {
-      let best = 0;
-
-      for (const set of session.sets ?? []) {
-        const est = estimate1RMFromTopSet(
-          set.weightKg,
-          set.reps,
-          { roundTo: 1, conservative: true, allowHighRep: true },
-          "ensemble"
-        );
-        if (est.oneRm > best) best = est.oneRm;
-      }
-
-      return best;
-    };
-
     const lastSession = sorted[0];
-    const last = sessionBest1Rm(lastSession);
+    const last = getSessionBest1Rm(lastSession);
 
     // PR across sessions (max sessionBest1Rm)
     let prVal = 0;
-    for (const s of sorted) prVal = Math.max(prVal, sessionBest1Rm(s));
+    for (const s of sorted) prVal = Math.max(prVal, getSessionBest1Rm(s));
 
     const diff = prVal > 0 ? Math.max(prVal - last, 0) : 0;
 
     return { pr: prVal, lastEst1Rm: last, diffToPr: diff };
+  }, [setsHistoryData]);
+
+  const windowSummaryItems = useMemo(() => {
+    const dayPoints = buildDailyBestPoints(setsHistoryData);
+    const windows = [30, 60, 120, 360];
+
+    if (dayPoints.length === 0) {
+      return windows.map((days) => ({
+        label: `${days} d`,
+        deltaKg: null,
+      }));
+    }
+
+    const latestPoint = dayPoints[dayPoints.length - 1];
+    const latestMs = new Date(latestPoint.timestampUtc).getTime();
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    return windows.map((days) => {
+      const targetMs = latestMs - days * dayMs;
+      let baseline: DailyBestPoint | null = null;
+
+      for (let i = dayPoints.length - 1; i >= 0; i -= 1) {
+        const point = dayPoints[i];
+        if (new Date(point.timestampUtc).getTime() <= targetMs) {
+          baseline = point;
+          break;
+        }
+      }
+
+      return {
+        label: `${days} d`,
+        deltaKg:
+          baseline == null
+            ? null
+            : Number((latestPoint.est1Rm - baseline.est1Rm).toFixed(1)),
+      };
+    });
   }, [setsHistoryData]);
 
   // Single-series chart data (from aggregated history)
@@ -258,7 +340,8 @@ export default function ProgressTab({
       </View>
 
       {/* Premium Search */}
-      <View
+      <Pressable
+        onPress={() => searchInputRef.current?.focus()}
         style={[
           generalStyles.newCard,
           styles.searchWrap,
@@ -290,6 +373,7 @@ export default function ProgressTab({
         </View>
 
         <TextInput
+          ref={searchInputRef}
           value={search}
           onChangeText={setSearch}
           placeholder={
@@ -317,7 +401,7 @@ export default function ProgressTab({
             <Ionicons name="close" size={16} color={ui.text} />
           </Pressable>
         )}
-      </View>
+      </Pressable>
 
       {/* Search results (popover card) */}
       {showResults && (
@@ -381,6 +465,8 @@ export default function ProgressTab({
       )}
 
       <StatRow pr={pr} lastWeight={lastEst1Rm} diffToPr={diffToPr} />
+
+      <ProgressWindowSummary items={windowSummaryItems} />
 
       <View style={[styles.modeCard, generalStyles.newCard]}>
         <LinearGradient
@@ -484,12 +570,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     marginBottom: 10,
+    minHeight: 48,
     backgroundColor: ui.inputBg,
     borderWidth: 1,
     borderColor: ui.inputStroke,
     overflow: "hidden",
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 9,
   },
   searchWrapFocused: {
     borderColor: ui.inputStrokeFocus,
@@ -510,9 +597,9 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   searchIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 13,
+    width: 30,
+    height: 30,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.05)",
@@ -522,13 +609,13 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: newColors.text.primary,
-    fontSize: 14,
+    fontSize: 13.5,
     paddingVertical: 0,
   },
   clearBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 13,
+    width: 30,
+    height: 30,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.05)",
@@ -590,8 +677,9 @@ const styles = StyleSheet.create({
   // MODE CARD
   modeCard: {
     borderRadius: 20,
-    padding: 16,
-    marginBottom: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 16,
     backgroundColor: ui.glassBg,
     borderWidth: 1,
     borderColor: ui.glassStroke,

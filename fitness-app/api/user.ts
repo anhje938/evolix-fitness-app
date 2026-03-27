@@ -2,10 +2,14 @@ import { API_BASE_URL } from "./baseUrl";
 import { authFetch } from "./authSession";
 
 const USER_ME_PATH = "user/me";
-const USER_DELETE_TIMEOUT_MS = 15000;
+const USER_DELETE_TIMEOUT_MS = 60000;
 
 function buildError(status: number, body: string) {
   return new Error(body || `User request failed with status ${status}`);
+}
+
+function isAlreadyDeletedStatus(status: number) {
+  return status === 404 || status === 410;
 }
 
 export async function deleteMyUser(token: string): Promise<void> {
@@ -19,9 +23,9 @@ export async function deleteMyUser(token: string): Promise<void> {
     res = await authFetch(
       `${API_BASE_URL}/${USER_ME_PATH}`,
       {
-      method: "DELETE",
-      headers: {},
-      signal: controller.signal,
+        method: "DELETE",
+        headers: {},
+        signal: controller.signal,
       },
       { token }
     );
@@ -34,7 +38,7 @@ export async function deleteMyUser(token: string): Promise<void> {
     clearTimeout(timer);
   }
 
-  if (res.ok) return;
+  if (res.ok || isAlreadyDeletedStatus(res.status)) return;
 
   const text = await res.text().catch(() => "");
   throw buildError(res.status, text);
@@ -53,8 +57,8 @@ export async function fetchMyUser(token: string): Promise<UserMe | null> {
   const res = await authFetch(
     `${API_BASE_URL}/${USER_ME_PATH}`,
     {
-    method: "GET",
-    headers: {},
+      method: "GET",
+      headers: {},
     },
     { token }
   );

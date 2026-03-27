@@ -1,6 +1,7 @@
 // components/date/AppDateTimePicker.tsx
 import React, { useState } from "react";
 import {
+  Keyboard,
   Platform,
   StyleSheet,
   Text,
@@ -18,6 +19,7 @@ type AppDateTimePickerProps = {
   mode: "date" | "time";
   value: Date | null;
   onChange: (date: Date | null) => void;
+  compact?: boolean;
 };
 
 export function AppDateTimePicker({
@@ -25,20 +27,25 @@ export function AppDateTimePicker({
   mode,
   value,
   onChange,
+  compact = false,
 }: AppDateTimePickerProps) {
   const [show, setShow] = useState(false);
+  const [draftValue, setDraftValue] = useState<Date | null>(null);
 
   const currentValue = value ?? new Date();
+  const pickerValue = draftValue ?? currentValue;
 
   const handleChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     // Android: close immediately when user sets or dismisses
     if (event.type === "dismissed") {
+      setDraftValue(null);
       setShow(false);
       return;
     }
 
     const dateToUse = selectedDate ?? currentValue;
     onChange(dateToUse);
+    setDraftValue(null);
     setShow(false);
   };
 
@@ -50,17 +57,45 @@ export function AppDateTimePicker({
           minute: "2-digit",
         });
 
+  const openPicker = () => {
+    Keyboard.dismiss();
+    setDraftValue(currentValue);
+    requestAnimationFrame(() => {
+      setShow(true);
+    });
+  };
+
+  const handleDone = () => {
+    onChange(pickerValue);
+    setDraftValue(null);
+    setShow(false);
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={[typography.bodyBlack, styles.label]}>{label}</Text>
+      <Text
+        style={[
+          typography.bodyBlack,
+          styles.label,
+          compact && styles.labelCompact,
+        ]}
+      >
+        {label}
+      </Text>
 
       {/* Button that opens the native picker */}
       <TouchableOpacity
-        style={styles.displayButton}
-        onPress={() => setShow(true)}
+        style={[styles.displayButton, compact && styles.displayButtonCompact]}
+        onPress={openPicker}
         activeOpacity={0.8}
       >
-        <Text style={[typography.bodyBlack, styles.displayText]}>
+        <Text
+          style={[
+            typography.bodyBlack,
+            styles.displayText,
+            compact && styles.displayTextCompact,
+          ]}
+        >
           {formattedValue}
         </Text>
       </TouchableOpacity>
@@ -73,13 +108,13 @@ export function AppDateTimePicker({
               <View style={styles.modalContent}>
                 <TouchableOpacity
                   style={styles.doneButton}
-                  onPress={() => setShow(false)}
+                  onPress={handleDone}
                 >
                   <Text style={styles.doneButtonText}>Ferdig</Text>
                 </TouchableOpacity>
                 <DateTimePicker
                   mode={mode}
-                  value={currentValue}
+                  value={pickerValue}
                   display="spinner"
                   is24Hour={true}
                   // force light theme so text is dark on light background
@@ -88,12 +123,11 @@ export function AppDateTimePicker({
                   textColor="black"
                   onChange={(event, selectedDate) => {
                     if (event.type === "dismissed") {
+                      setDraftValue(null);
                       setShow(false);
                       return;
                     }
-                    const dateToUse = selectedDate ?? currentValue;
-                    // live update while user scrolls the wheel
-                    onChange(dateToUse);
+                    setDraftValue(selectedDate ?? pickerValue);
                   }}
                   style={styles.picker}
                 />
@@ -123,6 +157,10 @@ const styles = StyleSheet.create({
     color: "rgba(148,163,184,0.95)",
     marginBottom: 6,
   },
+  labelCompact: {
+    fontSize: 12,
+    marginBottom: 5,
+  },
   displayButton: {
     width: "100%",
     paddingVertical: 12,
@@ -134,10 +172,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  displayButtonCompact: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
   displayText: {
     fontSize: 14,
     color: "#E5ECFF",
     textAlign: "center",
+  },
+  displayTextCompact: {
+    fontSize: 13,
   },
 
   // iOS modal styling

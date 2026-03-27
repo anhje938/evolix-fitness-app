@@ -1,5 +1,6 @@
 using System.Text;
 using backend.Auth;
+using backend.Common;
 using backend.Data;
 using backend.Features.Auth;
 using backend.Features.AuthAuth;
@@ -15,6 +16,8 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+
+const string DeployMarker = "delete-logging-v1-2026-03-18";
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -131,12 +134,26 @@ app.MapGet("/debug/env", (IHostEnvironment env) =>
     };
 });
 
+app.MapGet("/debug/build", (IHostEnvironment env) =>
+{
+    var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+    return Results.Ok(new
+    {
+        deployMarker = DeployMarker,
+        environment = env.EnvironmentName,
+        assemblyVersion = assembly.GetName().Version?.ToString(),
+        imageRuntimeVersion = assembly.ImageRuntimeVersion,
+        utcNow = DateTime.UtcNow
+    });
+});
+
 app.MapGet("/", () => "OK");        // root-test
 app.MapGet("/health", () => "OK");  // health-test
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    Console.WriteLine("DEPLOY_MARKER=" + DeployMarker);
     Console.WriteLine("ENV=" + builder.Environment.EnvironmentName);
     Console.WriteLine("ConnStr=" + builder.Configuration.GetConnectionString("DefaultConnection"));
     db.Database.Migrate();
@@ -170,10 +187,19 @@ app.UseExceptionHandler(errorApp =>
             );
         }
 
-        context.Response.StatusCode = 500;
+        var error = exceptionHandlerPathFeature?.Error;
+        var (statusCode, message) = error switch
+        {
+            NotFoundException notFound => (StatusCodes.Status404NotFound, notFound.Message),
+            ForbiddenException forbidden => (StatusCodes.Status403Forbidden, forbidden.Message),
+            ArgumentException argument => (StatusCodes.Status400BadRequest, argument.Message),
+            _ => (StatusCodes.Status500InternalServerError, "Internal server error")
+        };
+
+        context.Response.StatusCode = statusCode;
         await context.Response.WriteAsJsonAsync(new
         {
-            error = "Internal server error"
+            error = message
         });
     });
 });

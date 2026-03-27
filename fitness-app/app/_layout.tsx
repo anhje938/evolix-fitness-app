@@ -4,8 +4,7 @@ import {
   GlobalKeyboardAccessory,
 } from "@/components/common/GlobalKeyboardAccessory";
 import { queryClient } from "@/config/queryClient";
-import { useAuth } from "@/context/AuthProvider";
-import { AuthProvider } from "@/context/AuthProvider";
+import { AuthProvider, useAuth } from "@/context/AuthProvider";
 import { UserSettingsProvider } from "@/context/UserSettingsProvider";
 import {
   WorkoutSessionProvider,
@@ -84,16 +83,16 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <WorkoutSessionProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <WorkoutSessionProvider>
             <UserSettingsProvider>
               <AuthStateCleanup />
               <Stack screenOptions={{ headerShown: false }} />
               <WorkoutSessionOverlay />
               <GlobalKeyboardAccessory />
             </UserSettingsProvider>
-          </AuthProvider>
-        </WorkoutSessionProvider>
+          </WorkoutSessionProvider>
+        </AuthProvider>
       </GestureHandlerRootView>
     </QueryClientProvider>
   );

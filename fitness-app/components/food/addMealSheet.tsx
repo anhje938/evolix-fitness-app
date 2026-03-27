@@ -1,24 +1,29 @@
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
+import { useKeyboardAwareSheetScroll } from "@/hooks/useKeyboardAwareSheetScroll";
+import { FoodDto } from "@/types/meal";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { TextInput as RNTextInput } from "react-native";
 import {
+  Animated,
+  Dimensions,
+  Keyboard,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  KeyboardAvoidingView,
-  TouchableWithoutFeedback,
-  Platform,
-  Dimensions,
-  ScrollView,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+
 import XIcon from "../../assets/icons/white-x.svg";
-import { ToggleModeButtons } from "./toggleModeButtons";
 import { AppDateTimePicker } from "../date/AppDateTimePicker";
-import { FoodDto } from "@/types/meal";
+import { ToggleModeButtons } from "./toggleModeButtons";
 
 type AddMealSheetProps = {
   isOpen: boolean;
@@ -28,15 +33,9 @@ type AddMealSheetProps = {
   onSubmit: (values: FoodDto) => Promise<void> | void;
 };
 
-const SHEET_MAX_HEIGHT = Dimensions.get("window").height * 0.85;
-
-type FieldErrors = {
-  title?: string;
-  calories?: string;
-  proteins?: string;
-  carbs?: string;
-  fats?: string;
-};
+const SHEET_MAX_HEIGHT = Dimensions.get("window").height * 0.88;
+const ENTER_DURATION = 220;
+const EXIT_DURATION = 170;
 
 export function AddMealSheet({
   isOpen,
@@ -45,55 +44,120 @@ export function AddMealSheet({
   mode,
   onSubmit,
 }: AddMealSheetProps) {
+  const isClosingRef = useRef(false);
+
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const sheetOpacity = useRef(new Animated.Value(0)).current;
+  const sheetTranslateY = useRef(new Animated.Value(28)).current;
+  const sheetScale = useRef(new Animated.Value(0.985)).current;
+
   const [title, setTitle] = useState("");
   const [calories, setCalories] = useState("");
   const [proteins, setProteins] = useState("");
   const [carbs, setCarbs] = useState("");
   const [fats, setFats] = useState("");
-  const [timestampUtc, setTimestampUtc] = useState<Date | null>(new Date());
+  const [timestampUtc, setTimestampUtc] = useState<Date | null>(() => new Date());
+  const titleInputRef = useRef<RNTextInput | null>(null);
+  const caloriesInputRef = useRef<RNTextInput | null>(null);
+  const proteinsInputRef = useRef<RNTextInput | null>(null);
+  const carbsInputRef = useRef<RNTextInput | null>(null);
+  const fatsInputRef = useRef<RNTextInput | null>(null);
+  const {
+    handleInputFocus,
+    handleScroll,
+    keyboardInsetHeight,
+    reset,
+    scrollRef,
+  } = useKeyboardAwareSheetScroll();
 
-  const [errors, setErrors] = useState<FieldErrors>({});
-
-  // If sheet is closed, render nothing to avoid blocking touches/scroll
-  if (!isOpen) return null;
-
-  const handleSave = () => {
-    // Basic front-end validation for required fields
-    const newErrors: FieldErrors = {};
-
-    if (!title.trim()) {
-      newErrors.title = "Tittel mangler";
-    }
-    if (!calories.trim()) {
-      newErrors.calories = "Kalorier mangler";
-    }
-    if (!proteins.trim()) {
-      newErrors.proteins = "Proteiner mangler";
-    }
-    if (!carbs.trim()) {
-      newErrors.carbs = "Karbs mangler";
-    }
-    if (!fats.trim()) {
-      newErrors.fats = "Fett mangler";
-    }
-
-    // If any error exists, update state and abort submit
-    if (
-      newErrors.title ||
-      newErrors.calories ||
-      newErrors.proteins ||
-      newErrors.carbs ||
-      newErrors.fats
-    ) {
-      setErrors(newErrors);
+  useEffect(() => {
+    if (!isOpen) {
+      reset();
       return;
     }
 
-    // Clear errors if everything is valid
-    setErrors({});
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 1,
+        duration: ENTER_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sheetOpacity, {
+        toValue: 1,
+        duration: ENTER_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.spring(sheetTranslateY, {
+        toValue: 0,
+        damping: 20,
+        mass: 0.95,
+        stiffness: 220,
+        useNativeDriver: true,
+      }),
+      Animated.spring(sheetScale, {
+        toValue: 1,
+        damping: 18,
+        mass: 0.9,
+        stiffness: 240,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [
+    backdropOpacity,
+    isOpen,
+    reset,
+    sheetOpacity,
+    sheetScale,
+    sheetTranslateY,
+  ]);
 
+  if (!isOpen) return null;
+
+  const runExitAnimation = (callback: () => void) => {
+    if (isClosingRef.current) return;
+
+    isClosingRef.current = true;
+    Keyboard.dismiss();
+
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: EXIT_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sheetOpacity, {
+        toValue: 0,
+        duration: EXIT_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sheetTranslateY, {
+        toValue: 24,
+        duration: EXIT_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sheetScale, {
+        toValue: 0.985,
+        duration: EXIT_DURATION,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      isClosingRef.current = false;
+      callback();
+    });
+  };
+
+  const handleRequestClose = () => {
+    runExitAnimation(onClose);
+  };
+
+  const handleModeChange = (nextMode: "manual" | "qr") => {
+    if (nextMode === mode) return;
+    runExitAnimation(() => setMode(nextMode));
+  };
+
+  const handleSave = () => {
     const payload: FoodDto = {
-      title: title.trim(),
+      title: title.trim() || "Hurtigmåltid",
       calories: Number(calories) || 0,
       proteins: Number(proteins) || 0,
       carbs: Number(carbs) || 0,
@@ -102,403 +166,476 @@ export function AddMealSheet({
     };
 
     try {
-      console.log(payload);
-      onSubmit(payload);
+      void Promise.resolve(onSubmit(payload));
     } catch (error) {
-      console.log("Couldnt save meal", error);
+      console.log("Could not save meal", error);
     }
   };
 
   return (
-    // absolute wrapper so sheet always covers the whole screen
-    <View style={styles.absoluteWrapper} pointerEvents="box-none">
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
-      >
-        {/* Plain overlay behind the card */}
-        <View style={styles.overlay}>
-          <View pointerEvents="box-none" style={styles.sheetWrapper}>
-            {/* Prevent touches inside card from bubbling out */}
-            <TouchableWithoutFeedback onPress={() => {}}>
-              <View
-                style={[
-                  generalStyles.newCard,
-                  styles.sheet,
-                  { maxHeight: SHEET_MAX_HEIGHT },
+    <Modal
+      visible={isOpen}
+      animationType="none"
+      transparent
+      hardwareAccelerated
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      onRequestClose={handleRequestClose}
+    >
+      <View style={styles.modalRoot}>
+        <Animated.View
+          style={[styles.backdrop, { opacity: backdropOpacity }]}
+          pointerEvents="box-none"
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={handleRequestClose}
+            accessibilityRole="button"
+            accessibilityLabel="Lukk legg til måltid"
+          />
+        </Animated.View>
+
+        <View style={styles.sheetFrame} pointerEvents="box-none">
+          <Animated.View
+            style={[
+              styles.sheetAnimationWrap,
+              {
+                opacity: sheetOpacity,
+                transform: [
+                  { translateY: sheetTranslateY },
+                  { scale: sheetScale },
+                ],
+              },
+            ]}
+          >
+            <View
+              style={[
+                generalStyles.newCard,
+                styles.sheet,
+                { maxHeight: SHEET_MAX_HEIGHT },
+              ]}
+            >
+              <LinearGradient
+                pointerEvents="none"
+                colors={[
+                  "rgba(34,211,238,0.18)",
+                  "rgba(59,130,246,0.1)",
+                  "rgba(2,6,23,0)",
                 ]}
+                start={{ x: 0.1, y: 0 }}
+                end={{ x: 0.9, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View pointerEvents="none" style={styles.orbTop} />
+              <View pointerEvents="none" style={styles.orbBottom} />
+
+              <ScrollView
+                ref={scrollRef}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[
+                  styles.sheetContent,
+                  {
+                    paddingBottom: Math.max(18, keyboardInsetHeight + 18),
+                  },
+                ]}
+                keyboardShouldPersistTaps="always"
+                keyboardDismissMode={
+                  Platform.OS === "ios" ? "interactive" : "on-drag"
+                }
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
               >
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={styles.sheetContent}
-                  keyboardShouldPersistTaps="always"
-                >
-                  {/* header */}
-                  <View style={styles.headerRow}>
-                    <Text style={[typography.h2, styles.title]}>
-                      Legg til måltid
-                    </Text>
-                    <TouchableOpacity
-                      onPress={onClose}
-                      style={styles.closeButton}
-                    >
-                      <XIcon height={18} width={18} />
-                    </TouchableOpacity>
-                  </View>
+                <View style={styles.headerRow}>
+                  <Text style={[typography.h2, styles.title]}>
+                    Legg til måltid
+                  </Text>
+                  <TouchableOpacity
+                    onPress={handleRequestClose}
+                    style={styles.closeButton}
+                    activeOpacity={0.82}
+                  >
+                    <XIcon height={18} width={18} />
+                  </TouchableOpacity>
+                </View>
 
-                  {/* toggle manual / QR */}
-                  <View style={styles.toggleWrapper}>
-                    <ToggleModeButtons setMode={setMode} mode={mode} />
-                  </View>
+                <View style={styles.toggleWrapper}>
+                  <ToggleModeButtons setMode={handleModeChange} mode={mode} />
+                </View>
 
-                  {/* meal title */}
-                  <View style={styles.section}>
-                    <Text style={[typography.bodyBlack, styles.label]}>
-                      Måltidsnavn
+                <View style={styles.section}>
+                  <Text style={[typography.bodyBlack, styles.label]}>
+                    Måltidsnavn
+                  </Text>
+                  <TextInput
+                    ref={titleInputRef}
+                    style={styles.textInput}
+                    placeholder="Hurtigmåltid"
+                    value={title}
+                    onChangeText={setTitle}
+                    onFocus={() => handleInputFocus(titleInputRef.current)}
+                    placeholderTextColor="rgba(148,163,184,0.72)"
+                    returnKeyType="next"
+                    submitBehavior="submit"
+                    onSubmitEditing={() => caloriesInputRef.current?.focus()}
+                  />
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={[typography.bodyBlack, styles.label]}>
+                    Kalorier
+                  </Text>
+                  <View style={styles.calorieContainer}>
+                    <TextInput
+                      ref={caloriesInputRef}
+                      style={[styles.textInput, styles.calorieInput]}
+                      placeholder="0"
+                      value={calories}
+                      onChangeText={setCalories}
+                      onFocus={() => handleInputFocus(caloriesInputRef.current)}
+                      placeholderTextColor="rgba(148,163,184,0.72)"
+                      keyboardType="numeric"
+                      returnKeyType="next"
+                      submitBehavior="submit"
+                      onSubmitEditing={() => proteinsInputRef.current?.focus()}
+                    />
+                    <Ionicons
+                      name="flame-outline"
+                      size={18}
+                      color="rgba(148,163,184,0.88)"
+                      style={styles.calorieIcon}
+                      pointerEvents="none"
+                    />
+                  </View>
+                </View>
+
+                <View style={[styles.section, styles.macroRow]}>
+                  <View style={styles.macroWrapper}>
+                    <Text style={[typography.bodyBlack, styles.macroLabel]}>
+                      Protein (g)
                     </Text>
                     <TextInput
-                      style={styles.textInput}
-                      placeholder="F.eks. Middag"
-                      value={title}
-                      onChangeText={setTitle}
-                      placeholderTextColor="rgba(148,163,184,0.8)"
+                      ref={proteinsInputRef}
+                      style={styles.macroInput}
+                      placeholder="40"
+                      value={proteins}
+                      onChangeText={setProteins}
+                      onFocus={() => handleInputFocus(proteinsInputRef.current)}
+                      placeholderTextColor="rgba(148,163,184,0.72)"
+                      keyboardType="numeric"
+                      returnKeyType="next"
+                      submitBehavior="submit"
+                      onSubmitEditing={() => carbsInputRef.current?.focus()}
+                    />
+                  </View>
+
+                  <View style={styles.macroWrapper}>
+                    <Text style={[typography.bodyBlack, styles.macroLabel]}>
+                      Karbs (g)
+                    </Text>
+                    <TextInput
+                      ref={carbsInputRef}
+                      style={styles.macroInput}
+                      placeholder="50"
+                      value={carbs}
+                      onChangeText={setCarbs}
+                      onFocus={() => handleInputFocus(carbsInputRef.current)}
+                      placeholderTextColor="rgba(148,163,184,0.72)"
+                      keyboardType="numeric"
+                      returnKeyType="next"
+                      submitBehavior="submit"
+                      onSubmitEditing={() => fatsInputRef.current?.focus()}
+                    />
+                  </View>
+
+                  <View style={styles.macroWrapper}>
+                    <Text style={[typography.bodyBlack, styles.macroLabel]}>
+                      Fett (g)
+                    </Text>
+                    <TextInput
+                      ref={fatsInputRef}
+                      style={styles.macroInput}
+                      placeholder="20"
+                      value={fats}
+                      onChangeText={setFats}
+                      onFocus={() => handleInputFocus(fatsInputRef.current)}
+                      placeholderTextColor="rgba(148,163,184,0.72)"
+                      keyboardType="numeric"
                       returnKeyType="done"
-                    />
-                    {errors.title && (
-                      <Text style={styles.errorText}>{errors.title}</Text>
-                    )}
-                  </View>
-
-                  {/* calories – same pattern as meal title, just with accent border and icon */}
-                  <View style={styles.section}>
-                    <Text style={[typography.bodyBlack, styles.label]}>
-                      Kalorier
-                    </Text>
-                    <View style={styles.calorieContainer}>
-                      <TextInput
-                        style={[styles.textInput, styles.calorieInput]}
-                        placeholder="0"
-                        value={calories}
-                        onChangeText={setCalories}
-                        placeholderTextColor="rgba(148,163,184,0.8)"
-                        keyboardType="numeric"
-                        returnKeyType="done"
-                      />
-                      <Ionicons
-                        name="flame-outline"
-                        size={18}
-                        color="rgba(148,163,184,0.9)"
-                        style={styles.calorieIcon}
-                        pointerEvents="none" // icon should never steal focus
-                      />
-                    </View>
-                    {errors.calories && (
-                      <Text style={styles.errorText}>{errors.calories}</Text>
-                    )}
-                  </View>
-
-                  {/* macros row */}
-                  <View style={[styles.section, styles.macroRow]}>
-                    {/* Protein */}
-                    <View style={styles.macroWrapper}>
-                      <Text style={[typography.bodyBlack, styles.macroLabel]}>
-                        Protein (g)
-                      </Text>
-                      <TextInput
-                        style={styles.macroInput}
-                        placeholder="40"
-                        value={proteins}
-                        onChangeText={setProteins}
-                        placeholderTextColor="rgba(148,163,184,0.8)"
-                        keyboardType="numeric"
-                        returnKeyType="done"
-                      />
-                      {errors.proteins && (
-                        <Text style={styles.errorTextCenter}>
-                          {errors.proteins}
-                        </Text>
-                      )}
-                    </View>
-
-                    {/* Carbs */}
-                    <View style={styles.macroWrapper}>
-                      <Text style={[typography.bodyBlack, styles.macroLabel]}>
-                        Karbs (g)
-                      </Text>
-                      <TextInput
-                        style={styles.macroInput}
-                        placeholder="50"
-                        value={carbs}
-                        onChangeText={setCarbs}
-                        placeholderTextColor="rgba(148,163,184,0.8)"
-                        keyboardType="numeric"
-                        returnKeyType="done"
-                      />
-                      {errors.carbs && (
-                        <Text style={styles.errorTextCenter}>
-                          {errors.carbs}
-                        </Text>
-                      )}
-                    </View>
-
-                    {/* Fats */}
-                    <View style={styles.macroWrapper}>
-                      <Text style={[typography.bodyBlack, styles.macroLabel]}>
-                        Fett (g)
-                      </Text>
-                      <TextInput
-                        style={styles.macroInput}
-                        placeholder="20"
-                        value={fats}
-                        onChangeText={setFats}
-                        placeholderTextColor="rgba(148,163,184,0.8)"
-                        keyboardType="numeric"
-                        returnKeyType="done"
-                      />
-                      {errors.fats && (
-                        <Text style={styles.errorTextCenter}>
-                          {errors.fats}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-
-                  {/* time picker */}
-                  <View style={styles.section}>
-                    <Text style={[typography.bodyBlack, styles.label]}>
-                      Tidspunkt
-                    </Text>
-                    <AppDateTimePicker
-                      label=""
-                      mode="time"
-                      value={timestampUtc}
-                      onChange={setTimestampUtc}
+                      submitBehavior="blurAndSubmit"
+                      onSubmitEditing={Keyboard.dismiss}
                     />
                   </View>
+                </View>
 
-                  {/* tip card */}
-                  <View style={styles.tipCard}>
-                    <View style={styles.tipIconWrapper}>
-                      <Ionicons
-                        name="restaurant-outline"
-                        size={16}
-                        color="#22D3EE"
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.tipTitle}>
-                        Tips for nøyaktig logging
-                      </Text>
-                      <Text style={styles.tipText}>
-                        Vei maten din for mest nøyaktige resultater. Logg
-                        måltidene dine rett etter at du spiser for bedre
-                        oversikt.
-                      </Text>
-                    </View>
+                <View style={styles.section}>
+                  <Text style={[typography.bodyBlack, styles.label]}>
+                    Tidspunkt
+                  </Text>
+                  <AppDateTimePicker
+                    label=""
+                    mode="time"
+                    value={timestampUtc}
+                    onChange={setTimestampUtc}
+                    compact
+                  />
+                </View>
+
+                <View style={styles.tipCard}>
+                  <View style={styles.tipIconWrapper}>
+                    <Ionicons
+                      name="restaurant-outline"
+                      size={16}
+                      color="#67E8F9"
+                    />
                   </View>
+                  <View style={styles.tipCopy}>
+                    <Text style={styles.tipTitle}>
+                      Tips for nøyaktig logging
+                    </Text>
+                    <Text style={styles.tipText}>
+                      Vei maten for mest nøyaktige resultater. Logg måltidet
+                      tett på når du spiser for en renere historikk.
+                    </Text>
+                  </View>
+                </View>
 
-                  {/* confirm meal button */}
-                  <TouchableOpacity
-                    onPress={handleSave}
-                    style={styles.saveWrapper}
+                <TouchableOpacity
+                  onPress={handleSave}
+                  style={styles.saveWrapper}
+                  activeOpacity={0.9}
+                >
+                  <LinearGradient
+                    colors={["#06B6D4", "#2563EB"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.saveButton}
                   >
                     <LinearGradient
-                      colors={["#00C98B", "#00E0B5"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.saveButton}
-                    >
-                      <Ionicons
-                        name="save-outline"
-                        size={18}
-                        color="#FFFFFF"
-                        style={{ marginRight: 8 }}
-                      />
-                      <Text style={styles.saveText}>Lagre måltid</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </ScrollView>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
+                      pointerEvents="none"
+                      colors={[
+                        "rgba(255,255,255,0.2)",
+                        "rgba(255,255,255,0.04)",
+                        "rgba(255,255,255,0)",
+                      ]}
+                      start={{ x: 0.15, y: 0 }}
+                      end={{ x: 0.85, y: 1 }}
+                      style={StyleSheet.absoluteFill}
+                    />
+                    <Ionicons
+                      name="save-outline"
+                      size={18}
+                      color="#FFFFFF"
+                      style={styles.saveIcon}
+                    />
+                    <Text style={styles.saveText}>Lagre måltid</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </Animated.View>
         </View>
-      </KeyboardAvoidingView>
-    </View>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  // modal overlay above the whole screen
-  absoluteWrapper: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 50,
-  },
-  overlay: {
+  modalRoot: {
     flex: 1,
-    backgroundColor: "rgba(3,7,18,0.75)",
   },
-  sheetWrapper: {
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(2,6,23,0.78)",
+  },
+  sheetFrame: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 16,
+    paddingVertical: 28,
+  },
+  sheetAnimationWrap: {
+    width: "100%",
+    alignItems: "center",
   },
   sheet: {
+    position: "relative",
+    overflow: "hidden",
     width: "100%",
     maxWidth: 520,
     borderRadius: 28,
-    paddingHorizontal: 24,
-    paddingVertical: 22,
-    backgroundColor: "rgba(15,23,42,0.98)",
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    backgroundColor: "rgba(2,6,23,0.985)",
+    borderWidth: 1,
+    borderColor: "rgba(103,232,249,0.12)",
+    shadowColor: "#020617",
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
+  },
+  orbTop: {
+    position: "absolute",
+    top: -56,
+    right: -30,
+    width: 160,
+    height: 160,
+    borderRadius: 999,
+    backgroundColor: "rgba(34,211,238,0.08)",
+  },
+  orbBottom: {
+    position: "absolute",
+    left: -36,
+    bottom: -72,
+    width: 146,
+    height: 146,
+    borderRadius: 999,
+    backgroundColor: "rgba(37,99,235,0.08)",
   },
   sheetContent: {
-    paddingBottom: 10,
+    paddingBottom: 16,
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 14,
   },
   title: {
-    color: "#FFFFFF",
+    color: "#F8FAFC",
     fontSize: 20,
     fontWeight: "600",
+    letterSpacing: -0.35,
   },
   closeButton: {
-    padding: 6,
-    borderRadius: 999,
-    backgroundColor: "rgba(15,23,42,0.9)",
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    alignItems: "center",
+    justifyContent: "center",
   },
   toggleWrapper: {
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: 4,
+    marginBottom: 14,
   },
   section: {
-    marginTop: 16,
+    marginTop: 19,
   },
   label: {
-    fontSize: 13,
-    color: "rgba(148,163,184,0.95)",
-    marginBottom: 6,
+    fontSize: 11.5,
+    color: "rgba(191,219,254,0.72)",
+    marginBottom: 7,
+    letterSpacing: 0.14,
   },
   textInput: {
     width: "100%",
     paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    backgroundColor: "rgba(15,23,42,0.9)",
+    paddingHorizontal: 15,
+    borderRadius: 16,
+    backgroundColor: "rgba(8,15,28,0.72)",
     borderWidth: 1,
-    borderColor: "rgba(30,64,175,0.7)",
+    borderColor: "rgba(148,163,184,0.12)",
     color: "#E5ECFF",
+    fontSize: 14.5,
   },
-
-  // calories: same behavior as textInput, but with accent border and an icon inside
   calorieContainer: {
     position: "relative",
     width: "100%",
   },
   calorieInput: {
-    borderWidth: 2,
-    borderRadius: 18,
-    borderColor: "rgba(34,211,238,0.7)",
-    paddingRight: 40, // space for the icon
+    borderColor: "rgba(56,189,248,0.22)",
+    paddingRight: 42,
   },
   calorieIcon: {
     position: "absolute",
     right: 14,
     top: "50%",
-    marginTop: -9, // half of icon size (18 / 2)
+    marginTop: -9,
   },
-
   macroRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    columnGap: 12,
   },
   macroWrapper: {
-    width: "30%",
+    flex: 1,
   },
   macroLabel: {
-    fontSize: 12,
-    color: "rgba(148,163,184,0.95)",
+    fontSize: 11,
+    color: "rgba(191,219,254,0.66)",
     textAlign: "center",
-    marginBottom: 6,
+    marginBottom: 7,
   },
   macroInput: {
-    paddingVertical: 12,
+    paddingVertical: 13,
     paddingHorizontal: 10,
-    borderRadius: 14,
-    backgroundColor: "rgba(15,23,42,0.9)",
+    borderRadius: 15,
+    backgroundColor: "rgba(8,15,28,0.72)",
     borderWidth: 1,
-    borderColor: "rgba(51,65,85,0.9)",
+    borderColor: "rgba(148,163,184,0.12)",
     textAlign: "center",
-    fontSize: 16,
+    fontSize: 15,
     color: "#E5ECFF",
   },
-
   tipCard: {
-    marginTop: 18,
+    marginTop: 22,
     flexDirection: "row",
     alignItems: "flex-start",
     padding: 14,
-    borderRadius: 16,
-    backgroundColor: "rgba(8,47,73,0.95)",
+    borderRadius: 18,
+    backgroundColor: "rgba(8,47,73,0.32)",
     borderWidth: 1,
-    borderColor: "rgba(34,211,238,0.5)",
+    borderColor: "rgba(56,189,248,0.18)",
   },
   tipIconWrapper: {
     width: 28,
     height: 28,
     borderRadius: 999,
-    backgroundColor: "rgba(15,23,42,0.9)",
+    backgroundColor: "rgba(2,6,23,0.74)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
   },
+  tipCopy: {
+    flex: 1,
+  },
   tipTitle: {
     ...typography.bodyBlack,
-    fontSize: 13,
+    fontSize: 12.5,
     color: "#E5ECFF",
-    fontWeight: "500",
+    fontWeight: "600",
     marginBottom: 4,
   },
   tipText: {
     ...typography.bodyBlack,
     fontSize: 11,
-    color: "rgba(148,163,184,0.95)",
+    lineHeight: 16,
+    color: "rgba(191,219,254,0.66)",
   },
   saveWrapper: {
-    marginTop: 22,
+    marginTop: 26,
   },
   saveButton: {
+    position: "relative",
+    overflow: "hidden",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 16,
     borderRadius: 18,
+    shadowColor: "#2563EB",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  saveIcon: {
+    marginRight: 8,
   },
   saveText: {
     ...typography.bodyBlack,
     fontSize: 15,
     color: "#FFFFFF",
     fontWeight: "600",
-  },
-  errorText: {
-    ...typography.bodyBlack,
-    fontSize: 11,
-    color: "#F97373",
-    marginTop: 4,
-  },
-  errorTextCenter: {
-    ...typography.bodyBlack,
-    fontSize: 11,
-    color: "#F97373",
-    marginTop: 4,
-    textAlign: "center",
   },
 });

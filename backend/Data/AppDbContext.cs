@@ -78,6 +78,15 @@ namespace backend.Data
             modelBuilder.Entity<WorkoutSession>(b =>
             {
                 b.HasKey(x => x.Id);
+                b.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+                b.Property(x => x.ClientRequestId).HasMaxLength(100);
+                b.Property(x => x.SubmissionHash).HasMaxLength(64);
+                b.HasIndex(x => new { x.UserId, x.ClientRequestId })
+                    .IsUnique()
+                    .HasFilter("[ClientRequestId] IS NOT NULL");
+                b.HasIndex(x => new { x.UserId, x.SubmissionHash })
+                    .IsUnique()
+                    .HasFilter("[SubmissionHash] IS NOT NULL");
 
                 // Session 1 - * ExerciseLogs
                 b.HasMany(x => x.ExerciseLogs)

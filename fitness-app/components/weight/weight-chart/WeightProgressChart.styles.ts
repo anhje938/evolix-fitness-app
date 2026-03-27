@@ -3,10 +3,12 @@ import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create<{
   card: ViewStyle;
+  cardGlowTop: ViewStyle;
+  cardGlowBottom: ViewStyle;
   headerRow: ViewStyle;
+  kicker: TextStyle;
   title: TextStyle;
   meta: TextStyle;
-  hint: TextStyle;
 
   statsRow: ViewStyle;
   statBox: ViewStyle;
@@ -75,19 +77,39 @@ export const styles = StyleSheet.create<{
   goalStatValue: TextStyle;
 }>({
   card: {
+    position: "relative",
+    overflow: "hidden",
     width: "100%",
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 14,
     borderRadius: 22,
-    marginBottom: 18,
-    backgroundColor: "rgba(2,6,23,0.22)",
-    borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.14)",
-    shadowColor: "#0891b2",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 1,
+    marginBottom: 16,
+    backgroundColor: "rgba(3,7,18,0.5)",
+    borderWidth: 1,
+    borderColor: "rgba(103,232,249,0.12)",
+    shadowColor: "#020617",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 5,
+  },
+  cardGlowTop: {
+    position: "absolute",
+    top: -64,
+    right: -30,
+    width: 180,
+    height: 180,
+    borderRadius: 999,
+    backgroundColor: "rgba(34,211,238,0.08)",
+  },
+  cardGlowBottom: {
+    position: "absolute",
+    left: -42,
+    bottom: -80,
+    width: 150,
+    height: 150,
+    borderRadius: 999,
+    backgroundColor: "rgba(37,99,235,0.08)",
   },
 
   headerRow: {
@@ -95,54 +117,63 @@ export const styles = StyleSheet.create<{
     alignItems: "flex-start",
     justifyContent: "space-between",
     columnGap: 12,
-    marginBottom: 14,
+    marginBottom: 12,
+  },
+  kicker: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "rgba(125,211,252,0.92)",
+    letterSpacing: 1.4,
+    marginBottom: 5,
+    textTransform: "uppercase",
   },
 
   title: {
     color: "#F8FAFC",
-    fontWeight: "700",
-    letterSpacing: 0.1,
+    fontSize: 16,
+    fontWeight: "500",
+    letterSpacing: -0.15,
   },
 
   meta: {
-    marginTop: 4,
-    color: "rgba(148,163,184,0.85)",
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 0.12,
+    marginTop: 2,
+    color: "rgba(191,219,254,0.76)",
+    fontSize: 10.5,
+    fontWeight: "500",
+    letterSpacing: 0.08,
   },
 
   statsRow: {
     flexDirection: "row",
-    gap: 10,
-    marginBottom: 14,
+    gap: 8,
+    marginBottom: 12,
   },
 
   statBox: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     borderRadius: 14,
-    backgroundColor: "rgba(15,23,42,0.72)",
-    borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.14)",
+    backgroundColor: "rgba(8,15,28,0.66)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.12)",
   },
 
   statBoxAccent: {
-    backgroundColor: "rgba(6,182,212,0.12)",
-    borderColor: "rgba(56,189,248,0.24)",
+    backgroundColor: "rgba(8,47,73,0.36)",
+    borderColor: "rgba(56,189,248,0.22)",
   },
 
   statHead: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginBottom: 6,
+    gap: 5,
+    marginBottom: 4,
   },
 
   statIconWrap: {
-    width: 18,
-    height: 18,
+    width: 16,
+    height: 16,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
@@ -152,18 +183,18 @@ export const styles = StyleSheet.create<{
   },
 
   statLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "rgba(148,163,184,0.9)",
-    letterSpacing: 0.3,
+    fontSize: 9,
+    fontWeight: "500",
+    color: "rgba(191,219,254,0.72)",
+    letterSpacing: 0.24,
     textTransform: "uppercase",
   },
 
   statValue: {
-    fontSize: 16,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "400",
     color: "#E2E8F0",
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
 
   changeRow: {
@@ -173,20 +204,12 @@ export const styles = StyleSheet.create<{
   },
 
   trendIcon: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-
-  hint: {
-    marginBottom: 14,
-    color: "rgba(148,163,184,0.78)",
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 0.1,
+    fontSize: 13,
+    fontWeight: "500",
   },
 
   goalIndicator: {
-    marginBottom: 12,
+    marginBottom: 10,
     alignItems: "center",
   },
 
@@ -246,9 +269,9 @@ export const styles = StyleSheet.create<{
   goalHint: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    gap: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
     borderRadius: 999,
     backgroundColor: "rgba(251,191,36,0.10)",
     borderWidth: 0.8,
@@ -259,8 +282,8 @@ export const styles = StyleSheet.create<{
     borderColor: "rgba(56,189,248,0.3)",
   },
   goalHintText: {
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 10,
+    fontWeight: "600",
     color: "rgba(251,191,36,0.95)",
     letterSpacing: 0.08,
   },
@@ -268,8 +291,8 @@ export const styles = StyleSheet.create<{
     color: "rgba(125,211,252,0.96)",
   },
   goalHintValue: {
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10,
+    fontWeight: "500",
     color: "rgba(226,232,240,0.88)",
     letterSpacing: 0.04,
   },
@@ -321,9 +344,9 @@ export const styles = StyleSheet.create<{
   chartPanel: {
     borderRadius: 16,
     overflow: "hidden",
-    backgroundColor: "rgba(2, 6, 23, 0.36)",
-    borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.14)",
+    backgroundColor: "rgba(2, 6, 23, 0.5)",
+    borderWidth: 1,
+    borderColor: "rgba(103,232,249,0.12)",
   },
 
   panelAccent: {
@@ -339,52 +362,52 @@ export const styles = StyleSheet.create<{
   zoomContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
   },
 
   zoomButton: {
-    width: 30,
-    height: 30,
+    width: 28,
+    height: 28,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(15,23,42,0.8)",
-    borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.16)",
+    backgroundColor: "rgba(8,15,28,0.84)",
+    borderWidth: 1,
+    borderColor: "rgba(56,189,248,0.14)",
   },
 
   zoomButtonDisabled: { opacity: 0.3 },
 
   zoomText: {
     color: "rgba(224,242,254,0.95)",
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "500",
   },
 
   zoomPill: {
-    minWidth: 58,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    minWidth: 48,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
     borderRadius: 999,
-    backgroundColor: "rgba(2,6,23,0.45)",
-    borderWidth: 0.8,
-    borderColor: "rgba(56,189,248,0.14)",
+    backgroundColor: "rgba(8,15,28,0.66)",
+    borderWidth: 1,
+    borderColor: "rgba(56,189,248,0.12)",
     alignItems: "center",
     justifyContent: "center",
   },
 
   zoomLabel: {
     color: "rgba(224,242,254,0.95)",
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.15,
+    fontSize: 10,
+    fontWeight: "600",
+    letterSpacing: 0.08,
   },
 
   goalStats: {
     flexDirection: "row",
     gap: 8,
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: "rgba(56,189,248,0.12)",
   },
@@ -392,11 +415,11 @@ export const styles = StyleSheet.create<{
   goalStat: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 8,
     borderRadius: 12,
-    backgroundColor: "rgba(15,23,42,0.68)",
-    borderWidth: 0.8,
+    backgroundColor: "rgba(8,15,28,0.68)",
+    borderWidth: 1,
     borderColor: "rgba(56,189,248,0.12)",
   },
   goalLabelRow: {
@@ -433,16 +456,16 @@ export const styles = StyleSheet.create<{
 
   goalStatLabel: {
     fontSize: 9,
-    fontWeight: "600",
+    fontWeight: "500",
     color: "rgba(148,163,184,0.8)",
-    marginBottom: 4,
-    letterSpacing: 0.3,
+    marginBottom: 3,
+    letterSpacing: 0.22,
     textTransform: "uppercase",
   },
 
   goalStatValue: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 12.5,
+    fontWeight: "500",
     color: "rgba(226,232,240,0.9)",
     letterSpacing: -0.2,
   },
@@ -483,16 +506,16 @@ export const styles = StyleSheet.create<{
   },
 
   emptyRow: {
-    marginTop: 10,
+    marginTop: 8,
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
     alignItems: "center",
   },
 
   emptyIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(6,182,212,0.10)",
@@ -504,15 +527,15 @@ export const styles = StyleSheet.create<{
 
   emptyTitle: {
     color: "#E5ECFF",
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "500",
     letterSpacing: 0.1,
   },
 
   emptySub: {
-    marginTop: 3,
+    marginTop: 2,
     color: "rgba(148,163,184,0.85)",
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10,
+    fontWeight: "500",
   },
 });

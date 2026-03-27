@@ -10,20 +10,23 @@ type ToggleModeButtonsProps = {
 export function ToggleModeButtons({ setMode, mode }: ToggleModeButtonsProps) {
   return (
     <View style={styles.toggleModeContainer}>
-      {/* MANUAL BUTTON */}
       <TouchableOpacity
         style={styles.buttonWrapper}
         onPress={() => setMode("manual")}
+        activeOpacity={0.9}
       >
         <LinearGradient
           colors={
             mode === "manual"
-              ? ["#00C6FF", "#00F5A0"]
-              : ["rgba(15,23,42,0.9)", "rgba(15,23,42,0.9)"]
+              ? ["rgba(6,182,212,0.34)", "rgba(37,99,235,0.52)"]
+              : ["rgba(8,15,28,0.84)", "rgba(8,15,28,0.84)"]
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.toggleModeButton}
+          style={[
+            styles.toggleModeButton,
+            mode === "manual" && styles.toggleModeButtonActive,
+          ]}
         >
           <Text
             style={[
@@ -39,20 +42,23 @@ export function ToggleModeButtons({ setMode, mode }: ToggleModeButtonsProps) {
         </LinearGradient>
       </TouchableOpacity>
 
-      {/* QR BUTTON */}
       <TouchableOpacity
         style={styles.buttonWrapper}
         onPress={() => setMode("qr")}
+        activeOpacity={0.9}
       >
         <LinearGradient
           colors={
             mode === "qr"
-              ? ["#00C6FF", "#00F5A0"]
-              : ["rgba(15,23,42,0.9)", "rgba(15,23,42,0.9)"]
+              ? ["rgba(6,182,212,0.34)", "rgba(37,99,235,0.52)"]
+              : ["rgba(8,15,28,0.84)", "rgba(8,15,28,0.84)"]
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.toggleModeButton}
+          style={[
+            styles.toggleModeButton,
+            mode === "qr" && styles.toggleModeButtonActive,
+          ]}
         >
           <Text
             style={[
@@ -74,34 +80,38 @@ export function ToggleModeButtons({ setMode, mode }: ToggleModeButtonsProps) {
 const styles = StyleSheet.create({
   toggleModeContainer: {
     flexDirection: "row",
-    backgroundColor: "rgba(15,23,42,0.95)",
-    padding: 4,
-    borderRadius: 999,
+    backgroundColor: "rgba(3,7,18,0.72)",
+    padding: 3,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.4)",
-    marginTop: 8,
-    marginBottom: 12,
+    borderColor: "rgba(148,163,184,0.12)",
   },
   buttonWrapper: {
     flex: 1,
   },
   toggleModeButton: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 9,
     paddingHorizontal: 12,
-    borderRadius: 999,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  toggleModeButtonActive: {
+    borderColor: "rgba(103,232,249,0.16)",
   },
   toggleModeButtonText: {
     textAlign: "center",
-    fontSize: 13,
-    fontWeight: "500",
+    fontSize: 12.5,
+    fontWeight: "600",
+    letterSpacing: 0.08,
   },
   toggleTextActive: {
-    color: "#FFFFFF",
+    color: "#F8FAFC",
   },
   toggleTextInactive: {
-    color: "rgba(148,163,184,0.9)",
+    color: "rgba(148,163,184,0.86)",
   },
 });

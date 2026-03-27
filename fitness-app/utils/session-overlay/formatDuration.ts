@@ -1,11 +1,12 @@
 export function formatDuration(
   startedAtUtc?: string | null,
-  finishedAtUtc?: string | null
+  finishedAtUtc?: string | null,
+  nowMs: number = Date.now()
 ) {
   if (!startedAtUtc) return "0:00";
 
   const start = new Date(startedAtUtc).getTime();
-  const end = finishedAtUtc ? new Date(finishedAtUtc).getTime() : Date.now();
+  const end = finishedAtUtc ? new Date(finishedAtUtc).getTime() : nowMs;
 
   const ms = Math.max(0, end - start);
   const totalSeconds = Math.floor(ms / 1000);

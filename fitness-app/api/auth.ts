@@ -13,6 +13,16 @@ type ErrorResponse = {
   traceId?: string;
 };
 
+export class AuthRequestError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "AuthRequestError";
+    this.status = status;
+  }
+}
+
 export type AuthSessionPayload = {
   accessToken: string;
   refreshToken: string;
@@ -57,7 +67,8 @@ function normalizeAuthResponse(data: AuthResponse): AuthSessionPayload {
 async function parseAuthResponse(res: Response): Promise<AuthSessionPayload> {
   if (!res.ok) {
     const errorText = await res.text().catch(() => "");
-    throw new Error(
+    throw new AuthRequestError(
+      res.status,
       toErrorMessage(errorText) || `Auth request failed with status: ${res.status}`
     );
   }

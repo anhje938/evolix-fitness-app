@@ -35,18 +35,24 @@ export default function OverviewTab() {
 
       {/* CALENDAR LOG */}
       <View style={styles.section}>
-        <Text style={[typography.bodyBold, styles.sectionTitle]}>
-          Treningslogg
-        </Text>
+        <View style={styles.sectionHeader}>
+          <Text style={[typography.body, styles.sectionTitle]}>
+            Treningslogg
+          </Text>
+          <View style={styles.sectionRule} />
+        </View>
 
         <WorkoutCalendarLog sessions={sessions} onOpenSession={onOpenSession} />
       </View>
 
       {/* COMPLETED WORKOUTS LIST */}
       <View style={styles.section}>
-        <Text style={[typography.bodyBold, styles.sectionTitle]}>
-          Fullførte økter
-        </Text>
+        <View style={styles.sectionHeader}>
+          <Text style={[typography.body, styles.sectionTitle]}>
+            Fullførte økter
+          </Text>
+          <View style={styles.sectionRule} />
+        </View>
 
         {isLoading ? (
           <View style={{ paddingHorizontal: 14, paddingTop: 6 }}>
@@ -70,16 +76,29 @@ export default function OverviewTab() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
-    paddingBottom: 18,
+    paddingBottom: 22,
   },
 
   section: {
-    marginTop: 14,
+    marginTop: 16,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    marginBottom: 6,
   },
   sectionTitle: {
     color: sectionColors.text,
-    fontSize: 14,
-    paddingHorizontal: 14,
+    fontSize: 12.5,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  sectionRule: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   sectionSubtitle: {
     color: sectionColors.muted,

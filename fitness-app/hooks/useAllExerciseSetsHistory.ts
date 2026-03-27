@@ -9,7 +9,10 @@ export function useAllExerciseSetsHistory(exerciseIds: string[]) {
       queryKey: ["exerciseSetsHistory", exerciseId],
       queryFn: () => getExerciseSetsHistory(exerciseId),
       enabled: !!exerciseId,
-      staleTime: 60 * 1000,
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 30,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
     })),
   });
 

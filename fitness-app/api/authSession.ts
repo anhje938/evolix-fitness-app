@@ -1,5 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import {
+  AuthRequestError,
   type AuthSessionPayload,
   logoutWithRefreshToken,
   refreshWithToken,
@@ -48,6 +49,22 @@ function parseJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
+function readStringClaim(
+  payload: Record<string, unknown> | null,
+  claimNames: string[]
+): string | null {
+  if (!payload) return null;
+
+  for (const claimName of claimNames) {
+    const value = payload[claimName];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
 function decodeAccessExpiry(token: string): string | null {
   const payload = parseJwtPayload(token);
   const expSeconds = Number(payload?.exp);
@@ -55,11 +72,31 @@ function decodeAccessExpiry(token: string): string | null {
   return new Date(expSeconds * 1000).toISOString();
 }
 
+export function getAccessTokenUserId(
+  token: string | null | undefined
+): string | null {
+  if (!token) return null;
+
+  const payload = parseJwtPayload(token);
+  return readStringClaim(payload, [
+    "sub",
+    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
+    "nameidentifier",
+    "nameid",
+    "userId",
+  ]);
+}
+
 function isAccessTokenFresh(session: StoredAuthSession | null): boolean {
   if (!session?.accessToken) return false;
   const expiresAt = normalizeIso(session.accessTokenExpiresAtUtc);
   if (!expiresAt) return true;
   return new Date(expiresAt).getTime() - Date.now() > REFRESH_SKEW_MS;
+}
+
+function shouldClearSessionOnRefreshError(error: unknown): boolean {
+  if (!(error instanceof AuthRequestError)) return false;
+  return error.status === 400 || error.status === 401 || error.status === 403;
 }
 
 async function persistSession(next: StoredAuthSession | null): Promise<void> {
@@ -179,9 +216,12 @@ export async function refreshStoredAuthSession(): Promise<StoredAuthSession | nu
       const refreshed = await refreshWithToken(session.refreshToken as string);
       await setStoredAuthSession(refreshed);
       return currentSession;
-    } catch {
-      await clearStoredAuthSession();
-      return null;
+    } catch (error) {
+      if (shouldClearSessionOnRefreshError(error)) {
+        await clearStoredAuthSession();
+        return null;
+      }
+      throw error;
     } finally {
       refreshPromise = null;
     }
@@ -200,8 +240,16 @@ export async function getValidAccessToken(
   if (!candidate) return null;
   if (isAccessTokenFresh(session)) return session?.accessToken ?? candidate;
 
-  const refreshed = await refreshStoredAuthSession();
-  if (refreshed?.accessToken) return refreshed.accessToken;
+  try {
+    const refreshed = await refreshStoredAuthSession();
+    if (refreshed?.accessToken) return refreshed.accessToken;
+  } catch (error) {
+    if (session?.accessTokenExpiresAtUtc) {
+      const expiresAt = new Date(session.accessTokenExpiresAtUtc).getTime();
+      if (expiresAt > Date.now()) return session.accessToken;
+    }
+    throw error;
+  }
 
   if (session?.accessTokenExpiresAtUtc) {
     const expiresAt = new Date(session.accessTokenExpiresAtUtc).getTime();

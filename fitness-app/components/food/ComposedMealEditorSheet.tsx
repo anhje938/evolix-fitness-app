@@ -2,6 +2,7 @@ import { FetchFoodFromBarcode } from "@/api/food";
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
+import { useKeyboardAwareSheetScroll } from "@/hooks/useKeyboardAwareSheetScroll";
 import {
   ComposedMeal,
   FoodFromBarcode,
@@ -10,17 +11,25 @@ import {
 } from "@/types/meal";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { TextInput as RNTextInput } from "react-native";
 import {
   Alert,
   Dimensions,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import QRScanner from "./QRScanner";
@@ -101,9 +110,55 @@ export function ComposedMealEditorSheet({
   const [scanLoadingKey, setScanLoadingKey] = useState<string | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const inputRefs = useRef<Record<string, RNTextInput | null>>({});
+  const isMountedRef = useRef(true);
+  const ingredientScanRequestIdRef = useRef(0);
+  const ingredientScanAbortRef = useRef<AbortController | null>(null);
+  const activeIngredientScanKeyRef = useRef<string | null>(null);
+  const {
+    handleInputFocus,
+    handleScroll,
+    keyboardInsetHeight,
+    reset,
+    scrollRef,
+  } = useKeyboardAwareSheetScroll();
+
+  const abortActiveIngredientScan = useCallback(() => {
+    ingredientScanRequestIdRef.current += 1;
+    ingredientScanAbortRef.current?.abort();
+    ingredientScanAbortRef.current = null;
+    activeIngredientScanKeyRef.current = null;
+
+    if (isMountedRef.current) {
+      setScanLoadingKey(null);
+    }
+  }, []);
+
+  const closeIngredientScanner = useCallback(() => {
+    activeIngredientScanKeyRef.current = null;
+    setScanTargetKey(null);
+    setScanLoadingKey(null);
+  }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      ingredientScanAbortRef.current?.abort();
+      ingredientScanAbortRef.current = null;
+      ingredientScanRequestIdRef.current += 1;
+      activeIngredientScanKeyRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      abortActiveIngredientScan();
+      closeIngredientScanner();
+      reset();
+      return;
+    }
 
     if (initialMeal) {
       setName(initialMeal.name ?? "");
@@ -128,11 +183,10 @@ export function ComposedMealEditorSheet({
       setIngredients([createIngredient(0), createIngredient(1)]);
     }
 
-    setScanTargetKey(null);
-    setScanLoadingKey(null);
+    closeIngredientScanner();
     setErrorText(null);
     setIsSaving(false);
-  }, [initialMeal, isOpen]);
+  }, [abortActiveIngredientScan, closeIngredientScanner, initialMeal, isOpen, reset]);
 
   const totals = useMemo(() => {
     let calories = 0;
@@ -166,6 +220,103 @@ export function ComposedMealEditorSheet({
   const activeIngredientCount = useMemo(
     () => ingredients.filter((x) => x.name.trim().length > 0).length,
     [ingredients]
+  );
+
+  const mealNameInputKey = "mealName";
+
+  const ingredientInputKey = useCallback(
+    (
+      ingredientKey: string,
+      field: "name" | keyof UpsertComposedMealIngredientDto
+    ) => `ingredient:${ingredientKey}:${field}`,
+    []
+  );
+
+  const getIngredientInputKeys = useCallback(
+    (ingredient: EditorIngredient) => {
+      const keys = [
+        ingredientInputKey(ingredient.key, "name"),
+        ingredientInputKey(ingredient.key, "amountGrams"),
+      ];
+
+      if (!ingredient.scannedPer100) {
+        keys.push(
+          ingredientInputKey(ingredient.key, "calories"),
+          ingredientInputKey(ingredient.key, "proteins"),
+          ingredientInputKey(ingredient.key, "carbs"),
+          ingredientInputKey(ingredient.key, "fats")
+        );
+      }
+
+      return keys;
+    },
+    [ingredientInputKey]
+  );
+
+  const orderedInputKeys = useMemo(() => {
+    const keys = [mealNameInputKey];
+
+    for (const ingredient of ingredients) {
+      keys.push(...getIngredientInputKeys(ingredient));
+    }
+
+    return keys;
+  }, [getIngredientInputKeys, ingredients]);
+
+  const setInputRef = useCallback((key: string, input: RNTextInput | null) => {
+    if (input) {
+      inputRefs.current[key] = input;
+      return;
+    }
+
+    delete inputRefs.current[key];
+  }, []);
+
+  const getNextInputKey = useCallback(
+    (currentKey: string) => {
+      const currentIndex = orderedInputKeys.indexOf(currentKey);
+      if (currentIndex < 0) return null;
+      return orderedInputKeys[currentIndex + 1] ?? null;
+    },
+    [orderedInputKeys]
+  );
+
+  const focusNextInput = useCallback(
+    (currentKey: string) => {
+      const nextKey = getNextInputKey(currentKey);
+      if (!nextKey) {
+        Keyboard.dismiss();
+        return;
+      }
+
+      const nextInput = inputRefs.current[nextKey];
+      if (nextInput) {
+        nextInput.focus();
+        return;
+      }
+
+      requestAnimationFrame(() => {
+        const fallbackInput = inputRefs.current[nextKey];
+        if (fallbackInput) {
+          fallbackInput.focus();
+          return;
+        }
+
+        Keyboard.dismiss();
+      });
+    },
+    [getNextInputKey]
+  );
+
+  const getReturnKeyTypeForKey = useCallback(
+    (currentKey: string) => (getNextInputKey(currentKey) ? "next" : "done"),
+    [getNextInputKey]
+  );
+
+  const getSubmitBehaviorForKey = useCallback(
+    (currentKey: string) =>
+      getNextInputKey(currentKey) ? "submit" : "blurAndSubmit",
+    [getNextInputKey]
   );
 
   if (!isOpen) return null;
@@ -207,6 +358,10 @@ export function ComposedMealEditorSheet({
   };
 
   const handleRemoveIngredient = (key: string) => {
+    if (activeIngredientScanKeyRef.current === key) {
+      abortActiveIngredientScan();
+    }
+
     setIngredients((prev) => {
       if (prev.length <= 1) return prev;
       return prev.filter((x) => x.key !== key);
@@ -215,26 +370,57 @@ export function ComposedMealEditorSheet({
     setScanLoadingKey((prev) => (prev === key ? null : prev));
   };
 
+  const toggleIngredientScanner = (ingredientKey: string) => {
+    setScanTargetKey((prev) => {
+      const nextKey = prev === ingredientKey ? null : ingredientKey;
+
+      if (nextKey === null || prev !== ingredientKey) {
+        abortActiveIngredientScan();
+      }
+
+      activeIngredientScanKeyRef.current = nextKey;
+      return nextKey;
+    });
+  };
+
   const handleScanIngredient = async (
     ingredientKey: string,
     scannedValue: string
   ) => {
-    if (!scannedValue) return;
+    const normalizedValue = scannedValue.trim();
+    if (!normalizedValue) return;
 
     if (!token) {
-      setScanTargetKey(null);
+      closeIngredientScanner();
       Alert.alert("Mangler innlogging", "Logg inn på nytt og prøv igjen.");
       return;
     }
 
+    ingredientScanAbortRef.current?.abort();
+    const controller = new AbortController();
+    ingredientScanAbortRef.current = controller;
+    ingredientScanRequestIdRef.current += 1;
+    const requestId = ingredientScanRequestIdRef.current;
+    activeIngredientScanKeyRef.current = ingredientKey;
+
+    setScanTargetKey(ingredientKey);
     setScanLoadingKey(ingredientKey);
-    const loadingGuard = setTimeout(() => {
-      setScanLoadingKey((prev) => (prev === ingredientKey ? null : prev));
-      setScanTargetKey((prev) => (prev === ingredientKey ? null : prev));
-    }, 10000);
 
     try {
-      const data: FoodFromBarcode = await FetchFoodFromBarcode(token, scannedValue);
+      const data: FoodFromBarcode = await FetchFoodFromBarcode(
+        token,
+        normalizedValue,
+        { signal: controller.signal }
+      );
+
+      if (
+        !isMountedRef.current ||
+        ingredientScanRequestIdRef.current !== requestId ||
+        activeIngredientScanKeyRef.current !== ingredientKey
+      ) {
+        return;
+      }
+
       const per100Values: Macros = {
         calories: Number(data.caloriesPr100 || 0),
         proteins: Number(data.proteinsPr100 || 0),
@@ -245,7 +431,8 @@ export function ComposedMealEditorSheet({
       setIngredients((prev) =>
         prev.map((ing) => {
           if (ing.key !== ingredientKey) return ing;
-          const grams = Number(ing.amountGrams || 0) > 0 ? Number(ing.amountGrams) : 100;
+          const grams =
+            Number(ing.amountGrams || 0) > 0 ? Number(ing.amountGrams) : 100;
 
           return {
             ...ing,
@@ -256,17 +443,34 @@ export function ComposedMealEditorSheet({
           };
         })
       );
-      setScanTargetKey(null);
+      closeIngredientScanner();
     } catch (error) {
+      if (
+        controller.signal.aborted ||
+        !isMountedRef.current ||
+        ingredientScanRequestIdRef.current !== requestId
+      ) {
+        return;
+      }
+
       console.log("Could not scan ingredient barcode", error);
-      setScanTargetKey(null);
+      closeIngredientScanner();
       Alert.alert(
         "Fant ikke produkt",
         "Kunne ikke hente produktdata fra strekkoden. Prøv igjen eller legg inn manuelt."
       );
     } finally {
-      clearTimeout(loadingGuard);
-      setScanLoadingKey(null);
+      if (
+        !isMountedRef.current ||
+        ingredientScanRequestIdRef.current !== requestId ||
+        ingredientScanAbortRef.current !== controller
+      ) {
+        return;
+      }
+
+      ingredientScanAbortRef.current = null;
+      activeIngredientScanKeyRef.current = null;
+      setScanLoadingKey((prev) => (prev === ingredientKey ? null : prev));
     }
   };
 
@@ -319,13 +523,12 @@ export function ComposedMealEditorSheet({
 
   return (
     <View style={styles.absoluteWrapper}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 56 : 0}
-      >
-        <View style={styles.overlay}>
-          <View style={styles.sheetWrapper}>
+      <View style={styles.overlay}>
+        <View style={styles.sheetWrapper}>
+          <TouchableWithoutFeedback
+            accessible={false}
+            onPress={Keyboard.dismiss}
+          >
             <View
               style={[
                 generalStyles.newCard,
@@ -344,262 +547,479 @@ export function ComposedMealEditorSheet({
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
               />
+              <View pointerEvents="none" style={styles.orbTop} />
+              <View pointerEvents="none" style={styles.orbBottom} />
 
               <ScrollView
+                ref={scrollRef}
                 style={styles.sheetScroll}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.sheetContent}
-                keyboardShouldPersistTaps="always"
-                keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+                contentContainerStyle={[
+                  styles.sheetContent,
+                  {
+                    paddingBottom: Math.max(24, keyboardInsetHeight + 24),
+                  },
+                ]}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={
+                  Platform.OS === "ios" ? "interactive" : "on-drag"
+                }
                 nestedScrollEnabled
                 scrollEventThrottle={16}
                 removeClippedSubviews={false}
+                onScroll={handleScroll}
               >
-                  <View style={styles.headerRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[typography.h2, styles.title]}>
-                        {isEdit ? "Rediger rett" : "Ny rett"}
-                      </Text>
-                      <Text style={[typography.body, styles.subtitle]}>
-                        Legg inn ingredienser med gram for realistisk logging
-                      </Text>
-                    </View>
+              <View style={styles.headerRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[typography.h2, styles.title]}>
+                    {isEdit ? "Rediger rett" : "Ny rett"}
+                  </Text>
+                  <Text style={[typography.body, styles.subtitle]}>
+                    Legg inn ingredienser med gram for realistisk logging
+                  </Text>
+                </View>
 
-                    <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
-                      <Ionicons name="close" size={18} color="#E2E8F0" />
-                    </TouchableOpacity>
-                  </View>
+                <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
+                  <Ionicons name="close" size={18} color="#E2E8F0" />
+                </TouchableOpacity>
+              </View>
 
-                  <View style={styles.section}>
-                    <Text style={[typography.bodyBlack, styles.label]}>Navn på rett</Text>
-                    <TextInput
-                      value={name}
-                      onChangeText={setName}
-                      placeholder="F.eks. Kylling med ris"
-                      placeholderTextColor="rgba(148,163,184,0.82)"
-                      style={styles.input}
+              <View style={styles.section}>
+                <Text style={[typography.bodyBlack, styles.label]}>
+                  Navn på rett
+                </Text>
+                <TextInput
+                  ref={(input) => setInputRef(mealNameInputKey, input)}
+                  value={name}
+                  onChangeText={setName}
+                  onFocus={() =>
+                    handleInputFocus(
+                      inputRefs.current[mealNameInputKey] ?? null
+                    )
+                  }
+                  placeholder="F.eks. Kylling med ris"
+                  placeholderTextColor="rgba(148,163,184,0.82)"
+                  style={styles.input}
+                  returnKeyType={getReturnKeyTypeForKey(mealNameInputKey)}
+                  submitBehavior={getSubmitBehaviorForKey(mealNameInputKey)}
+                  onSubmitEditing={() => focusNextInput(mealNameInputKey)}
+                />
+              </View>
+
+              <View style={styles.favoriteRow}>
+                <Text style={[typography.bodyBlack, styles.label]}>
+                  Favoritt
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setIsFavorite((v) => !v)}
+                  style={[
+                    styles.favoriteBtn,
+                    isFavorite && styles.favoriteBtnActive,
+                  ]}
+                >
+                  <Ionicons
+                    name={isFavorite ? "star" : "star-outline"}
+                    size={15}
+                    color={isFavorite ? "#111827" : "#E2E8F0"}
+                  />
+                  <Text
+                    style={[
+                      styles.favoriteText,
+                      isFavorite && styles.favoriteTextActive,
+                    ]}
+                  >
+                    Favoritt
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.totalsCard}>
+                <Text style={[typography.bodyBlack, styles.totalsTitle]}>
+                  Næringsoversikt
+                </Text>
+
+                <View style={styles.metaInfoRow}>
+                  <View style={styles.metaInfoChip}>
+                    <Ionicons
+                      name="barbell-outline"
+                      size={12}
+                      color="#BAE6FD"
                     />
+                    <Text style={styles.metaInfoText}>
+                      {Math.round(totals.totalGrams)} g totalt
+                    </Text>
+                  </View>
+                  <View style={styles.metaInfoChip}>
+                    <Ionicons name="list-outline" size={12} color="#BAE6FD" />
+                    <Text style={styles.metaInfoText}>
+                      {activeIngredientCount} ingredienser
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.totalsPillsRow}>
+                  <View style={[styles.totalPill, styles.totalPillCalories]}>
+                    <Text style={styles.totalPillLabel}>Hele retten</Text>
+                    <Text style={styles.totalPillValue}>
+                      {Math.round(totals.calories)} kcal
+                    </Text>
+                    <Text style={styles.totalPillSub}>
+                      P {Math.round(totals.proteins)} g | C{" "}
+                      {Math.round(totals.carbs)} g | F {Math.round(totals.fats)}{" "}
+                      g
+                    </Text>
                   </View>
 
-                  <View style={styles.favoriteRow}>
-                    <Text style={[typography.bodyBlack, styles.label]}>Favoritt</Text>
+                  <View style={styles.totalPill}>
+                    <Text style={styles.totalPillLabel}>Per 100 g</Text>
+                    <Text style={styles.totalPillValue}>
+                      {per100 ? `${per100.calories} kcal` : "-"}
+                    </Text>
+                    <Text style={styles.totalPillSub}>
+                      {per100
+                        ? `P ${per100.proteins} g | C ${per100.carbs} g | F ${per100.fats} g`
+                        : "Legg inn gram for beregning"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.sectionTop}>
+                <Text style={[typography.bodyBlack, styles.sectionTitle]}>
+                  Ingredienser
+                </Text>
+                <TouchableOpacity
+                  onPress={handleAddIngredient}
+                  style={styles.addIngredientBtn}
+                >
+                  <Ionicons name="add" size={14} color="#E6FFFB" />
+                  <Text style={styles.addIngredientText}>Legg til</Text>
+                </TouchableOpacity>
+              </View>
+
+              {ingredients.map((ing, idx) => (
+                <View key={ing.key} style={styles.ingredientCard}>
+                  <View style={styles.ingredientHeader}>
+                    <Text
+                      style={[typography.bodyBlack, styles.ingredientTitle]}
+                    >
+                      Ingrediens {idx + 1}
+                    </Text>
                     <TouchableOpacity
-                      onPress={() => setIsFavorite((v) => !v)}
-                      style={[styles.favoriteBtn, isFavorite && styles.favoriteBtnActive]}
+                      onPress={() => handleRemoveIngredient(ing.key)}
+                      disabled={ingredients.length <= 1}
+                      style={[
+                        styles.removeBtn,
+                        ingredients.length <= 1 && { opacity: 0.4 },
+                      ]}
                     >
                       <Ionicons
-                        name={isFavorite ? "star" : "star-outline"}
-                        size={15}
-                        color={isFavorite ? "#111827" : "#E2E8F0"}
+                        name="trash-outline"
+                        size={14}
+                        color="#FCA5A5"
                       />
-                      <Text
-                        style={[styles.favoriteText, isFavorite && styles.favoriteTextActive]}
-                      >
-                        Favoritt
-                      </Text>
                     </TouchableOpacity>
                   </View>
 
-                  <View style={styles.totalsCard}>
-                    <Text style={[typography.bodyBlack, styles.totalsTitle]}>
-                      Næringsoversikt
-                    </Text>
-
-                    <View style={styles.metaInfoRow}>
-                      <View style={styles.metaInfoChip}>
-                        <Ionicons name="barbell-outline" size={12} color="#BAE6FD" />
-                        <Text style={styles.metaInfoText}>{Math.round(totals.totalGrams)} g totalt</Text>
-                      </View>
-                      <View style={styles.metaInfoChip}>
-                        <Ionicons name="list-outline" size={12} color="#BAE6FD" />
-                        <Text style={styles.metaInfoText}>{activeIngredientCount} ingredienser</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.totalsPillsRow}>
-                      <View style={[styles.totalPill, styles.totalPillCalories]}>
-                        <Text style={styles.totalPillLabel}>Hele retten</Text>
-                        <Text style={styles.totalPillValue}>{Math.round(totals.calories)} kcal</Text>
-                        <Text style={styles.totalPillSub}>
-                          P {Math.round(totals.proteins)} g | C {Math.round(totals.carbs)} g | F {Math.round(totals.fats)} g
-                        </Text>
-                      </View>
-
-                      <View style={styles.totalPill}>
-                        <Text style={styles.totalPillLabel}>Per 100 g</Text>
-                        <Text style={styles.totalPillValue}>
-                          {per100 ? `${per100.calories} kcal` : "-"}
-                        </Text>
-                        <Text style={styles.totalPillSub}>
-                          {per100
-                            ? `P ${per100.proteins} g | C ${per100.carbs} g | F ${per100.fats} g`
-                            : "Legg inn gram for beregning"}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.sectionTop}>
-                    <Text style={[typography.bodyBlack, styles.sectionTitle]}>Ingredienser</Text>
-                    <TouchableOpacity onPress={handleAddIngredient} style={styles.addIngredientBtn}>
-                      <Ionicons name="add" size={14} color="#E6FFFB" />
-                      <Text style={styles.addIngredientText}>Legg til</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {ingredients.map((ing, idx) => (
-                    <View key={ing.key} style={styles.ingredientCard}>
-                      <View style={styles.ingredientHeader}>
-                        <Text style={[typography.bodyBlack, styles.ingredientTitle]}>
-                          Ingrediens {idx + 1}
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() => handleRemoveIngredient(ing.key)}
-                          disabled={ingredients.length <= 1}
-                          style={[
-                            styles.removeBtn,
-                            ingredients.length <= 1 && { opacity: 0.4 },
-                          ]}
-                        >
-                          <Ionicons name="trash-outline" size={14} color="#FCA5A5" />
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={styles.scanRow}>
-                        <TouchableOpacity
-                          onPress={() =>
-                            setScanTargetKey((prev) => (prev === ing.key ? null : ing.key))
-                          }
-                          style={[styles.scanBtn, scanTargetKey === ing.key && styles.scanBtnActive]}
-                        >
-                          <Ionicons name="scan-outline" size={14} color="#22D3EE" />
-                          <Text style={styles.scanBtnText}>
-                            {ing.scannedPer100 ? "Skann på nytt" : "Skann produkt"}
-                          </Text>
-                        </TouchableOpacity>
-
-                        {ing.scannedPer100 && (
-                          <View style={styles.scanBadge}>
-                            <Ionicons name="checkmark-circle" size={13} color="#86EFAC" />
-                            <Text style={styles.scanBadgeText}>Auto-beregnet</Text>
-                          </View>
-                        )}
-                      </View>
-
-                      {scanTargetKey === ing.key && (
-                        <View style={styles.scannerCard}>
-                          <Text style={styles.scannerLabel}>
-                            {scanLoadingKey === ing.key
-                              ? "Henter produkt..."
-                              : "Hold strekkoden innenfor rammen"}
-                          </Text>
-                          <View style={styles.scannerFrame}>
-                            <QRScanner
-                              onScanned={(value) => {
-                                void handleScanIngredient(ing.key, value);
-                              }}
-                              title=""
-                            />
-                          </View>
-                        </View>
-                      )}
-
-                      <TextInput
-                        value={ing.name}
-                        onChangeText={(v) => setIngredientField(ing.key, "name", v)}
-                        placeholder="Navn på ingrediens"
-                        placeholderTextColor="rgba(148,163,184,0.82)"
-                        style={[styles.input, styles.ingredientInput]}
-                      />
-
-                      <View style={styles.gridRow}>
-                        <View style={styles.gridCell}>
-                          <Text style={styles.smallLabel}>Gram</Text>
-                          <TextInput
-                            value={String(ing.amountGrams || "")}
-                            onChangeText={(v) => setIngredientField(ing.key, "amountGrams", v)}
-                            keyboardType="decimal-pad"
-                            style={styles.smallInput}
-                          />
-                        </View>
-                        <View style={styles.gridCell}>
-                          <Text style={styles.smallLabel}>Kcal</Text>
-                          <TextInput
-                            value={String(ing.calories || "")}
-                            onChangeText={(v) => setIngredientField(ing.key, "calories", v)}
-                            keyboardType="decimal-pad"
-                            editable={!ing.scannedPer100}
-                            style={[styles.smallInput, ing.scannedPer100 && styles.smallInputDisabled]}
-                          />
-                        </View>
-                        <View style={styles.gridCell}>
-                          <Text style={styles.smallLabel}>Protein</Text>
-                          <TextInput
-                            value={String(ing.proteins || "")}
-                            onChangeText={(v) => setIngredientField(ing.key, "proteins", v)}
-                            keyboardType="decimal-pad"
-                            editable={!ing.scannedPer100}
-                            style={[styles.smallInput, ing.scannedPer100 && styles.smallInputDisabled]}
-                          />
-                        </View>
-                        <View style={styles.gridCell}>
-                          <Text style={styles.smallLabel}>Karbo</Text>
-                          <TextInput
-                            value={String(ing.carbs || "")}
-                            onChangeText={(v) => setIngredientField(ing.key, "carbs", v)}
-                            keyboardType="decimal-pad"
-                            editable={!ing.scannedPer100}
-                            style={[styles.smallInput, ing.scannedPer100 && styles.smallInputDisabled]}
-                          />
-                        </View>
-                        <View style={styles.gridCell}>
-                          <Text style={styles.smallLabel}>Fett</Text>
-                          <TextInput
-                            value={String(ing.fats || "")}
-                            onChangeText={(v) => setIngredientField(ing.key, "fats", v)}
-                            keyboardType="decimal-pad"
-                            editable={!ing.scannedPer100}
-                            style={[styles.smallInput, ing.scannedPer100 && styles.smallInputDisabled]}
-                          />
-                        </View>
-                      </View>
-
-                      {ing.scannedPer100 && (
-                        <Text style={styles.scannedHint}>
-                          Næringsverdier oppdateres automatisk når du endrer gram.
-                        </Text>
-                      )}
-                    </View>
-                  ))}
-
-                  {errorText && <Text style={styles.errorText}>{errorText}</Text>}
-
-                  <TouchableOpacity
-                    onPress={handleSave}
-                    style={styles.saveWrap}
-                    disabled={isSaving}
-                  >
-                    <LinearGradient
-                      colors={isSaving ? ["#0B4C5D", "#0B4C5D"] : ["#0891B2", "#22D3EE"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.saveBtn}
+                  <View style={styles.scanRow}>
+                    <TouchableOpacity
+                      onPress={() => toggleIngredientScanner(ing.key)}
+                      style={[
+                        styles.scanBtn,
+                        scanTargetKey === ing.key && styles.scanBtnActive,
+                      ]}
                     >
-                      <Ionicons name="save-outline" size={17} color="white" />
-                      <Text style={styles.saveText}>
-                        {isSaving
-                          ? "Lagrer..."
-                          : isEdit
-                            ? "Oppdater rett"
-                            : "Lagre rett"}
+                      <Ionicons name="scan-outline" size={14} color="#22D3EE" />
+                      <Text style={styles.scanBtnText}>
+                        {ing.scannedPer100 ? "Skann på nytt" : "Skann produkt"}
                       </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                    </TouchableOpacity>
+
+                    {ing.scannedPer100 && (
+                      <View style={styles.scanBadge}>
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={13}
+                          color="#86EFAC"
+                        />
+                        <Text style={styles.scanBadgeText}>Auto-beregnet</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {scanTargetKey === ing.key && (
+                    <View style={styles.scannerCard}>
+                      <Text style={styles.scannerLabel}>
+                        {scanLoadingKey === ing.key
+                          ? "Henter produkt..."
+                          : "Hold strekkoden innenfor rammen"}
+                      </Text>
+                      <View style={styles.scannerFrame}>
+                        <QRScanner
+                          onScanned={(value) => {
+                            void handleScanIngredient(ing.key, value);
+                          }}
+                          title=""
+                          scanBoxSize={132}
+                          enabled={scanLoadingKey !== ing.key}
+                        />
+                      </View>
+                    </View>
+                  )}
+
+                  <TextInput
+                    ref={(input) =>
+                      setInputRef(ingredientInputKey(ing.key, "name"), input)
+                    }
+                    value={ing.name}
+                    onChangeText={(v) => setIngredientField(ing.key, "name", v)}
+                    onFocus={() =>
+                      handleInputFocus(
+                        inputRefs.current[
+                          ingredientInputKey(ing.key, "name")
+                        ] ?? null
+                      )
+                    }
+                    placeholder="Navn på ingrediens"
+                    placeholderTextColor="rgba(148,163,184,0.82)"
+                    style={[styles.input, styles.ingredientInput]}
+                    returnKeyType="next"
+                    submitBehavior="submit"
+                    onSubmitEditing={() =>
+                      inputRefs.current[
+                        ingredientInputKey(ing.key, "amountGrams")
+                      ]?.focus()
+                    }
+                  />
+
+                  <View style={styles.gridRow}>
+                    <View style={styles.gridCell}>
+                      <Text style={styles.smallLabel}>Gram</Text>
+                      <TextInput
+                        ref={(input) =>
+                          setInputRef(
+                            ingredientInputKey(ing.key, "amountGrams"),
+                            input
+                          )
+                        }
+                        value={String(ing.amountGrams || "")}
+                        onChangeText={(v) =>
+                          setIngredientField(ing.key, "amountGrams", v)
+                        }
+                        onFocus={() =>
+                          handleInputFocus(
+                            inputRefs.current[
+                              ingredientInputKey(ing.key, "amountGrams")
+                            ] ?? null
+                          )
+                        }
+                        keyboardType="decimal-pad"
+                        style={styles.smallInput}
+                        returnKeyType={getReturnKeyTypeForKey(
+                          ingredientInputKey(ing.key, "amountGrams")
+                        )}
+                        submitBehavior={getSubmitBehaviorForKey(
+                          ingredientInputKey(ing.key, "amountGrams")
+                        )}
+                        onSubmitEditing={() =>
+                          focusNextInput(
+                            ingredientInputKey(ing.key, "amountGrams")
+                          )
+                        }
+                      />
+                    </View>
+                    <View style={styles.gridCell}>
+                      <Text style={styles.smallLabel}>Kcal</Text>
+                      <TextInput
+                        ref={(input) =>
+                          setInputRef(
+                            ingredientInputKey(ing.key, "calories"),
+                            input
+                          )
+                        }
+                        value={String(ing.calories || "")}
+                        onChangeText={(v) =>
+                          setIngredientField(ing.key, "calories", v)
+                        }
+                        onFocus={() =>
+                          handleInputFocus(
+                            inputRefs.current[
+                              ingredientInputKey(ing.key, "calories")
+                            ] ?? null
+                          )
+                        }
+                        keyboardType="decimal-pad"
+                        editable={!ing.scannedPer100}
+                        style={[
+                          styles.smallInput,
+                          ing.scannedPer100 && styles.smallInputDisabled,
+                        ]}
+                        returnKeyType={getReturnKeyTypeForKey(
+                          ingredientInputKey(ing.key, "calories")
+                        )}
+                        submitBehavior={getSubmitBehaviorForKey(
+                          ingredientInputKey(ing.key, "calories")
+                        )}
+                        onSubmitEditing={() =>
+                          focusNextInput(
+                            ingredientInputKey(ing.key, "calories")
+                          )
+                        }
+                      />
+                    </View>
+                    <View style={styles.gridCell}>
+                      <Text style={styles.smallLabel}>Protein</Text>
+                      <TextInput
+                        ref={(input) =>
+                          setInputRef(
+                            ingredientInputKey(ing.key, "proteins"),
+                            input
+                          )
+                        }
+                        value={String(ing.proteins || "")}
+                        onChangeText={(v) =>
+                          setIngredientField(ing.key, "proteins", v)
+                        }
+                        onFocus={() =>
+                          handleInputFocus(
+                            inputRefs.current[
+                              ingredientInputKey(ing.key, "proteins")
+                            ] ?? null
+                          )
+                        }
+                        keyboardType="decimal-pad"
+                        editable={!ing.scannedPer100}
+                        style={[
+                          styles.smallInput,
+                          ing.scannedPer100 && styles.smallInputDisabled,
+                        ]}
+                        returnKeyType={getReturnKeyTypeForKey(
+                          ingredientInputKey(ing.key, "proteins")
+                        )}
+                        submitBehavior={getSubmitBehaviorForKey(
+                          ingredientInputKey(ing.key, "proteins")
+                        )}
+                        onSubmitEditing={() =>
+                          focusNextInput(
+                            ingredientInputKey(ing.key, "proteins")
+                          )
+                        }
+                      />
+                    </View>
+                    <View style={styles.gridCell}>
+                      <Text style={styles.smallLabel}>Karbo</Text>
+                      <TextInput
+                        ref={(input) =>
+                          setInputRef(
+                            ingredientInputKey(ing.key, "carbs"),
+                            input
+                          )
+                        }
+                        value={String(ing.carbs || "")}
+                        onChangeText={(v) =>
+                          setIngredientField(ing.key, "carbs", v)
+                        }
+                        onFocus={() =>
+                          handleInputFocus(
+                            inputRefs.current[
+                              ingredientInputKey(ing.key, "carbs")
+                            ] ?? null
+                          )
+                        }
+                        keyboardType="decimal-pad"
+                        editable={!ing.scannedPer100}
+                        style={[
+                          styles.smallInput,
+                          ing.scannedPer100 && styles.smallInputDisabled,
+                        ]}
+                        returnKeyType={getReturnKeyTypeForKey(
+                          ingredientInputKey(ing.key, "carbs")
+                        )}
+                        submitBehavior={getSubmitBehaviorForKey(
+                          ingredientInputKey(ing.key, "carbs")
+                        )}
+                        onSubmitEditing={() =>
+                          focusNextInput(ingredientInputKey(ing.key, "carbs"))
+                        }
+                      />
+                    </View>
+                    <View style={styles.gridCell}>
+                      <Text style={styles.smallLabel}>Fett</Text>
+                      <TextInput
+                        ref={(input) =>
+                          setInputRef(
+                            ingredientInputKey(ing.key, "fats"),
+                            input
+                          )
+                        }
+                        value={String(ing.fats || "")}
+                        onChangeText={(v) =>
+                          setIngredientField(ing.key, "fats", v)
+                        }
+                        onFocus={() =>
+                          handleInputFocus(
+                            inputRefs.current[
+                              ingredientInputKey(ing.key, "fats")
+                            ] ?? null
+                          )
+                        }
+                        keyboardType="decimal-pad"
+                        editable={!ing.scannedPer100}
+                        style={[
+                          styles.smallInput,
+                          ing.scannedPer100 && styles.smallInputDisabled,
+                        ]}
+                        returnKeyType={getReturnKeyTypeForKey(
+                          ingredientInputKey(ing.key, "fats")
+                        )}
+                        submitBehavior={getSubmitBehaviorForKey(
+                          ingredientInputKey(ing.key, "fats")
+                        )}
+                        onSubmitEditing={() =>
+                          focusNextInput(ingredientInputKey(ing.key, "fats"))
+                        }
+                      />
+                    </View>
+                  </View>
+
+                  {ing.scannedPer100 && (
+                    <Text style={styles.scannedHint}>
+                      Næringsverdier oppdateres automatisk når du endrer gram.
+                    </Text>
+                  )}
+                </View>
+              ))}
+
+              {errorText && <Text style={styles.errorText}>{errorText}</Text>}
+
+                <TouchableOpacity
+                  onPress={handleSave}
+                  style={styles.saveWrap}
+                  disabled={isSaving}
+                >
+                  <LinearGradient
+                    colors={
+                      isSaving ? ["#0B4C5D", "#0B4C5D"] : ["#0891B2", "#22D3EE"]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.saveBtn}
+                  >
+                    <Ionicons name="save-outline" size={17} color="white" />
+                    <Text style={styles.saveText}>
+                      {isSaving
+                        ? "Lagrer..."
+                        : isEdit
+                        ? "Oppdater rett"
+                        : "Lagre rett"}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
               </ScrollView>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }
@@ -607,7 +1027,7 @@ export function ComposedMealEditorSheet({
 const styles = StyleSheet.create({
   absoluteWrapper: {
     position: "absolute",
-    top: 0,
+    top: 20,
     bottom: 0,
     left: 0,
     right: 0,
@@ -621,72 +1041,100 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 14,
   },
   sheet: {
+    position: "relative",
     width: "100%",
-    maxWidth: 620,
-    borderRadius: 24,
-    paddingHorizontal: 18,
+    maxWidth: 560,
+    borderRadius: 28,
+    paddingHorizontal: 14,
     paddingVertical: 16,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(56,189,248,0.3)",
-    backgroundColor: "rgba(11,30,52,0.96)",
+    borderColor: "rgba(103,232,249,0.12)",
+    backgroundColor: "rgba(2,6,23,0.985)",
+    shadowColor: "#020617",
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
+  },
+  orbTop: {
+    position: "absolute",
+    top: -56,
+    right: -30,
+    width: 160,
+    height: 160,
+    borderRadius: 999,
+    backgroundColor: "rgba(34,211,238,0.08)",
+  },
+  orbBottom: {
+    position: "absolute",
+    left: -36,
+    bottom: -72,
+    width: 146,
+    height: 146,
+    borderRadius: 999,
+    backgroundColor: "rgba(37,99,235,0.08)",
   },
   sheetScroll: {
     width: "100%",
   },
   sheetContent: {
+    paddingTop: 4,
     paddingBottom: 24,
     gap: 12,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
+    gap: 12,
   },
   title: {
-    color: "#F0F9FF",
-    fontSize: 21,
+    color: "#F8FAFC",
+    fontSize: 20,
+    fontWeight: "600",
+    letterSpacing: -0.35,
   },
   subtitle: {
-    marginTop: 2,
-    color: "rgba(191,219,254,0.9)",
+    marginTop: 4,
+    color: "rgba(148,163,184,0.94)",
     fontSize: 12,
   },
   iconBtn: {
     width: 34,
     height: 34,
-    borderRadius: 12,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(125,211,252,0.32)",
-    backgroundColor: "rgba(8,47,73,0.72)",
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(15,23,42,0.92)",
   },
   section: {
-    gap: 6,
+    gap: 5,
   },
   label: {
-    color: "rgba(226,242,255,0.96)",
-    fontSize: 12,
+    color: "rgba(191,219,254,0.72)",
+    fontSize: 11.5,
   },
   input: {
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(56,189,248,0.34)",
-    backgroundColor: "rgba(12,44,70,0.5)",
+    borderColor: "rgba(148,163,184,0.12)",
+    backgroundColor: "rgba(8,15,28,0.72)",
     color: "#E2E8F0",
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 14,
   },
   favoriteRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 10,
   },
   favoriteBtn: {
     flexDirection: "row",
@@ -694,10 +1142,10 @@ const styles = StyleSheet.create({
     gap: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(125,211,252,0.34)",
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-    backgroundColor: "rgba(12,44,70,0.52)",
+    borderColor: "rgba(6,182,212,0.22)",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: "rgba(6,182,212,0.1)",
   },
   favoriteBtnActive: {
     borderColor: "rgba(250,204,21,0.4)",
@@ -712,79 +1160,76 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
   totalsCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(56,189,248,0.3)",
-    backgroundColor: "rgba(14,116,144,0.24)",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    gap: 8,
   },
   totalsTitle: {
-    color: "#D6F3FF",
-    fontSize: 12,
-    marginBottom: 6,
+    color: "#EAF7FF",
+    fontSize: 13,
+    marginBottom: 0,
   },
   metaInfoRow: {
     flexDirection: "row",
     gap: 8,
-    marginBottom: 8,
     flexWrap: "wrap",
   },
   metaInfoChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(125,211,252,0.3)",
-    backgroundColor: "rgba(15,51,75,0.55)",
+    borderColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(15,23,42,0.7)",
   },
   metaInfoText: {
-    color: "rgba(224,242,254,0.95)",
+    color: "rgba(224,242,254,0.92)",
     fontSize: 10,
     fontWeight: "500",
   },
   totalsPillsRow: {
-    flexDirection: "column",
-    gap: 6,
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 8,
   },
   totalPill: {
-    minHeight: 52,
-    borderRadius: 11,
+    flex: 1,
+    minHeight: 54,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(125,211,252,0.26)",
-    backgroundColor: "rgba(15,51,75,0.52)",
-    paddingHorizontal: 10,
+    borderColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(15,23,42,0.7)",
+    paddingHorizontal: 12,
     paddingVertical: 8,
     justifyContent: "center",
   },
   totalPillCalories: {
-    borderColor: "rgba(34,211,238,0.46)",
-    backgroundColor: "rgba(14,116,144,0.8)",
+    borderColor: "rgba(6,182,212,0.22)",
+    backgroundColor: "rgba(6,182,212,0.12)",
   },
   totalPillLabel: {
-    color: "rgba(191,219,254,0.95)",
-    fontSize: 10,
+    color: "rgba(191,219,254,0.82)",
+    fontSize: 10.5,
     fontWeight: "500",
     marginBottom: 4,
   },
   totalPillValue: {
     color: "#F0F9FF",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
   totalPillSub: {
-    color: "rgba(224,242,254,0.9)",
-    fontSize: 10,
+    color: "rgba(224,242,254,0.84)",
+    fontSize: 10.5,
     fontWeight: "500",
-    marginTop: 3,
+    marginTop: 2,
   },
   sectionTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 10,
   },
   sectionTitle: {
     color: "#EAF7FF",
@@ -793,25 +1238,27 @@ const styles = StyleSheet.create({
   addIngredientBtn: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 5,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(56,189,248,0.42)",
-    backgroundColor: "rgba(14,116,144,0.82)",
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    borderColor: "rgba(6,182,212,0.22)",
+    backgroundColor: "rgba(6,182,212,0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   addIngredientText: {
-    color: "#ECFEFF",
-    fontSize: 11,
-    fontWeight: "500",
+    color: "#E5ECFF",
+    fontSize: 12.5,
+    fontWeight: "600",
   },
   ingredientCard: {
-    borderRadius: 13,
+    width: "100%",
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(125,211,252,0.24)",
-    backgroundColor: "rgba(11,39,63,0.5)",
-    padding: 10,
+    borderColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    padding: 12,
     gap: 8,
   },
   ingredientHeader: {
@@ -821,12 +1268,12 @@ const styles = StyleSheet.create({
   },
   ingredientTitle: {
     color: "#F0F9FF",
-    fontSize: 12,
+    fontSize: 13,
   },
   removeBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
+    width: 32,
+    height: 32,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(248,113,113,0.32)",
     alignItems: "center",
@@ -834,33 +1281,35 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(127,29,29,0.28)",
   },
   ingredientInput: {
-    paddingVertical: 10,
+    paddingVertical: 11,
   },
   scanRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+    flexWrap: "wrap",
     gap: 8,
   },
   scanBtn: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(56,189,248,0.42)",
-    backgroundColor: "rgba(14,116,144,0.62)",
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    borderColor: "rgba(6,182,212,0.22)",
+    backgroundColor: "rgba(6,182,212,0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   scanBtnActive: {
-    borderColor: "rgba(125,211,252,0.7)",
-    backgroundColor: "rgba(8,145,178,0.8)",
+    borderColor: "rgba(6,182,212,0.34)",
+    backgroundColor: "rgba(6,182,212,0.16)",
   },
   scanBtnText: {
-    color: "#E0F2FE",
-    fontSize: 11,
-    fontWeight: "500",
+    color: "#E5ECFF",
+    fontSize: 12,
+    fontWeight: "600",
   },
   scanBadge: {
     flexDirection: "row",
@@ -879,10 +1328,10 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   scannerCard: {
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(56,189,248,0.34)",
-    backgroundColor: "rgba(12,44,70,0.52)",
+    borderColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(15,23,42,0.72)",
     padding: 8,
     gap: 6,
   },
@@ -891,43 +1340,48 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   scannerFrame: {
-    height: 220,
-    borderRadius: 10,
+    height: 156,
+    borderRadius: 12,
     overflow: "hidden",
   },
   gridRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    columnGap: 6,
+    rowGap: 8,
   },
   gridCell: {
-    width: "18%",
-    minWidth: 58,
+    flexBasis: "18%",
+    flexGrow: 1,
+    minWidth: 56,
   },
   smallLabel: {
-    color: "rgba(191,219,254,0.9)",
+    color: "rgba(191,219,254,0.82)",
     fontSize: 10,
-    marginBottom: 3,
+    marginBottom: 4,
+    textAlign: "center",
   },
   smallInput: {
-    borderRadius: 10,
+    width: "100%",
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(56,189,248,0.3)",
-    backgroundColor: "rgba(12,44,70,0.62)",
+    borderColor: "rgba(148,163,184,0.12)",
+    backgroundColor: "rgba(8,15,28,0.72)",
     color: "#E2E8F0",
     paddingHorizontal: 8,
     paddingVertical: 8,
-    fontSize: 12,
+    fontSize: 13,
     textAlign: "center",
   },
   smallInputDisabled: {
-    opacity: 0.75,
-    borderColor: "rgba(45,212,191,0.5)",
-    backgroundColor: "rgba(12,44,70,0.46)",
+    opacity: 0.72,
+    borderColor: "rgba(45,212,191,0.22)",
+    backgroundColor: "rgba(15,23,42,0.56)",
   },
   scannedHint: {
-    color: "rgba(191,219,254,0.9)",
-    fontSize: 10,
+    color: "rgba(191,219,254,0.82)",
+    fontSize: 11,
+    lineHeight: 14,
   },
   errorText: {
     color: "#FCA5A5",
@@ -936,10 +1390,13 @@ const styles = StyleSheet.create({
   },
   saveWrap: {
     marginTop: 6,
+    marginBottom: 2,
+    alignItems: "flex-end",
   },
   saveBtn: {
-    borderRadius: 14,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
@@ -951,4 +1408,3 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 });
-

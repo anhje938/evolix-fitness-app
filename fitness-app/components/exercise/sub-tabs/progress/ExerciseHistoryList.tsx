@@ -15,7 +15,6 @@ type Props = {
 };
 
 const colors = {
-  // Glass surface
   cardBg: "rgba(2,6,23,0.26)",
   cardSheenA: "rgba(99,102,241,0.16)",
   cardSheenB: "rgba(34,211,238,0.12)",
@@ -23,59 +22,77 @@ const colors = {
   strokeInner: "rgba(255,255,255,0.07)",
   divider: "rgba(255,255,255,0.075)",
 
-  // ✅ MORE CONTRAST BETWEEN SESSIONS (zebra + stronger separation)
   rowBg: "rgba(255,255,255,0.040)",
   rowBgAlt: "rgba(255,255,255,0.022)",
   rowEdgeTop: "rgba(255,255,255,0.06)",
   rowEdgeBottom: "rgba(0,0,0,0.28)",
 
-  // Text
   text: "rgba(255,255,255,0.95)",
   muted: "rgba(148,163,184,0.88)",
   muted2: "rgba(148,163,184,0.72)",
 
-  // Accents
   accent: "#22d3ee",
   danger: "rgba(248,113,113,0.98)",
 
-  // ✅ PR treatment a bit stronger
   prText: "rgba(250,204,21,0.98)",
   prGlow: "rgba(250,204,21,0.085)",
   prBorder: "rgba(250,204,21,0.32)",
   prChipBg: "rgba(250,204,21,0.14)",
 
-  // Icon chip
   iconBg: "rgba(255,255,255,0.055)",
   iconBorder: "rgba(255,255,255,0.12)",
 
-  // ✅ SETS TABLE: more table contrast
   tableBg: "rgba(255,255,255,0.020)",
   tableRowA: "rgba(255,255,255,0.060)",
   tableRowB: "rgba(255,255,255,0.032)",
   tableBorder: "rgba(255,255,255,0.10)",
 };
 
-type Row = {
+type DaySetRow = {
   key: string;
   performedAtUtc: string;
-  sets: ExerciseSessionSetsDto["sets"];
+  setNumber: number;
+  weightKg: number | null;
+  reps: number | null;
+  est1Rm: number;
+};
+
+type Row = {
+  key: string;
+  date: string;
+  performedAtUtc: string;
+  sets: DaySetRow[];
   est1Rm: number;
   diff: number | null;
   isPr: boolean;
+  sessionCount: number;
 };
 
-function sessionBest1Rm(s: ExerciseSessionSetsDto) {
-  let best = 0;
-  for (const set of s.sets ?? []) {
-    const est = estimate1RMFromTopSet(
-      set.weightKg,
-      set.reps,
-      { roundTo: 1, conservative: true, allowHighRep: true },
-      "ensemble"
-    );
-    if (est.oneRm > best) best = est.oneRm;
-  }
-  return best;
+function estimateSet1Rm(weightKg: number | null, reps: number | null) {
+  return estimate1RMFromTopSet(
+    weightKg,
+    reps,
+    { roundTo: 1, conservative: true, allowHighRep: true },
+    "ensemble"
+  ).oneRm;
+}
+
+function compareSetStrength(a: DaySetRow, b: DaySetRow) {
+  if (a.est1Rm !== b.est1Rm) return a.est1Rm - b.est1Rm;
+
+  const aWeight = a.weightKg ?? 0;
+  const bWeight = b.weightKg ?? 0;
+  if (aWeight !== bWeight) return aWeight - bWeight;
+
+  const aReps = a.reps ?? 0;
+  const bReps = b.reps ?? 0;
+  if (aReps !== bReps) return aReps - bReps;
+
+  const timeDiff =
+    new Date(a.performedAtUtc).getTime() - new Date(b.performedAtUtc).getTime();
+  if (timeDiff !== 0) return timeDiff;
+
+  return a.setNumber - b.setNumber;
 }
 
 function formatDiff(diff: number | null) {
@@ -90,87 +107,176 @@ function diffColor(diff: number | null) {
   return diff > 0 ? colors.accent : colors.danger;
 }
 
-function normalizeSets(sets: ExerciseSessionSetsDto["sets"]) {
+function normalizeSets(
+  sets: ExerciseSessionSetsDto["sets"],
+  performedAtUtc: string,
+  sessionKey: string
+): DaySetRow[] {
   return [...(sets ?? [])]
     .sort((a, b) => a.setNumber - b.setNumber)
-    .map((s, idx) => ({
-      key: `${s.setNumber ?? idx}-${s.weightKg ?? "w"}-${s.reps ?? "r"}`,
-      setNumber: s.setNumber ?? idx + 1,
-      weightKg: s.weightKg,
-      reps: s.reps,
+    .map((set, idx) => ({
+      key: `${sessionKey}-${set.setId ?? idx}-${set.setNumber ?? idx}`,
+      performedAtUtc,
+      setNumber: set.setNumber ?? idx + 1,
+      weightKg: set.weightKg,
+      reps: set.reps,
+      est1Rm: estimateSet1Rm(set.weightKg, set.reps),
     }));
 }
 
-function formatKg(w: number | null | undefined) {
-  if (w == null || !Number.isFinite(w)) return "—";
-  const rounded = Math.round(w * 10) / 10;
+function formatKg(weightKg: number | null | undefined) {
+  if (weightKg == null || !Number.isFinite(weightKg)) return "—";
+  const rounded = Math.round(weightKg * 10) / 10;
   const asInt = Math.round(rounded);
   return Math.abs(rounded - asInt) < 0.0001 ? `${asInt}` : `${rounded}`;
 }
 
-function formatReps(r: number | null | undefined) {
-  if (r == null || !Number.isFinite(r)) return "—";
-  return `${Math.max(0, Math.round(r))}`;
+function formatReps(reps: number | null | undefined) {
+  if (reps == null || !Number.isFinite(reps)) return "—";
+  return `${Math.max(0, Math.round(reps))}`;
 }
 
 export default function ExerciseHistoryList({ history }: Props) {
-  const sorted = useMemo(
-    () =>
-      [...history].sort(
+  const rows = useMemo<Row[]>(() => {
+    if (history.length === 0) return [];
+
+    const sorted = [...history].sort(
+      (a, b) =>
+        new Date(b.performedAtUtc).getTime() -
+        new Date(a.performedAtUtc).getTime()
+    );
+
+    const grouped = sorted.reduce<
+      Map<
+        string,
+        {
+          key: string;
+          date: string;
+          performedAtUtc: string;
+          sets: DaySetRow[];
+          est1Rm: number;
+          sessionCount: number;
+        }
+      >
+    >((acc, session) => {
+      const { date } = parseISO(session.performedAtUtc);
+      const sessionKey = session.sessionId ?? session.performedAtUtc;
+      const daySets = normalizeSets(
+        session.sets ?? [],
+        session.performedAtUtc,
+        sessionKey
+      );
+
+      const current = acc.get(date) ?? {
+        key: date,
+        date,
+        performedAtUtc: session.performedAtUtc,
+        sets: [],
+        est1Rm: 0,
+        sessionCount: 0,
+      };
+
+      if (
+        new Date(session.performedAtUtc).getTime() >
+        new Date(current.performedAtUtc).getTime()
+      ) {
+        current.performedAtUtc = session.performedAtUtc;
+      }
+
+      current.sessionCount += 1;
+
+      for (const daySet of daySets) {
+        current.sets.push(daySet);
+        current.est1Rm = Math.max(current.est1Rm, daySet.est1Rm);
+      }
+
+      acc.set(date, current);
+      return acc;
+    }, new Map());
+
+    const groupedRows = [...grouped.values()]
+      .map((row) => ({
+        ...row,
+        sets: row.sets.slice().sort((a, b) => {
+          const timeDiff =
+            new Date(a.performedAtUtc).getTime() -
+            new Date(b.performedAtUtc).getTime();
+          if (timeDiff !== 0) return timeDiff;
+          return a.setNumber - b.setNumber;
+        }),
+      }))
+      .sort(
         (a, b) =>
           new Date(b.performedAtUtc).getTime() -
           new Date(a.performedAtUtc).getTime()
-      ),
-    [history]
-  );
+      );
 
-  const rows: Row[] = useMemo(() => {
-    if (sorted.length === 0) return [];
-
-    const keyed = sorted.map((s) => {
-      const key = s.sessionId ?? s.performedAtUtc;
-      return { s, key };
-    });
-
-    const pr = keyed.reduce<{
+    const pr = groupedRows.reduce<{
       key: string;
       oneRm: number;
       performedAtUtc: string;
-    } | null>((acc, cur) => {
-      const oneRm = sessionBest1Rm(cur.s);
-      if (!acc)
-        return { key: cur.key, oneRm, performedAtUtc: cur.s.performedAtUtc };
-
-      if (oneRm > acc.oneRm) {
-        return { key: cur.key, oneRm, performedAtUtc: cur.s.performedAtUtc };
+    } | null>((acc, row) => {
+      if (!acc) {
+        return {
+          key: row.key,
+          oneRm: row.est1Rm,
+          performedAtUtc: row.performedAtUtc,
+        };
       }
 
-      if (oneRm === acc.oneRm) {
-        return new Date(cur.s.performedAtUtc) > new Date(acc.performedAtUtc)
-          ? { key: cur.key, oneRm, performedAtUtc: cur.s.performedAtUtc }
-          : acc;
+      if (row.est1Rm > acc.oneRm) {
+        return {
+          key: row.key,
+          oneRm: row.est1Rm,
+          performedAtUtc: row.performedAtUtc,
+        };
+      }
+
+      if (
+        row.est1Rm === acc.oneRm &&
+        new Date(row.performedAtUtc).getTime() >
+          new Date(acc.performedAtUtc).getTime()
+      ) {
+        return {
+          key: row.key,
+          oneRm: row.est1Rm,
+          performedAtUtc: row.performedAtUtc,
+        };
       }
 
       return acc;
     }, null);
 
-    return keyed.map(({ s, key }, idx) => {
-      const est1Rm = sessionBest1Rm(s);
-      const prev = idx < keyed.length - 1 ? keyed[idx + 1].s : null;
-      const prevEst = prev ? sessionBest1Rm(prev) : null;
-      const diff =
-        prevEst != null ? Number((est1Rm - prevEst).toFixed(1)) : null;
+    return groupedRows.map((row, idx) => {
+      const previousRow =
+        idx < groupedRows.length - 1 ? groupedRows[idx + 1] : null;
+      const previousBest = previousRow?.est1Rm ?? null;
 
       return {
-        key,
-        performedAtUtc: s.performedAtUtc,
-        sets: s.sets ?? [],
-        est1Rm,
-        diff,
-        isPr: !!pr && pr.key === key,
+        key: row.key,
+        date: row.date,
+        performedAtUtc: row.performedAtUtc,
+        sets: row.sets,
+        est1Rm: row.est1Rm,
+        diff:
+          previousBest != null
+            ? Number((row.est1Rm - previousBest).toFixed(1))
+            : null,
+        isPr: pr?.key === row.key,
+        sessionCount: row.sessionCount,
       };
     });
-  }, [sorted]);
+  }, [history]);
+
+  const prSetKey = useMemo(() => {
+    const prRow = rows.find((row) => row.isPr);
+    if (!prRow || prRow.sets.length === 0) return null;
+
+    return prRow.sets.reduce((best, set) => {
+      if (!best) return set;
+      return compareSetStrength(set, best) > 0 ? set : best;
+    }, prRow.sets[0] ?? null)?.key ?? null;
+  }, [rows]);
 
   const hasRows = rows.length > 0;
 
@@ -183,7 +289,7 @@ export default function ExerciseHistoryList({ history }: Props) {
           <View style={styles.countPill}>
             <Ionicons name="time-outline" size={14} color={colors.muted2} />
             <Text style={[typography.body, styles.countText]} numberOfLines={1}>
-              {rows.length} økter
+              {rows.length} dager
             </Text>
           </View>
         )}
@@ -225,182 +331,198 @@ export default function ExerciseHistoryList({ history }: Props) {
             </View>
           </View>
         ) : (
-          rows.map(({ key, performedAtUtc, sets, est1Rm, diff, isPr }, idx) => {
-            const { date, time } = parseISO(performedAtUtc);
-            const label = getRelativeDateLabel(date);
-            const rowBg = idx % 2 === 0 ? colors.rowBg : colors.rowBgAlt;
+          rows.map(
+            ({ key, date, sets, est1Rm, diff, isPr, sessionCount }, idx) => {
+              const label = getRelativeDateLabel(date);
+              const rowBg = idx % 2 === 0 ? colors.rowBg : colors.rowBgAlt;
 
-            const normalized = normalizeSets(sets);
-            const shown = normalized.slice(0, 4);
-            const more = normalized.length > 4 ? normalized.length - 4 : 0;
+              return (
+                <View
+                  key={key}
+                  style={[
+                    styles.row,
+                    { backgroundColor: rowBg },
+                    isPr && styles.rowPr,
+                    idx === 0 && styles.rowFirst,
+                    idx === rows.length - 1 && styles.rowLast,
+                  ]}
+                >
+                  <View pointerEvents="none" style={styles.rowEdgeTop} />
+                  <View pointerEvents="none" style={styles.rowEdgeBottom} />
 
-            return (
-              <View
-                key={key}
-                style={[
-                  styles.row,
-                  { backgroundColor: rowBg },
-                  isPr && styles.rowPr,
-                  idx === 0 && styles.rowFirst,
-                  idx === rows.length - 1 && styles.rowLast,
-                ]}
-              >
-                {/* subtle row “edge” to separate sessions */}
-                <View pointerEvents="none" style={styles.rowEdgeTop} />
-                <View pointerEvents="none" style={styles.rowEdgeBottom} />
-
-                <View style={[styles.iconChip, isPr && styles.iconChipPr]}>
-                  <Ionicons
-                    name={isPr ? "trophy-outline" : "barbell-outline"}
-                    size={18}
-                    color={isPr ? colors.prText : colors.text}
-                  />
-                  <View style={styles.iconChipHighlight} />
-                </View>
-
-                <View style={styles.content}>
-                  <View style={styles.topRow}>
-                    <View style={styles.leftInfo}>
-                      <Text
-                        style={[typography.body, styles.mainLabel]}
-                        numberOfLines={1}
-                      >
-                        {label}
-                      </Text>
-                      <Text
-                        style={[typography.body, styles.subLabel]}
-                        numberOfLines={1}
-                      >
-                        {date} · {time}
-                      </Text>
-
-                      {isPr && (
-                        <View style={styles.prChip}>
-                          <Ionicons
-                            name="trophy"
-                            size={12}
-                            color={colors.prText}
-                          />
-                          <Text style={styles.prChipText}>PR</Text>
+                  <View style={styles.content}>
+                    <View style={styles.rowHeader}>
+                      <View style={styles.leftInfo}>
+                        <View style={styles.labelRow}>
+                          <View
+                            style={[styles.iconChip, isPr && styles.iconChipPr]}
+                          >
+                            <Ionicons
+                              name={isPr ? "trophy-outline" : "calendar-outline"}
+                              size={14}
+                              color={isPr ? colors.prText : colors.text}
+                            />
+                            <View style={styles.iconChipHighlight} />
+                          </View>
+                          <Text
+                            style={[typography.body, styles.mainLabel]}
+                            numberOfLines={1}
+                          >
+                            {label}
+                          </Text>
                         </View>
+                      </View>
+
+                      <View style={styles.right}>
+                        <Text
+                          style={[typography.body, styles.rmLabel]}
+                          numberOfLines={1}
+                        >
+                          Beste 1RM
+                        </Text>
+
+                        <Text
+                          style={[
+                            typography.body,
+                            styles.rmValue,
+                            isPr && styles.rmValuePr,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {est1Rm} kg
+                        </Text>
+
+                        <Text
+                          style={[
+                            typography.body,
+                            styles.diffText,
+                            { color: diffColor(diff) },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {formatDiff(diff)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.table}>
+                      {sets.length === 0 ? (
+                        <View
+                          style={[
+                            styles.tableRow,
+                            styles.tableRowLast,
+                            { backgroundColor: colors.tableRowA },
+                          ]}
+                        >
+                          <Text
+                            style={[typography.body, styles.noSetsText]}
+                            numberOfLines={1}
+                          >
+                            Ingen sett
+                          </Text>
+                        </View>
+                      ) : (
+                        sets.map((set, setIndex) => {
+                          const rowTone =
+                            setIndex % 2 === 0
+                              ? colors.tableRowA
+                              : colors.tableRowB;
+                          const setTime = parseISO(set.performedAtUtc).time;
+                          const isPrSet = set.key === prSetKey;
+
+                          return (
+                            <View
+                              key={set.key}
+                              style={[
+                                styles.tableRow,
+                                { backgroundColor: rowTone },
+                                setIndex === sets.length - 1 &&
+                                  styles.tableRowLast,
+                              ]}
+                            >
+                              <View style={styles.setLeft}>
+                                <Text
+                                  style={[typography.body, styles.setIndex]}
+                                >
+                                  {set.setNumber}.
+                                </Text>
+
+                                <View style={styles.setInfo}>
+                                  <Text
+                                    style={[typography.body, styles.setReps]}
+                                    numberOfLines={1}
+                                  >
+                                    {formatReps(set.reps)}
+                                    <Text style={styles.unit}> reps</Text>
+                                  </Text>
+
+                                  {sessionCount > 1 && (
+                                    <Text
+                                      style={[typography.body, styles.setMeta]}
+                                      numberOfLines={1}
+                                    >
+                                      {setTime}
+                                    </Text>
+                                  )}
+                                </View>
+                              </View>
+
+                              <View style={styles.tableDivider} />
+
+                              <View
+                                style={[styles.setValueColumn, styles.setMiddleColumn]}
+                              >
+                                <Text
+                                  style={[
+                                    typography.body,
+                                    styles.setWeight,
+                                    styles.setWeightLeft,
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {formatKg(set.weightKg)}
+                                  <Text style={styles.unit}> kg</Text>
+                                </Text>
+                              </View>
+
+                              <View style={styles.tableDivider} />
+
+                              <View
+                                style={[styles.setValueColumn, styles.setRmColumn]}
+                              >
+                                {isPrSet && (
+                                  <Ionicons
+                                    name="trophy"
+                                    size={10}
+                                    color={colors.prText}
+                                    style={styles.setPrIcon}
+                                  />
+                                )}
+                                <Text
+                                  style={[
+                                    typography.body,
+                                    styles.setWeight,
+                                    styles.setWeightRight,
+                                    isPrSet && styles.prSetText,
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {formatKg(set.est1Rm > 0 ? set.est1Rm : null)}
+                                  <Text style={styles.unit}> kg 1RM</Text>
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })
                       )}
                     </View>
-
-                    <View style={styles.right}>
-                      <Text
-                        style={[typography.body, styles.rmLabel]}
-                        numberOfLines={1}
-                      >
-                        Estimert 1RM
-                      </Text>
-
-                      <Text
-                        style={[
-                          typography.bodyBold,
-                          styles.rmValue,
-                          isPr && styles.rmValuePr,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {est1Rm} kg
-                      </Text>
-
-                      <Text
-                        style={[
-                          typography.body,
-                          styles.diffText,
-                          { color: diffColor(diff) },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {formatDiff(diff)}
-                      </Text>
-                    </View>
                   </View>
 
-                  <View style={styles.table}>
-                    {shown.length === 0 ? (
-                      <View
-                        style={[
-                          styles.tableRow,
-                          { backgroundColor: colors.tableRowA },
-                        ]}
-                      >
-                        <Text
-                          style={[typography.body, styles.noSetsText]}
-                          numberOfLines={1}
-                        >
-                          Ingen sett
-                        </Text>
-                      </View>
-                    ) : (
-                      shown.map((s, i) => {
-                        const bg =
-                          i % 2 === 0 ? colors.tableRowA : colors.tableRowB;
-                        const isLastRow = i === shown.length - 1 && more === 0;
-                        return (
-                          <View
-                            key={s.key}
-                            style={[
-                              styles.tableRow,
-                              { backgroundColor: bg },
-                              isLastRow && styles.tableRowLast,
-                            ]}
-                          >
-                            <View style={styles.setLeft}>
-                              <Text style={[typography.body, styles.setIndex]}>
-                                {s.setNumber}.
-                              </Text>
-                              <Text
-                                style={[typography.body, styles.setReps]}
-                                numberOfLines={1}
-                              >
-                                {formatReps(s.reps)}
-                                <Text style={styles.unit}> reps</Text>
-                              </Text>
-                            </View>
-
-                            <View style={styles.tableDivider} />
-
-                            <Text
-                              style={[
-                                typography.body,
-                                styles.setWeight,
-                                styles.setWeightRight,
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {formatKg(s.weightKg)}
-                              <Text style={styles.unit}> kg</Text>
-                            </Text>
-                          </View>
-                        );
-                      })
-                    )}
-
-                    {more > 0 && (
-                      <View style={[styles.tableRow, styles.tableRowLast]}>
-                        <Text
-                          style={[typography.body, styles.moreRowText]}
-                          numberOfLines={1}
-                        >
-                          +{more} sett til
-                        </Text>
-                        <Ionicons
-                          name="chevron-down-outline"
-                          size={16}
-                          color={colors.muted2}
-                          style={{ marginLeft: "auto" }}
-                        />
-                      </View>
-                    )}
-                  </View>
+                  {idx !== rows.length - 1 && <View style={styles.separator} />}
                 </View>
-
-                {idx !== rows.length - 1 && <View style={styles.separator} />}
-              </View>
-            );
-          })
+              );
+            }
+          )
         )}
       </View>
     </View>
@@ -418,7 +540,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
-    marginBottom: 10,
+    marginBottom: 8,
   },
 
   title: {
@@ -428,9 +550,9 @@ const styles = StyleSheet.create({
   countPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 999,
     backgroundColor: "rgba(255,255,255,0.06)",
     borderWidth: 1,
@@ -438,8 +560,8 @@ const styles = StyleSheet.create({
   },
   countText: {
     color: colors.muted2,
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "600",
   },
 
   card: {
@@ -466,16 +588,16 @@ const styles = StyleSheet.create({
   },
 
   empty: {
-    paddingVertical: 18,
-    paddingHorizontal: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   emptyIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.06)",
@@ -484,23 +606,20 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: colors.text,
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 12.5,
+    fontWeight: "600",
   },
   emptySub: {
-    marginTop: 2,
+    marginTop: 1,
     color: colors.muted2,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 11,
+    lineHeight: 14,
   },
 
   row: {
     position: "relative",
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
   },
   rowEdgeTop: {
     position: "absolute",
@@ -522,10 +641,10 @@ const styles = StyleSheet.create({
   },
 
   rowFirst: {
-    paddingTop: 14,
+    paddingTop: 10,
   },
   rowLast: {
-    paddingBottom: 14,
+    paddingBottom: 10,
   },
   rowPr: {
     backgroundColor: colors.prGlow,
@@ -533,24 +652,23 @@ const styles = StyleSheet.create({
 
   separator: {
     position: "absolute",
-    left: 12,
-    right: 12,
+    left: 10,
+    right: 10,
     bottom: 0,
     height: 1,
     backgroundColor: colors.divider,
   },
 
   iconChip: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.iconBg,
     borderWidth: 1,
     borderColor: colors.iconBorder,
     overflow: "hidden",
-    marginTop: 2,
   },
   iconChipPr: {
     borderColor: colors.prBorder,
@@ -558,92 +676,70 @@ const styles = StyleSheet.create({
   },
   iconChipHighlight: {
     position: "absolute",
-    top: -10,
-    left: -10,
-    width: 34,
-    height: 34,
+    top: -8,
+    left: -8,
+    width: 20,
+    height: 20,
     borderRadius: 999,
     backgroundColor: "rgba(255,255,255,0.035)",
   },
 
   content: {
-    flex: 1,
-    minWidth: 0,
+    width: "100%",
   },
 
-  topRow: {
+  rowHeader: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 10,
+    marginBottom: 6,
   },
 
   leftInfo: {
     flex: 1,
     minWidth: 0,
   },
-
-  mainLabel: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-
-  subLabel: {
-    color: colors.muted2,
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 2,
-  },
-
-  prChip: {
-    marginTop: 8,
-    alignSelf: "flex-start",
+  labelRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: colors.prChipBg,
-    borderWidth: 1,
-    borderColor: colors.prBorder,
   },
-  prChipText: {
-    color: colors.prText,
-    fontSize: 12,
-    fontWeight: "900",
+
+  mainLabel: {
+    color: colors.text,
+    fontSize: 12.5,
+    fontWeight: "600",
   },
 
   right: {
     alignItems: "flex-end",
     justifyContent: "center",
-    gap: 2,
-    minWidth: 92,
+    gap: 0,
+    minWidth: 78,
   },
   rmLabel: {
     color: colors.muted2,
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 9.5,
+    fontWeight: "500",
   },
   rmValue: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "900",
+    fontSize: 12.5,
+    fontWeight: "600",
     fontVariant: ["tabular-nums"],
   },
   rmValuePr: {
     color: colors.prText,
   },
   diffText: {
-    fontSize: 11,
-    fontWeight: "800",
+    fontSize: 10,
+    fontWeight: "600",
     fontVariant: ["tabular-nums"],
   },
 
   table: {
-    marginTop: 10,
-    borderRadius: 14,
+    borderRadius: 10,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.tableBorder,
@@ -652,8 +748,8 @@ const styles = StyleSheet.create({
   tableRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: colors.tableBorder,
   },
@@ -664,55 +760,80 @@ const styles = StyleSheet.create({
   setLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
     flex: 1,
     minWidth: 0,
   },
   setIndex: {
     color: colors.muted2,
-    fontSize: 12,
-    fontWeight: "800",
-    width: 18,
+    fontSize: 10.5,
+    fontWeight: "600",
+    width: 14,
     textAlign: "right",
     fontVariant: ["tabular-nums"],
   },
+  setInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  setReps: {
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: "600",
+    fontVariant: ["tabular-nums"],
+  },
+  setMeta: {
+    marginTop: 1,
+    color: colors.muted2,
+    fontSize: 9.5,
+    fontWeight: "500",
+    fontVariant: ["tabular-nums"],
+  },
+  setValueColumn: {
+    alignItems: "flex-end",
+    justifyContent: "center",
+    minWidth: 78,
+  },
+  setMiddleColumn: {
+    alignItems: "flex-start",
+  },
+  setRmColumn: {
+    minWidth: 92,
+  },
   setWeight: {
     color: colors.text,
-    fontSize: 12,
-    fontWeight: "900",
+    fontSize: 11,
+    fontWeight: "600",
     fontVariant: ["tabular-nums"],
   },
   setWeightRight: {
     textAlign: "right",
   },
-  setReps: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: "800",
-    fontVariant: ["tabular-nums"],
+  setWeightLeft: {
+    textAlign: "left",
+  },
+  prSetText: {
+    color: colors.prText,
+  },
+  setPrIcon: {
+    marginBottom: 2,
   },
   unit: {
     color: colors.muted2,
-    fontWeight: "700",
+    fontWeight: "500",
   },
 
   tableDivider: {
     width: 1,
-    height: 14,
-    marginHorizontal: 10,
+    height: 12,
+    marginHorizontal: 8,
     backgroundColor: colors.tableBorder,
     opacity: 0.95,
   },
 
   noSetsText: {
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-
-  moreRowText: {
-    color: colors.muted2,
-    fontSize: 12,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "600",
   },
 });

@@ -98,21 +98,25 @@ function SubModeButton({ label, selected, onPress }: ToggleProps) {
 const styles = StyleSheet.create({
   modeRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
+    gap: 6,
+    marginBottom: 8,
   },
   modeButton: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
+    minHeight: 36,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 10,
     alignItems: "center",
+    justifyContent: "center",
   },
   modeButtonSelected: {
     backgroundColor: "rgba(6,181,212,0.35)",
   },
   modeButtonText: {
     color: "rgba(226,232,240,0.7)",
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: "500",
   },
   modeButtonTextSelected: {
     color: "#06b5d4",
@@ -121,22 +125,26 @@ const styles = StyleSheet.create({
 
   subModeRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
   },
   subModeButton: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
+    minHeight: 36,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "rgba(148,163,184,0.3)",
     alignItems: "center",
+    justifyContent: "center",
   },
   subModeButtonSelected: {
     backgroundColor: "rgba(15,23,42,0.8)",
     borderColor: "rgba(148,163,184,0.7)",
   },
   subModeText: {
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: "500",
     color: "rgba(226,232,240,0.7)",
   },
   subModeTextSelected: {

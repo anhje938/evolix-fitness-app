@@ -1,13 +1,14 @@
-// api/training/workoutSession.ts (oppdatert)
 import { authFetch } from "@/api/authSession";
 import { WorkoutSession } from "@/types/exercise";
 import { API_BASE_URL } from "../baseUrl";
 
-// Backend DTO-er (1:1 med WorkoutSessionController/Requests)
-type StartWorkoutSessionRequest = {
+type CompleteWorkoutSessionRequest = {
+  clientRequestId: string;
   workoutId?: string | null;
   startedAtUtc?: string | null;
   title?: string | null;
+  notes?: string | null;
+  exerciseLogs: UpdateWorkoutSessionExerciseLogRequest[];
 };
 
 type WorkoutSessionResponse = {
@@ -22,18 +23,6 @@ type WorkoutSessionResponse = {
   totalSets: number;
   totalReps: number;
   totalVolume?: number | null;
-};
-
-type AddSetRequest = {
-  exerciseId: string;        // Guid
-  setNumber?: number | null;
-  weightKg?: number | null;
-  reps?: number | null;
-  rir?: number | null;
-  distanceMeters?: number | null;
-  duration?: string | null;
-  setType?: string | null;
-  notes?: string | null;
 };
 
 type UpdateWorkoutSessionSetRequest = {
@@ -61,52 +50,26 @@ type UpdateWorkoutSessionRequest = {
   exerciseLogs: UpdateWorkoutSessionExerciseLogRequest[];
 };
 
-/**
- * Lagrer en komplett WorkoutSession til backend ved å:
- *  1) Starte en session (POST /api/workoutsession)
- *  2) Poste alle sett (POST /api/workoutsession/{id}/sets)
- *  3) Markere session som ferdig (POST /api/workoutsession/{id}/finish)
- */
 export async function postWorkoutSession(
   session: WorkoutSession,
   token: string
 ): Promise<string> {
-  // ---------- 1) Start session ----------
-  const startBody: StartWorkoutSessionRequest = {
+  if (!session.clientRequestId?.trim()) {
+    throw new Error("Workout session mangler clientRequestId");
+  }
+
+  const payload: CompleteWorkoutSessionRequest = {
+    clientRequestId: session.clientRequestId.trim(),
     workoutId: session.workoutId ?? null,
     startedAtUtc: session.startedAtUtc,
     title: session.name,
-  };
-
-  const startRes = await authFetch(
-    `${API_BASE_URL}/workoutsession`,
-    {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(startBody),
-    },
-    { token }
-  );
-
-  if (!startRes.ok) {
-    const text = await startRes.text().catch(() => "");
-    throw new Error(text || "Kunne ikke starte treningsøkt");
-  }
-
-  const started: WorkoutSessionResponse = await startRes.json();
-  const sessionId = started.id;
-
-  // ---------- 2) Send alle sett ----------
-  // Vi loop’er gjennom alle exercises + sett i den lokale sessionen
-  for (const ex of session.exercises) {
-    for (let idx = 0; idx < ex.sets.length; idx++) {
-      const set = ex.sets[idx];
-
-      const payload: AddSetRequest = {
-        exerciseId: ex.exerciseId,
-        setNumber: idx + 1,       // 1-basert settnummer
+    notes: null,
+    exerciseLogs: session.exercises.map((exercise, exerciseIndex) => ({
+      exerciseId: exercise.exerciseId,
+      order: exercise.order ?? exerciseIndex + 1,
+      notes: null,
+      sets: exercise.sets.map((set, setIndex) => ({
+        setNumber: setIndex + 1,
         weightKg: set.weight ?? null,
         reps: set.reps ?? null,
         rir: null,
@@ -114,47 +77,29 @@ export async function postWorkoutSession(
         duration: null,
         setType: null,
         notes: null,
-      };
+      })),
+    })),
+  };
 
-      const setRes = await authFetch(
-        `${API_BASE_URL}/workoutsession/${sessionId}/sets`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        },
-        { token }
-      );
-
-      if (!setRes.ok) {
-        const text = await setRes.text().catch(() => "");
-        throw new Error(text || "Kunne ikke lagre sett i økten");
-      }
-    }
-  }
-
-  
-
-  // ---------- 3) Fullfør session ----------
-  const finishRes = await authFetch(
-    `${API_BASE_URL}/workoutsession/${sessionId}/finish`,
+  const res = await authFetch(
+    `${API_BASE_URL}/workoutsession/complete`,
     {
       method: "POST",
-      headers: {},
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     },
     { token }
   );
 
-  if (!finishRes.ok) {
-    const text = await finishRes.text().catch(() => "");
-    throw new Error(text || "Kunne ikke fullføre økten");
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || "Kunne ikke lagre økten");
   }
 
-  // Backend setter FinishedAtUtc selv (DateTime.UtcNow) og
-  // regner totals (TotalSets, TotalReps, TotalVolume)
-  return sessionId;
+  const saved: WorkoutSessionResponse = await res.json();
+  return saved.id;
 }
 
 export async function putWorkoutSession(
@@ -186,11 +131,11 @@ export async function putWorkoutSession(
   const res = await authFetch(
     `${API_BASE_URL}/workoutsession/${sessionId}`,
     {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     },
     { token }
   );
@@ -200,7 +145,6 @@ export async function putWorkoutSession(
     throw new Error(text || "Kunne ikke oppdatere økten");
   }
 }
-
 
 export async function deleteWorkoutSession(sessionId: string, token: string) {
   const res = await authFetch(

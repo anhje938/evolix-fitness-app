@@ -1,3 +1,8 @@
+### ASAP FIKSES
+
+- Legg til øvelse overlay i session må dekke hele skjermen med litt margin fra topp. Ved tillegging av øvelse,
+  skal en liten popoup animeres inn som sier x øvelse lagt til, men modalen skal ikke lukkes før brukeren velger
+
 ### UI / UX forbedringer
 
 - [ ] Øvelser må kunne redigeres
@@ -17,20 +22,7 @@
 - [ ] I progresjon må sets lagres gruppert per økt
 - [ ] Vis popup når øvelse legges til i overlay
 - [ ] Mulig summering / oversikt i recoverymap
-
----
-
-### Bugs / feil
-
-- [ ] Bruker blir logget ut midt i trening (implementere refresh tokens)
-- [ ] Slett bruker sitter fast på "sletter"
-
-- [ ] Retter må åpne `edit composedMeals` ved redigering av en retts
-      mealcard
-- [ ] Fjerne dobbelt popup ved logging av rett (slå sammen til én)
-- [ ] Sideskulder / bakre skulder vises ikke i recovery
-
----
+- Legge til definering av brukers tidsperiode som bestemmer når pr'er gjelder fra, vekt målinger osv.
 
 ## 🧠 Recoverymap
 

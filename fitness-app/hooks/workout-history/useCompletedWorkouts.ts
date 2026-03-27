@@ -6,6 +6,9 @@ export function useCompletedWorkouts() {
   return useQuery<CompletedWorkoutSummaryDto[]>({
     queryKey: ["completedWorkouts"],
     queryFn: getCompletedWorkouts,
-    staleTime: 60 * 1000,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 30,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 }

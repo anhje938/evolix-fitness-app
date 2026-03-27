@@ -12,22 +12,25 @@ import {
 
 const colors = {
   backdrop: "rgba(0,0,0,0.70)",
-  card: "rgba(2,6,23,0.16)",
-  cardStrong: "#0f172a",
+  card: "rgba(15,23,42,0.42)",
+  cardStrong: "#0b1220",
   surface: "rgba(255,255,255,0.04)",
-  surfaceStrong: "rgba(255,255,255,0.06)",
-  border: "rgba(255,255,255,0.07)",
+  surfaceStrong: "rgba(255,255,255,0.07)",
+  border: "rgba(255,255,255,0.09)",
   borderSoft: "rgba(255,255,255,0.05)",
-  text: "#E5ECFF",
-  textMuted: "rgba(226,232,240,0.95)",
-  muted: "rgba(148,163,184,0.9)",
-  muted2: "rgba(148,163,184,0.7)",
-  accent: "#06b6d4",
-  accentDim: "rgba(6,182,212,0.2)",
-  accentBg: "rgba(6,182,212,0.08)",
-  green: "rgba(34, 197, 94, 0.9)",
-  greenBg: "rgba(34, 197, 94, 0.12)",
-  orange: "rgba(251, 191, 36, 0.9)",
+  text: "rgba(241,245,249,0.96)",
+  textMuted: "rgba(226,232,240,0.92)",
+  muted: "rgba(148,163,184,0.84)",
+  muted2: "rgba(148,163,184,0.68)",
+  accent: "#22d3ee",
+  accentDim: "rgba(34,211,238,0.18)",
+  accentBg: "rgba(34,211,238,0.10)",
+  blue: "rgba(96,165,250,0.96)",
+  blueBg: "rgba(59,130,246,0.10)",
+  blueDim: "rgba(96,165,250,0.18)",
+  green: "rgba(52,211,153,0.92)",
+  greenBg: "rgba(16,185,129,0.14)",
+  orange: "rgba(251, 191, 36, 0.92)",
   orangeBg: "rgba(251, 191, 36, 0.12)",
 };
 
@@ -151,6 +154,12 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
                       ? (s.completedSetsCount / s.setsCount) * 100
                       : 0;
                   const isHighCompletion = completionRate >= 90;
+                  const isProgram = s.mode === "program";
+                  const iconColor = isHighCompletion
+                    ? colors.green
+                    : isProgram
+                    ? colors.blue
+                    : colors.accent;
 
                   return (
                     <Pressable
@@ -169,17 +178,14 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
                           <View
                             style={[
                               styles.iconBox,
+                              isProgram && styles.iconBoxProgram,
                               isHighCompletion && styles.iconBoxSuccess,
                             ]}
                           >
                             <Ionicons
-                              name={
-                                s.mode === "program" ? "list-outline" : "flash"
-                              }
+                              name={isProgram ? "list-outline" : "flash"}
                               size={20}
-                              color={
-                                isHighCompletion ? colors.green : colors.accent
-                              }
+                              color={iconColor}
                             />
                           </View>
 
@@ -214,11 +220,13 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
                           </View>
                         </View>
 
-                        <Ionicons
-                          name="chevron-forward"
-                          size={18}
-                          color={colors.muted2}
-                        />
+                        <View style={styles.chevronBox}>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={14}
+                            color={colors.muted2}
+                          />
+                        </View>
                       </View>
 
                       <View style={styles.dayRowStats}>
@@ -256,7 +264,7 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
                                 color: isHighCompletion
                                   ? colors.green
                                   : colors.orange,
-                                fontWeight: "700",
+                                fontWeight: "600",
                               },
                             ]}
                           >
@@ -305,9 +313,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
 
-    paddingTop: 8,
+    paddingTop: 10,
     paddingHorizontal: 16,
-    paddingBottom: 20,
+    paddingBottom: 18,
 
     // ✅ FIX: “ekte” sheet-høyde (60–70% av skjermen)
     height: "68%",
@@ -319,19 +327,19 @@ const styles = StyleSheet.create({
   },
 
   sheetHandle: {
-    width: 40,
+    width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.surfaceStrong,
+    backgroundColor: "rgba(255,255,255,0.12)",
     alignSelf: "center",
-    marginBottom: 16,
+    marginBottom: 14,
   },
 
   sheetHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 10,
   },
 
   sheetHeaderLeft: {
@@ -342,9 +350,9 @@ const styles = StyleSheet.create({
   },
 
   sheetDateIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.accentBg,
@@ -353,25 +361,25 @@ const styles = StyleSheet.create({
   },
 
   sheetDateLabel: {
-    fontSize: 10,
-    fontWeight: "600",
+    fontSize: 9.5,
+    fontWeight: "500",
     color: colors.muted,
-    letterSpacing: 0.3,
+    letterSpacing: 0.45,
     textTransform: "uppercase",
     marginBottom: 2,
   },
 
   sheetTitle: {
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 0.1,
+    fontSize: 14,
+    fontWeight: "500",
+    letterSpacing: 0,
   },
 
   closeBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surface,
@@ -383,10 +391,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -406,10 +414,10 @@ const styles = StyleSheet.create({
   },
 
   sheetStatText: {
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10.5,
+    fontWeight: "500",
     color: colors.muted,
-    letterSpacing: 0.1,
+    letterSpacing: 0,
   },
 
   // LISTE-AREAL: dette er det som gjør at listen faktisk vises
@@ -429,9 +437,9 @@ const styles = StyleSheet.create({
   },
 
   emptyIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surface,
@@ -441,16 +449,16 @@ const styles = StyleSheet.create({
   },
 
   emptyTitle: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "500",
     color: colors.text,
-    letterSpacing: 0.1,
+    letterSpacing: 0,
     marginBottom: 6,
   },
 
   emptySub: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11.5,
+    fontWeight: "400",
     color: colors.muted2,
     textAlign: "center",
   },
@@ -458,9 +466,9 @@ const styles = StyleSheet.create({
   dayRow: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 12,
+    borderRadius: 20,
+    padding: 12,
+    marginBottom: 10,
     backgroundColor: colors.surface,
   },
 
@@ -468,21 +476,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 10,
   },
 
   dayRowLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     flex: 1,
     minWidth: 0,
   },
 
   iconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.accentBg,
@@ -490,9 +498,14 @@ const styles = StyleSheet.create({
     borderColor: colors.accentDim,
   },
 
+  iconBoxProgram: {
+    backgroundColor: colors.blueBg,
+    borderColor: colors.blueDim,
+  },
+
   iconBoxSuccess: {
     backgroundColor: colors.greenBg,
-    borderColor: "rgba(34, 197, 94, 0.3)",
+    borderColor: "rgba(52,211,153,0.22)",
   },
 
   dayRowTitleRow: {
@@ -504,9 +517,9 @@ const styles = StyleSheet.create({
 
   dayRowTitle: {
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 0.1,
+    fontSize: 13.5,
+    fontWeight: "500",
+    letterSpacing: 0,
     flex: 1,
   },
 
@@ -520,16 +533,16 @@ const styles = StyleSheet.create({
 
   dayRowTime: {
     color: colors.muted2,
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.1,
+    fontSize: 11,
+    fontWeight: "400",
+    letterSpacing: 0,
   },
 
   dayRowStats: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 10,
+    gap: 8,
+    marginBottom: 9,
   },
 
   dayRowStat: {
@@ -541,19 +554,30 @@ const styles = StyleSheet.create({
 
   dayRowStatDivider: {
     width: 1,
-    height: 12,
+    height: 10,
     backgroundColor: colors.borderSoft,
   },
 
   dayRowStatText: {
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10.5,
+    fontWeight: "500",
     color: colors.muted,
-    letterSpacing: 0.1,
+    letterSpacing: 0,
+  },
+
+  chevronBox: {
+    width: 26,
+    height: 26,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.035)",
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
   },
 
   progressBarBg: {
-    height: 5,
+    height: 4,
     borderRadius: 3,
     backgroundColor: colors.surfaceStrong,
     overflow: "hidden",

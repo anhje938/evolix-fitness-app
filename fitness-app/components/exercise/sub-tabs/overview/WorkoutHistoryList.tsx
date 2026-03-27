@@ -5,13 +5,20 @@ import React, { memo, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 const ui = {
-  surface: "rgba(2,6,23,0.18)",
-  surfaceStrong: "rgba(2,6,23,0.28)",
-  border: "rgba(255,255,255,0.08)",
+  surface: "rgba(15,23,42,0.42)",
+  surfaceStrong: "rgba(15,23,42,0.56)",
+  surfaceMuted: "rgba(255,255,255,0.03)",
+  border: "rgba(255,255,255,0.09)",
   borderSoft: "rgba(255,255,255,0.06)",
-  text: "rgba(226,232,240,0.96)",
-  muted: "rgba(148,163,184,0.92)",
-  muted2: "rgba(148,163,184,0.78)",
+  text: "rgba(241,245,249,0.96)",
+  muted: "rgba(148,163,184,0.84)",
+  muted2: "rgba(148,163,184,0.70)",
+  accent: "rgba(34,211,238,0.96)",
+  accentBg: "rgba(34,211,238,0.10)",
+  accentBorder: "rgba(34,211,238,0.18)",
+  program: "rgba(96,165,250,0.96)",
+  programBg: "rgba(59,130,246,0.10)",
+  programBorder: "rgba(96,165,250,0.18)",
 };
 
 function localDateKeyFromUtc(isoUtc: string) {
@@ -126,6 +133,7 @@ export const WorkoutHistoryList = memo(function WorkoutHistoryList({
               const muscles = uniqMuscles(s.muscleGroups);
               const visible = muscles.slice(0, 4);
               const extraCount = Math.max(0, muscles.length - visible.length);
+              const isProgram = s.mode === "program";
 
               return (
                 <React.Fragment key={s.id}>
@@ -137,15 +145,16 @@ export const WorkoutHistoryList = memo(function WorkoutHistoryList({
                     ]}
                   >
                     <View style={styles.rowLeft}>
-                      <View style={styles.iconBox}>
+                      <View
+                        style={[
+                          styles.iconBox,
+                          isProgram ? styles.iconBoxProgram : styles.iconBoxQuick,
+                        ]}
+                      >
                         <Ionicons
-                          name={
-                            s.mode === "program"
-                              ? "calendar-outline"
-                              : "flash-outline"
-                          }
+                          name={isProgram ? "calendar-outline" : "flash-outline"}
                           size={18}
-                          color={ui.text}
+                          color={isProgram ? ui.program : ui.accent}
                         />
                       </View>
 
@@ -208,12 +217,13 @@ export const WorkoutHistoryList = memo(function WorkoutHistoryList({
                         </Text>
                       </View>
 
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={ui.muted2}
-                        style={{ marginLeft: 10 }}
-                      />
+                      <View style={styles.chevronBox}>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={14}
+                          color={ui.muted2}
+                        />
+                      </View>
                     </View>
                   </Pressable>
 
@@ -233,9 +243,9 @@ export const WorkoutHistoryList = memo(function WorkoutHistoryList({
 const styles = StyleSheet.create({
   wrap: {
     paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 6,
-    gap: 14,
+    paddingTop: 6,
+    paddingBottom: 4,
+    gap: 12,
   },
 
   group: { gap: 8 },
@@ -243,15 +253,16 @@ const styles = StyleSheet.create({
   groupHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
     paddingHorizontal: 2,
   },
 
   groupTitle: {
     color: ui.muted2,
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.16,
+    fontSize: 11,
+    fontWeight: "500",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
   },
 
   groupHairline: {
@@ -261,50 +272,63 @@ const styles = StyleSheet.create({
   },
 
   groupCard: {
-    borderRadius: 18,
+    borderRadius: 22,
     overflow: "hidden",
     backgroundColor: ui.surface,
     borderWidth: 1,
     borderColor: ui.borderSoft,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
 
   row: {
-    paddingVertical: 11,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 13,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 10,
   },
 
   rowPressed: {
-    opacity: 0.96,
-    backgroundColor: "rgba(255,255,255,0.02)",
+    opacity: 0.97,
+    backgroundColor: ui.surfaceMuted,
   },
 
   divider: {
     height: 1,
     backgroundColor: "rgba(255,255,255,0.06)",
-    marginLeft: 62,
+    marginLeft: 54,
   },
 
   rowLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 9,
     flex: 1,
     minWidth: 0,
   },
 
   iconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: ui.surfaceStrong,
     borderWidth: 1,
     borderColor: ui.borderSoft,
+  },
+  iconBoxQuick: {
+    backgroundColor: ui.accentBg,
+    borderColor: ui.accentBorder,
+  },
+  iconBoxProgram: {
+    backgroundColor: ui.programBg,
+    borderColor: ui.programBorder,
   },
 
   mainCol: {
@@ -314,54 +338,57 @@ const styles = StyleSheet.create({
 
   rowTitle: {
     color: ui.text,
-    fontSize: 14,
-    fontWeight: "600",
-    letterSpacing: 0.05,
+    fontSize: 13.5,
+    fontWeight: "500",
+    letterSpacing: 0,
+    lineHeight: 17,
   },
 
   subStack: {
-    marginTop: 3,
-    gap: 6,
+    marginTop: 1,
+    gap: 3,
   },
 
   rowSub: {
     color: ui.muted2,
-    fontSize: 11,
-    fontWeight: "500",
+    fontSize: 10.5,
+    fontWeight: "400",
+    lineHeight: 13,
   },
 
   muscleRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    gap: 5,
   },
 
   musclePill: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "rgba(255,255,255,0.035)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(255,255,255,0.05)",
   },
 
   muscleText: {
-    color: ui.muted2,
-    fontSize: 10.5,
-    fontWeight: "600",
+    color: ui.muted,
+    fontSize: 10,
+    fontWeight: "400",
   },
 
   rightCol: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 6,
   },
 
   metricsPill: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    borderRadius: 999,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 11,
     backgroundColor: ui.surfaceStrong,
     borderWidth: 1,
     borderColor: ui.borderSoft,
@@ -369,14 +396,25 @@ const styles = StyleSheet.create({
 
   metricText: {
     color: ui.muted,
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10.5,
+    fontWeight: "500",
   },
 
   metricDot: {
     color: ui.muted2,
-    marginHorizontal: 6,
-    fontSize: 11,
+    marginHorizontal: 5,
+    fontSize: 10.5,
+  },
+
+  chevronBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.035)",
+    borderWidth: 1,
+    borderColor: ui.borderSoft,
   },
 
   empty: {
@@ -388,7 +426,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: ui.text,
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "500",
     textAlign: "center",
   },
 

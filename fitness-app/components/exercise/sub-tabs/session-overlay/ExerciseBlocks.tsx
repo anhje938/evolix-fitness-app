@@ -118,7 +118,7 @@ export const Stat = memo(function Stat({
 }) {
   return (
     <View style={styles.stat}>
-      <Ionicons name={icon} size={14} color={overlayColors.muted2} />
+      <Ionicons name={icon} size={13} color={overlayColors.muted2} />
       <Text style={[typography.body, styles.statLabel]}>{label}</Text>
       <Text style={[typography.body, styles.statValue]}>{value}</Text>
     </View>
@@ -140,6 +140,7 @@ type ExerciseBlockProps = {
   onAddSet: () => void;
   onUpdateSet: (setId: string, partial: Partial<SessionSet>) => void;
   onRemoveSet: (setId: string) => void;
+  onInputFocus?: (input: RNTextInput | null) => void;
 };
 
 export const ExerciseBlock = memo(function ExerciseBlock({
@@ -147,9 +148,10 @@ export const ExerciseBlock = memo(function ExerciseBlock({
   onAddSet,
   onUpdateSet,
   onRemoveSet,
+  onInputFocus,
 }: ExerciseBlockProps) {
-  const repsRefs = useRef<Array<RNTextInput | null>>([]);
-  const weightRefs = useRef<Array<RNTextInput | null>>([]);
+  const repsRefs = useRef<(RNTextInput | null)[]>([]);
+  const weightRefs = useRef<(RNTextInput | null)[]>([]);
   const [focusedWeightSetId, setFocusedWeightSetId] = useState<string | null>(
     null
   );
@@ -194,22 +196,44 @@ export const ExerciseBlock = memo(function ExerciseBlock({
 
     if (nextCompleted) {
       if (!isPositiveInt(set.reps)) {
-        Alert.alert(
-          "Mangler reps",
-          `Skriv inn reps (> 0) før du markerer settet som ferdig.\n\n${exercise.name} – sett ${setIndex}: reps må være > 0`
-        );
+        Alert.alert("Mangler reps");
         return;
       }
       if (set.weight != null && !isNonNegativeNumber(set.weight)) {
-        Alert.alert(
-          "Ugyldig vekt",
-          `${exercise.name} – sett ${setIndex}: vekt kan ikke være negativ`
-        );
+        Alert.alert("Ugyldig vekt");
         return;
       }
     }
 
     onUpdateSet(set.id, { completed: nextCompleted });
+  };
+
+  const canCompleteSet = (set: SessionSet, setIndex: number) => {
+    if (!isPositiveInt(set.reps)) {
+      Alert.alert("Mangler reps");
+      return false;
+    }
+    if (set.weight != null && !isNonNegativeNumber(set.weight)) {
+      Alert.alert(
+        "Ugyldig vekt",
+        `${exercise.name} - sett ${setIndex}: vekt kan ikke vaere negativ`
+      );
+      return false;
+    }
+
+    return true;
+  };
+
+  const completeSetFromKeyboard = (set: SessionSet, setIndex: number) => {
+    if (!set.completed) {
+      if (!canCompleteSet(set, setIndex)) {
+        return;
+      }
+
+      onUpdateSet(set.id, { completed: true });
+    }
+
+    Keyboard.dismiss();
   };
 
   return (
@@ -282,6 +306,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
               value={set.reps ?? set.reps === 0 ? String(set.reps) : ""}
               returnKeyType="next"
               submitBehavior="submit"
+              onFocus={() => onInputFocus?.(repsRefs.current[idx])}
               onSubmitEditing={() => weightRefs.current[idx]?.focus()}
               onChangeText={(txt) =>
                 onUpdateSet(set.id, { reps: parseNullableInt(txt) })
@@ -298,19 +323,17 @@ export const ExerciseBlock = memo(function ExerciseBlock({
               placeholderTextColor={overlayColors.muted2}
               value={
                 focusedWeightSetId === set.id
-                  ? (weightDrafts[set.id] ?? formatWeightInputValue(set.weight))
+                  ? weightDrafts[set.id] ?? formatWeightInputValue(set.weight)
                   : formatWeightInputValue(set.weight)
               }
-              returnKeyType={idx === exercise.sets.length - 1 ? "done" : "next"}
-              submitBehavior={
-                idx === exercise.sets.length - 1 ? "blurAndSubmit" : "submit"
-              }
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
               onFocus={() => {
+                onInputFocus?.(weightRefs.current[idx]);
                 setFocusedWeightSetId(set.id);
                 setWeightDrafts((prev) => ({
                   ...prev,
-                  [set.id]:
-                    prev[set.id] ?? formatWeightInputValue(set.weight),
+                  [set.id]: prev[set.id] ?? formatWeightInputValue(set.weight),
                 }));
               }}
               onBlur={() => {
@@ -323,13 +346,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
                   return next;
                 });
               }}
-              onSubmitEditing={() => {
-                if (idx < exercise.sets.length - 1) {
-                  repsRefs.current[idx + 1]?.focus();
-                } else {
-                  Keyboard.dismiss();
-                }
-              }}
+              onSubmitEditing={() => completeSetFromKeyboard(set, idx + 1)}
               onChangeText={(txt) => {
                 setWeightDrafts((prev) => ({
                   ...prev,
@@ -567,12 +584,12 @@ const styles = StyleSheet.create({
   stat: {
     flex: 1,
     alignItems: "center",
-    gap: 4,
+    gap: 2,
   },
 
   statLabel: {
     color: overlayColors.muted2,
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: "600",
     letterSpacing: 0.2,
     textTransform: "uppercase",
@@ -580,7 +597,7 @@ const styles = StyleSheet.create({
 
   statValue: {
     color: overlayColors.text,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     letterSpacing: 0.1,
   },
@@ -588,7 +605,7 @@ const styles = StyleSheet.create({
   statsDivider: {
     width: 1,
     backgroundColor: overlayColors.borderSoft,
-    marginVertical: 6,
+    marginVertical: 4,
   },
 
   // Exercise card

@@ -2,7 +2,11 @@
 using backend.Data;
 using backend.Features.Training.Workouts;
 using backend.Features.Training.WorkoutSessions.Entities;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
 namespace backend.Features.Training.WorkoutSessions
 {
@@ -15,6 +19,201 @@ namespace backend.Features.Training.WorkoutSessions
             _db = db;
         }
 
+        private async Task<WorkoutSession?> FindSessionByClientRequestIdAsync(
+            string userId,
+            string clientRequestId,
+            CancellationToken ct)
+        {
+            return await _db.WorkoutSessions
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    s => s.UserId == userId && s.ClientRequestId == clientRequestId,
+                    ct);
+        }
+
+        private async Task<WorkoutSession?> FindSessionBySubmissionHashAsync(
+            string userId,
+            string submissionHash,
+            CancellationToken ct)
+        {
+            return await _db.WorkoutSessions
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    s => s.UserId == userId && s.SubmissionHash == submissionHash,
+                    ct);
+        }
+
+        private static string ComputeCompletedSessionSubmissionHash(
+            string userId,
+            CompleteWorkoutSessionRequest req)
+        {
+            var normalized = new
+            {
+                UserId = userId.Trim(),
+                WorkoutId = req.WorkoutId,
+                StartedAtUtc = (req.StartedAtUtc ?? DateTime.MinValue)
+                    .ToUniversalTime()
+                    .ToString("O"),
+                Title = req.Title?.Trim() ?? string.Empty,
+                Notes = req.Notes?.Trim() ?? string.Empty,
+                ExerciseLogs = (req.ExerciseLogs ?? new List<UpdateWorkoutSessionExerciseLogRequest>())
+                    .Select((log, logIndex) => new
+                    {
+                        Order = log.Order.HasValue && log.Order.Value > 0
+                            ? log.Order.Value
+                            : logIndex + 1,
+                        ExerciseId = log.ExerciseId,
+                        Notes = log.Notes?.Trim() ?? string.Empty,
+                        Sets = (log.Sets ?? new List<UpdateWorkoutSessionSetRequest>())
+                            .Select((set, setIndex) => new
+                            {
+                                SetNumber = set.SetNumber.HasValue && set.SetNumber.Value > 0
+                                    ? set.SetNumber.Value
+                                    : setIndex + 1,
+                                WeightKg = set.WeightKg,
+                                Reps = set.Reps,
+                                Rir = set.Rir,
+                                DistanceMeters = set.DistanceMeters,
+                                Duration = set.Duration?.ToString("c") ?? string.Empty,
+                                SetType = set.SetType?.Trim() ?? string.Empty,
+                                Notes = set.Notes?.Trim() ?? string.Empty
+                            })
+                            .OrderBy(set => set.SetNumber)
+                            .ToList()
+                    })
+                    .OrderBy(log => log.Order)
+                    .ThenBy(log => log.ExerciseId)
+                    .ToList()
+            };
+
+            var normalizedJson = JsonSerializer.Serialize(normalized);
+            var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalizedJson));
+            return Convert.ToHexString(hashBytes);
+        }
+
+        private async Task<(Workout? workout, Guid? workoutProgramId)> ResolveWorkoutAsync(
+            Guid? workoutId,
+            CancellationToken ct,
+            bool throwIfMissing = true)
+        {
+            if (!workoutId.HasValue)
+            {
+                return (null, null);
+            }
+
+            var workout = await _db.Workouts
+                .FirstOrDefaultAsync(w => w.Id == workoutId.Value, ct);
+
+            if (workout == null)
+            {
+                if (throwIfMissing)
+                {
+                    throw new NotFoundException("Workout not found");
+                }
+
+                return (null, null);
+            }
+
+            return (workout, workout.WorkoutProgramId);
+        }
+
+        private async Task ValidateExerciseIdsAsync(
+            IReadOnlyCollection<Guid> requestedExerciseIds,
+            CancellationToken ct)
+        {
+            if (requestedExerciseIds.Count == 0)
+            {
+                return;
+            }
+
+            var existingExerciseIds = await _db.Exercises
+                .Where(e => requestedExerciseIds.Contains(e.Id))
+                .Select(e => e.Id)
+                .ToListAsync(ct);
+
+            var missingExerciseIds = requestedExerciseIds.Except(existingExerciseIds).ToList();
+            if (missingExerciseIds.Count > 0)
+            {
+                throw new NotFoundException(
+                    $"Exercises not found: {string.Join(", ", missingExerciseIds)}");
+            }
+        }
+
+        private static bool IsUniqueClientRequestIdViolation(DbUpdateException exception)
+        {
+            return exception.InnerException is SqlException sqlException &&
+                (sqlException.Number == 2601 || sqlException.Number == 2627);
+        }
+
+        private async Task ApplySessionPayloadAsync(
+            WorkoutSession session,
+            UpdateWorkoutSessionRequest req,
+            CancellationToken ct)
+        {
+            session.Title = req.Title?.Trim();
+            session.Notes = req.Notes?.Trim();
+
+            if (req.StartedAtUtc.HasValue)
+            {
+                session.StartedAtUtc = req.StartedAtUtc.Value;
+            }
+
+            var requestedLogs = req.ExerciseLogs ?? new List<UpdateWorkoutSessionExerciseLogRequest>();
+            var requestedExerciseIds = requestedLogs
+                .Select(x => x.ExerciseId)
+                .Distinct()
+                .ToList();
+
+            await ValidateExerciseIdsAsync(requestedExerciseIds, ct);
+
+            if (session.ExerciseLogs.Count > 0)
+            {
+                _db.WorkoutExerciseLogs.RemoveRange(session.ExerciseLogs);
+                session.ExerciseLogs.Clear();
+            }
+
+            for (var logIndex = 0; logIndex < requestedLogs.Count; logIndex++)
+            {
+                var logReq = requestedLogs[logIndex];
+                var order = logReq.Order.HasValue && logReq.Order.Value > 0
+                    ? logReq.Order.Value
+                    : logIndex + 1;
+
+                var exerciseLog = new WorkoutExerciseLog
+                {
+                    WorkoutSessionId = session.Id,
+                    ExerciseId = logReq.ExerciseId,
+                    Order = order,
+                    Notes = logReq.Notes?.Trim()
+                };
+
+                var setRequests = logReq.Sets ?? new List<UpdateWorkoutSessionSetRequest>();
+                for (var setIndex = 0; setIndex < setRequests.Count; setIndex++)
+                {
+                    var setReq = setRequests[setIndex];
+                    var setNumber = setReq.SetNumber.HasValue && setReq.SetNumber.Value > 0
+                        ? setReq.SetNumber.Value
+                        : setIndex + 1;
+
+                    exerciseLog.Sets.Add(new SetLog
+                    {
+                        SetNumber = setNumber,
+                        WeightKg = setReq.WeightKg,
+                        Reps = setReq.Reps,
+                        Rir = setReq.Rir,
+                        DistanceMeters = setReq.DistanceMeters,
+                        Duration = setReq.Duration,
+                        SetType = setReq.SetType,
+                        Notes = setReq.Notes
+                    });
+                }
+
+                session.ExerciseLogs.Add(exerciseLog);
+            }
+
+            RecalculateSessionTotals(session);
+        }
+
         // Creates a new workout session (quick or based on a workout template)
         public async Task<WorkoutSession> StartWorkoutSession(
             string userId,
@@ -24,20 +223,7 @@ namespace backend.Features.Training.WorkoutSessions
             if (string.IsNullOrWhiteSpace(userId))
                 throw new ArgumentException("UserId is required", nameof(userId));
 
-            Workout? workout = null;
-            Guid? workoutProgramId = null;
-
-            // If WorkoutId is provided, load the workout and its program
-            if (req.WorkoutId.HasValue)
-            {
-                workout = await _db.Workouts
-                    .FirstOrDefaultAsync(w => w.Id == req.WorkoutId.Value, ct);
-
-                if (workout == null)
-                    throw new NotFoundException("Workout not found");
-
-                workoutProgramId = workout.WorkoutProgramId;
-            }
+            var (workout, workoutProgramId) = await ResolveWorkoutAsync(req.WorkoutId, ct);
 
             var session = new WorkoutSession
             {
@@ -112,82 +298,99 @@ namespace backend.Features.Training.WorkoutSessions
             if (session == null)
                 throw new NotFoundException("Workout session not found");
 
-            session.Title = req.Title?.Trim();
-            session.Notes = req.Notes?.Trim();
-
-            if (req.StartedAtUtc.HasValue)
-                session.StartedAtUtc = req.StartedAtUtc.Value;
-
-            var requestedLogs = req.ExerciseLogs ?? new List<UpdateWorkoutSessionExerciseLogRequest>();
-            var requestedExerciseIds = requestedLogs
-                .Select(x => x.ExerciseId)
-                .Distinct()
-                .ToList();
-
-            if (requestedExerciseIds.Count > 0)
-            {
-                var existingExerciseIds = await _db.Exercises
-                    .Where(e => requestedExerciseIds.Contains(e.Id))
-                    .Select(e => e.Id)
-                    .ToListAsync(ct);
-
-                var missingExerciseIds = requestedExerciseIds.Except(existingExerciseIds).ToList();
-                if (missingExerciseIds.Count > 0)
-                {
-                    throw new NotFoundException(
-                        $"Exercises not found: {string.Join(", ", missingExerciseIds)}");
-                }
-            }
-
-            if (session.ExerciseLogs.Count > 0)
-            {
-                _db.WorkoutExerciseLogs.RemoveRange(session.ExerciseLogs);
-                session.ExerciseLogs.Clear();
-            }
-
-            for (var logIndex = 0; logIndex < requestedLogs.Count; logIndex++)
-            {
-                var logReq = requestedLogs[logIndex];
-                var order = logReq.Order.HasValue && logReq.Order.Value > 0
-                    ? logReq.Order.Value
-                    : logIndex + 1;
-
-                var exerciseLog = new WorkoutExerciseLog
-                {
-                    WorkoutSessionId = session.Id,
-                    ExerciseId = logReq.ExerciseId,
-                    Order = order,
-                    Notes = logReq.Notes?.Trim()
-                };
-
-                var setRequests = logReq.Sets ?? new List<UpdateWorkoutSessionSetRequest>();
-                for (var setIndex = 0; setIndex < setRequests.Count; setIndex++)
-                {
-                    var setReq = setRequests[setIndex];
-                    var setNumber = setReq.SetNumber.HasValue && setReq.SetNumber.Value > 0
-                        ? setReq.SetNumber.Value
-                        : setIndex + 1;
-
-                    exerciseLog.Sets.Add(new SetLog
-                    {
-                        SetNumber = setNumber,
-                        WeightKg = setReq.WeightKg,
-                        Reps = setReq.Reps,
-                        Rir = setReq.Rir,
-                        DistanceMeters = setReq.DistanceMeters,
-                        Duration = setReq.Duration,
-                        SetType = setReq.SetType,
-                        Notes = setReq.Notes
-                    });
-                }
-
-                session.ExerciseLogs.Add(exerciseLog);
-            }
-
-            RecalculateSessionTotals(session);
+            await ApplySessionPayloadAsync(session, req, ct);
             await _db.SaveChangesAsync(ct);
 
             return session;
+        }
+
+        public async Task<WorkoutSession> SaveCompletedSessionOnceAsync(
+            string userId,
+            CompleteWorkoutSessionRequest req,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                throw new ArgumentException("UserId is required", nameof(userId));
+
+            var clientRequestId = req.ClientRequestId.Trim();
+            if (string.IsNullOrWhiteSpace(clientRequestId))
+                throw new ArgumentException("ClientRequestId is required", nameof(req.ClientRequestId));
+            var submissionHash = ComputeCompletedSessionSubmissionHash(userId, req);
+
+            var existing = await FindSessionByClientRequestIdAsync(userId, clientRequestId, ct);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var existingBySubmissionHash = await FindSessionBySubmissionHashAsync(
+                userId,
+                submissionHash,
+                ct);
+            if (existingBySubmissionHash != null)
+            {
+                return existingBySubmissionHash;
+            }
+
+            var (workout, workoutProgramId) = await ResolveWorkoutAsync(
+                req.WorkoutId,
+                ct,
+                throwIfMissing: false);
+            var normalizedTitle = string.IsNullOrWhiteSpace(req.Title)
+                ? workout?.Name
+                : req.Title.Trim();
+
+            var session = new WorkoutSession
+            {
+                UserId = userId,
+                ClientRequestId = clientRequestId,
+                SubmissionHash = submissionHash,
+                WorkoutId = workout?.Id,
+                WorkoutProgramId = workoutProgramId,
+                StartedAtUtc = req.StartedAtUtc ?? DateTime.UtcNow,
+                FinishedAtUtc = DateTime.UtcNow,
+                Title = normalizedTitle,
+                Notes = req.Notes?.Trim(),
+                TotalSets = 0,
+                TotalReps = 0,
+                TotalVolume = null
+            };
+
+            await _db.WorkoutSessions.AddAsync(session, ct);
+
+            await ApplySessionPayloadAsync(
+                session,
+                new UpdateWorkoutSessionRequest
+                {
+                    StartedAtUtc = session.StartedAtUtc,
+                    Title = normalizedTitle,
+                    Notes = req.Notes,
+                    ExerciseLogs = req.ExerciseLogs ?? new List<UpdateWorkoutSessionExerciseLogRequest>()
+                },
+                ct);
+
+            try
+            {
+                await _db.SaveChangesAsync(ct);
+                return session;
+            }
+            catch (DbUpdateException ex) when (IsUniqueClientRequestIdViolation(ex))
+            {
+                _db.ChangeTracker.Clear();
+
+                var deduped = await FindSessionByClientRequestIdAsync(userId, clientRequestId, ct);
+                if (deduped == null)
+                {
+                    deduped = await FindSessionBySubmissionHashAsync(userId, submissionHash, ct);
+                }
+
+                if (deduped != null)
+                {
+                    return deduped;
+                }
+
+                throw;
+            }
         }
 
 

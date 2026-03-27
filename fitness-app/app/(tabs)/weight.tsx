@@ -8,6 +8,7 @@ import WeightHistory from "@/components/weight/WeightHistory";
 import { AddWeightButton } from "@/components/weight/addWeightButton";
 import { AddWeightSheet } from "@/components/weight/addWeightSheet";
 import { WeightProgressChart } from "@/components/weight/weight-chart/WeightProgressChart";
+import { floatingActionButtonDock } from "@/config/floatingActionButton";
 import { useAuth } from "@/context/AuthProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useWeightContext } from "@/context/WeightProvider";
@@ -41,16 +42,16 @@ export default function WeightPage() {
   };
 
   return (
-    <DarkOceanBackground style={[styles.screen, { paddingTop: insets.top + 6 }]}>
+    <DarkOceanBackground style={[styles.screen, { paddingTop: insets.top + 8 }]}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         <WeightProgressChart
           dotRadius={2}
-          lineStrokeWidth={1.8}
+          lineStrokeWidth={1.7}
           weightList={weightList}
-          height={300}
+          height={292}
           maxXLabels={15}
           minZoom={0.1}
           minXLabels={5}
@@ -60,15 +61,17 @@ export default function WeightPage() {
         <WeightHistory weightList={weightList} weeklySummary={weeklySummary} />
       </ScrollView>
 
-      <View style={styles.footerContainer}>
+      <View pointerEvents="box-none" style={styles.footerContainer}>
         {!isOpen && <AddWeightButton onPress={() => setIsOpen(true)} />}
       </View>
 
-      <AddWeightSheet
-        postWeight={handlePostWeight}
-        isOpen={isOpen}
-        onClose={() => setIsOpen(false)}
-      />
+      {isOpen && (
+        <AddWeightSheet
+          postWeight={handlePostWeight}
+          isOpen={isOpen}
+          onClose={() => setIsOpen(false)}
+        />
+      )}
     </DarkOceanBackground>
   );
 }
@@ -80,14 +83,9 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: "stretch",
-    paddingBottom: 120,
+    paddingBottom: 148,
   },
   footerContainer: {
-    position: "absolute",
-    bottom: 10,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    zIndex: 10,
+    ...floatingActionButtonDock,
   },
 });

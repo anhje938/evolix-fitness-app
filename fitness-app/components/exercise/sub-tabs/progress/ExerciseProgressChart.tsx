@@ -20,7 +20,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useColorScheme,
   View,
 } from "react-native";
 import Svg, {
@@ -408,8 +407,7 @@ export function ExerciseProgressChart({
   minXLabels = 3,
   maxXLabels = 6,
 }: Props) {
-  const scheme = useColorScheme();
-  const colors = useMemo(() => getPalette(scheme), [scheme]);
+  const colors = useMemo(() => getPalette("dark"), []);
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [containerWidth, setContainerWidth] = useState(0);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
