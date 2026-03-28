@@ -72,6 +72,10 @@ type SavePreviewExercise = {
   exerciseId: string;
   name: string;
   bestEstimatedOneRmKg: number;
+  setsCount: number;
+  totalReps: number;
+  bestWeightKg: number | null;
+  totalVolumeKg: number | null;
   sets: SavePreviewSet[];
 };
 
@@ -227,6 +231,17 @@ function buildSavePreview(
         return null;
       }
 
+      const setsCount = sets.length;
+      const exerciseTotalReps = sets.reduce((sum, set) => sum + set.reps, 0);
+      const exerciseBestWeightKg = sets.reduce<number | null>((best, set) => {
+        if (set.weightKg == null) return best;
+        return best == null ? set.weightKg : Math.max(best, set.weightKg);
+      }, null);
+      const exerciseTotalVolumeKg = sets.reduce(
+        (sum, set) => sum + (set.weightKg ?? 0) * set.reps,
+        0
+      );
+
       return {
         id: exercise.id,
         exerciseId: exercise.exerciseId,
@@ -235,6 +250,10 @@ function buildSavePreview(
           (best, set) => Math.max(best, set.estimatedOneRmKg ?? 0),
           0
         ),
+        setsCount,
+        totalReps: exerciseTotalReps,
+        bestWeightKg: exerciseBestWeightKg,
+        totalVolumeKg: exerciseTotalVolumeKg > 0 ? exerciseTotalVolumeKg : null,
         sets,
       };
     })
@@ -1534,7 +1553,7 @@ export function WorkoutSessionOverlay() {
                       style={[typography.bodyBold, styles.saveSummaryHeroTitle]}
                       numberOfLines={2}
                     >
-                      {savePreview.title}
+                      {savePreviewWithPr.title}
                     </Text>
 
                     <View style={styles.saveSummaryStatsGrid}>
@@ -1553,7 +1572,7 @@ export function WorkoutSessionOverlay() {
                             styles.saveSummaryStatValue,
                           ]}
                         >
-                          {savePreview.durationLabel}
+                          {savePreviewWithPr.durationLabel}
                         </Text>
                       </View>
 
@@ -1572,7 +1591,7 @@ export function WorkoutSessionOverlay() {
                             styles.saveSummaryStatValue,
                           ]}
                         >
-                          {savePreview.exercisesCount}
+                          {savePreviewWithPr.exercisesCount}
                         </Text>
                       </View>
 
@@ -1591,7 +1610,7 @@ export function WorkoutSessionOverlay() {
                             styles.saveSummaryStatValue,
                           ]}
                         >
-                          {savePreview.completedSetsCount}
+                          {savePreviewWithPr.completedSetsCount}
                         </Text>
                       </View>
 
@@ -1616,7 +1635,7 @@ export function WorkoutSessionOverlay() {
                       </View>
                     </View>
 
-                    {!!savePreview.bestWeightKg && (
+                    {!!savePreviewWithPr.bestWeightKg && (
                       <View style={styles.saveSummaryHighlight}>
                         <Ionicons
                           name="barbell-outline"
@@ -1630,7 +1649,7 @@ export function WorkoutSessionOverlay() {
                           ]}
                         >
                           Tyngste registrerte sett:{" "}
-                          {formatKg(savePreview.bestWeightKg)}
+                          {formatKg(savePreviewWithPr.bestWeightKg)}
                         </Text>
                       </View>
                     )}
@@ -1654,7 +1673,7 @@ export function WorkoutSessionOverlay() {
                       Øvelser som lagres
                     </Text>
 
-                    {savePreview.exercises.map((exercise) => (
+                    {savePreviewWithPr.exercises.map((exercise) => (
                       <View
                         key={exercise.id}
                         style={styles.saveSummaryExerciseRow}

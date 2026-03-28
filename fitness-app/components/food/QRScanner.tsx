@@ -141,7 +141,6 @@ export default function QRScanner({
       <CameraView
         style={StyleSheet.absoluteFillObject}
         facing="back"
-        barcodeScannerEnabled={enabled}
         barcodeScannerSettings={{ barcodeTypes }}
         onMountError={(event) => {
           setCameraErrorMessage(

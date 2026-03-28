@@ -1,0 +1,102 @@
+diff --git a/node_modules/react-native-chart-kit/dist/AbstractChart.js b/node_modules/react-native-chart-kit/dist/AbstractChart.js
+index bb8b4cb..b397a54 100644
+--- a/node_modules/react-native-chart-kit/dist/AbstractChart.js
++++ b/node_modules/react-native-chart-kit/dist/AbstractChart.js
+@@ -130,7 +130,7 @@ var AbstractChart = /** @class */ (function (_super) {
+                 if (hidePointsAtIndex.includes(i)) {
+                     return null;
+                 }
+-                var x = (((width - paddingRight) / labels.length) * i +
++                var x = (((width - paddingRight) / labels.length) * (i + 0.5) +
+                     paddingRight +
+                     horizontalOffset) *
+                     fac;
+@@ -147,9 +147,9 @@ var AbstractChart = /** @class */ (function (_super) {
+             var data = _a.data, width = _a.width, height = _a.height, paddingTop = _a.paddingTop, paddingRight = _a.paddingRight, _b = _a.verticalLabelsHeightPercentage, verticalLabelsHeightPercentage = _b === void 0 ? DEFAULT_X_LABELS_HEIGHT_PERCENTAGE : _b;
+             var _c = _this.props.yAxisInterval, yAxisInterval = _c === void 0 ? 1 : _c;
+             return __spreadArrays(new Array(Math.ceil(data.length / yAxisInterval))).map(function (_, i) {
+-                return (<Line key={Math.random()} x1={Math.floor(((width - paddingRight) / (data.length / yAxisInterval)) * i +
+-                    paddingRight)} y1={0} x2={Math.floor(((width - paddingRight) / (data.length / yAxisInterval)) * i +
+-                    paddingRight)} y2={height * verticalLabelsHeightPercentage + paddingTop} {..._this.getPropsForBackgroundLines()}/>);
++                var x = Math.floor(((width - paddingRight) / (data.length / yAxisInterval)) * (i + 0.5) +
++                    paddingRight);
++                return (<Line key={Math.random()} x1={x} y1={0} x2={x} y2={height * verticalLabelsHeightPercentage + paddingTop} {..._this.getPropsForBackgroundLines()}/>);
+             });
+         };
+         _this.renderVerticalLine = function (_a) {
+diff --git a/node_modules/react-native-chart-kit/dist/line-chart/LineChart.js b/node_modules/react-native-chart-kit/dist/line-chart/LineChart.js
+index 1ac4227..80d6d72 100644
+--- a/node_modules/react-native-chart-kit/dist/line-chart/LineChart.js
++++ b/node_modules/react-native-chart-kit/dist/line-chart/LineChart.js
+@@ -76,7 +76,7 @@ var LineChart = /** @class */ (function (_super) {
+                     if (hidePointsAtIndex.includes(i)) {
+                         return;
+                     }
+-                    var cx = paddingRight + (i * (width - paddingRight)) / xMax;
++                    var cx = paddingRight + ((i + 0.5) * (width - paddingRight)) / xMax;
+                     var cy = ((baseHeight - _this.calcHeight(x, datas, height)) / 4) * 3 +
+                         paddingTop;
+                     var onPress = function () {
+@@ -180,7 +180,7 @@ var LineChart = /** @class */ (function (_super) {
+                         paddingTop;
+                     yValues.push(yval);
+                     var xval = paddingRight +
+-                        ((dataset.data.length - index - 1) * (width - paddingRight)) /
++                        ((dataset.data.length - index - 0.5) * (width - paddingRight)) /
+                             dataset.data.length;
+                     xValues.push(xval);
+                     yValuesLabel.push(yval - (scrollableInfoSize.height + scrollableInfoOffset));
+@@ -247,16 +247,17 @@ var LineChart = /** @class */ (function (_super) {
+                 return (<Polygon key={index} points={dataset.data
+                     .map(function (d, i) {
+                     var x = paddingRight +
+-                        (i * (width - paddingRight)) / dataset.data.length;
++                        ((i + 0.5) * (width - paddingRight)) / dataset.data.length;
+                     var y = ((baseHeight - _this.calcHeight(d, datas, height)) / 4) * 3 +
+                         paddingTop;
+                     return x + "," + y;
+                 })
+                     .join(" ") +
+                     (" " + (paddingRight +
+-                        ((width - paddingRight) / dataset.data.length) *
+-                            (dataset.data.length - 1)) + "," + ((height / 4) * 3 +
+-                        paddingTop) + " " + paddingRight + "," + ((height / 4) * 3 + paddingTop))} fill={"url(#fillShadowGradientFrom" + (useColorFromDataset ? "_" + index : "") + ")"} strokeWidth={0}/>);
++                        ((dataset.data.length - 0.5) * (width - paddingRight)) /
++                            dataset.data.length) + "," + ((height / 4) * 3 +
++                        paddingTop) + " " + (paddingRight +
++                        ((width - paddingRight) / dataset.data.length) * 0.5) + "," + ((height / 4) * 3 + paddingTop))} fill={"url(#fillShadowGradientFrom" + (useColorFromDataset ? "_" + index : "") + ")"} strokeWidth={0}/>);
+             });
+         };
+         _this.renderLine = function (_a) {
+@@ -279,7 +280,7 @@ var LineChart = /** @class */ (function (_super) {
+                 var points = dataset.data.map(function (d, i) {
+                     if (d === null)
+                         return lastPoint;
+-                    var x = (i * (width - paddingRight)) / xMax + paddingRight;
++                    var x = ((i + 0.5) * (width - paddingRight)) / xMax + paddingRight;
+                     var y = ((baseHeight - _this.calcHeight(d, datas, height)) / 4) * 3 +
+                         paddingTop;
+                     lastPoint = x + "," + y;
+@@ -302,7 +303,7 @@ var LineChart = /** @class */ (function (_super) {
+             var datas = _this.getDatas(data);
+             var xMax = _this.getXMaxValues(data);
+             var x = function (i) {
+-                return Math.floor(paddingRight + (i * (width - paddingRight)) / xMax);
++                return Math.floor(paddingRight + ((i + 0.5) * (width - paddingRight)) / xMax);
+             };
+             var baseHeight = _this.calcBaseHeight(datas, height);
+             var y = function (i) {
+@@ -345,9 +346,10 @@ var LineChart = /** @class */ (function (_super) {
+                     data: data
+                 }) +
+                     (" L" + (paddingRight +
+-                        ((width - paddingRight) / xMax) *
+-                            (dataset.data.length - 1)) + "," + ((height / 4) * 3 +
+-                        paddingTop) + " L" + paddingRight + "," + ((height / 4) * 3 + paddingTop) + " Z");
++                        ((dataset.data.length - 0.5) * (width - paddingRight)) /
++                            xMax) + "," + ((height / 4) * 3 +
++                        paddingTop) + " L" + (paddingRight +
++                        ((width - paddingRight) / xMax) * 0.5) + "," + ((height / 4) * 3 + paddingTop) + " Z");
+                 return (<Path key={index} d={d} fill={"url(#fillShadowGradientFrom" + (useColorFromDataset ? "_" + index : "") + ")"} strokeWidth={0}/>);
+             });
+         };

@@ -77,17 +77,28 @@ var corsOrigins = builder.Configuration
     .GetSection("Cors:Origins")
     .Get<string[]>();
 
+if (builder.Environment.IsDevelopment())
+{
+    corsOrigins ??=
+    [
+        "http://localhost:19006",
+        "http://localhost:3000",
+        "http://localhost:5173"
+    ];
+}
+
+if (corsOrigins is null || corsOrigins.Length == 0)
+{
+    throw new InvalidOperationException(
+        "Cors:Origins must be configured for this environment.");
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("EvolixCors", policy =>
     {
         policy
-            .WithOrigins(corsOrigins ?? new[]
-            {
-                "http://localhost:19006",
-                "http://localhost:3000",
-                "http://localhost:5173"
-            })
+            .WithOrigins(corsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -125,27 +136,30 @@ builder.Services
 
 var app = builder.Build();
 
-app.MapGet("/debug/env", (IHostEnvironment env) =>
+if (app.Environment.IsDevelopment())
 {
-    return new
+    app.MapGet("/debug/env", (IHostEnvironment env) =>
     {
-        EnvironmentName = env.EnvironmentName,
-        IsDevelopment = env.IsDevelopment()
-    };
-});
-
-app.MapGet("/debug/build", (IHostEnvironment env) =>
-{
-    var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-    return Results.Ok(new
-    {
-        deployMarker = DeployMarker,
-        environment = env.EnvironmentName,
-        assemblyVersion = assembly.GetName().Version?.ToString(),
-        imageRuntimeVersion = assembly.ImageRuntimeVersion,
-        utcNow = DateTime.UtcNow
+        return new
+        {
+            EnvironmentName = env.EnvironmentName,
+            IsDevelopment = env.IsDevelopment()
+        };
     });
-});
+
+    app.MapGet("/debug/build", (IHostEnvironment env) =>
+    {
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+        return Results.Ok(new
+        {
+            deployMarker = DeployMarker,
+            environment = env.EnvironmentName,
+            assemblyVersion = assembly.GetName().Version?.ToString(),
+            imageRuntimeVersion = assembly.ImageRuntimeVersion,
+            utcNow = DateTime.UtcNow
+        });
+    });
+}
 
 app.MapGet("/", () => "OK");        // root-test
 app.MapGet("/health", () => "OK");  // health-test
@@ -153,9 +167,12 @@ app.MapGet("/health", () => "OK");  // health-test
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var hasConnectionString =
+        !string.IsNullOrWhiteSpace(
+            builder.Configuration.GetConnectionString("DefaultConnection"));
     Console.WriteLine("DEPLOY_MARKER=" + DeployMarker);
     Console.WriteLine("ENV=" + builder.Environment.EnvironmentName);
-    Console.WriteLine("ConnStr=" + builder.Configuration.GetConnectionString("DefaultConnection"));
+    Console.WriteLine("ConnStrConfigured=" + hasConnectionString);
     db.Database.Migrate();
 }
 
