@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import Apple from "../../assets/icons/apple.svg";
 import Bicep from "../../assets/icons/bicep.svg";
-import Logo from "../../assets/icons/evolix_icon.svg";
+import Logo from "../../assets/icons/evolix_logo.svg";
 import Graph from "../../assets/icons/graph.svg";
 import IphoneLogo from "../../assets/icons/iphone-logo.svg";
 import Scale from "../../assets/icons/scale.svg";
@@ -133,8 +133,8 @@ export default function SignIn() {
         error instanceof AuthRequestError
           ? `API ${error.status}: ${error.message}`
           : error instanceof Error
-            ? error.message
-            : "Ukjent feil";
+          ? error.message
+          : "Ukjent feil";
 
       console.log("Login error:", detail, error);
       Alert.alert(
@@ -180,8 +180,9 @@ export default function SignIn() {
             },
           ]}
         >
-          <View>
-            <Logo height={200} width={200} />
+          <View style={styles.logoBox}>
+            <View style={styles.logoGlow} />
+            <Logo height={90} width={112} />
           </View>
         </Animated.View>
 
@@ -360,15 +361,19 @@ const styles = StyleSheet.create({
   // Logo
   logoContainer: {
     marginBottom: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   logoBox: {
-    backgroundColor: "#FFFFFF",
-    height: 120,
-    width: 120,
-    borderRadius: 32,
+    backgroundColor: "#0A2A4A",
+    height: 136,
+    width: 136,
+    borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(63,208,255,0.12)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,

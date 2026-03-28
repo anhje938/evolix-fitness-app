@@ -1,5 +1,6 @@
 // components/date/AppDateTimePicker.tsx
 import React, { useState } from "react";
+import { formatDateNO, formatTimeNO } from "@/utils/date";
 import {
   Keyboard,
   Platform,
@@ -51,11 +52,8 @@ export function AppDateTimePicker({
 
   const formattedValue =
     mode === "date"
-      ? currentValue.toLocaleDateString("nb-NO")
-      : currentValue.toLocaleTimeString("nb-NO", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+      ? formatDateNO(currentValue)
+      : formatTimeNO(currentValue);
 
   const openPicker = () => {
     Keyboard.dismiss();

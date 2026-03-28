@@ -53,13 +53,7 @@ export function MiniExerciseChart({
     return raw;
   }, [cappedData]);
 
-  const chartWidth = useMemo(() => {
-    if (width <= 0 || values.length <= 1) return width;
-
-    // react-native-chart-kit spaces the last point at (n-1)/n of the width.
-    // Scale the internal chart width so the visible last point lands on the edge.
-    return Math.ceil((width * values.length) / (values.length - 1));
-  }, [width, values.length]);
+  const chartWidth = width;
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
@@ -91,6 +85,7 @@ export function MiniExerciseChart({
           }}
           width={chartWidth}
           height={height}
+          withShadow={true}
           withDots={false}
           withInnerLines={false}
           withOuterLines={false}

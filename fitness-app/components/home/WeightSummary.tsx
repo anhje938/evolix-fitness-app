@@ -1,6 +1,23 @@
 import { generalStyles } from "@/config/styles";
-import { gradients, newColors } from "@/config/theme";
+import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
+import {
+  HOME_ACCENT_BAR_COLORS,
+  HOME_ACCENT_BAR_HEIGHT,
+  HOME_ACCENT_BAR_MARGIN_BOTTOM,
+  HOME_ACCENT_BAR_OPACITY,
+  HOME_ACCENT_BAR_WIDTH,
+  HOME_CARD_BG,
+  HOME_CARD_BORDER,
+  HOME_CARD_ELEVATION,
+  HOME_CARD_SHADOW_COLOR,
+  HOME_CARD_SHADOW_OFFSET,
+  HOME_CARD_SHADOW_OPACITY,
+  HOME_CARD_SHADOW_RADIUS,
+  HOME_SECTION_TITLE_COLOR,
+  HOME_SECTION_TITLE_SIZE,
+  HOME_SECTION_TITLE_WEIGHT,
+} from "@/components/home/homeCardTokens";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -18,43 +35,36 @@ export function WeightSummaryBox({
 
   const progressText = useMemo(() => {
     const abs = Math.abs(weightProgressLastWeek);
-    const sign = isUp ? "+" : "−";
+    const sign = isUp ? "+" : "-";
     return `${sign}${abs.toFixed(1)} kg`;
   }, [weightProgressLastWeek, isUp]);
 
-  const upColor = newColors.secondary.emerald;
-  const downColor = "#ef4444"; // lokal fallback
-
-  const progressColor = isUp ? upColor : downColor;
-
-  // litt tydeligere, men fortsatt premium
+  const progressColor = isUp ? newColors.secondary.emerald : "#ef4444";
   const tintBorder = isUp
-    ? "rgba(16, 185, 129, 0.26)"
-    : "rgba(239, 68, 68, 0.26)";
+    ? "rgba(16, 185, 129, 0.22)"
+    : "rgba(239, 68, 68, 0.22)";
 
   const safeWeightText = Number.isFinite(todayWeight)
     ? todayWeight.toFixed(1)
-    : "—";
+    : "--";
 
   return (
     <View style={[generalStyles.newCard, styles.card]}>
-      {/* Cyan/blue sheen (ikke hvit -> unngår grå "melk") */}
       <View pointerEvents="none" style={styles.sheenWrap}>
         <LinearGradient
           colors={[
-            "rgba(6, 182, 212, 0.10)", // cyan hint
-            "rgba(59, 130, 246, 0.06)", // blue hint
-            "rgba(2, 6, 23, 0.00)", // fade til transparent
+            "rgba(6,182,212,0.12)",
+            "rgba(59,130,246,0.08)",
+            "rgba(2,6,23,0.00)",
           ]}
-          start={{ x: 0.15, y: 0.0 }}
-          end={{ x: 0.85, y: 1.0 }}
+          start={{ x: 0.15, y: 0 }}
+          end={{ x: 0.85, y: 1 }}
           style={styles.sheen}
         />
       </View>
 
-      {/* Top accent gradient bar */}
       <LinearGradient
-        colors={gradients.primary}
+        colors={HOME_ACCENT_BAR_COLORS}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.accentBar}
@@ -65,13 +75,12 @@ export function WeightSummaryBox({
       <Text style={[typography.h1, styles.value]}>{safeWeightText} kg</Text>
 
       <View style={[styles.deltaPill, { borderColor: tintBorder }]}>
-        {/* Tinted pill glow (match brand, ikke hvit) */}
         <View pointerEvents="none" style={styles.pillGlowWrap}>
           <LinearGradient
             colors={[
-              "rgba(6, 182, 212, 0.16)",
-              "rgba(59, 130, 246, 0.08)",
-              "rgba(2, 6, 23, 0.00)",
+              "rgba(6,182,212,0.12)",
+              "rgba(59,130,246,0.06)",
+              "rgba(2,6,23,0.00)",
             ]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -90,7 +99,7 @@ export function WeightSummaryBox({
           {progressText}
         </Text>
         <Text style={[typography.body, styles.deltaSub]}>
-          de siste 7 målingene
+          siste 7 målinger
         </Text>
       </View>
     </View>
@@ -99,73 +108,70 @@ export function WeightSummaryBox({
 
 const styles = StyleSheet.create({
   card: {
-    padding: 16,
-    borderRadius: 22,
+    width: "100%",
+    paddingTop: 8,
+    paddingBottom: 12,
+    paddingHorizontal: 14,
+    borderRadius: 18,
     alignItems: "center",
     overflow: "hidden",
-
-    // La newCard styre surface/border – vi matcher resten via tint + sheen
-    shadowColor: "#000",
-    shadowOpacity: 0.11,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 2,
+    backgroundColor: HOME_CARD_BG,
+    borderWidth: 1,
+    borderColor: HOME_CARD_BORDER,
+    shadowColor: HOME_CARD_SHADOW_COLOR,
+    shadowOpacity: HOME_CARD_SHADOW_OPACITY,
+    shadowRadius: HOME_CARD_SHADOW_RADIUS,
+    shadowOffset: HOME_CARD_SHADOW_OFFSET,
+    elevation: HOME_CARD_ELEVATION,
   },
-
   sheenWrap: {
     position: "absolute",
-    top: -50,
-    left: -70,
-    right: -70,
-    bottom: -50,
+    top: -44,
+    left: -56,
+    right: -56,
+    bottom: -44,
   },
   sheen: {
     flex: 1,
     transform: [{ rotate: "-10deg" }],
   },
-
   accentBar: {
-    height: 3,
-    width: "62%",
+    height: HOME_ACCENT_BAR_HEIGHT,
+    width: HOME_ACCENT_BAR_WIDTH,
     borderRadius: 999,
-    opacity: 0.9,
-    marginBottom: 10,
+    opacity: HOME_ACCENT_BAR_OPACITY,
+    marginBottom: HOME_ACCENT_BAR_MARGIN_BOTTOM,
   },
-
   kicker: {
-    color: newColors.text.secondary,
-    letterSpacing: 0.3,
-    marginBottom: 6,
+    color: HOME_SECTION_TITLE_COLOR,
+    fontSize: HOME_SECTION_TITLE_SIZE,
+    fontWeight: HOME_SECTION_TITLE_WEIGHT,
+    letterSpacing: 0.2,
+    marginBottom: 8,
   },
-
   value: {
     color: newColors.text.primary,
-    fontSize: 28,
-    lineHeight: 32,
-    marginBottom: 10,
+    fontSize: 23,
+    lineHeight: 27,
+    marginBottom: 8,
   },
-
   deltaPill: {
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
     borderRadius: 999,
     borderWidth: 1,
     overflow: "hidden",
-
-    // Viktig: bruk mørk base (ikke hvit) => mindre grå, mer premium
-    backgroundColor: "rgba(2, 6, 23, 0.28)",
-
+    backgroundColor: "rgba(2,6,23,0.30)",
     shadowColor: "#000",
-    shadowOpacity: 0.09,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 1,
   },
-
   pillGlowWrap: {
     position: "absolute",
     top: -12,
@@ -176,22 +182,19 @@ const styles = StyleSheet.create({
   pillGlow: {
     flex: 1,
   },
-
   deltaDot: {
-    width: 8,
-    height: 8,
+    width: 6,
+    height: 6,
     borderRadius: 999,
     opacity: 0.95,
   },
-
   deltaValue: {
-    fontSize: 15,
-    lineHeight: 18,
-  },
-
-  deltaSub: {
-    color: newColors.text.muted,
     fontSize: 13,
     lineHeight: 16,
+  },
+  deltaSub: {
+    color: newColors.text.muted,
+    fontSize: 11,
+    lineHeight: 14,
   },
 });

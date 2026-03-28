@@ -54,6 +54,8 @@ export default function WeightPage() {
           height={292}
           maxXLabels={15}
           minZoom={0.1}
+          maxZoom={5}
+          zoomStep={0.35}
           minXLabels={5}
           goalValue={goalWeight}
         />

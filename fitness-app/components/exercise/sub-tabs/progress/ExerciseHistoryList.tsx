@@ -272,10 +272,12 @@ export default function ExerciseHistoryList({ history }: Props) {
     const prRow = rows.find((row) => row.isPr);
     if (!prRow || prRow.sets.length === 0) return null;
 
-    return prRow.sets.reduce((best, set) => {
-      if (!best) return set;
-      return compareSetStrength(set, best) > 0 ? set : best;
-    }, prRow.sets[0] ?? null)?.key ?? null;
+    return (
+      prRow.sets.reduce((best, set) => {
+        if (!best) return set;
+        return compareSetStrength(set, best) > 0 ? set : best;
+      }, prRow.sets[0] ?? null)?.key ?? null
+    );
   }, [rows]);
 
   const hasRows = rows.length > 0;
@@ -358,7 +360,9 @@ export default function ExerciseHistoryList({ history }: Props) {
                             style={[styles.iconChip, isPr && styles.iconChipPr]}
                           >
                             <Ionicons
-                              name={isPr ? "trophy-outline" : "calendar-outline"}
+                              name={
+                                isPr ? "trophy-outline" : "calendar-outline"
+                              }
                               size={14}
                               color={isPr ? colors.prText : colors.text}
                             />
@@ -470,7 +474,10 @@ export default function ExerciseHistoryList({ history }: Props) {
                               <View style={styles.tableDivider} />
 
                               <View
-                                style={[styles.setValueColumn, styles.setMiddleColumn]}
+                                style={[
+                                  styles.setValueColumn,
+                                  styles.setMiddleColumn,
+                                ]}
                               >
                                 <Text
                                   style={[
@@ -488,7 +495,10 @@ export default function ExerciseHistoryList({ history }: Props) {
                               <View style={styles.tableDivider} />
 
                               <View
-                                style={[styles.setValueColumn, styles.setRmColumn]}
+                                style={[
+                                  styles.setValueColumn,
+                                  styles.setRmColumn,
+                                ]}
                               >
                                 {isPrSet && (
                                   <Ionicons

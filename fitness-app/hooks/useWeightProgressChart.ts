@@ -1,11 +1,25 @@
+import { formatShortDayMonthNO } from "@/utils/date";
 import type { Weight } from "@/types/weight";
-import { useMemo, useRef, useState } from "react";
-import { Dimensions } from "react-native";
-import { State } from "react-native-gesture-handler";
+import { useMemo } from "react";
 
-const screenWidth = Dimensions.get("window").width;
-const BASE_POINT_WIDTH = 65;
-const MIN_COMPACT_WIDTH = 220;
+import { useSvgChartZoom } from "./useSvgChartZoom";
+
+const WEIGHT_CHART_AXIS_WIDTH = 64;
+
+function getTrendWindow(pointCount: number) {
+  if (pointCount <= 5) return 2;
+  if (pointCount <= 20) return 3;
+  if (pointCount <= 60) return 5;
+  return 7;
+}
+
+function movingAverage(values: number[], windowSize: number) {
+  return values.map((_, index) => {
+    const start = Math.max(0, index - windowSize + 1);
+    const slice = values.slice(start, index + 1);
+    return slice.reduce((sum, value) => sum + value, 0) / slice.length;
+  });
+}
 
 type Params = {
   weightList: Weight[];
@@ -44,10 +58,6 @@ export function useWeightProgressChart({
   zoomStep,
   height,
 }: Params) {
-  const [containerWidth, setContainerWidth] = useState<number | null>(null);
-  const [zoom, setZoom] = useState<number>(1);
-  const baseZoomRef = useRef<number>(1);
-
   const dailyData = useMemo(() => {
     if (!weightList.length) return [];
 
@@ -66,7 +76,7 @@ export function useWeightProgressChart({
     return filtered.map((item) => {
       const d = new Date(item.timestampUtc);
       return {
-        label: d.toLocaleDateString("nb-NO", { day: "numeric", month: "short" }),
+        label: formatShortDayMonthNO(item.timestampUtc),
         value: item.weightKg,
         date: d,
       };
@@ -126,6 +136,10 @@ export function useWeightProgressChart({
 
   const labels = useMemo(() => dailyData.map((w) => w.label), [dailyData]);
   const values = useMemo(() => dailyData.map((w) => w.value), [dailyData]);
+  const trendValues = useMemo(() => {
+    if (values.length < 2) return [];
+    return movingAverage(values, getTrendWindow(values.length));
+  }, [values]);
 
   const yRange = useMemo(() => {
     if (!values.length) {
@@ -152,96 +166,39 @@ export function useWeightProgressChart({
     return { minY, maxY, goal, isGoalInRange };
   }, [values, yMinPadding, yMaxPadding, goalValue, includeGoalInRange]);
 
-  const zoomState = useMemo(() => {
-    const fallbackWidth = screenWidth - 48;
-    const effectiveContainerWidth = containerWidth ?? fallbackWidth;
-    const dataCount = dailyData.length;
-    const adaptivePointWidth =
-      dataCount <= 4
-        ? 46
-        : dataCount <= 8
-        ? 40
-        : dataCount <= 16
-        ? 32
-        : dataCount <= 30
-        ? 26
-        : 22;
-    const naturalWidth = Math.max(MIN_COMPACT_WIDTH, dataCount * adaptivePointWidth);
-    const computedMinZoom =
-      naturalWidth > 0 ? Math.min(1, effectiveContainerWidth / naturalWidth) : 1;
-    const effectiveMinZoom = Math.max(minZoom, computedMinZoom);
-    const effectiveMaxZoom = Math.max(effectiveMinZoom, maxZoom);
-
-    const desiredWidth = naturalWidth * zoom;
-    const chartWidth =
-      naturalWidth > effectiveContainerWidth
-        ? Math.max(effectiveContainerWidth, desiredWidth)
-        : effectiveContainerWidth;
-    const chartHeight = height ?? 240;
-
-    const canZoomIn = zoom < effectiveMaxZoom - 0.01;
-    const canZoomOut = zoom > effectiveMinZoom + 0.01;
-
-    return {
-      effectiveContainerWidth,
-      effectiveMinZoom,
-      effectiveMaxZoom,
-      chartWidth,
-      chartHeight,
-      canZoomIn,
-      canZoomOut,
-    };
-  }, [containerWidth, dailyData.length, height, maxZoom, minZoom, zoom]);
-
-  const clampZoom = (value: number) =>
-    Math.min(zoomState.effectiveMaxZoom, Math.max(zoomState.effectiveMinZoom, value));
-
-  const handleZoomIn = () => {
-    setZoom((prev) => {
-      const next = clampZoom(prev * (1 + zoomStep));
-      baseZoomRef.current = next;
-      return next;
-    });
-  };
-
-  const handleZoomOut = () => {
-    setZoom((prev) => {
-      const next = clampZoom(prev / (1 + zoomStep));
-      baseZoomRef.current = next;
-      return next;
-    });
-  };
-
-  const handlePinchEvent = (event: any) => {
-    const scale = event.nativeEvent.scale as number;
-    setZoom(clampZoom(baseZoomRef.current * scale));
-  };
-
-  const handlePinchStateChange = (event: any) => {
-    const state = event.nativeEvent.state as number;
-    if (state === State.BEGAN) baseZoomRef.current = zoom;
-    if (state === State.END || state === State.CANCELLED || state === State.FAILED) {
-      baseZoomRef.current = zoom;
-    }
-  };
+  const dataCount = dailyData.length;
+  const adaptivePointWidth =
+    dataCount <= 4
+      ? 46
+      : dataCount <= 8
+      ? 40
+      : dataCount <= 16
+      ? 32
+      : dataCount <= 30
+      ? 26
+      : 22;
+  const zoomState = useSvgChartZoom({
+    pointCount: dataCount,
+    height: height ?? 240,
+    baseContentWidth: Math.max(156, dataCount * adaptivePointWidth),
+    staticWidthOffset: WEIGHT_CHART_AXIS_WIDTH,
+    minZoom,
+    maxZoom,
+    zoomStep,
+    minVisibleLabels: minXLabels,
+    maxVisibleLabels: maxXLabels,
+  });
 
   const limitedLabels = useMemo(() => {
     if (!labels.length) return labels;
-
-    const { effectiveMinZoom, effectiveMaxZoom } = zoomState;
-    const zoomRange = effectiveMaxZoom - effectiveMinZoom;
-    const zoomT = zoomRange > 0 ? (zoom - effectiveMinZoom) / zoomRange : 0.5;
-
-    const minAllowedX = Math.min(minXLabels, labels.length);
-    const maxAllowedX = Math.min(Math.max(maxXLabels, minAllowedX), labels.length);
-    const dynamicMaxXLabels = Math.round(minAllowedX + zoomT * (maxAllowedX - minAllowedX));
+    const dynamicMaxXLabels = zoomState.dynamicMaxVisibleLabels;
 
     if (dynamicMaxXLabels > 0 && labels.length > dynamicMaxXLabels) {
       const step = Math.ceil(labels.length / dynamicMaxXLabels);
       return labels.map((label, index) => (index % step === 0 ? label : ""));
     }
     return labels;
-  }, [labels, minXLabels, maxXLabels, zoom, zoomState]);
+  }, [labels, zoomState.dynamicMaxVisibleLabels]);
 
   const trend = useMemo(() => {
     const changeText = stats
@@ -267,26 +224,14 @@ export function useWeightProgressChart({
   }, [decimalPlaces, stats]);
 
   return {
-    // layout
-    containerWidth,
-    setContainerWidth,
-    zoom,
-    // data
     dailyData,
     stats,
     labels,
     values,
+    trendValues,
     limitedLabels,
-    // y-range
     ...yRange,
-    // zoom computed
     ...zoomState,
-    // handlers
-    handleZoomIn,
-    handleZoomOut,
-    handlePinchEvent,
-    handlePinchStateChange,
-    // misc
     trend,
   };
 }

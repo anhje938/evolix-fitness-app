@@ -1,6 +1,7 @@
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { Food } from "@/types/meal";
+import { formatTimeNO, getOsloDateKey, getOsloTodayDateKey } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { memo, useMemo } from "react";
@@ -27,26 +28,10 @@ const ACCENT = {
   deepBg: "rgba(2, 6, 23, 0.22)",
 };
 
-function toLocalDateKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
 function toRounded(value: unknown): number {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) return 0;
   return Math.round(n);
-}
-
-function formatTime(utc: string): string {
-  const parsed = new Date(utc);
-  if (Number.isNaN(parsed.getTime())) return "--:--";
-  return parsed.toLocaleTimeString("nb-NO", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function formatServings(value: number | null | undefined): string {
@@ -70,15 +55,13 @@ export const MealCard = memo(function MealCard({
   onEditMeal,
   onDeleteMeal,
 }: MealCardProps) {
-  const todayKey = useMemo(() => toLocalDateKey(new Date()), []);
+  const todayKey = useMemo(() => getOsloTodayDateKey(), []);
 
   const todaysMeals = useMemo(() => {
     return [...foodList]
       .filter((meal) => {
         if (!meal.timestampUtc) return false;
-        const parsed = new Date(meal.timestampUtc);
-        if (Number.isNaN(parsed.getTime())) return false;
-        return toLocalDateKey(parsed) === todayKey;
+        return getOsloDateKey(meal.timestampUtc) === todayKey;
       })
       .sort(
         (a, b) =>
@@ -87,11 +70,11 @@ export const MealCard = memo(function MealCard({
   }, [foodList, todayKey]);
 
   const openMenu = (meal: Food) => {
-    const buttons: Array<{
+    const buttons: {
       text: string;
       style?: "default" | "cancel" | "destructive";
       onPress?: () => void;
-    }> = [];
+    }[] = [];
 
     if (typeof onEditMeal === "function") {
       buttons.push({
@@ -255,7 +238,7 @@ export const MealCard = memo(function MealCard({
 
                     <View style={styles.metaRow}>
                       <ClockIcon height={12} width={12} />
-                      <Text style={[typography.body, styles.metaText]}>{formatTime(meal.timestampUtc)}</Text>
+                      <Text style={[typography.body, styles.metaText]}>{formatTimeNO(meal.timestampUtc)}</Text>
                     </View>
 
                     {sourceLabel && (

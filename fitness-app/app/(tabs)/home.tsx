@@ -1,8 +1,25 @@
 // app/(tabs)/home.tsx
-import { deleteMyUser, fetchMyUser } from "@/api/user";
+import { deleteMyUser } from "@/api/user";
 import SettingsLogo from "@/assets/icons/white-settings.svg";
 import { DarkOceanBackground } from "@/components/DarkOceanBackground";
 import AnatomyFigure from "@/components/exercise/AnatomyFigure";
+import {
+  HOME_ACCENT_BAR_COLORS,
+  HOME_ACCENT_BAR_HEIGHT,
+  HOME_ACCENT_BAR_MARGIN_BOTTOM,
+  HOME_ACCENT_BAR_OPACITY,
+  HOME_ACCENT_BAR_WIDTH,
+  HOME_CARD_BG,
+  HOME_CARD_BORDER,
+  HOME_CARD_ELEVATION,
+  HOME_CARD_SHADOW_COLOR,
+  HOME_CARD_SHADOW_OFFSET,
+  HOME_CARD_SHADOW_OPACITY,
+  HOME_CARD_SHADOW_RADIUS,
+  HOME_SECTION_TITLE_COLOR,
+  HOME_SECTION_TITLE_SIZE,
+  HOME_SECTION_TITLE_WEIGHT,
+} from "@/components/home/homeCardTokens";
 import { ProgressCircle } from "@/components/food/progressCircle";
 import { WeightSummaryBox } from "@/components/home/WeightSummary";
 import QuickStartButtons from "@/components/home/quickStartButtons";
@@ -17,6 +34,14 @@ import { useExercises } from "@/hooks/useExercises";
 import { useRecoveryMap } from "@/hooks/useRecoveryMap";
 import { useCompletedWorkouts } from "@/hooks/workout-history/useCompletedWorkouts";
 import type { HomeGoalTile, HomeSectionKey } from "@/types/userSettings";
+import {
+  formatDateNO,
+  formatDateTimeNO,
+  formatTimeNO,
+  formatWeekdayNO,
+  getOsloDateKey,
+} from "@/utils/date";
+import { getRelativeDateLabel } from "@/utils/pastWeek";
 import { muscleToSlug } from "@/utils/recovery/muscleToSlug";
 import { toBodyHighlighterData } from "@/utils/recovery/toBodyHighlighterData";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,7 +55,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -135,25 +159,31 @@ function readReadinessHours(entry: unknown): number {
 }
 
 function formatUtc(isoUtc: string): string {
+  return formatDateTimeNO(isoUtc);
+}
+
+function capitalizeFirst(value: string): string {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatLastTrained(isoUtc: string): string {
   const d = new Date(isoUtc);
   if (!Number.isFinite(d.getTime())) return "Ukjent";
-  return new Intl.DateTimeFormat("nb-NO", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
+
+  const dateKey = getOsloDateKey(d);
+  const relative = getRelativeDateLabel(dateKey);
+  if (relative !== dateKey) {
+    const weekday = capitalizeFirst(formatWeekdayNO(d));
+    const time = formatTimeNO(d);
+    return `${weekday} kl. ${time}`;
+  }
+
+  return formatUtc(isoUtc);
 }
 
 function formatDateOnly(isoUtc: string): string {
-  const d = new Date(isoUtc);
-  if (!Number.isFinite(d.getTime())) return "Ukjent";
-  return new Intl.DateTimeFormat("nb-NO", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(d);
+  return formatDateNO(isoUtc);
 }
 
 type FigureSide = "front" | "back";
@@ -253,7 +283,6 @@ export default function HomePage() {
   const { recoveryMap } = useRecoveryMap({ sessions, exercises });
 
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [displayName, setDisplayName] = useState("");
   const [musclePopup, setMusclePopup] = useState<{
     muscle: string;
     lastTrained: string;
@@ -297,30 +326,6 @@ export default function HomePage() {
     width: number;
     height: number;
   } | null>(null);
-
-  useEffect(() => {
-    let isActive = true;
-
-    if (!token) {
-      setDisplayName("");
-      return;
-    }
-
-    (async () => {
-      try {
-        const me = await fetchMyUser(token);
-        if (!isActive) return;
-        setDisplayName((me?.displayName ?? "").trim());
-      } catch (error) {
-        console.log("Could not fetch user profile", error);
-        if (isActive) setDisplayName("");
-      }
-    })();
-
-    return () => {
-      isActive = false;
-    };
-  }, [token]);
 
   useEffect(() => {
     if (!musclePopup) return;
@@ -474,7 +479,7 @@ export default function HomePage() {
         (a, b) => a.recovery01 - b.recovery01
       )[0];
       const lastTrained = selected.lastStimulusAtUtc
-        ? formatUtc(selected.lastStimulusAtUtc)
+        ? formatLastTrained(selected.lastStimulusAtUtc)
         : "Ingen data";
 
       let estimatedReady = "Ingen data";
@@ -568,8 +573,7 @@ export default function HomePage() {
     userSettings.homeSectionOrder
   );
 
-  const homeSections: Array<{ key: HomeSectionKey; content: React.ReactNode }> =
-    [];
+  const homeSections: { key: HomeSectionKey; content: React.ReactNode }[] = [];
 
   for (const sectionKey of orderedHomeSections) {
     if (sectionKey === "quickStart") {
@@ -601,7 +605,7 @@ export default function HomePage() {
             </View>
 
             <LinearGradient
-              colors={["rgba(6,182,212,0.88)", "rgba(59,130,246,0.84)"]}
+              colors={HOME_ACCENT_BAR_COLORS}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.goalsAccentBar}
@@ -737,18 +741,18 @@ export default function HomePage() {
             style={styles.anatomyGlow}
           />
 
+          <LinearGradient
+            colors={HOME_ACCENT_BAR_COLORS}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.anatomyAccentBar}
+          />
+
           <View style={styles.anatomyHeader}>
             <Text style={[typography.body, styles.anatomyTitle]}>
               Restitusjonskart
             </Text>
           </View>
-
-          <LinearGradient
-            colors={["rgba(6,182,212,0.88)", "rgba(59,130,246,0.84)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.anatomyAccentBar}
-          />
 
           <View
             style={styles.anatomyRow}
@@ -836,9 +840,9 @@ export default function HomePage() {
               <View style={styles.musclePopup}>
                 <LinearGradient
                   colors={[
-                    "rgba(56,189,248,0.24)",
-                    "rgba(99,102,241,0.18)",
-                    "rgba(2,6,23,0.84)",
+                    "rgba(56,189,248,0.12)",
+                    "rgba(59,130,246,0.09)",
+                    "rgba(2,6,23,0.985)",
                   ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -1019,16 +1023,16 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 18,
     paddingTop: 8,
-    paddingBottom: 10,
-    paddingHorizontal: 10,
+    paddingBottom: 12,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: "rgba(6,182,212,0.16)",
-    backgroundColor: "rgba(15,23,42,0.44)",
-    shadowColor: "#06b6d4",
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 1,
+    borderColor: HOME_CARD_BORDER,
+    backgroundColor: HOME_CARD_BG,
+    shadowColor: HOME_CARD_SHADOW_COLOR,
+    shadowOpacity: HOME_CARD_SHADOW_OPACITY,
+    shadowRadius: HOME_CARD_SHADOW_RADIUS,
+    shadowOffset: HOME_CARD_SHADOW_OFFSET,
+    elevation: HOME_CARD_ELEVATION,
   },
 
   goalsSheenWrap: {
@@ -1044,25 +1048,26 @@ const styles = StyleSheet.create({
   },
 
   goalsAccentBar: {
-    height: 3,
-    width: "48%",
+    height: HOME_ACCENT_BAR_HEIGHT,
+    width: HOME_ACCENT_BAR_WIDTH,
     borderRadius: 999,
-    opacity: 0.92,
+    opacity: HOME_ACCENT_BAR_OPACITY,
     alignSelf: "center",
-    marginBottom: 8,
+    marginBottom: HOME_ACCENT_BAR_MARGIN_BOTTOM,
   },
 
   goalsHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
     paddingHorizontal: 6,
     marginBottom: 8,
   },
   goalsTitle: {
-    color: ui.text,
-    fontSize: 12,
-    fontWeight: "400",
+    color: HOME_SECTION_TITLE_COLOR,
+    fontSize: HOME_SECTION_TITLE_SIZE,
+    fontWeight: HOME_SECTION_TITLE_WEIGHT,
+    textAlign: "center",
   },
 
   topArea: {
@@ -1123,17 +1128,17 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 18,
     overflow: "hidden",
-    paddingTop: 16,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 12,
     paddingHorizontal: 14,
-    backgroundColor: "rgba(15,23,42,0.44)",
+    backgroundColor: HOME_CARD_BG,
     borderWidth: 1,
-    borderColor: "rgba(6,182,212,0.16)",
-    shadowColor: "#06b6d4",
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 1,
+    borderColor: HOME_CARD_BORDER,
+    shadowColor: HOME_CARD_SHADOW_COLOR,
+    shadowOpacity: HOME_CARD_SHADOW_OPACITY,
+    shadowRadius: HOME_CARD_SHADOW_RADIUS,
+    shadowOffset: HOME_CARD_SHADOW_OFFSET,
+    elevation: HOME_CARD_ELEVATION,
   },
 
   anatomyInnerStroke: {
@@ -1153,22 +1158,25 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   anatomyAccentBar: {
-    height: 3,
-    width: "48%",
+    height: HOME_ACCENT_BAR_HEIGHT,
+    width: HOME_ACCENT_BAR_WIDTH,
     borderRadius: 999,
-    opacity: 0.92,
+    opacity: HOME_ACCENT_BAR_OPACITY,
     alignSelf: "center",
-    marginBottom: 12,
+    marginBottom: HOME_ACCENT_BAR_MARGIN_BOTTOM,
   },
 
   anatomyHeader: {
+    alignItems: "center",
     marginBottom: 8,
+    paddingHorizontal: 6,
   },
 
   anatomyTitle: {
-    color: ui.text,
-    fontSize: 13,
-    fontWeight: "500",
+    color: HOME_SECTION_TITLE_COLOR,
+    fontSize: HOME_SECTION_TITLE_SIZE,
+    fontWeight: HOME_SECTION_TITLE_WEIGHT,
+    textAlign: "center",
   },
 
   anatomyRow: {
@@ -1220,13 +1228,18 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderRadius: 14,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
   },
   musclePopup: {
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 11,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: "rgba(125,211,252,0.20)",
+    backgroundColor: "rgba(2,6,23,0.965)",
     overflow: "hidden",
   },
   musclePopupGlow: {
@@ -1252,9 +1265,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.35)",
   },
   musclePopupTitle: {
-    color: "rgba(229,236,255,0.95)",
-    fontSize: 13,
-    fontWeight: "700",
+    color: "rgba(241,245,249,0.98)",
+    fontSize: 12,
+    fontWeight: "500",
+    letterSpacing: 0.08,
   },
   musclePopupClose: {
     width: 22,
@@ -1262,19 +1276,19 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(148,163,184,0.14)",
+    backgroundColor: "rgba(15,23,42,0.84)",
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.25)",
+    borderColor: "rgba(148,163,184,0.18)",
   },
   musclePopupClosePressed: {
     transform: [{ scale: 0.94 }],
-    backgroundColor: "rgba(148,163,184,0.24)",
+    backgroundColor: "rgba(30,41,59,0.92)",
   },
   musclePopupMetricRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
   musclePopupMetricLabel: {
     flexDirection: "row",
@@ -1282,20 +1296,20 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   musclePopupMetricLabelText: {
-    color: "rgba(148,163,184,0.92)",
-    fontSize: 11,
-    letterSpacing: 0.2,
+    color: "rgba(191,219,254,0.84)",
+    fontSize: 10,
+    letterSpacing: 0.12,
     textTransform: "uppercase",
-    fontWeight: "700",
+    fontWeight: "500",
   },
   musclePopupMetricValue: {
-    color: "rgba(203,213,225,0.92)",
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: "600",
+    color: "rgba(241,245,249,0.96)",
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: "400",
   },
   musclePopupMetricValueReady: {
-    color: "rgba(125,211,252,0.96)",
+    color: "rgba(103,232,249,0.98)",
   },
   musclePopupHint: {
     marginTop: 4,

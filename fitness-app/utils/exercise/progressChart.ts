@@ -1,3 +1,10 @@
+import {
+  dateKeyToUtcDate,
+  formatDateKeyLongNO,
+  formatShortDayMonthNO,
+  getOsloDateKey,
+} from "@/utils/date";
+
 export type ProgressTimeRange = "20" | "50" | "100" | "all";
 export type ProgressMetricKind = "weight" | "volumeKg" | "volumeSets";
 export type ProgressUnit = "kg" | "lbs" | "sets";
@@ -76,37 +83,15 @@ type PrepareProgressSeriesOptions = {
 
 const KG_PER_LB = 0.45359237;
 
-export const PROGRESS_TIME_RANGE_OPTIONS: Array<{
+export const PROGRESS_TIME_RANGE_OPTIONS: {
   value: ProgressTimeRange;
   label: string;
-}> = [
+}[] = [
   { value: "20", label: "20" },
   { value: "50", label: "50" },
   { value: "100", label: "100" },
   { value: "all", label: "Alle" },
 ];
-
-function toDayKey(date: Date) {
-  return [
-    date.getUTCFullYear(),
-    String(date.getUTCMonth() + 1).padStart(2, "0"),
-    String(date.getUTCDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function startOfUtcDay(date: Date) {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-  );
-}
-
-function startOfUtcWeek(date: Date) {
-  const day = date.getUTCDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const d = startOfUtcDay(date);
-  d.setUTCDate(d.getUTCDate() + diff);
-  return d;
-}
 
 function addDays(date: Date, days: number) {
   const d = new Date(date.getTime());
@@ -148,31 +133,38 @@ function getRangeLimit(range: ProgressTimeRange) {
   return null;
 }
 
-function formatShortLabel(date: Date, bucket: ProgressBucket) {
-  return date.toLocaleDateString("nb-NO", {
-    day: "numeric",
-    month: bucket === "week" ? "numeric" : "short",
-  });
+function getWeekStartDateKey(dateKey: string) {
+  const date = dateKeyToUtcDate(dateKey);
+  if (!date) return "";
+
+  const dayNumber = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 1 - dayNumber);
+  return getOsloDateKey(date);
 }
 
-function formatFullLabel(date: Date, bucket: ProgressBucket) {
+function formatShortLabel(dateKey: string, bucket: ProgressBucket) {
+  const date = dateKeyToUtcDate(dateKey);
+  if (!date) return "Ukjent";
+
   if (bucket === "week") {
     const end = addDays(date, 6);
-    return `${date.toLocaleDateString("nb-NO", {
-      day: "numeric",
-      month: "short",
-    })} - ${end.toLocaleDateString("nb-NO", {
-      day: "numeric",
-      month: "short",
-      year: date.getUTCFullYear() !== end.getUTCFullYear() ? "numeric" : undefined,
-    })}`;
+    return `${formatShortDayMonthNO(date)} - ${formatShortDayMonthNO(end)}`;
   }
 
-  return date.toLocaleDateString("nb-NO", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return formatShortDayMonthNO(date);
+}
+
+function formatFullLabel(dateKey: string, bucket: ProgressBucket) {
+  if (bucket === "week") {
+    const date = dateKeyToUtcDate(dateKey);
+    if (!date) return "Ukjent";
+    const end = addDays(date, 6);
+    return `${formatDateKeyLongNO(dateKey)} - ${formatDateKeyLongNO(
+      getOsloDateKey(end)
+    )}`;
+  }
+
+  return formatDateKeyLongNO(dateKey);
 }
 
 function formatRangeLabel(range: ProgressTimeRange) {
@@ -339,27 +331,34 @@ function aggregatePoints(
 ) {
   const groups = new Map<
     string,
-    { values: number[]; tsMs: number; autoConverted: boolean }
+    { values: number[]; tsMs: number; autoConverted: boolean; bucketDateKey: string }
   >();
 
   for (const point of data) {
-    const date = new Date(point.tsMs);
-    const bucketDate =
-      bucket === "week" ? startOfUtcWeek(date) : startOfUtcDay(date);
-    const key = bucketDate.toISOString();
+    const dateKey = getOsloDateKey(point.timestampUtc);
+    if (!dateKey) continue;
+
+    const bucketDateKey =
+      bucket === "week" ? getWeekStartDateKey(dateKey) : dateKey;
+    if (!bucketDateKey) continue;
+
+    const bucketDate = dateKeyToUtcDate(bucketDateKey);
+    if (!bucketDate) continue;
+
+    const key = bucketDateKey;
     const existing = groups.get(key);
 
     if (existing) {
       existing.values.push(point.value);
       existing.autoConverted = existing.autoConverted || point.autoConverted;
-      existing.tsMs = Math.max(existing.tsMs, point.tsMs);
       continue;
     }
 
     groups.set(key, {
       values: [point.value],
-      tsMs: point.tsMs,
+      tsMs: bucketDate.getTime(),
       autoConverted: point.autoConverted,
+      bucketDateKey,
     });
   }
 
@@ -372,8 +371,9 @@ function aggregatePoints(
 
       return {
         key,
-        timestampUtc: key,
-        tsMs: Date.parse(key),
+        bucketDateKey: group.bucketDateKey,
+        timestampUtc: new Date(group.tsMs).toISOString(),
+        tsMs: group.tsMs,
         value,
         sourceCount: group.values.length,
         autoConverted: group.autoConverted,
@@ -417,7 +417,7 @@ function movingAverage(values: number[], windowSize: number) {
   });
 }
 
-function detectPlateau(points: Array<{ tsMs: number; value: number }>) {
+function detectPlateau(points: { tsMs: number; value: number }[]) {
   if (points.length < 4) return false;
   const recent = points.slice(-4);
   const values = recent.map((point) => point.value);
@@ -526,14 +526,12 @@ export function prepareProgressSeries({
       hasLongGaps = true;
     }
 
-    const bucketDate = new Date(point.timestampUtc);
-
     return {
       key: point.key,
       timestampUtc: point.timestampUtc,
       bucketStartUtc: point.timestampUtc,
-      shortLabel: formatShortLabel(bucketDate, bucket),
-      fullLabel: formatFullLabel(bucketDate, bucket),
+      shortLabel: formatShortLabel(point.bucketDateKey, bucket),
+      fullLabel: formatFullLabel(point.bucketDateKey, bucket),
       value,
       clampedValue: clamp(value, lowerBound, upperBound),
       trendValue: previousTrend,
@@ -600,5 +598,5 @@ export function getProgressRangeLabel(range: ProgressTimeRange) {
 }
 
 export function getProgressDayKey(timestampUtc: string) {
-  return toDayKey(new Date(timestampUtc));
+  return getOsloDateKey(timestampUtc);
 }

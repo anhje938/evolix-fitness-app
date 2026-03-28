@@ -1,20 +1,15 @@
 import { Food } from "@/types/meal";
+import {
+  getIsoWeekYearAndNumberFromDateKey,
+  getOsloDateKey,
+} from "@/utils/date";
 import { calcTotalMacros } from "./calculateTotalMacros";
 
-function toLocalDateKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-// DAILY: grupperer etter lokal dato for mer intuitiv "i dag"-visning
+// DAILY: grupperer etter Oslo-dato for korrekt "i dag"-visning
 export function groupMealsByDate(meals: Food[]) {
   return meals.reduce((acc, meal) => {
-    const dateObj = new Date(meal.timestampUtc);
-    if (Number.isNaN(dateObj.getTime())) return acc;
-
-    const dateKey = toLocalDateKey(dateObj);
+    const dateKey = getOsloDateKey(meal.timestampUtc);
+    if (!dateKey) return acc;
 
     if (!acc[dateKey]) {
       acc[dateKey] = [];
@@ -24,38 +19,16 @@ export function groupMealsByDate(meals: Food[]) {
   }, {} as Record<string, Food[]>);
 }
 
-// ===== NYTT: UKEBASERT LOGIKK =====
-
-// Hjelper: ISO-ukenummer (standardisert uke-beregning)
-function getISOWeek(date: Date): number {
-  const tmp = new Date(date.getTime());
-  tmp.setHours(0, 0, 0, 0);
-
-  // Torsdag i uken definerer uke-nummer
-  tmp.setDate(tmp.getDate() + 3 - ((tmp.getDay() + 6) % 7));
-
-  // Uke 1 er uken med 4. januar
-  const week1 = new Date(tmp.getFullYear(), 0, 4);
-
-  return (
-    1 +
-    Math.round(
-      ((tmp.getTime() - week1.getTime()) / 86400000 -
-        3 +
-        ((week1.getDay() + 6) % 7)) /
-        7
-    )
-  );
-}
-
-// Grupperer måltider per uke: "2025-U06" => Meal[]
+// WEEKLY: grupperer mÃ¥ltider per ISO-uke basert pÃ¥ Oslo-dato
 export function groupMealsByWeek(meals: Food[]) {
   return meals.reduce((acc, meal) => {
-    const dateObj = new Date(meal.timestampUtc);
-    const year = dateObj.getFullYear();
-    const week = getISOWeek(dateObj);
+    const dateKey = getOsloDateKey(meal.timestampUtc);
+    if (!dateKey) return acc;
 
-    const weekKey = `${year}-U${String(week).padStart(2, "0")}`; // f.eks "2025-U06"
+    const isoWeek = getIsoWeekYearAndNumberFromDateKey(dateKey);
+    if (!isoWeek) return acc;
+
+    const weekKey = `${isoWeek.year}-U${String(isoWeek.week).padStart(2, "0")}`;
 
     if (!acc[weekKey]) {
       acc[weekKey] = [];
@@ -66,37 +39,33 @@ export function groupMealsByWeek(meals: Food[]) {
   }, {} as Record<string, Food[]>);
 }
 
-// Typen for weekly summary
 export type WeeklyMacroTotals = {
-  weekKey: string;        // "2025-U06"
-  year: number;           // 2025
-  week: number;           // 6
-  weekLabel: string;      // "Uke 6, 2025"
+  weekKey: string;
+  year: number;
+  week: number;
+  weekLabel: string;
   totalCalories: number;
   totalProteins: number;
   totalCarbs: number;
   totalFats: number;
 };
 
-// Lager en ferdig weekly-oversikt med summerte macros per uke
 export function getWeeklyMacroTotals(meals: Food[]): WeeklyMacroTotals[] {
   const grouped = groupMealsByWeek(meals);
 
   const summaries: WeeklyMacroTotals[] = Object.entries(grouped).map(
     ([weekKey, weekMeals]) => {
-      const totals = calcTotalMacros(weekMeals); // gjenbruker utilen din
+      const totals = calcTotalMacros(weekMeals);
 
       const [yearStr, weekPart] = weekKey.split("-U");
       const year = Number(yearStr);
       const week = Number(weekPart);
 
-      const weekLabel = `Uke ${week}, ${year}`;
-
       return {
         weekKey,
         year,
         week,
-        weekLabel,
+        weekLabel: `Uke ${week}, ${year}`,
         totalCalories: totals.totalCalories,
         totalProteins: totals.totalProteins,
         totalCarbs: totals.totalCarbs,
@@ -105,7 +74,6 @@ export function getWeeklyMacroTotals(meals: Food[]): WeeklyMacroTotals[] {
     }
   );
 
-  // Sortér nyeste uke først
   summaries.sort((a, b) => {
     if (a.year !== b.year) return b.year - a.year;
     return b.week - a.week;

@@ -1,4 +1,10 @@
 import { CompletedWorkoutSummaryDto } from "@/api/exercise/completedWorkouts";
+import {
+  dateKeyToUtcDate,
+  getDateKeyEpochDay,
+  getOsloDateKey,
+  getOsloTodayDateKey,
+} from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import React, { memo, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -26,14 +32,6 @@ const colors = {
   orangeBg: "rgba(251, 191, 36, 0.12)",
 };
 
-function localDateKeyFromUtc(isoUtc: string) {
-  const d = new Date(isoUtc);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
   sessions,
   onOpenSession,
@@ -46,7 +44,8 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
   const byDate = useMemo(() => {
     const map = new Map<string, CompletedWorkoutSummaryDto[]>();
     for (const s of sessions) {
-      const key = localDateKeyFromUtc(s.finishedAtUtc);
+      const key = getOsloDateKey(s.finishedAtUtc);
+      if (!key) continue;
       const arr = map.get(key) ?? [];
       arr.push(s);
       map.set(key, arr);
@@ -65,23 +64,25 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
 
   // Calculate stats (same as your design file)
   const stats = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    const todayDateKey = getOsloTodayDateKey();
+    const todayMonthKey = todayDateKey.slice(0, 7);
+    const todayEpochDay = getDateKeyEpochDay(todayDateKey);
 
     let monthCount = 0;
     let weekCount = 0;
     let currentStreak = 0;
     let longestStreak = 0;
 
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
     for (const s of sessions) {
-      const d = new Date(s.finishedAtUtc);
-      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+      const dateKey = getOsloDateKey(s.finishedAtUtc);
+      if (!dateKey) continue;
+
+      if (dateKey.slice(0, 7) === todayMonthKey) {
         monthCount++;
       }
-      if (d >= weekAgo) {
+
+      const epochDay = getDateKeyEpochDay(dateKey);
+      if (epochDay != null && todayEpochDay != null && todayEpochDay - epochDay <= 6) {
         weekCount++;
       }
     }
@@ -91,41 +92,38 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
 
     if (sortedDates.length > 0) {
       let streak = 0;
-      let checkDate = new Date();
+      const checkDate = dateKeyToUtcDate(todayDateKey);
 
-      for (let i = 0; i < 365; i++) {
-        const dateKey = localDateKeyFromUtc(checkDate.toISOString());
+      for (let i = 0; i < 365 && checkDate; i++) {
+        const dateKey = getOsloDateKey(checkDate);
         if (byDate.has(dateKey)) {
           streak++;
         } else if (i > 0) {
           break;
         }
-        checkDate.setDate(checkDate.getDate() - 1);
+        checkDate.setUTCDate(checkDate.getUTCDate() - 1);
       }
       currentStreak = streak;
 
       // longest
       let tempStreak = 0;
-      let prevDate: Date | null = null;
+      let prevEpochDay: number | null = null;
 
       for (const dateKey of sortedDates) {
-        const [y, m, d] = dateKey.split("-").map(Number);
-        const currDate = new Date(y, m - 1, d);
+        const currEpochDay = getDateKeyEpochDay(dateKey);
+        if (currEpochDay == null) continue;
 
-        if (!prevDate) {
+        if (prevEpochDay == null) {
           tempStreak = 1;
         } else {
-          const dayDiff = Math.round(
-            (prevDate.getTime() - currDate.getTime()) / (1000 * 60 * 60 * 24)
-          );
-          if (dayDiff === 1) {
+          if (prevEpochDay - currEpochDay === 1) {
             tempStreak++;
           } else {
             longestStreak = Math.max(longestStreak, tempStreak);
             tempStreak = 1;
           }
         }
-        prevDate = currDate;
+        prevEpochDay = currEpochDay;
       }
       longestStreak = Math.max(longestStreak, tempStreak);
     }

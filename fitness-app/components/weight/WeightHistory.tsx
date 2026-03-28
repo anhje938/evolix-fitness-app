@@ -1,7 +1,13 @@
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { Weight } from "@/types/weight";
-import { parseISO } from "@/utils/date";
+import {
+  dateKeyToUtcDate,
+  formatMonthYearNO,
+  getOsloDateKey,
+  getOsloTodayDateKey,
+  parseISO,
+} from "@/utils/date";
 import { getRelativeDateLabel } from "@/utils/pastWeek";
 import { weeklyAverageProgression } from "@/utils/weightProgression";
 import { Ionicons } from "@expo/vector-icons";
@@ -89,15 +95,8 @@ export default function WeightHistory({
     const dayKeys = new Set<string>();
 
     weightList.forEach((entry) => {
-      const date = new Date(entry.timestampUtc);
-      if (Number.isNaN(date.getTime())) return;
-
-      const key = [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, "0"),
-        String(date.getDate()).padStart(2, "0"),
-      ].join("-");
-
+      const key = getOsloDateKey(entry.timestampUtc);
+      if (!key) return;
       dayKeys.add(key);
     });
 
@@ -109,21 +108,17 @@ export default function WeightHistory({
   const currentStreak = useMemo(() => {
     if (uniqueDayKeys.size === 0) return 0;
 
-    const cursor = new Date();
-    cursor.setHours(12, 0, 0, 0);
+    const cursor = dateKeyToUtcDate(getOsloTodayDateKey());
+    if (!cursor) return 0;
 
     let streak = 0;
     while (true) {
-      const key = [
-        cursor.getFullYear(),
-        String(cursor.getMonth() + 1).padStart(2, "0"),
-        String(cursor.getDate()).padStart(2, "0"),
-      ].join("-");
+      const key = getOsloDateKey(cursor);
 
       if (!uniqueDayKeys.has(key)) break;
 
       streak += 1;
-      cursor.setDate(cursor.getDate() - 1);
+      cursor.setUTCDate(cursor.getUTCDate() - 1);
     }
 
     return streak;
@@ -284,29 +279,21 @@ export default function WeightHistory({
             const { date: parsedDate, time } = parseISO(weight.timestampUtc);
             const label = getRelativeDateLabel(parsedDate);
 
-            const dateObj = new Date(weight.timestampUtc);
-            const currentMonth = dateObj.getMonth();
-            const currentYear = dateObj.getFullYear();
+            const currentMonthKey = getOsloDateKey(weight.timestampUtc).slice(0, 7);
 
             let isNewMonth = false;
             if (index === 0) {
               isNewMonth = true;
             } else {
               const prev = visibleDailyWeights[index - 1];
-              const prevDate = new Date(prev.timestampUtc);
+              const prevMonthKey = getOsloDateKey(prev.timestampUtc).slice(0, 7);
 
-              if (
-                prevDate.getMonth() !== currentMonth ||
-                prevDate.getFullYear() !== currentYear
-              ) {
+              if (prevMonthKey !== currentMonthKey) {
                 isNewMonth = true;
               }
             }
 
-            const monthLabel = dateObj.toLocaleString("nb-NO", {
-              month: "long",
-              year: "numeric",
-            });
+            const monthLabel = formatMonthYearNO(weight.timestampUtc);
 
             const deviation = weeklyAverageProgression(weightList, weight.id);
             const diff = deviation?.deviation ?? null;

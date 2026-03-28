@@ -1,7 +1,13 @@
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import type { Food } from "@/types/meal";
-import { formatDateNO } from "@/utils/date";
+import {
+  dateKeyToUtcDate,
+  formatDateKeyNO,
+  formatDateKeyWeekdayNO,
+  formatTimeNO,
+  getOsloTodayDateKey,
+} from "@/utils/date";
 import { calcTotalMacros } from "@/utils/food/calculateTotalMacros";
 import {
   getWeeklyMacroTotals,
@@ -16,28 +22,6 @@ const PAGE_SIZE = 50;
 type FoodHistoryProps = {
   foodList: Food[];
 };
-
-function toWeekdayNo(date: string): string | null {
-  const parsed = new Date(`${date}T12:00:00`);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return new Intl.DateTimeFormat("nb-NO", { weekday: "long" }).format(parsed);
-}
-
-function toLocalDateKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function formatLocalTime(ts: string): string {
-  const parsed = new Date(ts);
-  if (Number.isNaN(parsed.getTime())) return "--:--";
-  return parsed.toLocaleTimeString("nb-NO", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export function FoodHistory({ foodList }: FoodHistoryProps) {
   const [listMode, setListMode] = useState<"daily" | "weekly">("daily");
@@ -56,13 +40,13 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
   );
   const latestFiveCalendarDateSet = useMemo(() => {
     const set = new Set<string>();
-    const today = new Date();
-    today.setHours(12, 0, 0, 0);
+    const today = dateKeyToUtcDate(getOsloTodayDateKey());
+    if (!today) return set;
 
     for (let i = 0; i < 5; i += 1) {
       const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      set.add(toLocalDateKey(d));
+      d.setUTCDate(today.getUTCDate() - i);
+      set.add(d.toISOString().slice(0, 10));
     }
 
     return set;
@@ -120,8 +104,8 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
   ) => {
     const expandable = options?.expandable;
     const expanded = options?.expanded;
-    const weekday = showWeekday ? toWeekdayNo(date) : null;
-    const dayLabel = weekday ?? formatDateNO(date);
+    const weekday = showWeekday ? formatDateKeyWeekdayNO(date) : null;
+    const dayLabel = weekday ?? formatDateKeyNO(date);
 
     return (
       <View style={styles.dayRow}>
@@ -217,7 +201,7 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
                       {meal.title}
                     </Text>
                     <Text style={[typography.body, styles.mealSub]}>
-                      {formatLocalTime(meal.timestampUtc)}
+                      {formatTimeNO(meal.timestampUtc)}
                     </Text>
                   </View>
 

@@ -23,6 +23,11 @@ import {
   getValidAccessToken,
 } from "@/api/authSession";
 import type { CompletedWorkoutSummaryDto } from "@/api/exercise/completedWorkouts";
+import type {
+  ExerciseHistoryPointDto,
+  ExerciseSessionSetItemDto,
+  ExerciseSessionSetsDto,
+} from "@/api/exercise/exerchiseHistory";
 import { getSessionDetails } from "@/api/exercise/sessionDetails";
 import {
   deleteWorkoutSession,
@@ -175,6 +180,121 @@ function toOptimisticCompletedWorkout(
     totalVolumeKg: totalVolumeKg > 0 ? totalVolumeKg : null,
     muscleGroups: Array.from(muscles),
   };
+}
+
+function toOptimisticExerciseHistoryPoint(
+  exercise: SessionExercise,
+  performedAtUtc: string
+): ExerciseHistoryPointDto | null {
+  const sets = exercise.sets.filter((set) => (set.reps ?? 0) > 0);
+  if (sets.length === 0) return null;
+
+  const weightedSets = sets.filter((set) => set.weight != null);
+  const topSet =
+    weightedSets.length > 0
+      ? [...weightedSets].sort((a, b) => {
+          const weightDiff = (b.weight ?? 0) - (a.weight ?? 0);
+          if (weightDiff !== 0) return weightDiff;
+          return (b.reps ?? 0) - (a.reps ?? 0);
+        })[0]
+      : null;
+
+  const totalVolumeKg = sets
+    .filter(
+      (set) =>
+        Number.isFinite(set.weight) &&
+        Number.isFinite(set.reps) &&
+        (set.weight ?? 0) > 0 &&
+        (set.reps ?? 0) > 0
+    )
+    .reduce((sum, set) => sum + (set.weight ?? 0) * (set.reps ?? 0), 0);
+
+  return {
+    exerciseId: exercise.exerciseId,
+    performedAtUtc,
+    topSetWeightKg:
+      topSet && (topSet.weight ?? 0) > 0 ? (topSet.weight ?? null) : null,
+    topSetReps: topSet?.reps ?? null,
+    totalSets: sets.length,
+    totalVolumeKg: totalVolumeKg > 0 ? totalVolumeKg : null,
+  };
+}
+
+function toOptimisticExerciseSetItems(
+  sessionId: string,
+  exercise: SessionExercise
+): ExerciseSessionSetItemDto[] {
+  return exercise.sets
+    .filter((set) => (set.reps ?? 0) > 0)
+    .map((set, index) => ({
+      setId: `optimistic:${sessionId}:${exercise.exerciseId}:${index + 1}`,
+      workoutExerciseLogId: `optimistic:${sessionId}:${exercise.exerciseId}`,
+      setNumber: index + 1,
+      weightKg: set.weight ?? null,
+      reps: set.reps ?? null,
+      rir: null,
+      setType: null,
+      notes: null,
+    }));
+}
+
+function toOptimisticExerciseSetsHistoryEntry(
+  sessionId: string,
+  exercise: SessionExercise,
+  performedAtUtc: string
+): ExerciseSessionSetsDto | null {
+  const sets = toOptimisticExerciseSetItems(sessionId, exercise);
+  if (sets.length === 0) return null;
+
+  const totalReps = sets.reduce((sum, set) => sum + (set.reps ?? 0), 0);
+  const totalVolumeKg = sets.reduce((sum, set) => {
+    if ((set.weightKg ?? 0) <= 0 || (set.reps ?? 0) <= 0) return sum;
+    return sum + (set.weightKg ?? 0) * (set.reps ?? 0);
+  }, 0);
+
+  return {
+    sessionId,
+    exerciseId: exercise.exerciseId,
+    performedAtUtc,
+    sets,
+    totalSets: sets.length,
+    totalReps,
+    totalVolumeKg: totalVolumeKg > 0 ? totalVolumeKg : null,
+  };
+}
+
+function mergeExerciseHistoryPoint(
+  previous: ExerciseHistoryPointDto[] | undefined,
+  nextPoint: ExerciseHistoryPointDto
+): ExerciseHistoryPointDto[] {
+  const list = Array.isArray(previous) ? previous : [];
+  const filtered = list.filter(
+    (item) =>
+      !(
+        item.exerciseId === nextPoint.exerciseId &&
+        item.performedAtUtc === nextPoint.performedAtUtc
+      )
+  );
+
+  return [...filtered, nextPoint].sort(
+    (a, b) =>
+      new Date(a.performedAtUtc).getTime() -
+      new Date(b.performedAtUtc).getTime()
+  );
+}
+
+function mergeExerciseSetsHistoryEntry(
+  previous: ExerciseSessionSetsDto[] | undefined,
+  nextEntry: ExerciseSessionSetsDto
+): ExerciseSessionSetsDto[] {
+  const list = Array.isArray(previous) ? previous : [];
+  const filtered = list.filter((item) => item.sessionId !== nextEntry.sessionId);
+
+  return [nextEntry, ...filtered].sort(
+    (a, b) =>
+      new Date(b.performedAtUtc).getTime() -
+      new Date(a.performedAtUtc).getTime()
+  );
 }
 
 export function WorkoutSessionProvider({ children }: ProviderProps) {
@@ -813,6 +933,14 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
           name: nextName,
           exercises: sanitizedExercises,
         };
+        const performedAtUtc = payload.startedAtUtc;
+        const affectedExerciseIds = Array.from(
+          new Set(
+            [...currentSession.exercises, ...payload.exercises]
+              .map((exercise) => exercise.exerciseId)
+              .filter((exerciseId) => exerciseId.trim().length > 0)
+          )
+        );
 
         let savedSessionId = "";
 
@@ -833,7 +961,75 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
           }
         );
 
-        await queryClient.invalidateQueries({ queryKey: ["completedWorkouts"] });
+        if (!editingCompletedSessionId) {
+          for (const exercise of payload.exercises) {
+            const nextHistoryPoint = toOptimisticExerciseHistoryPoint(
+              exercise,
+              performedAtUtc
+            );
+            if (nextHistoryPoint) {
+              queryClient.setQueryData<ExerciseHistoryPointDto[]>(
+                ["exerciseHistory", exercise.exerciseId],
+                (prev) => mergeExerciseHistoryPoint(prev, nextHistoryPoint)
+              );
+
+              queryClient.setQueriesData<Record<string, ExerciseHistoryPointDto[]>>(
+                { queryKey: ["exerciseHistoryBulk"] },
+                (prev) => {
+                  if (!prev || typeof prev !== "object") return prev;
+                  return {
+                    ...prev,
+                    [exercise.exerciseId]: mergeExerciseHistoryPoint(
+                      prev[exercise.exerciseId],
+                      nextHistoryPoint
+                    ),
+                  };
+                }
+              );
+            }
+
+            const nextSetsEntry = toOptimisticExerciseSetsHistoryEntry(
+              savedSessionId,
+              exercise,
+              performedAtUtc
+            );
+            if (nextSetsEntry) {
+              queryClient.setQueryData<ExerciseSessionSetsDto[]>(
+                ["exerciseSetsHistory", exercise.exerciseId],
+                (prev) => mergeExerciseSetsHistoryEntry(prev, nextSetsEntry)
+              );
+            }
+          }
+        }
+
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["completedWorkouts"],
+            refetchType: "all",
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["exerciseHistoryBulk"],
+            refetchType: "all",
+          }),
+          ...affectedExerciseIds.flatMap((exerciseId) => [
+            queryClient.invalidateQueries({
+              queryKey: ["exerciseHistory", exerciseId],
+              refetchType: "all",
+            }),
+            queryClient.invalidateQueries({
+              queryKey: ["exerciseSetsHistory", exerciseId],
+              refetchType: "all",
+            }),
+          ]),
+          ...(editingCompletedSessionId
+            ? [
+                queryClient.invalidateQueries({
+                  queryKey: ["sessionDetails", editingCompletedSessionId],
+                  refetchType: "all",
+                }),
+              ]
+            : []),
+        ]);
 
         await options?.onSuccess?.();
 

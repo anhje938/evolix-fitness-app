@@ -4,7 +4,7 @@
     "slug": "fitness-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/evolix_icon.png",
+    "icon": "./assets/images/evolix_app_icon.png",
     "scheme": "fitnessapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -19,10 +19,9 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/evolix_icon.png",
-        "backgroundImage": "./assets/images/evolix_icon.png",
-        "monochromeImage": "./assets/images/evolix_icon.png"
+        "backgroundColor": "#081E36",
+        "foregroundImage": "./assets/images/evolix_adaptive_foreground.png",
+        "monochromeImage": "./assets/images/evolix_adaptive_monochrome.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -33,19 +32,19 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/evolix_icon.png"
+      "favicon": "./assets/images/evolix_app_icon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/evolix_icon.png",
-          "imageWidth": 200,
+          "image": "./assets/images/evolix_splash.png",
+          "imageWidth": 220,
           "resizeMode": "contain",
-          "backgroundColor": "#0f172a",
+          "backgroundColor": "#081E36",
           "dark": {
-            "backgroundColor": "#0f172a"
+            "backgroundColor": "#081E36"
           }
         }
       ],

@@ -1,5 +1,6 @@
 import { CompletedWorkoutSummaryDto } from "@/api/exercise/completedWorkouts";
 import { typography } from "@/config/typography";
+import { formatDateKeyNO, formatTimeNO, getOsloDateKey } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import React, { memo, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -21,24 +22,8 @@ const ui = {
   programBorder: "rgba(96,165,250,0.18)",
 };
 
-function localDateKeyFromUtc(isoUtc: string) {
-  const d = new Date(isoUtc);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function formatNorDate(yyyyMmDd: string) {
-  const [y, m, d] = yyyyMmDd.split("-");
-  return `${d}.${m}.${y}`;
-}
-
 function formatTimeFromUtc(isoUtc: string) {
-  const d = new Date(isoUtc);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
+  return formatTimeNO(isoUtc);
 }
 
 function formatDurationFromSummary(s: CompletedWorkoutSummaryDto) {
@@ -92,7 +77,8 @@ export const WorkoutHistoryList = memo(function WorkoutHistoryList({
 
     const map = new Map<string, CompletedWorkoutSummaryDto[]>();
     for (const s of sorted) {
-      const key = localDateKeyFromUtc(s.finishedAtUtc);
+      const key = getOsloDateKey(s.finishedAtUtc);
+      if (!key) continue;
       const arr = map.get(key) ?? [];
       arr.push(s);
       map.set(key, arr);
@@ -123,7 +109,7 @@ export const WorkoutHistoryList = memo(function WorkoutHistoryList({
         <View key={g.dateKey} style={styles.group}>
           <View style={styles.groupHeader}>
             <Text style={[typography.bodyBold, styles.groupTitle]}>
-              {formatNorDate(g.dateKey)}
+              {formatDateKeyNO(g.dateKey)}
             </Text>
             <View style={styles.groupHairline} />
           </View>

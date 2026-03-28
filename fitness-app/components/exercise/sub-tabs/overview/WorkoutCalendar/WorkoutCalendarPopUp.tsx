@@ -1,4 +1,5 @@
 import { CompletedWorkoutSummaryDto } from "@/api/exercise/completedWorkouts";
+import { formatDateKeyLongNO, formatTimeNO } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import React, { memo, useMemo } from "react";
 import {
@@ -34,13 +35,6 @@ const colors = {
   orangeBg: "rgba(251, 191, 36, 0.12)",
 };
 
-function formatTimeFromUtc(isoUtc: string) {
-  const d = new Date(isoUtc);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
 export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
   visible,
   selectedDate,
@@ -56,11 +50,7 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
 }) {
   const formattedDate = useMemo(() => {
     if (!selectedDate) return "";
-    return new Date(selectedDate).toLocaleDateString("nb-NO", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+    return formatDateKeyLongNO(selectedDate);
   }, [selectedDate]);
 
   const completedSetsSum = useMemo(() => {
@@ -215,7 +205,7 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
                                 size={12}
                                 color={colors.muted2}
                               />{" "}
-                              {formatTimeFromUtc(s.startedAtUtc)}
+                              {formatTimeNO(s.startedAtUtc)}
                             </Text>
                           </View>
                         </View>

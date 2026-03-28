@@ -1,3 +1,5 @@
+import { weightChartColors } from "@/components/weight/weight-chart/WeightChart.tokens";
+import { styles as weightChartStyles } from "@/components/weight/weight-chart/WeightProgressChart.styles";
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import type {
@@ -13,22 +15,29 @@ import { Ionicons } from "@expo/vector-icons";
 import { scaleLinear } from "d3-scale";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
-import type { ColorSchemeName, TextStyle, ViewStyle } from "react-native";
 import {
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
+import { PinchGestureHandler } from "react-native-gesture-handler";
 import Svg, {
   Circle,
+  Defs,
   G,
   Path,
   Rect,
+  Stop,
   Line as SvgLine,
+  LinearGradient as SvgLinearGradient,
   Text as SvgText,
 } from "react-native-svg";
+
+import { useSvgChartZoom } from "@/hooks/useSvgChartZoom";
 
 export type ExerciseProgressPoint = {
   timestampUtc: string;
@@ -47,34 +56,12 @@ type Props = {
   weightData: ExerciseProgressPoint[];
   volumeData: ExerciseProgressPoint[];
   showOuterLines?: boolean;
-};
-
-type Palette = {
-  card: string;
-  surface: string;
-  surfaceStrong: string;
-  border: string;
-  borderSoft: string;
-  text: string;
-  textMuted: string;
-  muted2: string;
-  accent: string;
-  accentBg: string;
-  accentDim: string;
-  weight: string;
-  trend: string;
-  volume: string;
-  volumeStroke: string;
-  grid: string;
-  chartBgTop: string;
-  chartBgBottom: string;
-  tooltipBg: string;
-  tooltipBorder: string;
-  guide: string;
-  pr: string;
-  success: string;
-  warning: string;
-  danger: string;
+  minXLabels?: number;
+  maxXLabels?: number;
+  showZoomControls?: boolean;
+  minZoom?: number;
+  maxZoom?: number;
+  zoomStep?: number;
 };
 
 type MergedPoint = {
@@ -85,75 +72,41 @@ type MergedPoint = {
   volume: PreparedProgressPoint | null;
 };
 
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+
+const COLORS = {
+  accent: weightChartColors.accentColor,
+  accentStrong: weightChartColors.accentStrong,
+  accentBg: weightChartColors.accentBackground,
+  neutral: weightChartColors.neutralText,
+  subText: weightChartColors.labelColor,
+  line: weightChartColors.lineColor,
+  dotFill: weightChartColors.dotFillColor,
+  trend: weightChartColors.trendLineColor,
+  volume: weightChartColors.lineColor,
+  volumeStroke: weightChartColors.lineColor,
+  grid: weightChartColors.gridLineColor,
+  guide: "rgba(148,163,184,0.2)",
+  success: "rgba(34,197,94,0.92)",
+  danger: "rgba(248,113,113,0.95)",
+  warning: "rgba(251,191,36,0.95)",
+  panelOverlay: weightChartColors.backgroundGradientFrom,
+};
+
 const PAD_LEFT = 44;
 const PAD_RIGHT = 44;
 const PAD_TOP = 18;
 const PAD_BOTTOM = 34;
 
-function getPalette(scheme: ColorSchemeName): Palette {
-  if (scheme === "light") {
-    return {
-      card: "rgba(255,255,255,0.92)",
-      surface: "rgba(15,23,42,0.05)",
-      surfaceStrong: "rgba(15,23,42,0.08)",
-      border: "rgba(15,23,42,0.10)",
-      borderSoft: "rgba(15,23,42,0.08)",
-      text: "#0f172a",
-      textMuted: "rgba(15,23,42,0.82)",
-      muted2: "rgba(15,23,42,0.58)",
-      accent: "#0891b2",
-      accentBg: "rgba(8,145,178,0.08)",
-      accentDim: "rgba(8,145,178,0.18)",
-      weight: "#0f766e",
-      trend: "#d97706",
-      volume: "rgba(2,132,199,0.28)",
-      volumeStroke: "rgba(2,132,199,0.60)",
-      grid: "rgba(15,23,42,0.10)",
-      chartBgTop: "rgba(248,250,252,0.92)",
-      chartBgBottom: "rgba(241,245,249,0.96)",
-      tooltipBg: "rgba(255,255,255,0.96)",
-      tooltipBorder: "rgba(15,23,42,0.10)",
-      guide: "rgba(15,23,42,0.18)",
-      pr: "#f59e0b",
-      success: "#15803d",
-      warning: "#b45309",
-      danger: "#dc2626",
-    };
-  }
-
-  return {
-    card: "rgba(2,6,23,0.18)",
-    surface: "rgba(255,255,255,0.04)",
-    surfaceStrong: "rgba(255,255,255,0.06)",
-    border: "rgba(255,255,255,0.08)",
-    borderSoft: "rgba(255,255,255,0.05)",
-    text: "#E5ECFF",
-    textMuted: "rgba(226,232,240,0.92)",
-    muted2: "rgba(148,163,184,0.78)",
-    accent: "#22d3ee",
-    accentBg: "rgba(34,211,238,0.10)",
-    accentDim: "rgba(34,211,238,0.22)",
-    weight: "rgba(34,211,238,0.95)",
-    trend: "#fbbf24",
-    volume: "rgba(59,130,246,0.32)",
-    volumeStroke: "rgba(59,130,246,0.68)",
-    grid: "rgba(148,163,184,0.12)",
-    chartBgTop: "rgba(2,6,23,0.30)",
-    chartBgBottom: "rgba(2,6,23,0.56)",
-    tooltipBg: "rgba(8,15,29,0.96)",
-    tooltipBorder: "rgba(255,255,255,0.08)",
-    guide: "rgba(148,163,184,0.20)",
-    pr: "#fbbf24",
-    success: "#22c55e",
-    warning: "#f59e0b",
-    danger: "#f87171",
-  };
-}
-
 function formatValue(value: number | null, unit: string) {
   if (value == null) return "--";
-  const decimals = value < 10 ? 1 : 0;
+  const decimals = Math.abs(value) < 10 ? 1 : 0;
   return `${value.toFixed(decimals)} ${unit}`;
+}
+
+function formatSignedValue(value: number | null, unit: string) {
+  if (value == null) return "--";
+  return `${value > 0 ? "+" : ""}${formatValue(value, unit)}`;
 }
 
 function getSlotWidth(pointCount: number) {
@@ -163,9 +116,17 @@ function getSlotWidth(pointCount: number) {
   return 28;
 }
 
-function getVisibleLabelIndexes(total: number) {
-  const maxLabels = total <= 8 ? total : 6;
-  const step = Math.max(1, Math.ceil(total / maxLabels));
+function getVisibleLabelIndexes(
+  total: number,
+  minLabels: number,
+  maxLabels: number
+) {
+  if (total <= maxLabels) {
+    return new Set(Array.from({ length: total }, (_, index) => index));
+  }
+
+  const desired = Math.max(minLabels, Math.min(maxLabels, total));
+  const step = Math.max(1, Math.ceil(total / desired));
   const indexes = new Set<number>();
   for (let index = 0; index < total; index += step) {
     indexes.add(index);
@@ -174,12 +135,12 @@ function getVisibleLabelIndexes(total: number) {
   return indexes;
 }
 
-function buildLineSegments(
-  points: MergedPoint[],
+function buildLineSegments<T>(
+  points: T[],
   getX: (index: number) => number,
   getY: (value: number) => number,
-  accessor: (point: MergedPoint) => number | null,
-  gapAccessor: (point: MergedPoint) => boolean
+  accessor: (point: T) => number | null,
+  gapAccessor: (point: T) => boolean
 ) {
   const segments: string[] = [];
   let active = "";
@@ -190,6 +151,10 @@ function buildLineSegments(
 
     const x = getX(index);
     const y = getY(value);
+
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return;
+    }
 
     if (!active || gapAccessor(point)) {
       if (active) segments.push(active);
@@ -207,204 +172,130 @@ function buildLineSegments(
   return segments;
 }
 
-function createStyles(colors: Palette) {
-  return StyleSheet.create<{
-    card: ViewStyle;
-    header: ViewStyle;
-    iconCircle: ViewStyle;
-    title: TextStyle;
-    subtitle: TextStyle;
-    trendPill: ViewStyle;
-    trendText: TextStyle;
-    statsRow: ViewStyle;
-    statBox: ViewStyle;
-    statDivider: ViewStyle;
-    statLabel: TextStyle;
-    statValue: TextStyle;
-    rangeRow: ViewStyle;
-    rangePill: ViewStyle;
-    rangePillActive: ViewStyle;
-    rangePillText: TextStyle;
-    rangePillTextActive: TextStyle;
-    chartOuter: ViewStyle;
-    chartBackground: ViewStyle;
-    chartGradient: ViewStyle;
-    emptyState: ViewStyle;
-    emptyIcon: ViewStyle;
-    emptyText: TextStyle;
-    emptySubtext: TextStyle;
-  }>({
-    card: {
-      width: "100%",
-      paddingVertical: 18,
-      paddingHorizontal: 18,
-      borderRadius: 22,
-      marginBottom: 16,
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      marginBottom: 16,
-    },
-    iconCircle: {
-      width: 42,
-      height: 42,
-      borderRadius: 14,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.accentBg,
-      borderWidth: 1,
-      borderColor: colors.accentDim,
-    },
-    title: {
-      fontSize: 16,
-      color: colors.text,
-      letterSpacing: 0.1,
-      marginBottom: 2,
-    },
-    subtitle: {
-      fontSize: 12,
-      color: colors.muted2,
-      letterSpacing: 0.1,
-    },
-    trendPill: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingHorizontal: 8,
-      paddingVertical: 6,
-      borderRadius: 8,
-      backgroundColor: colors.surfaceStrong,
-      borderWidth: 1,
-      borderColor: colors.borderSoft,
-    },
-    trendText: {
-      fontSize: 11,
-      fontWeight: "700",
-      color: colors.textMuted,
-      letterSpacing: 0.1,
-    },
-    statsRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      borderRadius: 16,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.borderSoft,
-      marginBottom: 12,
-    },
-    statBox: {
-      flex: 1,
-      alignItems: "center",
-      gap: 3,
-    },
-    statDivider: {
-      width: 1,
-      height: 26,
-      backgroundColor: colors.borderSoft,
-    },
-    statLabel: {
-      fontSize: 10,
-      fontWeight: "600",
-      color: colors.muted2,
-      letterSpacing: 0.2,
-      textTransform: "uppercase",
-    },
-    statValue: {
-      fontSize: 14,
-      fontWeight: "600",
-      color: colors.text,
-      letterSpacing: 0.1,
-    },
-    rangeRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-      marginBottom: 12,
-      justifyContent: "center",
-    },
-    rangePill: {
-      minWidth: 50,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 999,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.surfaceStrong,
-      borderWidth: 1,
-      borderColor: colors.borderSoft,
-    },
-    rangePillActive: {
-      backgroundColor: colors.accentBg,
-      borderColor: colors.accentDim,
-    },
-    rangePillText: {
-      fontSize: 11,
-      fontWeight: "700",
-      color: colors.muted2,
-      letterSpacing: 0.1,
-    },
-    rangePillTextActive: {
-      color: colors.text,
-    },
-    chartOuter: {
-      width: "100%",
-      overflow: "hidden",
-    },
-    chartBackground: {
-      borderRadius: 16,
-      overflow: "hidden",
-      backgroundColor: colors.chartBgBottom,
-      borderWidth: 1,
-      borderColor: colors.borderSoft,
-      position: "relative",
-    },
-    chartGradient: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 0,
-    },
-    emptyState: {
-      alignItems: "center",
-      paddingVertical: 40,
-      paddingHorizontal: 20,
-    },
-    emptyIcon: {
-      width: 64,
-      height: 64,
-      borderRadius: 20,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.borderSoft,
-      marginBottom: 16,
-    },
-    emptyText: {
-      fontSize: 14,
-      fontWeight: "600",
-      color: colors.textMuted,
-      textAlign: "center",
-      marginBottom: 6,
-    },
-    emptySubtext: {
-      fontSize: 12,
-      fontWeight: "500",
-      color: colors.muted2,
-      textAlign: "center",
-      lineHeight: 18,
-    },
+function buildAreaPaths<T>(
+  points: T[],
+  getX: (index: number) => number,
+  getY: (value: number) => number,
+  accessor: (point: T) => number | null,
+  gapAccessor: (point: T) => boolean,
+  baselineY: number
+) {
+  const paths: string[] = [];
+  let activePoints: { x: number; y: number }[] = [];
+
+  const pushActive = () => {
+    if (activePoints.length === 0) return;
+
+    const first = activePoints[0];
+    const last = activePoints[activePoints.length - 1];
+    const topPath = activePoints
+      .map((point, index) =>
+        `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`
+      )
+      .join(" ");
+
+    paths.push(
+      `${topPath} L ${last.x} ${baselineY} L ${first.x} ${baselineY} Z`
+    );
+    activePoints = [];
+  };
+
+  points.forEach((point, index) => {
+    const value = accessor(point);
+    if (value == null) return;
+
+    const nextPoint = {
+      x: getX(index),
+      y: getY(value),
+    };
+
+    if (!Number.isFinite(nextPoint.x) || !Number.isFinite(nextPoint.y)) {
+      return;
+    }
+
+    if (activePoints.length > 0 && gapAccessor(point)) {
+      pushActive();
+    }
+
+    activePoints.push(nextPoint);
   });
+
+  pushActive();
+  return paths;
 }
+
+function getTrendTone(value: number | null): {
+  color: string;
+  icon: IoniconName;
+  iconText: string;
+} {
+  if (value == null || value === 0) {
+    return {
+      color: COLORS.neutral,
+      icon: "remove",
+      iconText: "→",
+    };
+  }
+
+  return value > 0
+    ? {
+        color: COLORS.success,
+        icon: "trending-up",
+        iconText: "↗",
+      }
+    : {
+        color: COLORS.danger,
+        icon: "trending-down",
+        iconText: "↘",
+      };
+}
+
+const styles = StyleSheet.create({
+  headerText: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  rangeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
+  rangePill: {
+    minWidth: 48,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(8,15,28,0.66)",
+    borderWidth: 1,
+    borderColor: "rgba(56,189,248,0.12)",
+  },
+  rangePillActive: {
+    backgroundColor: COLORS.accentBg,
+    borderColor: COLORS.accentStrong,
+  },
+  rangePillText: {
+    color: "rgba(224,242,254,0.95)",
+    fontSize: 10,
+    fontWeight: "600",
+    letterSpacing: 0.08,
+  },
+  rangePillTextActive: {
+    color: "#F8FAFC",
+  },
+  chartScrollContent: {
+    paddingBottom: 6,
+  },
+  chartOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: COLORS.panelOverlay,
+  },
+  emptyWrap: {
+    flex: 1,
+  },
+});
 
 export function CombinedExerciseChart({
   title = "1RM og volum",
@@ -417,11 +308,18 @@ export function CombinedExerciseChart({
   weightData,
   volumeData,
   showOuterLines = false,
+  minXLabels = 3,
+  maxXLabels = 10,
+  showZoomControls = true,
+  minZoom = 0.1,
+  maxZoom = 5,
+  zoomStep = 0.35,
 }: Props) {
-  const colors = useMemo(() => getPalette("dark"), []);
-  const styles = useMemo(() => createStyles(colors), [colors]);
-  const [containerWidth, setContainerWidth] = useState(0);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const fillId = useMemo(
+    () => `combined-progress-fill-${Math.random().toString(36).slice(2, 10)}`,
+    []
+  );
 
   const weightSeries = useMemo(
     () =>
@@ -494,34 +392,66 @@ export function CombinedExerciseChart({
     });
   }, [merged]);
 
+  const slotWidth = getSlotWidth(merged.length);
+  const chartZoom = useSvgChartZoom({
+    pointCount: merged.length,
+    height,
+    baseContentWidth: Math.max(220, merged.length * slotWidth),
+    staticWidthOffset: PAD_LEFT + PAD_RIGHT,
+    minZoom,
+    maxZoom,
+    zoomStep,
+    minVisibleLabels: minXLabels,
+    maxVisibleLabels: maxXLabels,
+    fallbackWidthPadding: 56,
+  });
+  const pinchTranslateX = useMemo(
+    () =>
+      Animated.multiply(
+        Animated.subtract(chartZoom.pinchScale, 1),
+        chartZoom.chartWidth / 2
+      ),
+    [chartZoom.chartWidth, chartZoom.pinchScale]
+  );
+
   if (!merged.length) {
     return (
-      <View style={[generalStyles.newCard, styles.card]}>
-        <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="analytics" size={20} color={colors.accent} />
+      <View style={[generalStyles.newCard, weightChartStyles.card]}>
+        <LinearGradient
+          pointerEvents="none"
+          colors={weightChartColors.cardGradientColors}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.92, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View pointerEvents="none" style={weightChartStyles.cardGlowTop} />
+        <View pointerEvents="none" style={weightChartStyles.cardGlowBottom} />
+
+        {showTitle && (
+          <View style={weightChartStyles.headerRow}>
+            <View style={styles.emptyWrap}>
+              <Text style={[typography.h2, weightChartStyles.title]}>
+                {title}
+              </Text>
+              <Text style={[typography.body, weightChartStyles.meta]}>
+                0 punkter · valgt periode
+              </Text>
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            {showTitle && (
-              <Text style={[typography.bodyBold, styles.title]}>{title}</Text>
-            )}
-            <Text style={[typography.body, styles.subtitle]}>
-              Ingen data i valgt periode
+        )}
+
+        <View style={weightChartStyles.emptyRow}>
+          <View style={weightChartStyles.emptyIconWrap}>
+            <Ionicons name="pulse-outline" size={18} color="#38bdf8" />
+          </View>
+          <View style={styles.emptyWrap}>
+            <Text style={[typography.bodyBlack, weightChartStyles.emptyTitle]}>
+              Ingen data tilgjengelig enda
+            </Text>
+            <Text style={[typography.body, weightChartStyles.emptySub]}>
+              Når øktene inneholder nok data, bygger vi både 1RM og volum her.
             </Text>
           </View>
-        </View>
-
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <Ionicons name="pulse-outline" size={28} color={colors.muted2} />
-          </View>
-          <Text style={[typography.body, styles.emptyText]}>
-            Ingen data tilgjengelig ennå
-          </Text>
-          <Text style={[typography.body, styles.emptySubtext]}>
-            Kombinasjonsgrafen viser først noe når både dato og verdi kan brukes
-            på en trygg måte.
-          </Text>
         </View>
       </View>
     );
@@ -530,12 +460,36 @@ export function CombinedExerciseChart({
   const selected =
     merged.find((point) => point.key === selectedKey) ??
     merged[merged.length - 1];
+  const isWeightVisible = metric !== "volume";
+  const isVolumeVisible = metric !== "weight";
+  const primarySeries = isWeightVisible ? weightSeries : volumeSeries;
+  const primaryPoints = isWeightVisible ? weightSeries.points : volumeSeries.points;
+  const primaryFirst = primaryPoints[0];
+  const primaryLast = primaryPoints[primaryPoints.length - 1];
+  const primaryUnit = primarySeries.unitLabel;
+  const primaryTrendTone = getTrendTone(primarySeries.totalChange);
 
-  const slotWidth = getSlotWidth(merged.length);
-  const minChartWidth = PAD_LEFT + PAD_RIGHT + slotWidth * merged.length;
-  const chartWidth = Math.max(containerWidth, minChartWidth);
+  const effectiveContainerWidth = chartZoom.effectiveContainerWidth;
+  const chartWidth = chartZoom.chartWidth;
+  const shouldEnableHorizontalScroll = chartZoom.shouldEnableHorizontalScroll;
   const innerWidth = Math.max(10, chartWidth - PAD_LEFT - PAD_RIGHT);
-  const innerHeight = Math.max(90, height - PAD_TOP - PAD_BOTTOM);
+  const innerHeight = Math.max(
+    90,
+    chartZoom.chartHeight - PAD_TOP - PAD_BOTTOM
+  );
+  const baselineY = chartZoom.chartHeight - PAD_BOTTOM;
+  const shouldRenderGuide = chartZoom.renderMode !== "overview";
+  const shouldRenderTrend = chartZoom.renderMode !== "overview";
+  const shouldRenderArea = true;
+  const shouldRenderTouchTargets =
+    !chartZoom.isPinching && chartZoom.renderMode !== "overview";
+  const compactDotsOnlySelected = chartZoom.renderMode === "compact";
+  const maxVisibleLabels = chartZoom.isPinching
+    ? Math.min(
+        chartZoom.dynamicMaxVisibleLabels,
+        chartZoom.renderMode === "overview" ? 4 : 6
+      )
+    : chartZoom.dynamicMaxVisibleLabels;
 
   const weightScale = scaleLinear()
     .domain([weightSeries.yDomain.paddedMin, weightSeries.yDomain.paddedMax])
@@ -548,8 +502,8 @@ export function CombinedExerciseChart({
     if (merged.length === 1) {
       return PAD_LEFT + innerWidth / 2;
     }
-    const step = innerWidth / (merged.length - 1);
-    return PAD_LEFT + step * index;
+    const step = innerWidth / merged.length;
+    return PAD_LEFT + step / 2 + step * index;
   };
 
   const weightLine = buildLineSegments(
@@ -557,82 +511,107 @@ export function CombinedExerciseChart({
     getX,
     (value) => PAD_TOP + weightScale(value),
     (point) =>
-      point.weight && metric !== "volume" ? point.weight.clampedValue : null,
+      point.weight && isWeightVisible ? point.weight.clampedValue : null,
     (point) => point.weight?.hasGapBefore ?? false
+  );
+  const weightArea = buildAreaPaths(
+    merged,
+    getX,
+    (value) => PAD_TOP + weightScale(value),
+    (point) =>
+      point.weight && isWeightVisible ? point.weight.clampedValue : null,
+    (point) => point.weight?.hasGapBefore ?? false,
+    baselineY
   );
   const trendLine = buildLineSegments(
     merged,
     getX,
     (value) => PAD_TOP + weightScale(value),
     (point) =>
-      point.weight && metric !== "volume"
+      point.weight && isWeightVisible
         ? point.weight.trendClampedValue
         : null,
     (point) => point.weight?.hasGapBefore ?? false
   );
+  const volumeTrendLine = buildLineSegments(
+    merged,
+    getX,
+    (value) => PAD_TOP + volumeScale(value),
+    (point) =>
+      point.volume && isVolumeVisible
+        ? point.volume.trendClampedValue
+        : null,
+    (point) => point.volume?.hasGapBefore ?? false
+  );
 
-  const labelIndexes = getVisibleLabelIndexes(merged.length);
-  const ticks = Array.from({ length: 5 }, (_, index) => index / 4);
+  const labelIndexes = getVisibleLabelIndexes(
+    merged.length,
+    minXLabels,
+    maxVisibleLabels
+  );
+  const tickCount = chartZoom.isPinching ? 3 : 4;
+  const ticks = Array.from({ length: tickCount + 1 }, (_, index) => index / tickCount);
   const selectedIndex = merged.findIndex((point) => point.key === selected.key);
   const selectedX = getX(selectedIndex);
-  const trendChange = weightSeries.totalChange ?? 0;
+  const metaLabel = `${merged.length} ${
+    weightSeries.bucket === "week" ? "ukepunkter" : "punkter"
+  } · ${weightSeries.rangeLabel}`;
+
   return (
-    <View style={[generalStyles.newCard, styles.card]}>
-      <View style={styles.header}>
-        <View style={styles.iconCircle}>
-          <Ionicons name="analytics" size={20} color={colors.accent} />
-        </View>
+    <View style={[generalStyles.newCard, weightChartStyles.card]}>
+      <LinearGradient
+        pointerEvents="none"
+        colors={weightChartColors.cardGradientColors}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.92, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View pointerEvents="none" style={weightChartStyles.cardGlowTop} />
+      <View pointerEvents="none" style={weightChartStyles.cardGlowBottom} />
 
-        <View style={{ flex: 1, minWidth: 0 }}>
+      <View style={weightChartStyles.headerRow}>
+        <View style={styles.headerText}>
           {showTitle && (
-            <Text style={[typography.bodyBold, styles.title]} numberOfLines={1}>
-              {title}
-            </Text>
+            <Text style={[typography.h2, weightChartStyles.title]}>{title}</Text>
           )}
-          <Text style={[typography.body, styles.subtitle]} numberOfLines={2}>
-            {weightSeries.rangeLabel} • {merged.length}{" "}
-            {weightSeries.bucket === "week" ? "ukepunkter" : "punkter"}
+          <Text style={[typography.body, weightChartStyles.meta]}>
+            {metaLabel}
           </Text>
         </View>
 
-        <View style={styles.trendPill}>
-          <Ionicons
-            name={
-              trendChange > 0
-                ? "trending-up"
-                : trendChange < 0
-                ? "trending-down"
-                : "remove"
-            }
-            size={12}
-            color={
-              trendChange > 0
-                ? colors.success
-                : trendChange < 0
-                ? colors.danger
-                : colors.textMuted
-            }
-          />
-          <Text
-            style={[
-              styles.trendText,
-              {
-                color:
-                  trendChange > 0
-                    ? colors.success
-                    : trendChange < 0
-                    ? colors.danger
-                    : colors.textMuted,
-              },
-            ]}
-          >
-            {weightSeries.totalChangePercent == null
-              ? "--"
-              : `${
-                  weightSeries.totalChangePercent >= 0 ? "+" : ""
-                }${weightSeries.totalChangePercent.toFixed(1)}%`}
-          </Text>
-        </View>
+        {showZoomControls && (
+          <View style={weightChartStyles.zoomContainer}>
+            <TouchableOpacity
+              onPress={chartZoom.handleZoomOut}
+              disabled={!chartZoom.canZoomOut}
+              activeOpacity={0.7}
+              style={[
+                weightChartStyles.zoomButton,
+                !chartZoom.canZoomOut && weightChartStyles.zoomButtonDisabled,
+              ]}
+            >
+              <Text style={weightChartStyles.zoomText}>-</Text>
+            </TouchableOpacity>
+
+            <View style={weightChartStyles.zoomPill}>
+              <Text style={weightChartStyles.zoomLabel}>
+                {chartZoom.zoom.toFixed(2)}x
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={chartZoom.handleZoomIn}
+              disabled={!chartZoom.canZoomIn}
+              activeOpacity={0.7}
+              style={[
+                weightChartStyles.zoomButton,
+                !chartZoom.canZoomIn && weightChartStyles.zoomButtonDisabled,
+              ]}
+            >
+              <Text style={weightChartStyles.zoomText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {!!onRangeChange && (
@@ -663,92 +642,140 @@ export function CombinedExerciseChart({
         </View>
       )}
 
-      <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>1RM total</Text>
-          <Text
-            style={[
-              styles.statValue,
-              {
-                color:
-                  (weightSeries.totalChange ?? 0) >= 0
-                    ? colors.success
-                    : colors.danger,
-              },
-            ]}
-          >
-            {weightSeries.totalChange == null
-              ? "--"
-              : `${weightSeries.totalChange >= 0 ? "+" : ""}${formatValue(
-                  weightSeries.totalChange,
-                  weightSeries.unitLabel
-                )}`}
+      <View style={weightChartStyles.statsRow}>
+        <View style={weightChartStyles.statBox}>
+          <View style={weightChartStyles.statHead}>
+            <View style={weightChartStyles.statIconWrap}>
+              <Ionicons name="flag-outline" size={12} color={COLORS.accent} />
+            </View>
+            <Text style={weightChartStyles.statLabel}>Start</Text>
+          </View>
+          <Text style={weightChartStyles.statValue}>
+            {formatValue(primaryFirst?.value ?? null, primaryUnit)}
           </Text>
         </View>
 
-        <View style={styles.statDivider} />
-
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Volum siste</Text>
-          <Text style={styles.statValue}>
-            {formatValue(
-              selected.volume?.value ?? null,
-              volumeSeries.unitLabel
-            )}
-          </Text>
+        <View
+          style={[
+            weightChartStyles.statBox,
+            weightChartStyles.statBoxAccent,
+          ]}
+        >
+          <View style={weightChartStyles.statHead}>
+            <View style={weightChartStyles.statIconWrap}>
+              <Ionicons
+                name={primaryTrendTone.icon}
+                size={12}
+                color={COLORS.accent}
+              />
+            </View>
+            <Text style={weightChartStyles.statLabel}>Trend</Text>
+          </View>
+          <View style={weightChartStyles.changeRow}>
+            <Text
+              style={[
+                weightChartStyles.trendIcon,
+                { color: primaryTrendTone.color },
+              ]}
+            >
+              {primaryTrendTone.iconText}
+            </Text>
+            <Text
+              style={[
+                weightChartStyles.statValue,
+                { color: primaryTrendTone.color },
+              ]}
+            >
+              {formatSignedValue(primarySeries.totalChange, primaryUnit)}
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.statDivider} />
-
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Snitt / uke</Text>
-          <Text style={styles.statValue}>
-            {weightSeries.averageChangePerWeek == null
-              ? "--"
-              : `${
-                  weightSeries.averageChangePerWeek >= 0 ? "+" : ""
-                }${formatValue(
-                  weightSeries.averageChangePerWeek,
-                  weightSeries.unitLabel
-                )}`}
+        <View style={weightChartStyles.statBox}>
+          <View style={weightChartStyles.statHead}>
+            <View style={weightChartStyles.statIconWrap}>
+              <Ionicons
+                name="analytics-outline"
+                size={12}
+                color={COLORS.accent}
+              />
+            </View>
+            <Text style={weightChartStyles.statLabel}>Siste</Text>
+          </View>
+          <Text style={weightChartStyles.statValue}>
+            {formatValue(primaryLast?.value ?? null, primaryUnit)}
           </Text>
         </View>
       </View>
 
       <View
-        style={styles.chartOuter}
+        style={weightChartStyles.chartOuter}
         onLayout={(event) => {
           const nextWidth = event.nativeEvent.layout.width;
-          if (nextWidth !== containerWidth) {
-            setContainerWidth(nextWidth);
+          if (nextWidth !== chartZoom.containerWidth) {
+            chartZoom.setContainerWidth(nextWidth);
           }
         }}
       >
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View
-            style={[
-              styles.chartBackground,
-              {
-                width: chartWidth,
-                height,
-                borderWidth: showOuterLines ? 1 : 1,
-              },
-            ]}
-          >
-            <LinearGradient
-              colors={[
-                colors.chartBgTop,
-                colors.chartBgBottom,
-                colors.chartBgBottom,
+        <PinchGestureHandler
+          onGestureEvent={chartZoom.handlePinchEvent}
+          onHandlerStateChange={chartZoom.handlePinchStateChange}
+        >
+          <View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              bounces={false}
+              scrollEnabled={!chartZoom.isPinching && shouldEnableHorizontalScroll}
+              contentContainerStyle={[
+                styles.chartScrollContent,
+                {
+                  width: shouldEnableHorizontalScroll
+                    ? chartWidth
+                    : effectiveContainerWidth,
+                  alignItems: shouldEnableHorizontalScroll ? "flex-start" : "center",
+                },
               ]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={styles.chartGradient}
-              pointerEvents="none"
-            />
+            >
+              <Animated.View
+                renderToHardwareTextureAndroid
+                shouldRasterizeIOS
+                style={{
+                  transform: [
+                    { translateX: pinchTranslateX },
+                    { scaleX: chartZoom.pinchScale },
+                  ],
+                }}
+              >
+                <View
+                  style={[
+                    weightChartStyles.chartPanel,
+                    {
+                      width: chartWidth,
+                      height: chartZoom.chartHeight,
+                    },
+                  ]}
+                >
+                  <View style={weightChartStyles.panelAccent} />
+                  <View pointerEvents="none" style={styles.chartOverlay} />
 
-            <Svg width={chartWidth} height={height}>
-              {ticks.map((tick, index) => {
+                  <Svg width={chartWidth} height={chartZoom.chartHeight}>
+                  <Defs>
+                    <SvgLinearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                      <Stop
+                        offset="0"
+                        stopColor={COLORS.line}
+                        stopOpacity={weightChartColors.shadowFillFromOpacity}
+                      />
+                      <Stop
+                        offset="1"
+                        stopColor={COLORS.line}
+                        stopOpacity={weightChartColors.shadowFillToOpacity}
+                      />
+                    </SvgLinearGradient>
+                  </Defs>
+
+                  {ticks.map((tick, index) => {
                 const y = PAD_TOP + innerHeight * tick;
                 const weightTick =
                   weightSeries.yDomain.paddedMax -
@@ -758,6 +785,9 @@ export function CombinedExerciseChart({
                 const volumeTick =
                   volumeSeries.yDomain.paddedMax -
                   volumeSeries.yDomain.paddedMax * tick;
+                const leftTick = isWeightVisible ? weightTick : volumeTick;
+                const rightTick =
+                  isWeightVisible && isVolumeVisible ? volumeTick : null;
 
                 return (
                   <G key={`grid-${index}`}>
@@ -766,7 +796,7 @@ export function CombinedExerciseChart({
                       x2={chartWidth - PAD_RIGHT}
                       y1={y}
                       y2={y}
-                      stroke={colors.grid}
+                      stroke={COLORS.grid}
                       strokeWidth={1}
                       strokeDasharray="4,4"
                     />
@@ -775,46 +805,73 @@ export function CombinedExerciseChart({
                       y={y + 3}
                       textAnchor="end"
                       fontSize={9}
-                      fill={colors.muted2}
+                      fill={COLORS.subText}
                       fontWeight="600"
                     >
-                      {weightTick < 10
-                        ? weightTick.toFixed(1)
-                        : weightTick.toFixed(0)}
+                      {leftTick < 10
+                        ? leftTick.toFixed(1)
+                        : leftTick.toFixed(0)}
                     </SvgText>
-                    <SvgText
-                      x={chartWidth - PAD_RIGHT + 8}
-                      y={y + 3}
-                      fontSize={9}
-                      fill={colors.muted2}
-                      fontWeight="600"
-                    >
-                      {volumeTick < 10
-                        ? volumeTick.toFixed(1)
-                        : volumeTick.toFixed(0)}
-                    </SvgText>
+
+                    {rightTick != null && (
+                      <SvgText
+                        x={chartWidth - PAD_RIGHT + 8}
+                        y={y + 3}
+                        fontSize={9}
+                        fill={COLORS.subText}
+                        fontWeight="600"
+                      >
+                        {rightTick < 10
+                          ? rightTick.toFixed(1)
+                          : rightTick.toFixed(0)}
+                      </SvgText>
+                    )}
                   </G>
                 );
-              })}
+                  })}
 
-              <SvgLine
-                x1={selectedX}
-                x2={selectedX}
-                y1={PAD_TOP}
-                y2={height - PAD_BOTTOM}
-                stroke={colors.guide}
-                strokeWidth={1}
-                strokeDasharray="3,4"
-              />
+              {showOuterLines && (
+                <Rect
+                  x={PAD_LEFT}
+                  y={PAD_TOP}
+                  width={chartWidth - PAD_LEFT - PAD_RIGHT}
+                  height={innerHeight}
+                  fill="transparent"
+                  stroke={COLORS.grid}
+                  strokeWidth={1}
+                />
+              )}
 
-              {metric !== "weight" &&
+              {shouldRenderGuide && (
+                <SvgLine
+                  x1={selectedX}
+                  x2={selectedX}
+                  y1={PAD_TOP}
+                  y2={baselineY}
+                  stroke={COLORS.guide}
+                  strokeWidth={1}
+                  strokeDasharray="3,4"
+                />
+              )}
+
+              {isWeightVisible &&
+                shouldRenderArea &&
+                weightArea.map((segment) => (
+                  <Path
+                    key={`weight-area-${segment}`}
+                    d={segment}
+                    fill={`url(#${fillId})`}
+                  />
+                ))}
+
+              {isVolumeVisible &&
                 merged.map((point, index) => {
                   if (!point.volume) return null;
 
                   const x = getX(index);
                   const barWidth = Math.min(18, slotWidth * 0.62);
                   const top = PAD_TOP + volumeScale(point.volume.clampedValue);
-                  const barHeight = Math.max(4, height - PAD_BOTTOM - top);
+                  const barHeight = Math.max(4, baselineY - top);
 
                   return (
                     <Rect
@@ -824,49 +881,70 @@ export function CombinedExerciseChart({
                       width={barWidth}
                       height={barHeight}
                       rx={4}
-                      fill={colors.volume}
-                      stroke={colors.volumeStroke}
+                      fill={COLORS.volume}
+                      fillOpacity={weightChartColors.shadowFillFromOpacity}
+                      stroke={COLORS.volumeStroke}
                       strokeWidth={point.key === selected.key ? 1.6 : 1}
                     />
                   );
                 })}
 
-              {metric !== "volume" &&
+              {isVolumeVisible &&
+                shouldRenderTrend &&
+                volumeTrendLine.map((segment) => (
+                  <Path
+                    key={`volume-trend-${segment}`}
+                    d={segment}
+                    fill="none"
+                    stroke={COLORS.volumeStroke}
+                    strokeWidth={1.15}
+                    strokeDasharray="5,5"
+                    opacity={0.55}
+                  />
+                ))}
+
+              {isWeightVisible &&
                 weightLine.map((segment) => (
                   <Path
                     key={`weight-${segment}`}
                     d={segment}
                     fill="none"
-                    stroke={colors.weight}
-                    strokeWidth={1.8}
+                    stroke={COLORS.line}
+                    strokeWidth={1.9}
                   />
                 ))}
 
-              {metric !== "volume" &&
+              {isWeightVisible &&
+                shouldRenderTrend &&
                 trendLine.map((segment) => (
                   <Path
                     key={`trend-${segment}`}
                     d={segment}
                     fill="none"
-                    stroke={colors.trend}
+                    stroke={COLORS.trend}
                     strokeWidth={1.35}
                     strokeDasharray="6,6"
+                    opacity={0.95}
                   />
                 ))}
 
               {merged.map((point, index) => {
                 const x = getX(index);
-                const y =
+                const weightY =
                   point.weight != null
                     ? PAD_TOP + weightScale(point.weight.clampedValue)
                     : PAD_TOP + innerHeight * 0.3;
                 const showDot =
                   point.weight != null &&
-                  metric !== "volume" &&
-                  (merged.length <= 12 ||
-                    point.key === selected.key ||
-                    point.weight.isPr ||
-                    point.weight.isOutlier);
+                  isWeightVisible &&
+                  (compactDotsOnlySelected
+                    ? point.key === selected.key ||
+                      point.weight.isPr ||
+                      point.weight.isOutlier
+                    : merged.length <= 12 ||
+                      point.key === selected.key ||
+                      point.weight.isPr ||
+                      point.weight.isOutlier);
 
                 return (
                   <G key={`merged-${point.key}`}>
@@ -874,82 +952,88 @@ export function CombinedExerciseChart({
                       <>
                         <Circle
                           cx={x}
-                          cy={y}
+                          cy={weightY}
                           r={point.key === selected.key ? 4.1 : 2.8}
-                          fill={
-                            point.weight.isOutlier
-                              ? colors.warning
-                              : colors.weight
+                          fill={COLORS.dotFill}
+                          stroke={
+                            point.weight.isOutlier ? COLORS.warning : COLORS.line
                           }
+                          strokeWidth={1.5}
                         />
                         {point.weight.isPr && (
                           <Circle
                             cx={x}
-                            cy={y}
+                            cy={weightY}
                             r={point.key === selected.key ? 6.1 : 4.9}
                             fill="none"
-                            stroke={colors.pr}
+                            stroke={COLORS.warning}
                             strokeWidth={1.1}
                           />
                         )}
                       </>
                     )}
 
-                    {point.key === selected.key && (
+                    {shouldRenderGuide &&
+                      point.key === selected.key &&
+                      point.weight &&
+                      isWeightVisible && (
                       <Circle
                         cx={x}
-                        cy={y}
+                        cy={weightY}
                         r={8.2}
                         fill="transparent"
-                        stroke={colors.accent}
+                        stroke={COLORS.accent}
                         strokeWidth={1}
                       />
                     )}
 
-                    {point.volume ? (
-                      <Rect
-                        x={x - Math.min(18, slotWidth * 0.62) / 2}
-                        y={PAD_TOP + volumeScale(point.volume.clampedValue)}
-                        width={Math.min(18, slotWidth * 0.62)}
-                        height={Math.max(
-                          20,
-                          height -
-                            PAD_BOTTOM -
-                            (PAD_TOP + volumeScale(point.volume.clampedValue))
-                        )}
-                        fill="transparent"
-                        onPress={() => setSelectedKey(point.key)}
-                      />
-                    ) : point.weight ? (
-                      <Circle
-                        cx={x}
-                        cy={y}
-                        r={Math.max(12, slotWidth * 0.34)}
-                        fill="transparent"
-                        onPress={() => setSelectedKey(point.key)}
-                      />
-                    ) : null}
+                    {shouldRenderTouchTargets
+                      ? point.volume ? (
+                          <Rect
+                            x={x - Math.min(18, slotWidth * 0.62) / 2}
+                            y={PAD_TOP + volumeScale(point.volume.clampedValue)}
+                            width={Math.min(18, slotWidth * 0.62)}
+                            height={Math.max(
+                              20,
+                              baselineY -
+                                (PAD_TOP + volumeScale(point.volume.clampedValue))
+                            )}
+                            fill="transparent"
+                            onPress={() => setSelectedKey(point.key)}
+                          />
+                        ) : point.weight ? (
+                          <Circle
+                            cx={x}
+                            cy={weightY}
+                            r={Math.max(12, slotWidth * 0.34)}
+                            fill="transparent"
+                            onPress={() => setSelectedKey(point.key)}
+                          />
+                        ) : null
+                      : null}
 
                     {labelIndexes.has(index) && (
                       <SvgText
                         x={x}
-                        y={height - 12}
+                        y={chartZoom.chartHeight - 12}
                         textAnchor="middle"
                         fontSize={10}
-                        fill={colors.muted2}
+                        fill={COLORS.subText}
                         fontWeight="600"
                       >
                         {point.shortLabel}
                       </SvgText>
                     )}
 
-                    {point.key === selected.key && point.weight?.isPr && (
+                    {shouldRenderGuide &&
+                      point.key === selected.key &&
+                      point.weight?.isPr && (
                       <SvgText
                         x={x}
-                        y={Math.max(14, y - 12)}
+                        y={Math.max(14, weightY - 12)}
                         textAnchor="middle"
                         fontSize={10}
-                        fill={colors.pr}
+                        fill={COLORS.warning}
                         fontWeight="700"
                       >
                         PR
@@ -958,9 +1042,57 @@ export function CombinedExerciseChart({
                   </G>
                 );
               })}
-            </Svg>
+                  </Svg>
+                </View>
+              </Animated.View>
+            </ScrollView>
           </View>
-        </ScrollView>
+        </PinchGestureHandler>
+      </View>
+
+      <View style={weightChartStyles.additionalStats}>
+        <View style={weightChartStyles.miniStat}>
+          <Text style={weightChartStyles.miniStatLabel}>
+            {isWeightVisible && isVolumeVisible ? "1RM snitt/uke" : "Snitt / uke"}
+          </Text>
+          <Text
+            style={[
+              weightChartStyles.miniStatValue,
+              primarySeries.averageChangePerWeek != null && {
+                color: getTrendTone(primarySeries.averageChangePerWeek).color,
+              },
+            ]}
+          >
+            {formatSignedValue(primarySeries.averageChangePerWeek, primaryUnit)}
+          </Text>
+        </View>
+
+        <View style={weightChartStyles.miniStat}>
+          <Text style={weightChartStyles.miniStatLabel}>
+            {isWeightVisible && isVolumeVisible ? "Volum valgt" : "Valgt"}
+          </Text>
+          <Text style={weightChartStyles.miniStatValue}>
+            {isWeightVisible && isVolumeVisible
+              ? formatValue(selected.volume?.value ?? null, volumeSeries.unitLabel)
+              : selected.shortLabel}
+          </Text>
+        </View>
+
+        <View style={weightChartStyles.miniStat}>
+          <Text style={weightChartStyles.miniStatLabel}>
+            {isWeightVisible && isVolumeVisible ? "Valgt" : "Verdi"}
+          </Text>
+          <Text style={weightChartStyles.miniStatValue}>
+            {isWeightVisible && isVolumeVisible
+              ? selected.shortLabel
+              : formatValue(
+                  isWeightVisible
+                    ? selected.weight?.value ?? null
+                    : selected.volume?.value ?? null,
+                  primaryUnit
+                )}
+          </Text>
+        </View>
       </View>
     </View>
   );

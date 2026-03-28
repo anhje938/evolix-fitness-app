@@ -28,6 +28,14 @@ import type {
 } from "@/api/exercise/exerchiseHistory";
 import { useExerciseHistory } from "@/hooks/useExerciseHistory";
 import { useExerciseSetsHistory } from "@/hooks/useExerciseSetsHistory";
+import { getOsloDateKey } from "@/utils/date";
+import {
+  buildExerciseHistoryFromSessions,
+  DEMO_BENCH_EXERCISE_ID,
+  mergeExerciseSetsHistoryWithDemo,
+  mergeExercisesWithDemo,
+  shouldUseDemoBenchData,
+} from "@/utils/demoProgressData";
 
 import { CombinedExerciseChart } from "./progress/CombinedExerciseChart";
 import {
@@ -77,9 +85,7 @@ function buildDailyBestPoints(
 
   for (const session of sessions) {
     const sessionBest1Rm = getSessionBest1Rm(session);
-    const sessionDate = new Date(session.performedAtUtc)
-      .toISOString()
-      .split("T")[0];
+    const sessionDate = getOsloDateKey(session.performedAtUtc);
     const existing = byDate.get(sessionDate);
 
     if (!existing) {
@@ -134,7 +140,7 @@ export default function ProgressTab({
   const { data: exerciseData } = useExercises();
   const searchInputRef = useRef<TextInput | null>(null);
   const exercises = useMemo(() => {
-    const allExercises = exerciseData ?? [];
+    const allExercises = mergeExercisesWithDemo(exerciseData ?? []);
     if (!userSettings.showOnlyCustomTrainingContent) return allExercises;
     return allExercises.filter(isUserCreatedExercise);
   }, [exerciseData, userSettings.showOnlyCustomTrainingContent]);
@@ -173,13 +179,30 @@ export default function ProgressTab({
 
   const selectedExercise =
     exercises.find((ex) => ex.id === selectedExerciseId) ?? null;
+  const historyExerciseId =
+    selectedExercise?.id === DEMO_BENCH_EXERCISE_ID
+      ? null
+      : selectedExerciseId;
 
   // Aggregated history (top-set per session) – used for charts + year summary weight
-  const { data: historyData = [] } = useExerciseHistory(selectedExerciseId);
+  const { data: rawHistoryData = [] } = useExerciseHistory(historyExerciseId);
 
   // Raw sets history – used for StatRow + ExerciseHistoryList + year summary volume (best set)
-  const { data: setsHistoryData = [] } =
-    useExerciseSetsHistory(selectedExerciseId);
+  const { data: rawSetsHistoryData = [] } =
+    useExerciseSetsHistory(historyExerciseId);
+
+  const setsHistoryData = useMemo(
+    () => mergeExerciseSetsHistoryWithDemo(rawSetsHistoryData, selectedExercise),
+    [rawSetsHistoryData, selectedExercise]
+  );
+
+  const historyData = useMemo(() => {
+    if (!shouldUseDemoBenchData(selectedExercise)) {
+      return rawHistoryData;
+    }
+
+    return buildExerciseHistoryFromSessions(setsHistoryData);
+  }, [rawHistoryData, selectedExercise, setsHistoryData]);
 
   const sortedHistory: ExerciseHistoryPointDto[] = useMemo(() => {
     if (!historyData) return [];

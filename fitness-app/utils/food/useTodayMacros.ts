@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Food } from "@/types/meal";
+import { getOsloTodayDateKey } from "@/utils/date";
 import { groupMealsByDate } from "@/utils/food/groupFoodList";
 import { calcTotalMacros } from "@/utils/food/calculateTotalMacros";
 
@@ -29,12 +30,7 @@ export function useTodayMacros(foodList: Food[]): UseTodayMacrosResult {
     }
 
     const grouped = groupMealsByDate(foodList);
-
-    const now = new Date();
-    const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
-      2,
-      "0"
-    )}-${String(now.getDate()).padStart(2, "0")}`;
+    const todayKey = getOsloTodayDateKey();
     const todaysMeals = grouped[todayKey] ?? [];
 
     if (todaysMeals.length === 0) {

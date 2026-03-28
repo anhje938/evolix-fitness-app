@@ -1,10 +1,18 @@
 import React from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Animated,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { LineChart } from "react-native-chart-kit";
 import { PinchGestureHandler } from "react-native-gesture-handler";
 import {
   Defs,
   Line,
+  Path as SvgPath,
   Stop,
   LinearGradient as SvgLinearGradient,
   Text as SvgText,
@@ -17,6 +25,7 @@ import type { Weight } from "@/types/weight";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useWeightProgressChart } from "@/hooks/useWeightProgressChart";
+import { weightChartColors } from "./WeightChart.tokens";
 import { styles } from "./WeightProgressChart.styles";
 
 type Props = {
@@ -44,6 +53,7 @@ type Props = {
   // Colors
   lineColor?: string;
   dotColor?: string;
+  trendLineColor?: string;
   backgroundGradientFrom?: string;
   backgroundGradientTo?: string;
   labelColor?: string;
@@ -61,6 +71,9 @@ type Props = {
   goalValue?: number;
   goalLineColor?: string;
   goalLineDashArray?: string;
+  showTrendLine?: boolean;
+  trendLineDashArray?: string;
+  trendLineStrokeWidth?: number;
 
   // Label density
   minXLabels?: number;
@@ -76,6 +89,94 @@ type Props = {
   // Stats
   showStats?: boolean;
 };
+
+const CHART_PADDING_TOP = 16;
+const CHART_PADDING_RIGHT = 64;
+
+function calcChartScaler(data: number[], fromZero: boolean) {
+  const values = fromZero ? [...data, 0] : data;
+  return Math.max(...values) - Math.min(...values) || 1;
+}
+
+function calcChartBaseHeight(data: number[], height: number, fromZero: boolean) {
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+
+  if (min >= 0 && max >= 0) return height;
+  if (min < 0 && max <= 0) return 0;
+  return (height * max) / calcChartScaler(data, fromZero);
+}
+
+function calcChartHeight(
+  value: number,
+  data: number[],
+  height: number,
+  fromZero: boolean
+) {
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const scaler = calcChartScaler(data, fromZero);
+
+  if (min < 0 && max > 0) {
+    return height * (value / scaler);
+  }
+
+  if (min >= 0 && max >= 0) {
+    return fromZero
+      ? height * (value / scaler)
+      : height * ((value - min) / scaler);
+  }
+
+  return fromZero
+    ? height * (value / scaler)
+    : height * ((value - max) / scaler);
+}
+
+function buildBezierTrendPath({
+  values,
+  domainData,
+  width,
+  height,
+  paddingRight,
+  paddingTop,
+  fromZero,
+}: {
+  values: number[];
+  domainData: number[];
+  width: number;
+  height: number;
+  paddingRight: number;
+  paddingTop: number;
+  fromZero: boolean;
+}) {
+  if (values.length < 2 || domainData.length === 0) return null;
+
+  const slotCount = Math.max(values.length, 1);
+  const x = (index: number) =>
+    Math.floor(
+      paddingRight + ((index + 0.5) * (width - paddingRight)) / slotCount
+    );
+  const baseHeight = calcChartBaseHeight(domainData, height, fromZero);
+  const y = (index: number) => {
+    const yHeight = calcChartHeight(values[index], domainData, height, fromZero);
+    return Math.floor(((baseHeight - yHeight) / 4) * 3 + paddingTop);
+  };
+
+  return [`M${x(0)},${y(0)}`]
+    .concat(
+      values.slice(0, -1).map((_, index) => {
+        const xMid = (x(index) + x(index + 1)) / 2;
+        const yMid = (y(index) + y(index + 1)) / 2;
+        const cpX1 = (xMid + x(index)) / 2;
+        const cpX2 = (xMid + x(index + 1)) / 2;
+        return (
+          `Q ${cpX1}, ${y(index)}, ${xMid}, ${yMid}` +
+          ` Q ${cpX2}, ${y(index + 1)}, ${x(index + 1)}, ${y(index + 1)}`
+        );
+      })
+    )
+    .join(" ");
+}
 
 export function WeightProgressChart({
   weightList,
@@ -95,12 +196,13 @@ export function WeightProgressChart({
   lineStrokeWidth = 2.5,
   dotRadius = 3.5,
 
-  lineColor = "rgba(6, 182, 212, 1)",
-  dotColor = "rgba(6, 182, 212, 1)",
-  backgroundGradientFrom = "rgba(2, 6, 23, 0.26)",
-  backgroundGradientTo = "transparent",
-  labelColor = "rgba(148,163,184,0.85)",
-  gridLineColor = "rgba(255,255,255,0.06)",
+  lineColor = weightChartColors.lineColor,
+  dotColor = weightChartColors.dotColor,
+  trendLineColor = weightChartColors.trendLineColor,
+  backgroundGradientFrom = "rgba(8, 15, 28, 0.18)",
+  backgroundGradientTo = weightChartColors.backgroundGradientTo,
+  labelColor = weightChartColors.labelColor,
+  gridLineColor = weightChartColors.gridLineColor,
 
   fromZero = false,
   decimalPlaces = 1,
@@ -110,8 +212,11 @@ export function WeightProgressChart({
 
   showGoalLine = true,
   goalValue,
-  goalLineColor = "rgba(251, 191, 36, 0.75)",
+  goalLineColor = weightChartColors.goalLineColor,
   goalLineDashArray = "4,3",
+  showTrendLine = true,
+  trendLineDashArray = "6,6",
+  trendLineStrokeWidth = 1.35,
 
   minXLabels = 3,
   maxXLabels = 12,
@@ -148,11 +253,7 @@ export function WeightProgressChart({
       <View style={[generalStyles.newCard, styles.card]}>
         <ExpoLinearGradient
           pointerEvents="none"
-          colors={[
-            "rgba(34,211,238,0.16)",
-            "rgba(59,130,246,0.08)",
-            "rgba(2,6,23,0)",
-          ]}
+          colors={weightChartColors.cardGradientColors}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 0.92, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -188,21 +289,73 @@ export function WeightProgressChart({
     );
   }
 
-  const datasets: any[] = [
-    {
-      data: chart.values,
-      strokeWidth: lineStrokeWidth,
+  const showChartDots =
+    showDots && chart.renderMode === "full";
+  const shouldRenderDecorator = showTrendLine || showGoalLine;
+  const datasets = React.useMemo(
+    () => [
+      {
+        data: chart.values,
+        strokeWidth: lineStrokeWidth,
+        color: () => lineColor,
+      },
+      {
+        data: [chart.minY, chart.maxY],
+        strokeWidth: 0,
+        color: () => "rgba(0,0,0,0)",
+        withDots: false,
+      },
+    ],
+    [chart.maxY, chart.minY, chart.values, lineColor, lineStrokeWidth]
+  );
+  const chartConfig = React.useMemo(
+    () => ({
+      backgroundGradientFrom: "transparent",
+      backgroundGradientTo: "transparent",
+      decimalPlaces,
       color: () => lineColor,
-    },
-    {
-      data: [chart.minY, chart.maxY],
-      strokeWidth: 0,
-      color: () => "rgba(0,0,0,0)",
-      withDots: false,
-    },
-  ];
+      labelColor: () => labelColor,
+      useShadowColorFromDataset: true,
+      paddingTop: 20,
+      paddingRight: 16,
+      propsForDots: showChartDots
+        ? {
+            r: String(dotRadius),
+            strokeWidth: "1.5",
+            stroke: dotColor,
+            fill: weightChartColors.dotFillColor,
+          }
+        : { r: "0", strokeWidth: "0" },
+      propsForBackgroundLines: {
+        stroke: gridLineColor,
+        strokeDasharray: "",
+        strokeWidth: "1",
+      },
+      propsForLabels: {
+        fontSize: 10,
+        fontWeight: "600",
+      } as any,
+    }),
+    [
+      decimalPlaces,
+      dotColor,
+      dotRadius,
+      gridLineColor,
+      labelColor,
+      lineColor,
+      showChartDots,
+    ]
+  );
   const shouldEnableHorizontalScroll =
     chart.chartWidth > chart.effectiveContainerWidth + 1;
+  const pinchTranslateX = React.useMemo(
+    () =>
+      Animated.multiply(
+        Animated.subtract(chart.pinchScale, 1),
+        chart.chartWidth / 2
+      ),
+    [chart.chartWidth, chart.pinchScale]
+  );
   const shouldShowGoalToggle =
     showGoalLine &&
     goalValue !== undefined &&
@@ -213,11 +366,7 @@ export function WeightProgressChart({
     <View style={[generalStyles.newCard, styles.card]}>
       <ExpoLinearGradient
         pointerEvents="none"
-        colors={[
-          "rgba(34,211,238,0.16)",
-          "rgba(59,130,246,0.08)",
-          "rgba(2,6,23,0)",
-        ]}
+        colors={weightChartColors.cardGradientColors}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.92, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -356,7 +505,12 @@ export function WeightProgressChart({
       {/* Chart */}
       <View
         style={styles.chartOuter}
-        onLayout={(e) => chart.setContainerWidth(e.nativeEvent.layout.width)}
+        onLayout={(e) => {
+          const nextWidth = e.nativeEvent.layout.width;
+          if (nextWidth !== chart.containerWidth) {
+            chart.setContainerWidth(nextWidth);
+          }
+        }}
       >
         <PinchGestureHandler
           onGestureEvent={chart.handlePinchEvent}
@@ -367,7 +521,7 @@ export function WeightProgressChart({
               horizontal
               showsHorizontalScrollIndicator={false}
               bounces={false}
-              scrollEnabled={shouldEnableHorizontalScroll}
+              scrollEnabled={!chart.isPinching && shouldEnableHorizontalScroll}
               contentContainerStyle={[
                 styles.scrollContent,
                 {
@@ -378,18 +532,33 @@ export function WeightProgressChart({
                 },
               ]}
             >
-              <View
-                style={[
-                  styles.chartPanel,
-                  { width: chart.chartWidth, height: chart.chartHeight },
-                ]}
+              <Animated.View
+                renderToHardwareTextureAndroid
+                shouldRasterizeIOS
+                style={{
+                  transform: [
+                    { translateX: pinchTranslateX },
+                    { scaleX: chart.pinchScale },
+                  ],
+                }}
               >
-                <View style={styles.panelAccent} />
+                <View
+                  style={[
+                    styles.chartPanel,
+                    {
+                      width: chart.chartWidth,
+                      height: chart.chartHeight,
+                      backgroundColor: "rgba(8, 15, 28, 0.38)",
+                    },
+                  ]}
+                >
+                  <View style={styles.panelAccent} />
 
                 <LineChart
                   data={{ labels: chart.limitedLabels, datasets }}
                   width={chart.chartWidth}
                   height={chart.chartHeight}
+                  withShadow
                   withInnerLines={showInnerLines}
                   withVerticalLines={showVerticalLines}
                   withOuterLines={showOuterLines}
@@ -398,32 +567,7 @@ export function WeightProgressChart({
                   yAxisInterval={1}
                   yAxisSuffix=""
                   yAxisLabel=""
-                  chartConfig={{
-                    backgroundGradientFrom: "transparent",
-                    backgroundGradientTo: "transparent",
-                    decimalPlaces,
-                    color: () => lineColor,
-                    labelColor: () => labelColor,
-                    paddingTop: 20,
-                    paddingRight: 16,
-                    propsForDots: showDots
-                      ? {
-                          r: String(dotRadius),
-                          strokeWidth: "1.5",
-                          stroke: lineColor,
-                          fill: "#020617",
-                        }
-                      : { r: "0", strokeWidth: "0" },
-                    propsForBackgroundLines: {
-                      stroke: gridLineColor,
-                      strokeDasharray: "",
-                      strokeWidth: "1",
-                    },
-                    propsForLabels: {
-                      fontSize: 10,
-                      fontWeight: "600",
-                    } as any,
-                  }}
+                  chartConfig={chartConfig}
                   bezier
                   style={{
                     position: "absolute",
@@ -431,6 +575,7 @@ export function WeightProgressChart({
                     top: 0,
                     right: 0,
                     bottom: 0,
+                    paddingRight: CHART_PADDING_RIGHT,
                   }}
                   formatYLabel={(yValue) => {
                     if (formatYLabelFn) return formatYLabelFn(yValue);
@@ -442,19 +587,10 @@ export function WeightProgressChart({
                     const {
                       width: innerWidth,
                       height: innerHeight,
-                      paddingTop = 16,
-                      paddingRight = 64,
+                      paddingTop = CHART_PADDING_TOP,
+                      paddingRight = CHART_PADDING_RIGHT,
                       data: decoratorData = [],
                     } = props;
-
-                    if (
-                      !showGoalLine ||
-                      goalValue === undefined ||
-                      chart.maxY === chart.minY ||
-                      !chart.isGoalInRange
-                    ) {
-                      return null;
-                    }
 
                     const allDataValues = Array.isArray(decoratorData)
                       ? decoratorData
@@ -469,6 +605,26 @@ export function WeightProgressChart({
 
                     if (!allDataValues.length) return null;
 
+                    const trendPath =
+                      shouldRenderDecorator &&
+                      showTrendLine && chart.trendValues.length > 1
+                        ? buildBezierTrendPath({
+                            values: chart.trendValues,
+                            domainData: allDataValues,
+                            width: innerWidth,
+                            height: innerHeight,
+                            paddingRight,
+                            paddingTop,
+                            fromZero,
+                          })
+                        : null;
+                    const shouldRenderGoal =
+                      shouldRenderDecorator &&
+                      showGoalLine &&
+                      goalValue !== undefined &&
+                      chart.maxY !== chart.minY &&
+                      chart.isGoalInRange;
+
                     const min = Math.min(...allDataValues);
                     const max = Math.max(...allDataValues);
                     const scaler = fromZero
@@ -480,8 +636,8 @@ export function WeightProgressChart({
                         : min < 0 && max <= 0
                         ? 0
                         : (innerHeight * max) / scaler;
-                    const goalHeight =
-                      min < 0 && max > 0
+                    const goalHeight = shouldRenderGoal
+                      ? min < 0 && max > 0
                         ? innerHeight * (chart.goal / scaler)
                         : min >= 0 && max >= 0
                         ? fromZero
@@ -489,11 +645,32 @@ export function WeightProgressChart({
                           : innerHeight * ((chart.goal - min) / scaler)
                         : fromZero
                         ? innerHeight * (chart.goal / scaler)
-                        : innerHeight * ((chart.goal - max) / scaler);
-                    const goalY = ((baseHeight - goalHeight) / 4) * 3 + paddingTop;
+                        : innerHeight * ((chart.goal - max) / scaler)
+                      : null;
+                    const goalY =
+                      goalHeight != null
+                        ? ((baseHeight - goalHeight) / 4) * 3 + paddingTop
+                        : null;
+
+                    if (!trendPath && !shouldRenderGoal) return null;
 
                     return (
                       <>
+                        {trendPath ? (
+                          <SvgPath
+                            d={trendPath}
+                            fill="none"
+                            stroke={trendLineColor}
+                            strokeWidth={trendLineStrokeWidth}
+                            strokeDasharray={trendLineDashArray}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            opacity={0.95}
+                          />
+                        ) : null}
+
+                        {shouldRenderGoal && goalY != null ? (
+                          <>
                         {/* Goal line */}
                         <Line
                           x1={paddingRight.toString()}
@@ -516,6 +693,8 @@ export function WeightProgressChart({
                         >
                           {`Mål: ${chart.goal.toFixed(decimalPlaces)} kg`}
                         </SvgText>
+                          </>
+                        ) : null}
 
                         {/* Gradient fill under line (kept for future use) */}
                         <Defs>
@@ -544,20 +723,21 @@ export function WeightProgressChart({
                 />
 
                 {/* Panel background */}
-                <View
-                  pointerEvents="none"
-                  style={[
-                    {
-                      position: "absolute",
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      backgroundColor: backgroundGradientFrom,
-                    },
-                  ]}
-                />
-              </View>
+                  <View
+                    pointerEvents="none"
+                    style={[
+                      {
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        backgroundColor: backgroundGradientFrom,
+                      },
+                    ]}
+                  />
+                </View>
+              </Animated.View>
             </ScrollView>
           </View>
         </PinchGestureHandler>

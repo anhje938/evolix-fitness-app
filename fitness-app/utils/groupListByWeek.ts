@@ -1,21 +1,8 @@
+import {
+  getIsoWeekYearAndNumberFromDateKey,
+  getOsloDateKey,
+} from "@/utils/date";
 import { Weight } from "@/types/weight";
-
-function getISOWeekYearAndNumber(date: Date) {
-  const utcDate = new Date(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
-  );
-  const dayNumber = utcDate.getUTCDay() || 7;
-
-  utcDate.setUTCDate(utcDate.getUTCDate() + 4 - dayNumber);
-
-  const isoYear = utcDate.getUTCFullYear();
-  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
-  const weekNumber = Math.ceil(
-    ((utcDate.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
-  );
-
-  return { year: isoYear, week: weekNumber };
-}
 
 export function getWeeklySummary(weightList: Weight[]) {
   const weekMap = new Map<
@@ -24,13 +11,22 @@ export function getWeeklySummary(weightList: Weight[]) {
   >();
 
   for (const entry of weightList) {
-    const date = new Date(entry.timestampUtc);
-    const { year, week } = getISOWeekYearAndNumber(date);
-    const key = `${year}-${week}`;
+    const dateKey = getOsloDateKey(entry.timestampUtc);
+    if (!dateKey) continue;
 
+    const isoWeek = getIsoWeekYearAndNumberFromDateKey(dateKey);
+    if (!isoWeek) continue;
+
+    const key = `${isoWeek.year}-${isoWeek.week}`;
     const weekData = weekMap.get(key);
+
     if (!weekData) {
-      weekMap.set(key, { year, week, sum: entry.weightKg, count: 1 });
+      weekMap.set(key, {
+        year: isoWeek.year,
+        week: isoWeek.week,
+        sum: entry.weightKg,
+        count: 1,
+      });
     } else {
       weekData.sum += entry.weightKg;
       weekData.count += 1;

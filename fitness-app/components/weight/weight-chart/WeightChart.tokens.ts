@@ -1,0 +1,22 @@
+export const weightChartColors = {
+  cardGradientColors: [
+    "rgba(34,211,238,0.16)",
+    "rgba(59,130,246,0.08)",
+    "rgba(2,6,23,0)",
+  ] as const,
+  lineColor: "rgba(6, 182, 212, 1)",
+  dotColor: "rgba(6, 182, 212, 1)",
+  dotFillColor: "#020617",
+  trendLineColor: "rgba(192, 132, 252, 0.9)",
+  goalLineColor: "rgba(251, 191, 36, 0.75)",
+  backgroundGradientFrom: "rgba(2, 6, 23, 0.26)",
+  backgroundGradientTo: "transparent",
+  labelColor: "rgba(148,163,184,0.85)",
+  gridLineColor: "rgba(255,255,255,0.06)",
+  accentColor: "#7dd3fc",
+  accentStrong: "rgba(56,189,248,0.3)",
+  accentBackground: "rgba(56,189,248,0.12)",
+  neutralText: "rgba(226,232,240,0.92)",
+  shadowFillFromOpacity: 0.1,
+  shadowFillToOpacity: 0.1,
+} as const;

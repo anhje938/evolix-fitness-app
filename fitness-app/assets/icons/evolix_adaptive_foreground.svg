@@ -1,0 +1,45 @@
+<svg
+  width="1024"
+  height="1024"
+  viewBox="0 0 1024 1024"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <defs>
+    <radialGradient id="tileGlow" cx="50%" cy="40%" r="62%">
+      <stop offset="0%" stop-color="#34DFFF" stop-opacity="0.18"></stop>
+      <stop offset="100%" stop-color="#34DFFF" stop-opacity="0"></stop>
+    </radialGradient>
+    <linearGradient id="tileBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0D345E"></stop>
+      <stop offset="100%" stop-color="#081E36"></stop>
+    </linearGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7EF3FF"></stop>
+      <stop offset="100%" stop-color="#3FD0FF"></stop>
+    </linearGradient>
+  </defs>
+
+  <rect x="192" y="192" width="640" height="640" rx="156" fill="url(#tileBg)"></rect>
+  <rect x="192" y="192" width="640" height="640" rx="156" fill="url(#tileGlow)"></rect>
+  <rect
+    x="220"
+    y="220"
+    width="584"
+    height="584"
+    rx="138"
+    fill="none"
+    stroke="rgba(255,255,255,0.09)"
+    stroke-width="6"
+  ></rect>
+
+  <g
+    fill="none"
+    stroke="url(#mark)"
+    stroke-width="72"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M330 366 V662 M330 366 H504 M330 514 H480 M330 662 H504"></path>
+    <path d="M548 366 L622 662 L696 366"></path>
+  </g>
+</svg>
