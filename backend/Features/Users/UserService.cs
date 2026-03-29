@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 using backend.Data;
 using Microsoft.EntityFrameworkCore;
@@ -530,12 +531,29 @@ namespace backend.Features.Users
             if (dto.WeightGoalKg.HasValue)
                 settings.WeightGoalKg = dto.WeightGoalKg.Value;
 
+            if (dto.WeightGoalTimeUtc.HasValue)
+                settings.WeightGoalTimeUtc = dto.WeightGoalTimeUtc.Value;
+
             if (dto.WeightDirection.HasValue)
                 settings.WeightDirection = dto.WeightDirection.Value;
 
             // Filters
             if (dto.MuscleFilter.HasValue)
                 settings.MuscleFilter = dto.MuscleFilter.Value;
+
+            if (dto.UseFoodCoach.HasValue)
+                settings.UseFoodCoach = dto.UseFoodCoach.Value;
+
+            if (dto.UseWorkoutCoach.HasValue)
+                settings.UseWorkoutCoach = dto.UseWorkoutCoach.Value;
+
+            if (dto.FoodCoachExcludedDateKeys != null)
+            {
+                settings.FoodCoachExcludedDateKeysJson = JsonSerializer.Serialize(
+                    NormalizeDateKeyArray(dto.FoodCoachExcludedDateKeys),
+                    HomeUiJsonOptions
+                );
+            }
 
             // Home UI
             if (dto.HomeProgressCircles != null ||
@@ -635,6 +653,12 @@ namespace backend.Features.Users
         {
             var parsed = ReadArrayOrObjectProperty(raw, "recoveryMapHiddenMuscles");
             return NormalizeUniqueStringArray(parsed);
+        }
+
+        public static string[] ParseStoredFoodCoachExcludedDateKeys(string? raw)
+        {
+            var parsed = ReadArrayOrObjectProperty(raw, "foodCoachExcludedDateKeys");
+            return NormalizeDateKeyArray(parsed);
         }
 
         private static string[]? ReadArrayOrObjectProperty(
@@ -740,6 +764,36 @@ namespace backend.Features.Users
                 next.Add(value);
             }
 
+            return [.. next];
+        }
+
+        private static string[] NormalizeDateKeyArray(IEnumerable<string>? input)
+        {
+            if (input == null) return [];
+
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var next = new List<string>();
+
+            foreach (var raw in input)
+            {
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+
+                var value = raw.Trim();
+                if (!DateOnly.TryParseExact(
+                        value,
+                        "yyyy-MM-dd",
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.None,
+                        out _))
+                {
+                    continue;
+                }
+
+                if (!seen.Add(value)) continue;
+                next.Add(value);
+            }
+
+            next.Sort(StringComparer.Ordinal);
             return [.. next];
         }
     }

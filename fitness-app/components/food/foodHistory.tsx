@@ -21,9 +21,15 @@ const PAGE_SIZE = 50;
 
 type FoodHistoryProps = {
   foodList: Food[];
+  excludedFoodCoachDateKeys: string[];
+  onToggleFoodCoachDate: (dateKey: string) => void;
 };
 
-export function FoodHistory({ foodList }: FoodHistoryProps) {
+export function FoodHistory({
+  foodList,
+  excludedFoodCoachDateKeys,
+  onToggleFoodCoachDate,
+}: FoodHistoryProps) {
   const [listMode, setListMode] = useState<"daily" | "weekly">("daily");
   const [dailyVisible, setDailyVisible] = useState(PAGE_SIZE);
   const [weeklyVisible, setWeeklyVisible] = useState(PAGE_SIZE);
@@ -37,6 +43,15 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
   const sortedDates = useMemo(
     () => Object.keys(groupedMeals).sort().reverse(),
     [groupedMeals]
+  );
+  const excludedDateSet = useMemo(
+    () => new Set(excludedFoodCoachDateKeys ?? []),
+    [excludedFoodCoachDateKeys]
+  );
+  const excludedTrackedDays = useMemo(
+    () =>
+      sortedDates.filter((dateKey) => excludedDateSet.has(dateKey)).length,
+    [excludedDateSet, sortedDates]
   );
   const latestFiveCalendarDateSet = useMemo(() => {
     const set = new Set<string>();
@@ -100,10 +115,15 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
     total: ReturnType<typeof calcTotalMacros>,
     mealsCount: number,
     showWeekday: boolean,
-    options?: { expandable?: boolean; expanded?: boolean }
+    options?: {
+      expandable?: boolean;
+      expanded?: boolean;
+      coachExcluded?: boolean;
+    }
   ) => {
     const expandable = options?.expandable;
     const expanded = options?.expanded;
+    const coachExcluded = options?.coachExcluded ?? false;
     const weekday = showWeekday ? formatDateKeyWeekdayNO(date) : null;
     const dayLabel = weekday ?? formatDateKeyNO(date);
 
@@ -132,6 +152,19 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
               F {total.totalFats}g
             </Text>
           </View>
+
+          {coachExcluded ? (
+            <View style={styles.coachExcludedBadge}>
+              <Ionicons
+                name="ban-outline"
+                size={11}
+                color="rgba(251,191,36,0.95)"
+              />
+              <Text style={styles.coachExcludedBadgeText}>
+                Teller ikke i coach
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.dayRightCol}>
@@ -160,9 +193,17 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
     const total = calcTotalMacros(mealsPerDate);
     const mealsCount = mealsPerDate.length;
     const isExpanded = expandedDate === date;
+    const isCoachExcluded = excludedDateSet.has(date);
 
     return (
-      <View key={date} style={[generalStyles.newCard, styles.dayCard]}>
+      <View
+        key={date}
+        style={[
+          generalStyles.newCard,
+          styles.dayCard,
+          isCoachExcluded && styles.dayCardExcluded,
+        ]}
+      >
         <View style={styles.dayCardAccent} />
 
         <TouchableOpacity activeOpacity={0.9} onPress={() => toggleDate(date)}>
@@ -172,14 +213,60 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
             mealsCount,
             latestFiveCalendarDateSet.has(date),
             {
-            expandable: true,
-            expanded: isExpanded,
+              expandable: true,
+              expanded: isExpanded,
+              coachExcluded: isCoachExcluded,
             }
           )}
         </TouchableOpacity>
 
         {isExpanded && (
           <View style={styles.expandedWrap}>
+            <View style={styles.coachControlRow}>
+              <View style={styles.coachControlCopy}>
+                <View style={styles.coachControlTitleRow}>
+                  <Ionicons
+                    name={isCoachExcluded ? "ban-outline" : "analytics-outline"}
+                    size={13}
+                    color={
+                      isCoachExcluded
+                        ? "rgba(251,191,36,0.95)"
+                        : "rgba(56,189,248,0.9)"
+                    }
+                  />
+                  <Text style={styles.coachControlTitle}>
+                    {isCoachExcluded
+                      ? "Denne dagen hoppes over av coachen"
+                      : "Denne dagen teller i coachen"}
+                  </Text>
+                </View>
+
+                <Text style={styles.coachControlSub}>
+                  {isCoachExcluded
+                    ? "Kaloriene fra denne dagen brukes ikke i coachens kaloriestimat."
+                    : "Bruk denne hvis du logget hele dagen og vil at coachen skal bruke den."}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.88}
+                onPress={() => onToggleFoodCoachDate(date)}
+                style={[
+                  styles.coachToggleBtn,
+                  isCoachExcluded && styles.coachToggleBtnActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.coachToggleBtnText,
+                    isCoachExcluded && styles.coachToggleBtnTextActive,
+                  ]}
+                >
+                  {isCoachExcluded ? "Bruk igjen" : "Ikke tell"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {mealsPerDate.map((meal, idx) => {
               const isLast = idx === mealsPerDate.length - 1;
 
@@ -237,18 +324,24 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
     const mealsPerDate = groupedMeals[date] ?? [];
     const total = calcTotalMacros(mealsPerDate);
     const mealsCount = mealsPerDate.length;
+    const isCoachExcluded = excludedDateSet.has(date);
 
     return (
       <View
         key={`${keyPrefix}${date}`}
-        style={[generalStyles.newCard, styles.dayCard]}
+        style={[
+          generalStyles.newCard,
+          styles.dayCard,
+          isCoachExcluded && styles.dayCardExcluded,
+        ]}
       >
         <View style={styles.dayCardAccent} />
         {renderDayHeader(
           date,
           total,
           mealsCount,
-          latestFiveCalendarDateSet.has(date)
+          latestFiveCalendarDateSet.has(date),
+          { coachExcluded: isCoachExcluded }
         )}
       </View>
     );
@@ -324,6 +417,18 @@ export function FoodHistory({ foodList }: FoodHistoryProps) {
           <Ionicons name="pulse-outline" size={12} color="#38bdf8" />
           <Text style={styles.summaryChipText}>{avgMealsPerDay} per dag</Text>
         </View>
+        {excludedTrackedDays > 0 ? (
+          <View style={[styles.summaryChip, styles.summaryChipMuted]}>
+            <Ionicons
+              name="ban-outline"
+              size={12}
+              color="rgba(251,191,36,0.92)"
+            />
+            <Text style={styles.summaryChipText}>
+              {excludedTrackedDays} dager skjules for coach
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       {sortedDates.length === 0 && (
@@ -541,6 +646,10 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: "400",
   },
+  summaryChipMuted: {
+    backgroundColor: "rgba(245,158,11,0.10)",
+    borderColor: "rgba(245,158,11,0.16)",
+  },
 
   modeContent: {
     width: "100%",
@@ -598,6 +707,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 1,
   },
+  dayCardExcluded: {
+    borderColor: "rgba(245,158,11,0.18)",
+    backgroundColor: "rgba(26,18,8,0.22)",
+  },
   dayCardAccent: {
     position: "absolute",
     top: 0,
@@ -649,6 +762,25 @@ const styles = StyleSheet.create({
     gap: 7,
     marginTop: 4,
     flexWrap: "wrap",
+  },
+  coachExcludedBadge: {
+    marginTop: 6,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(245,158,11,0.10)",
+    borderWidth: 0.8,
+    borderColor: "rgba(245,158,11,0.18)",
+  },
+  coachExcludedBadgeText: {
+    ...typography.body,
+    color: "rgba(254,240,138,0.94)",
+    fontSize: 10,
+    fontWeight: "400",
   },
 
   macroTag: {
@@ -702,6 +834,59 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.8,
     borderTopColor: "rgba(255,255,255,0.08)",
     paddingTop: 10,
+  },
+  coachControlRow: {
+    marginBottom: 8,
+    paddingBottom: 10,
+    borderBottomWidth: 0.8,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  coachControlCopy: {
+    flex: 1,
+  },
+  coachControlTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  coachControlTitle: {
+    ...typography.body,
+    color: "rgba(241,245,249,0.95)",
+    fontSize: 11.5,
+    fontWeight: "400",
+  },
+  coachControlSub: {
+    ...typography.body,
+    marginTop: 3,
+    color: "rgba(148,163,184,0.86)",
+    fontSize: 10.5,
+    fontWeight: "400",
+    lineHeight: 14,
+  },
+  coachToggleBtn: {
+    alignSelf: "flex-start",
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: "rgba(6,182,212,0.10)",
+    borderWidth: 0.8,
+    borderColor: "rgba(56,189,248,0.16)",
+  },
+  coachToggleBtnActive: {
+    backgroundColor: "rgba(245,158,11,0.12)",
+    borderColor: "rgba(245,158,11,0.20)",
+  },
+  coachToggleBtnText: {
+    ...typography.body,
+    color: "#38bdf8",
+    fontSize: 10.5,
+    fontWeight: "400",
+  },
+  coachToggleBtnTextActive: {
+    color: "#fbbf24",
   },
 
   mealRow: {

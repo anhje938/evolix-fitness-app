@@ -14,6 +14,10 @@ export interface UserSettings {
   recoveryMapHiddenMuscles: RecoveryMapMuscleKey[];
   homeGoalTiles: HomeGoalTile[];
   homeSectionOrder: HomeSectionKey[];
+  useFoodCoach: boolean;
+  useWorkoutCoach: boolean;
+  foodCoachExcludedDateKeys: string[];
   weightGoalKg: number;
+  weightGoalTimeUtc: string;
   weightDirection?: "gain" | "lose" | "maintain";
 }

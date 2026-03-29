@@ -346,22 +346,22 @@ namespace backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("FinishedAtUtc")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("ClientRequestId")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<DateTime?>("FinishedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("SubmissionHash")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
-
-                    b.Property<DateTime>("StartedAtUtc")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Title")
                         .HasColumnType("nvarchar(max)");
@@ -489,6 +489,12 @@ namespace backend.Migrations
                     b.Property<int>("FatGoal")
                         .HasColumnType("int");
 
+                    b.Property<string>("FoodCoachExcludedDateKeysJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("[]");
+
                     b.Property<string>("HomeProgressCirclesJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -512,6 +518,16 @@ namespace backend.Migrations
 
                     b.Property<bool>("ShowOnlyCustomTrainingContent")
                         .HasColumnType("bit");
+
+                    b.Property<bool>("UseFoodCoach")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("UseWorkoutCoach")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<DateTime>("UpdatedUtc")
                         .HasColumnType("datetime2");

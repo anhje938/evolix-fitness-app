@@ -97,6 +97,23 @@ export function dateKeyToUtcDate(dateKey: string): Date | null {
   return new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day, 12, 0, 0));
 }
 
+export function toUtcNoonIsoDate(input: DateInput): string | null {
+  const parts = partsFromFormatter(input);
+  if (!parts) return null;
+
+  return new Date(
+    Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), 12, 0, 0)
+  ).toISOString();
+}
+
+export function getFutureUtcNoonIsoDate(daysFromNow: number): string {
+  const today = dateKeyToUtcDate(getOsloTodayDateKey()) ?? new Date();
+  const next = new Date(today.getTime());
+  next.setUTCDate(next.getUTCDate() + Math.round(daysFromNow));
+  next.setUTCHours(12, 0, 0, 0);
+  return next.toISOString();
+}
+
 export function getOsloDateKey(input: DateInput): string {
   const parts = partsFromFormatter(input);
   if (!parts) return "";

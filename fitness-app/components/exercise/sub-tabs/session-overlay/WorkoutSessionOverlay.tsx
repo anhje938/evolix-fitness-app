@@ -9,6 +9,10 @@ import { useLiveDurationLabel } from "@/hooks/useLiveDurationLabel";
 import { useExercises } from "@/hooks/useExercises";
 import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { estimate1RMFromTopSet } from "@/utils/exercise/oneRepMax";
+import {
+  buildWorkoutCoachRecommendation,
+  type WorkoutCoachRecommendation,
+} from "@/utils/exercise/workoutCoach";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -296,6 +300,7 @@ export function WorkoutSessionOverlay() {
     closeSession,
     addExercise,
     addSet,
+    applySetTemplate,
     updateSet,
     removeSet,
     finishAndSave,
@@ -486,18 +491,58 @@ export function WorkoutSessionOverlay() {
 
   const sessionExerciseIds = useMemo(
     () =>
-      Array.from(
+      userSettings.useWorkoutCoach
+        ? Array.from(
         new Set(
           visibleExercises
             .map((exercise) => exercise.exerciseId)
             .filter((exerciseId): exerciseId is string => !!exerciseId)
         )
-      ),
-    [visibleExercises]
+          )
+        : [],
+    [userSettings.useWorkoutCoach, visibleExercises]
   );
 
   const { queries: exerciseHistoryQueries, data: exerciseHistoryMap } =
     useAllExerciseSetsHistory(sessionExerciseIds);
+
+  const coachRecommendationsByLocalExerciseId = useMemo(() => {
+    const next: Record<string, WorkoutCoachRecommendation> = {};
+
+    if (sessionFinishedAtUtc || !userSettings.useWorkoutCoach) return next;
+
+    for (const exercise of visibleExercises) {
+      const history = (exerciseHistoryMap[exercise.exerciseId] ?? []).filter(
+        (historySession) => historySession.sessionId !== session?.id
+      );
+      const recommendation = buildWorkoutCoachRecommendation(history);
+
+      if (recommendation) {
+        next[exercise.id] = recommendation;
+      }
+    }
+
+    return next;
+  }, [
+    exerciseHistoryMap,
+    session?.id,
+    sessionFinishedAtUtc,
+    userSettings.useWorkoutCoach,
+    visibleExercises,
+  ]);
+
+  const handleApplyCoachRecommendation = useCallback(
+    (sessionExerciseId: string, recommendation: WorkoutCoachRecommendation) => {
+      applySetTemplate(
+        sessionExerciseId,
+        recommendation.plan.map((set) => ({
+          reps: set.reps,
+          weight: set.weightKg,
+        }))
+      );
+    },
+    [applySetTemplate]
+  );
 
   const savePreview = useMemo(() => {
     if (!session) return null;
@@ -1345,7 +1390,16 @@ export function WorkoutSessionOverlay() {
                   <ExerciseBlock
                     key={ex.id}
                     exercise={ex}
+                    coachRecommendation={
+                      coachRecommendationsByLocalExerciseId[ex.id] ?? null
+                    }
                     onAddSet={() => addSet(ex.id)}
+                    onApplyCoachRecommendation={() => {
+                      const recommendation =
+                        coachRecommendationsByLocalExerciseId[ex.id];
+                      if (!recommendation) return;
+                      handleApplyCoachRecommendation(ex.id, recommendation);
+                    }}
                     onInputFocus={handleSessionInputFocus}
                     onUpdateSet={(setId, partial) =>
                       updateSet(ex.id, setId, partial)

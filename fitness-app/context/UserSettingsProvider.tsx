@@ -2,6 +2,7 @@ import { fetchUserSettings, upsertUserSettings } from "@/api/userSettings";
 import { useAuth } from "@/context/AuthProvider";
 import type { UserSettings } from "@/types/userSettings";
 import { isUnauthorizedError } from "@/utils/isUnauthorizedError";
+import { getFutureUtcNoonIsoDate } from "@/utils/date";
 import * as SecureStore from "expo-secure-store";
 import React, {
   createContext,
@@ -35,7 +36,11 @@ const INITIAL_USER_SETTINGS: UserSettings = {
   recoveryMapHiddenMuscles: [],
   homeGoalTiles: ["calories", "protein", "carbs", "fat"],
   homeSectionOrder: ["quickStart", "goals", "weight", "recoveryMap"],
+  useFoodCoach: true,
+  useWorkoutCoach: true,
+  foodCoachExcludedDateKeys: [],
   weightGoalKg: 84,
+  weightGoalTimeUtc: getFutureUtcNoonIsoDate(84),
   weightDirection: "maintain",
 };
 
@@ -54,6 +59,9 @@ function mergeWithDefaults(raw: Partial<UserSettings>): UserSettings {
     recoveryMapHiddenMuscles: Array.isArray(raw.recoveryMapHiddenMuscles)
       ? raw.recoveryMapHiddenMuscles
       : INITIAL_USER_SETTINGS.recoveryMapHiddenMuscles,
+    foodCoachExcludedDateKeys: Array.isArray(raw.foodCoachExcludedDateKeys)
+      ? raw.foodCoachExcludedDateKeys
+      : INITIAL_USER_SETTINGS.foodCoachExcludedDateKeys,
   };
 }
 
@@ -72,7 +80,11 @@ function areSettingsEqual(a: UserSettings, b: UserSettings) {
     a.fatGoal === b.fatGoal &&
     a.carbGoal === b.carbGoal &&
     a.showOnlyCustomTrainingContent === b.showOnlyCustomTrainingContent &&
+    a.useFoodCoach === b.useFoodCoach &&
+    a.useWorkoutCoach === b.useWorkoutCoach &&
+    sameStringArray(a.foodCoachExcludedDateKeys, b.foodCoachExcludedDateKeys) &&
     a.weightGoalKg === b.weightGoalKg &&
+    a.weightGoalTimeUtc === b.weightGoalTimeUtc &&
     a.weightDirection === b.weightDirection &&
     a.muscleFilter === b.muscleFilter &&
     sameStringArray(a.recoveryMapHiddenMuscles, b.recoveryMapHiddenMuscles) &&

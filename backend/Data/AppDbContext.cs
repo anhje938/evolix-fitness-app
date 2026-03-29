@@ -204,7 +204,15 @@ namespace backend.Data
                 b.Property(x => x.HomeProgressCirclesJson).IsRequired();
                 b.Property(x => x.HomeSectionOrderJson).IsRequired();
                 b.Property(x => x.RecoveryMapHiddenMusclesJson).IsRequired();
+                b.Property(x => x.FoodCoachExcludedDateKeysJson)
+                    .IsRequired()
+                    .HasDefaultValue("[]");
                 b.Property(x => x.WeightGoalKg).HasPrecision(18, 2);
+                b.Property(x => x.WeightGoalTimeUtc)
+                    .HasColumnType("datetime2")
+                    .HasDefaultValueSql("DATEADD(hour, 12, CAST(CAST(DATEADD(day, 84, GETUTCDATE()) AS date) AS datetime2))");
+                b.Property(x => x.UseFoodCoach).HasDefaultValue(true);
+                b.Property(x => x.UseWorkoutCoach).HasDefaultValue(true);
 
                 b.HasOne(x => x.User)
                     .WithOne(u => u.Settings)

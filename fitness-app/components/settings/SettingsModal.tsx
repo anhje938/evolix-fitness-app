@@ -1,5 +1,6 @@
 import { clearStoredAuthSession } from "@/api/authSession";
 import CloseIcon from "@/assets/icons/white-x.svg";
+import { AppDateTimePicker } from "@/components/date/AppDateTimePicker";
 import { typography } from "@/config/typography";
 import {
   ADVANCED_MUSCLE_FILTERS,
@@ -11,6 +12,7 @@ import {
   type RecoveryMapMuscleKey,
   type UserSettings,
 } from "@/types/userSettings";
+import { getFutureUtcNoonIsoDate, toUtcNoonIsoDate } from "@/utils/date";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -112,7 +114,11 @@ const INITIAL_SETTINGS: UserSettings = {
   recoveryMapHiddenMuscles: [],
   homeGoalTiles: ["calories", "protein", "carbs", "fat"],
   homeSectionOrder: ["quickStart", "goals", "weight", "recoveryMap"],
+  useFoodCoach: true,
+  useWorkoutCoach: true,
+  foodCoachExcludedDateKeys: [],
   weightGoalKg: 84,
+  weightGoalTimeUtc: getFutureUtcNoonIsoDate(84),
   weightDirection: "maintain",
 };
 
@@ -147,6 +153,11 @@ function clampInt(value: string, fallback: number) {
   const n = Number(cleaned);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.round(n));
+}
+
+function toSafeDate(value: string | null | undefined) {
+  const date = new Date(value ?? "");
+  return Number.isFinite(date.getTime()) ? date : null;
 }
 
 function toggleTile(list: HomeGoalTile[], tile: HomeGoalTile) {
@@ -784,6 +795,31 @@ export default function SettingsModal({
                       />
                     </View>
 
+                    <View style={[styles.settingsItemBox, styles.stackItem]}>
+                      <View style={styles.itemTextBox}>
+                        <Text style={[typography.body, styles.itemText]}>
+                          {"Dato for vekt\u00e5l"}
+                        </Text>
+                        <Text style={[typography.body, styles.itemSubtext]}>
+                          {"N\u00e5r vil du at m\u00e5lvekten skal v\u00e6re n\u00e5dd?"}
+                        </Text>
+                      </View>
+
+                      <AppDateTimePicker
+                        label={"M\u00e5ldato"}
+                        mode="date"
+                        compact
+                        value={toSafeDate(settings.weightGoalTimeUtc)}
+                        onChange={(date) =>
+                          updateSettings({
+                            weightGoalTimeUtc:
+                              toUtcNoonIsoDate(date ?? new Date()) ??
+                              settings.weightGoalTimeUtc,
+                          })
+                        }
+                      />
+                    </View>
+
                     {/* Muscle filter */}
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
@@ -902,6 +938,116 @@ export default function SettingsModal({
                             ]}
                           >
                             Kun selvlagde
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+
+                    <View style={[styles.settingsItemBox, styles.stackItem]}>
+                      <View style={styles.itemTextBox}>
+                        <Text style={[typography.body, styles.itemText]}>
+                          Matcoach
+                        </Text>
+                        <Text style={[typography.body, styles.itemSubtext]}>
+                          {"Bruk matcoach for kalorir\u00e5d mot vektm\u00e5let"}
+                        </Text>
+                      </View>
+
+                      <View style={styles.segment}>
+                        <Pressable
+                          onPress={() => updateSettings({ useFoodCoach: true })}
+                          style={({ pressed }) => [
+                            styles.segmentBtn,
+                            settings.useFoodCoach && styles.segmentBtnActive,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              typography.bodyBold,
+                              styles.segmentText,
+                              settings.useFoodCoach && styles.segmentTextActive,
+                            ]}
+                          >
+                            Ja
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          onPress={() => updateSettings({ useFoodCoach: false })}
+                          style={({ pressed }) => [
+                            styles.segmentBtn,
+                            !settings.useFoodCoach && styles.segmentBtnActive,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              typography.bodyBold,
+                              styles.segmentText,
+                              !settings.useFoodCoach && styles.segmentTextActive,
+                            ]}
+                          >
+                            Nei
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+
+                    <View style={[styles.settingsItemBox, styles.stackItem]}>
+                      <View style={styles.itemTextBox}>
+                        <Text style={[typography.body, styles.itemText]}>
+                          Treningscoach
+                        </Text>
+                        <Text style={[typography.body, styles.itemSubtext]}>
+                          {"Vis coach i \u00f8ktloggingen med forslag per \u00f8velse"}
+                        </Text>
+                      </View>
+
+                      <View style={styles.segment}>
+                        <Pressable
+                          onPress={() =>
+                            updateSettings({ useWorkoutCoach: true })
+                          }
+                          style={({ pressed }) => [
+                            styles.segmentBtn,
+                            settings.useWorkoutCoach &&
+                              styles.segmentBtnActive,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              typography.bodyBold,
+                              styles.segmentText,
+                              settings.useWorkoutCoach &&
+                                styles.segmentTextActive,
+                            ]}
+                          >
+                            Ja
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          onPress={() =>
+                            updateSettings({ useWorkoutCoach: false })
+                          }
+                          style={({ pressed }) => [
+                            styles.segmentBtn,
+                            !settings.useWorkoutCoach &&
+                              styles.segmentBtnActive,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              typography.bodyBold,
+                              styles.segmentText,
+                              !settings.useWorkoutCoach &&
+                                styles.segmentTextActive,
+                            ]}
+                          >
+                            Nei
                           </Text>
                         </Pressable>
                       </View>

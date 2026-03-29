@@ -98,6 +98,9 @@ namespace backend.Features.Users
             var homeProgressCircles = ParseStringArray(settings.HomeProgressCirclesJson);
             var homeSectionOrder = ParseStringArray(settings.HomeSectionOrderJson);
             var recoveryMapHiddenMuscles = ParseStringArray(settings.RecoveryMapHiddenMusclesJson);
+            var foodCoachExcludedDateKeys = UserService.ParseStoredFoodCoachExcludedDateKeys(
+                settings.FoodCoachExcludedDateKeysJson
+            );
 
             return Ok(new
             {
@@ -106,12 +109,16 @@ namespace backend.Features.Users
                 fatGoal = settings.FatGoal,
                 carbGoal = settings.CarbGoal,
                 weightGoalKg = settings.WeightGoalKg,
+                weightGoalTimeUtc = settings.WeightGoalTimeUtc,
                 weightDirection = settings.WeightDirection,
                 muscleFilter = settings.MuscleFilter,
                 homeProgressCircles = homeProgressCircles,
                 homeSectionOrder = homeSectionOrder,
                 recoveryMapHiddenMuscles = recoveryMapHiddenMuscles,
+                foodCoachExcludedDateKeys = foodCoachExcludedDateKeys,
                 showOnlyCustomTrainingContent = settings.ShowOnlyCustomTrainingContent,
+                useFoodCoach = settings.UseFoodCoach,
+                useWorkoutCoach = settings.UseWorkoutCoach,
                 homeProgressCirclesJson = settings.HomeProgressCirclesJson
             });
         }

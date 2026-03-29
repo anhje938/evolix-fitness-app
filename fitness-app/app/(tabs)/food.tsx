@@ -11,6 +11,7 @@ import {
   UpdateComposedMeal as UpdateComposedMealApi,
   UpdateUserMeal,
 } from "@/api/food";
+import { BodyGoalCoachCard } from "@/components/coaching/BodyGoalCoachCard";
 import { DarkOceanBackground } from "@/components/DarkOceanBackground";
 import { AddMealButton } from "@/components/food/addMealButton";
 import { AddMealSheet } from "@/components/food/addMealSheet";
@@ -28,6 +29,7 @@ import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
 import { useFoodContext } from "@/context/FoodProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
+import { useWeightContext } from "@/context/WeightProvider";
 import type {
   ComposedMeal,
   ComposedMealHistoryItem,
@@ -35,9 +37,11 @@ import type {
   FoodDto,
   UpsertComposedMealDto,
 } from "@/types/meal";
+import { buildBodyGoalCoach } from "@/utils/coaching/bodyGoalCoach";
+import { parseDateKey } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -73,6 +77,22 @@ function sortFoodsByTimestampDesc(list: Food[]) {
   );
 }
 
+function normalizeExcludedDateKeys(dateKeys: string[]) {
+  const seen = new Set<string>();
+  const next: string[] = [];
+
+  for (const raw of dateKeys) {
+    const dateKey = String(raw ?? "").trim();
+    if (!parseDateKey(dateKey)) continue;
+    if (seen.has(dateKey)) continue;
+
+    seen.add(dateKey);
+    next.push(dateKey);
+  }
+
+  return next.sort();
+}
+
 export default function FoodPage() {
   const insets = useSafeAreaInsets();
   const [isOpen, setIsOpen] = useState(false);
@@ -95,8 +115,39 @@ export default function FoodPage() {
   );
 
   const { token } = useAuth();
-  const { userSettings } = useUserSettings();
+  const { userSettings, setUserSettings } = useUserSettings();
   const { todayTotals, foodList, setFoodList, refreshMeals } = useFoodContext();
+  const { weightList } = useWeightContext();
+
+  const foodCoach = useMemo(
+    () => {
+      if (!userSettings.useFoodCoach) return null;
+
+      return buildBodyGoalCoach({
+        weightList,
+        foodList,
+        userSettings,
+      });
+    },
+    [foodList, userSettings, weightList]
+  );
+
+  const handleToggleFoodCoachDate = useCallback(
+    (dateKey: string) => {
+      if (!parseDateKey(dateKey)) return;
+
+      const current = userSettings.foodCoachExcludedDateKeys ?? [];
+      const next = current.includes(dateKey)
+        ? current.filter((item) => item !== dateKey)
+        : [...current, dateKey];
+
+      setUserSettings({
+        ...userSettings,
+        foodCoachExcludedDateKeys: normalizeExcludedDateKeys(next),
+      });
+    },
+    [setUserSettings, userSettings]
+  );
 
   const onClose = () => setIsOpen(false);
 
@@ -547,6 +598,10 @@ export default function FoodPage() {
           </View>
         </View>
 
+        {userSettings.useFoodCoach && foodCoach ? (
+          <BodyGoalCoachCard recommendation={foodCoach} variant="food" />
+        ) : null}
+
         <MealCard
           foodList={foodList}
           onEditMeal={handleEditFromCard}
@@ -564,7 +619,11 @@ export default function FoodPage() {
           onOpenLogSheet={openLogSheetForComposedMeal}
         />
 
-        <FoodHistory foodList={foodList} />
+        <FoodHistory
+          foodList={foodList}
+          excludedFoodCoachDateKeys={userSettings.foodCoachExcludedDateKeys}
+          onToggleFoodCoachDate={handleToggleFoodCoachDate}
+        />
       </ScrollView>
 
       <View pointerEvents="box-none" style={styles.footerContainer}>

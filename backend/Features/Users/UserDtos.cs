@@ -10,6 +10,7 @@
 
         // Weight
         public decimal? WeightGoalKg { get; set; }
+        public DateTime? WeightGoalTimeUtc { get; set; }
         public WeightDirection? WeightDirection { get; set; }
 
         // UI / filters
@@ -19,6 +20,9 @@
         public string[]? HomeProgressCircles { get; set; }
         public string[]? HomeSectionOrder { get; set; }
         public string[]? RecoveryMapHiddenMuscles { get; set; }
+        public string[]? FoodCoachExcludedDateKeys { get; set; }
         public bool? ShowOnlyCustomTrainingContent { get; set; }
+        public bool? UseFoodCoach { get; set; }
+        public bool? UseWorkoutCoach { get; set; }
     }
 }

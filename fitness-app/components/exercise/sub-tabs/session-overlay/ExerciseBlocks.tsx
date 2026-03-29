@@ -1,5 +1,9 @@
-import { typography } from "@/config/typography";
+﻿import { typography } from "@/config/typography";
 import type { SessionExercise, SessionSet } from "@/types/exercise";
+import {
+  getWorkoutCoachPlanSummaryParts,
+  type WorkoutCoachRecommendation,
+} from "@/utils/exercise/workoutCoach";
 import { parseNullableFloat } from "@/utils/session-overlay/parseNullableFloat";
 import { parseNullableInt } from "@/utils/session-overlay/parseNullableInt";
 import { Ionicons } from "@expo/vector-icons";
@@ -39,6 +43,12 @@ const overlayColors = {
   green: "rgba(34,197,94,0.9)",
   greenBg: "rgba(34,197,94,0.12)",
   greenBorder: "rgba(34,197,94,0.25)",
+  amber: "rgba(251,191,36,0.96)",
+  amberBg: "rgba(251,191,36,0.12)",
+  amberBorder: "rgba(251,191,36,0.25)",
+  violet: "rgba(167,139,250,0.96)",
+  violetBg: "rgba(167,139,250,0.12)",
+  violetBorder: "rgba(167,139,250,0.25)",
   danger: "#ef4444",
 };
 
@@ -49,6 +59,8 @@ const ROW_METRICS = {
   doneLeftGap: 6,
   rightBuffer: 8,
 };
+
+const WEIGHT_ADJUST_STEP = 0.5;
 
 function formatWeightInputValue(weight: number | null | undefined) {
   if (weight == null) return "";
@@ -129,6 +141,31 @@ export const Divider = memo(function Divider() {
   return <View style={styles.statsDivider} />;
 });
 
+const AdjustValueButton = memo(function AdjustValueButton({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: "add" | "remove";
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [
+        styles.adjustValueButton,
+        pressed && { opacity: 0.88 },
+      ]}
+    >
+      <Ionicons name={icon} size={13} color={overlayColors.text} />
+    </Pressable>
+  );
+});
+
 /**
  * ============================================================
  * EXERCISE BLOCK
@@ -137,15 +174,258 @@ export const Divider = memo(function Divider() {
 
 type ExerciseBlockProps = {
   exercise: SessionExercise;
+  coachRecommendation?: WorkoutCoachRecommendation | null;
   onAddSet: () => void;
+  onApplyCoachRecommendation?: () => void;
   onUpdateSet: (setId: string, partial: Partial<SessionSet>) => void;
   onRemoveSet: (setId: string) => void;
   onInputFocus?: (input: RNTextInput | null) => void;
 };
 
+const coachToneMap: Record<
+  WorkoutCoachRecommendation["status"],
+  {
+    icon: keyof typeof Ionicons.glyphMap;
+    tint: string;
+    bg: string;
+    border: string;
+  }
+> = {
+  increase: {
+    icon: "trending-up-outline",
+    tint: overlayColors.green,
+    bg: overlayColors.greenBg,
+    border: overlayColors.greenBorder,
+  },
+  hold: {
+    icon: "pause-circle-outline",
+    tint: overlayColors.accent,
+    bg: overlayColors.accentBg,
+    border: overlayColors.accentDim,
+  },
+  decrease: {
+    icon: "arrow-down-circle-outline",
+    tint: overlayColors.amber,
+    bg: overlayColors.amberBg,
+    border: overlayColors.amberBorder,
+  },
+  plateau: {
+    icon: "analytics-outline",
+    tint: overlayColors.violet,
+    bg: overlayColors.violetBg,
+    border: overlayColors.violetBorder,
+  },
+  reentry: {
+    icon: "refresh-circle-outline",
+    tint: overlayColors.amber,
+    bg: overlayColors.amberBg,
+    border: overlayColors.amberBorder,
+  },
+};
+
+const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
+  recommendation,
+  isVisible,
+  onPress,
+}: {
+  recommendation: WorkoutCoachRecommendation;
+  isVisible: boolean;
+  onPress: () => void;
+}) {
+  const tone = coachToneMap[recommendation.status];
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.coachToggleButton,
+        {
+          borderColor: tone.border,
+          backgroundColor: "rgba(255,255,255,0.03)",
+        },
+        pressed && { opacity: 0.94 },
+      ]}
+    >
+      <View style={styles.coachToggleLeft}>
+        <View
+          style={[
+            styles.coachToggleIconWrap,
+            {
+              backgroundColor: tone.bg,
+              borderColor: tone.border,
+            },
+          ]}
+        >
+          <Ionicons name={tone.icon} size={15} color={tone.tint} />
+        </View>
+
+        <Text style={[typography.body, styles.coachToggleLabel]}>Coach</Text>
+      </View>
+
+      <View
+        style={[
+          styles.coachToggleActionWrap,
+          {
+            backgroundColor: "rgba(2,6,23,0.48)",
+            borderColor: tone.border,
+          },
+        ]}
+      >
+        <Text style={[styles.coachToggleAction, { color: tone.tint }]}>
+          {isVisible ? "Skjul" : "Vis"}
+        </Text>
+        <Ionicons
+          name={isVisible ? "chevron-up" : "chevron-down"}
+          size={16}
+          color={tone.tint}
+        />
+      </View>
+    </Pressable>
+  );
+});
+
+const WorkoutCoachCard = memo(function WorkoutCoachCard({
+  recommendation,
+  canApply,
+  onApply,
+}: {
+  recommendation: WorkoutCoachRecommendation;
+  canApply: boolean;
+  onApply?: () => void;
+}) {
+  const tone = coachToneMap[recommendation.status];
+  const planSummary = getWorkoutCoachPlanSummaryParts(recommendation);
+  const daysSinceLabel =
+    recommendation.daysSinceLastSession === 0
+      ? "Trent i dag"
+      : recommendation.daysSinceLastSession === 1
+      ? "1 dag siden"
+      : `${recommendation.daysSinceLastSession} dager siden`;
+  const applyLabel =
+    recommendation.status === "increase"
+      ? "Bruk neste steg"
+      : recommendation.status === "hold"
+      ? "Bruk oppsett"
+      : recommendation.status === "reentry"
+      ? "Bruk rolig start"
+      : "Bruk forslag";
+
+  return (
+    <View
+      style={[
+        styles.coachCard,
+        {
+          backgroundColor: tone.bg,
+          borderColor: tone.border,
+        },
+      ]}
+    >
+      <View style={styles.coachCardHeader}>
+        <View style={styles.coachCardTitleWrap}>
+          <View
+            style={[
+              styles.coachCardIconWrap,
+              {
+                backgroundColor: "rgba(2,6,23,0.28)",
+                borderColor: tone.border,
+              },
+            ]}
+          >
+            <Ionicons name={tone.icon} size={15} color={tone.tint} />
+          </View>
+
+          <View style={styles.coachCardTitleCopy}>
+            <Text style={[typography.body, styles.coachSectionLabel]}>
+              Coach
+            </Text>
+            <Text style={[typography.bodyBold, styles.coachCardHeadline]}>
+              {recommendation.headline}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.coachSectionBlock}>
+        <Text style={[typography.body, styles.coachSectionLabel]}>
+          Anbefalt sett
+        </Text>
+        <View style={styles.coachSummaryRow}>
+          <Text style={[typography.body, styles.coachSummaryValue]}>
+            {planSummary.setLabel}
+          </Text>
+          <Ionicons
+            name="arrow-forward"
+            size={12}
+            color={overlayColors.muted2}
+            style={styles.coachSummaryArrow}
+          />
+          <Text style={[typography.body, styles.coachSummaryValue]}>
+            {planSummary.detailLabel}
+          </Text>
+        </View>
+
+        <Text style={[typography.body, styles.coachReason]}>
+          {recommendation.reason}
+        </Text>
+      </View>
+
+      <View style={styles.coachHistoryPill}>
+        <View style={styles.coachHistoryHeader}>
+          <View style={styles.coachHistoryTitleWrap}>
+            <Ionicons
+              name="time-outline"
+              size={13}
+              color={overlayColors.muted2}
+            />
+            <Text style={styles.coachHistoryLabel}>Sist logget</Text>
+          </View>
+          <View style={styles.coachHistoryTimeBadge}>
+            <Text style={styles.coachHistoryTimeText}>{daysSinceLabel}</Text>
+          </View>
+        </View>
+
+        <View style={styles.coachHistorySummaryRow}>
+          <Text style={styles.coachHistoryValue}>
+            {recommendation.lastSessionSetLabel}
+          </Text>
+          <Ionicons
+            name="arrow-forward"
+            size={12}
+            color={overlayColors.muted2}
+          />
+          <Text style={styles.coachHistoryValue}>
+            {recommendation.lastSessionDetailLabel}
+          </Text>
+        </View>
+      </View>
+
+      {canApply && onApply ? (
+        <Pressable
+          onPress={onApply}
+          style={({ pressed }) => [
+            styles.coachApplyButton,
+            {
+              backgroundColor: "rgba(2,6,23,0.48)",
+              borderColor: tone.border,
+            },
+            pressed && { opacity: 0.92 },
+          ]}
+        >
+          <Ionicons name="sparkles-outline" size={14} color={tone.tint} />
+          <Text style={[styles.coachApplyText, { color: tone.tint }]}>
+            {applyLabel}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+});
+
 export const ExerciseBlock = memo(function ExerciseBlock({
   exercise,
+  coachRecommendation,
   onAddSet,
+  onApplyCoachRecommendation,
   onUpdateSet,
   onRemoveSet,
   onInputFocus,
@@ -156,6 +436,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
     null
   );
   const [weightDrafts, setWeightDrafts] = useState<Record<string, string>>({});
+  const [isCoachVisible, setIsCoachVisible] = useState(false);
 
   const ensuredForIdRef = useRef<string | null>(null);
   const didEnsureRef = useRef(false);
@@ -175,6 +456,10 @@ export const ExerciseBlock = memo(function ExerciseBlock({
   }, [exercise.sets.length, onAddSet]);
 
   useEffect(() => {
+    setIsCoachVisible(false);
+  }, [exercise.id]);
+
+  useEffect(() => {
     setWeightDrafts((prev) => {
       const next: Record<string, string> = {};
       for (const set of exercise.sets) {
@@ -190,6 +475,63 @@ export const ExerciseBlock = memo(function ExerciseBlock({
       setFocusedWeightSetId(null);
     }
   }, [exercise.sets, focusedWeightSetId]);
+
+  const applyWeightValue = (setId: string, nextWeight: number | null) => {
+    const normalizedWeight =
+      nextWeight == null || !Number.isFinite(nextWeight) || nextWeight <= 0
+        ? null
+        : Math.round(nextWeight * 100) / 100;
+
+    setWeightDrafts((prev) => {
+      if (focusedWeightSetId !== setId && prev[setId] == null) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [setId]: formatWeightInputValue(normalizedWeight),
+      };
+    });
+
+    onUpdateSet(setId, { weight: normalizedWeight });
+  };
+
+  const adjustReps = (set: SessionSet, delta: -1 | 1) => {
+    const currentReps =
+      set.reps != null && Number.isFinite(set.reps) ? set.reps : null;
+
+    if (delta < 0) {
+      if (currentReps == null) return;
+      if (currentReps <= 1) {
+        onUpdateSet(set.id, { reps: null });
+        return;
+      }
+    }
+
+    const nextReps = Math.max(1, (currentReps ?? 0) + delta);
+    onUpdateSet(set.id, { reps: nextReps });
+  };
+
+  const adjustWeight = (set: SessionSet, delta: -1 | 1) => {
+    const currentWeight =
+      set.weight != null && Number.isFinite(set.weight) ? set.weight : null;
+
+    if (delta < 0 && currentWeight == null) return;
+
+    const nextWeight = Math.round(
+      (((currentWeight ?? 0) + delta * WEIGHT_ADJUST_STEP) /
+        WEIGHT_ADJUST_STEP) *
+        WEIGHT_ADJUST_STEP *
+        100
+    ) / 100;
+
+    if (nextWeight <= 0) {
+      applyWeightValue(set.id, null);
+      return;
+    }
+
+    applyWeightValue(set.id, nextWeight);
+  };
 
   const toggleCompletedGuarded = (set: SessionSet, setIndex: number) => {
     const nextCompleted = !set.completed;
@@ -216,13 +558,19 @@ export const ExerciseBlock = memo(function ExerciseBlock({
     if (set.weight != null && !isNonNegativeNumber(set.weight)) {
       Alert.alert(
         "Ugyldig vekt",
-        `${exercise.name} - sett ${setIndex}: vekt kan ikke vaere negativ`
+        `${exercise.name} - sett ${setIndex}: vekt kan ikke være negativ`
       );
       return false;
     }
 
     return true;
   };
+
+  const canApplyCoachRecommendation =
+    !!coachRecommendation &&
+    exercise.sets.every(
+      (set) => !set.completed && set.reps == null && set.weight == null
+    );
 
   const completeSetFromKeyboard = (set: SessionSet, setIndex: number) => {
     if (!set.completed) {
@@ -265,6 +613,23 @@ export const ExerciseBlock = memo(function ExerciseBlock({
         </Pressable>
       </View>
 
+      {coachRecommendation ? (
+        <>
+          <WorkoutCoachToggle
+            recommendation={coachRecommendation}
+            isVisible={isCoachVisible}
+            onPress={() => setIsCoachVisible((current) => !current)}
+          />
+          {isCoachVisible ? (
+            <WorkoutCoachCard
+              recommendation={coachRecommendation}
+              canApply={canApplyCoachRecommendation}
+              onApply={onApplyCoachRecommendation}
+            />
+          ) : null}
+        </>
+      ) : null}
+
       <View style={styles.setHeaderRow}>
         <Text style={[typography.body, styles.setHeaderIndex]}>#</Text>
 
@@ -289,76 +654,100 @@ export const ExerciseBlock = memo(function ExerciseBlock({
         <SwipeToDeleteRow
           key={set.id}
           onDelete={() => onRemoveSet(set.id)}
-          height={32}
+          height={40}
           snapOpenThreshold={0.2}
         >
           <View style={styles.setRow}>
             <Text style={[typography.body, styles.setIndex]}>{idx + 1}</Text>
 
-            <TextInput
-              ref={(el) => {
-                repsRefs.current[idx] = el;
-              }}
-              style={[typography.body, styles.setInput]}
-              keyboardType="numeric"
-              placeholder="-"
-              placeholderTextColor={overlayColors.muted2}
-              value={set.reps ?? set.reps === 0 ? String(set.reps) : ""}
-              returnKeyType="next"
-              submitBehavior="submit"
-              onFocus={() => onInputFocus?.(repsRefs.current[idx])}
-              onSubmitEditing={() => weightRefs.current[idx]?.focus()}
-              onChangeText={(txt) =>
-                onUpdateSet(set.id, { reps: parseNullableInt(txt) })
-              }
-            />
+            <View style={styles.setControlWrap}>
+              <AdjustValueButton
+                icon="remove"
+                label={`Reduser reps for sett ${idx + 1}`}
+                onPress={() => adjustReps(set, -1)}
+              />
+              <TextInput
+                ref={(el) => {
+                  repsRefs.current[idx] = el;
+                }}
+                style={[typography.body, styles.setInput]}
+                keyboardType="numeric"
+                placeholder="-"
+                placeholderTextColor={overlayColors.muted2}
+                value={set.reps ?? set.reps === 0 ? String(set.reps) : ""}
+                returnKeyType="next"
+                submitBehavior="submit"
+                onFocus={() => onInputFocus?.(repsRefs.current[idx])}
+                onSubmitEditing={() => weightRefs.current[idx]?.focus()}
+                onChangeText={(txt) =>
+                  onUpdateSet(set.id, { reps: parseNullableInt(txt) })
+                }
+              />
+              <AdjustValueButton
+                icon="add"
+                label={`Øk reps for sett ${idx + 1}`}
+                onPress={() => adjustReps(set, 1)}
+              />
+            </View>
 
-            <TextInput
-              ref={(el) => {
-                weightRefs.current[idx] = el;
-              }}
-              style={[typography.body, styles.setInput]}
-              keyboardType="numeric"
-              placeholder="-"
-              placeholderTextColor={overlayColors.muted2}
-              value={
-                focusedWeightSetId === set.id
-                  ? weightDrafts[set.id] ?? formatWeightInputValue(set.weight)
-                  : formatWeightInputValue(set.weight)
-              }
-              returnKeyType="done"
-              submitBehavior="blurAndSubmit"
-              onFocus={() => {
-                onInputFocus?.(weightRefs.current[idx]);
-                setFocusedWeightSetId(set.id);
-                setWeightDrafts((prev) => ({
-                  ...prev,
-                  [set.id]: prev[set.id] ?? formatWeightInputValue(set.weight),
-                }));
-              }}
-              onBlur={() => {
-                setFocusedWeightSetId((prev) =>
-                  prev === set.id ? null : prev
-                );
-                setWeightDrafts((prev) => {
-                  const next = { ...prev };
-                  delete next[set.id];
-                  return next;
-                });
-              }}
-              onSubmitEditing={() => completeSetFromKeyboard(set, idx + 1)}
-              onChangeText={(txt) => {
-                setWeightDrafts((prev) => ({
-                  ...prev,
-                  [set.id]: txt,
-                }));
+            <View style={styles.setControlWrap}>
+              <AdjustValueButton
+                icon="remove"
+                label={`Reduser vekt for sett ${idx + 1}`}
+                onPress={() => adjustWeight(set, -1)}
+              />
+              <TextInput
+                ref={(el) => {
+                  weightRefs.current[idx] = el;
+                }}
+                style={[typography.body, styles.setInput]}
+                keyboardType="numeric"
+                placeholder="-"
+                placeholderTextColor={overlayColors.muted2}
+                value={
+                  focusedWeightSetId === set.id
+                    ? weightDrafts[set.id] ?? formatWeightInputValue(set.weight)
+                    : formatWeightInputValue(set.weight)
+                }
+                returnKeyType="done"
+                submitBehavior="blurAndSubmit"
+                onFocus={() => {
+                  onInputFocus?.(weightRefs.current[idx]);
+                  setFocusedWeightSetId(set.id);
+                  setWeightDrafts((prev) => ({
+                    ...prev,
+                    [set.id]: prev[set.id] ?? formatWeightInputValue(set.weight),
+                  }));
+                }}
+                onBlur={() => {
+                  setFocusedWeightSetId((prev) =>
+                    prev === set.id ? null : prev
+                  );
+                  setWeightDrafts((prev) => {
+                    const next = { ...prev };
+                    delete next[set.id];
+                    return next;
+                  });
+                }}
+                onSubmitEditing={() => completeSetFromKeyboard(set, idx + 1)}
+                onChangeText={(txt) => {
+                  setWeightDrafts((prev) => ({
+                    ...prev,
+                    [set.id]: txt,
+                  }));
 
-                const normalized = txt.replace(",", ".");
-                onUpdateSet(set.id, {
-                  weight: parseNullableFloat(normalized),
-                });
-              }}
-            />
+                  const normalized = txt.replace(",", ".");
+                  onUpdateSet(set.id, {
+                    weight: parseNullableFloat(normalized),
+                  });
+                }}
+              />
+              <AdjustValueButton
+                icon="add"
+                label={`Øk vekt for sett ${idx + 1}`}
+                onPress={() => adjustWeight(set, 1)}
+              />
+            </View>
 
             <Pressable
               onPress={() => toggleCompletedGuarded(set, idx + 1)}
@@ -660,6 +1049,255 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
 
+  coachToggleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+
+  coachToggleLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+    minWidth: 0,
+    flexWrap: "wrap",
+  },
+
+  coachToggleIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+
+  coachToggleLabel: {
+    color: overlayColors.text,
+    fontSize: 12.5,
+    fontWeight: "500",
+    letterSpacing: 0.1,
+  },
+
+  coachToggleStatusBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+
+  coachToggleStatusText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.15,
+    textTransform: "uppercase",
+  },
+
+  coachToggleActionWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+
+  coachToggleAction: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.1,
+  },
+
+  coachCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 12,
+    gap: 10,
+  },
+
+  coachCardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+
+  coachCardTitleWrap: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
+
+  coachCardIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+
+  coachCardTitleCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+
+  coachCardHeadline: {
+    color: overlayColors.text,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  coachCardStatusBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    alignSelf: "flex-start",
+  },
+
+  coachCardStatusText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.15,
+    textTransform: "uppercase",
+  },
+
+  coachSectionBlock: {
+    gap: 8,
+  },
+
+  coachSectionLabel: {
+    color: overlayColors.muted2,
+    fontSize: 10.5,
+    textTransform: "uppercase",
+    letterSpacing: 0.35,
+    fontWeight: "500",
+  },
+
+  coachSummary: {
+    color: overlayColors.text,
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+
+  coachSummaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    columnGap: 6,
+    rowGap: 4,
+  },
+
+  coachSummaryValue: {
+    color: overlayColors.text,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "800",
+  },
+
+  coachSummaryArrow: {
+    marginTop: 1,
+  },
+
+  coachReason: {
+    color: overlayColors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  coachHistoryPill: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(2,6,23,0.28)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+
+  coachHistoryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+
+  coachHistoryTitleWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minWidth: 0,
+  },
+
+  coachHistoryLabel: {
+    color: overlayColors.muted2,
+    fontSize: 11.5,
+    fontWeight: "500",
+  },
+
+  coachHistoryTimeBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+
+  coachHistoryTimeText: {
+    color: overlayColors.text,
+    fontSize: 10.5,
+    fontWeight: "500",
+  },
+
+  coachHistorySummaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    columnGap: 6,
+    rowGap: 4,
+  },
+
+  coachHistoryValue: {
+    color: overlayColors.text,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+
+  coachApplyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 2,
+  },
+
+  coachApplyText: {
+    fontSize: 12.5,
+    fontWeight: "800",
+    letterSpacing: 0.1,
+  },
+
   // Set rows
   setHeaderRow: {
     flexDirection: "row",
@@ -698,7 +1336,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
 
-  setRow: { flexDirection: "row", alignItems: "center", height: 32 },
+  setRow: { flexDirection: "row", alignItems: "center", height: 40 },
 
   setIndex: {
     width: ROW_METRICS.indexW,
@@ -708,25 +1346,45 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  setInput: {
+  setControlWrap: {
     flex: 1,
     backgroundColor: overlayColors.input,
-    borderRadius: 10,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    color: overlayColors.text,
-    fontSize: 12,
-    fontWeight: "600",
-    textAlign: "center",
+    borderRadius: 12,
+    paddingHorizontal: 4,
+    height: 40,
+    flexDirection: "row",
+    alignItems: "center",
     marginHorizontal: ROW_METRICS.inputSideGap,
     borderWidth: 1,
     borderColor: overlayColors.border,
   },
 
+  adjustValueButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: overlayColors.borderSoft,
+  },
+
+  setInput: {
+    flex: 1,
+    color: overlayColors.text,
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+    paddingVertical: 0,
+    paddingHorizontal: 8,
+    minWidth: 0,
+  },
+
   doneBtn: {
     width: ROW_METRICS.doneW,
-    height: 32,
-    borderRadius: 10,
+    height: 36,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: overlayColors.surface,

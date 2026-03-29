@@ -77,6 +77,10 @@ type WorkoutSessionContextValue = {
   }) => void;
 
   addSet: (sessionExerciseId: string) => void;
+  applySetTemplate: (
+    sessionExerciseId: string,
+    template: Array<{ reps: number | null; weight: number | null }>
+  ) => void;
   updateSet: (
     sessionExerciseId: string,
     setId: string,
@@ -817,6 +821,41 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
     });
   }, [setSessionState]);
 
+  const applySetTemplate = useCallback(
+    (
+      sessionExerciseId: string,
+      template: Array<{ reps: number | null; weight: number | null }>
+    ) => {
+      setSessionState((prev) => {
+        if (!prev) return prev;
+
+        const sanitizedTemplate = template.filter(
+          (set) => set.reps != null || set.weight != null
+        );
+
+        if (sanitizedTemplate.length === 0) {
+          return prev;
+        }
+
+        const updatedExercises = prev.exercises.map((exercise) => {
+          if (exercise.id !== sessionExerciseId) return exercise;
+
+          const sets: SessionSet[] = sanitizedTemplate.map((set) => ({
+            id: `local_${makeLocalId()}`,
+            reps: set.reps,
+            weight: set.weight,
+            completed: false,
+          }));
+
+          return { ...exercise, sets };
+        });
+
+        return { ...prev, exercises: updatedExercises };
+      });
+    },
+    [setSessionState]
+  );
+
   const updateSet = useCallback(
     (
       sessionExerciseId: string,
@@ -1067,6 +1106,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
       deleteSession,
       addExercise,
       addSet,
+      applySetTemplate,
       updateSet,
       removeSet,
       finishAndSave,
@@ -1074,6 +1114,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
     [
       addExercise,
       addSet,
+      applySetTemplate,
       closeSession,
       deleteSession,
       finishAndSave,

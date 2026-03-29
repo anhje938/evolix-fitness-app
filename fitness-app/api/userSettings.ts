@@ -5,6 +5,11 @@ import {
   type UserSettings,
 } from "@/types/userSettings";
 import { ADVANCED_MUSCLE_FILTERS } from "@/types/muscles";
+import {
+  getFutureUtcNoonIsoDate,
+  parseDateKey,
+  toUtcNoonIsoDate,
+} from "@/utils/date";
 import { authFetch } from "./authSession";
 import { API_BASE_URL } from "./baseUrl";
 
@@ -29,7 +34,11 @@ const FALLBACK_SETTINGS: UserSettings = {
   recoveryMapHiddenMuscles: [],
   homeGoalTiles: ["calories", "protein", "carbs", "fat"],
   homeSectionOrder: ["quickStart", "goals", "weight", "recoveryMap"],
+  useFoodCoach: true,
+  useWorkoutCoach: true,
+  foodCoachExcludedDateKeys: [],
   weightGoalKg: 84,
+  weightGoalTimeUtc: getFutureUtcNoonIsoDate(84),
   weightDirection: "maintain",
 };
 
@@ -40,6 +49,9 @@ type BackendSettingsResponse = Partial<UserSettings> & {
   homeSectionOrder?: unknown;
   recoveryMapHiddenMuscles?: unknown;
   showOnlyCustomTrainingContent?: unknown;
+  useFoodCoach?: unknown;
+  useWorkoutCoach?: unknown;
+  foodCoachExcludedDateKeys?: unknown;
   weightDirection?: BackendEnum;
   muscleFilter?: BackendEnum;
 };
@@ -50,9 +62,13 @@ type UpdateUserSettingsDto = {
   fatGoal: number;
   carbGoal: number;
   weightGoalKg: number;
+  weightGoalTimeUtc: string;
   weightDirection: 0 | 1 | 2;
   muscleFilter: 0 | 1;
   showOnlyCustomTrainingContent: boolean;
+  useFoodCoach: boolean;
+  useWorkoutCoach: boolean;
+  foodCoachExcludedDateKeys: string[];
   homeProgressCircles: HomeGoalTile[];
   homeSectionOrder: HomeSectionKey[];
   recoveryMapHiddenMuscles: RecoveryMapMuscleKey[];
@@ -136,6 +152,26 @@ function normalizeRecoveryMapHiddenMuscles(value: unknown): RecoveryMapMuscleKey
   return next;
 }
 
+function normalizeFoodCoachExcludedDateKeys(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  const next: string[] = [];
+
+  for (const raw of value) {
+    if (typeof raw !== "string") continue;
+
+    const dateKey = raw.trim();
+    if (!parseDateKey(dateKey)) continue;
+    if (seen.has(dateKey)) continue;
+
+    seen.add(dateKey);
+    next.push(dateKey);
+  }
+
+  return next.sort();
+}
+
 function parseHomeUiJson(
   value: unknown
 ): {
@@ -213,6 +249,16 @@ function toBackendMuscleFilter(value: UserSettings["muscleFilter"]): 0 | 1 {
   return value === "basic" ? 0 : 1;
 }
 
+function normalizeGoalTime(value: unknown): string {
+  return (
+    toUtcNoonIsoDate(
+      typeof value === "string" || typeof value === "number" || value instanceof Date
+        ? value
+        : FALLBACK_SETTINGS.weightGoalTimeUtc
+    ) ?? FALLBACK_SETTINGS.weightGoalTimeUtc
+  );
+}
+
 function normalizeUserSettings(raw?: BackendSettingsResponse | null): UserSettings {
   const src = raw ?? {};
   const homeUiFromJson = parseHomeUiJson(src.homeProgressCirclesJson);
@@ -240,6 +286,14 @@ function normalizeUserSettings(raw?: BackendSettingsResponse | null): UserSettin
       : homeUiFromJson
       ? homeUiFromJson.showOnlyCustomTrainingContent
       : FALLBACK_SETTINGS.showOnlyCustomTrainingContent,
+    useFoodCoach: normalizeBoolean(src.useFoodCoach, FALLBACK_SETTINGS.useFoodCoach),
+    useWorkoutCoach: normalizeBoolean(
+      src.useWorkoutCoach,
+      FALLBACK_SETTINGS.useWorkoutCoach
+    ),
+    foodCoachExcludedDateKeys: normalizeFoodCoachExcludedDateKeys(
+      src.foodCoachExcludedDateKeys
+    ),
     homeGoalTiles: homeUiFromJson
       ? homeUiFromJson.homeGoalTiles
       : normalizeHomeGoalTiles(
@@ -251,6 +305,7 @@ function normalizeUserSettings(raw?: BackendSettingsResponse | null): UserSettin
       ? homeUiFromJson.homeSectionOrder
       : [...FALLBACK_SETTINGS.homeSectionOrder],
     weightGoalKg: toSafeInt(src.weightGoalKg, FALLBACK_SETTINGS.weightGoalKg),
+    weightGoalTimeUtc: normalizeGoalTime(src.weightGoalTimeUtc),
     weightDirection: normalizeWeightDirection(src.weightDirection),
   };
 }
@@ -266,11 +321,23 @@ function toBackendDto(settings: UserSettings): UpdateUserSettingsDto {
     fatGoal: toSafeInt(settings.fatGoal, FALLBACK_SETTINGS.fatGoal),
     carbGoal: toSafeInt(settings.carbGoal, FALLBACK_SETTINGS.carbGoal),
     weightGoalKg: Number(settings.weightGoalKg ?? FALLBACK_SETTINGS.weightGoalKg),
+    weightGoalTimeUtc: normalizeGoalTime(settings.weightGoalTimeUtc),
     weightDirection: toBackendWeightDirection(settings.weightDirection),
     muscleFilter: toBackendMuscleFilter(settings.muscleFilter),
     showOnlyCustomTrainingContent: normalizeBoolean(
       settings.showOnlyCustomTrainingContent,
       FALLBACK_SETTINGS.showOnlyCustomTrainingContent
+    ),
+    useFoodCoach: normalizeBoolean(
+      settings.useFoodCoach,
+      FALLBACK_SETTINGS.useFoodCoach
+    ),
+    useWorkoutCoach: normalizeBoolean(
+      settings.useWorkoutCoach,
+      FALLBACK_SETTINGS.useWorkoutCoach
+    ),
+    foodCoachExcludedDateKeys: normalizeFoodCoachExcludedDateKeys(
+      settings.foodCoachExcludedDateKeys
     ),
     homeProgressCircles: normalizeHomeGoalTiles(settings.homeGoalTiles),
     homeSectionOrder: normalizeHomeSectionOrder(settings.homeSectionOrder),
