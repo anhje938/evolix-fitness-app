@@ -9,8 +9,9 @@ import type {
   ProgressUnit,
 } from "@/utils/exercise/progressChart";
 import {
+  getProgressRangeOption,
   prepareProgressSeries,
-  PROGRESS_TIME_RANGE_OPTIONS,
+  stepProgressRange,
 } from "@/utils/exercise/progressChart";
 import { Ionicons } from "@expo/vector-icons";
 import { scaleLinear } from "d3-scale";
@@ -18,7 +19,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Animated,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -51,6 +51,7 @@ type Props = {
   title?: string;
   showTitle?: boolean;
   height?: number;
+  headerControls?: React.ReactNode;
   variant?: "line" | "bar";
   range?: ProgressTimeRange;
   onRangeChange?: (range: ProgressTimeRange) => void;
@@ -241,40 +242,32 @@ function getTrendTone(value: number | null): {
       };
 }
 
+function formatZoomLabel(
+  range: ProgressTimeRange,
+  zoom: number,
+  usesRangeZoom: boolean
+) {
+  if (!usesRangeZoom) {
+    return `${zoom.toFixed(2)}x`;
+  }
+
+  const rangeLabel = getProgressRangeOption(range).label;
+  return Math.abs(zoom - 1) > 0.05
+    ? `${rangeLabel} | ${zoom.toFixed(1)}x`
+    : rangeLabel;
+}
+
 const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     paddingRight: 10,
   },
-  rangeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 12,
-  },
-  rangePill: {
-    minWidth: 48,
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-    borderRadius: 999,
+  controlDeck: {
+    marginBottom: 8,
+    paddingTop: 2,
+    paddingBottom: 2,
+    gap: 6,
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(8,15,28,0.66)",
-    borderWidth: 1,
-    borderColor: "rgba(56,189,248,0.12)",
-  },
-  rangePillActive: {
-    backgroundColor: COLORS.accentBg,
-    borderColor: COLORS.accentStrong,
-  },
-  rangePillText: {
-    color: "rgba(224,242,254,0.95)",
-    fontSize: 10,
-    fontWeight: "600",
-    letterSpacing: 0.08,
-  },
-  rangePillTextActive: {
-    color: "#F8FAFC",
   },
   chartScrollContent: {
     paddingBottom: 6,
@@ -293,8 +286,9 @@ export function ExerciseProgressChart({
   title = "Progresjon",
   showTitle = true,
   height = 250,
+  headerControls,
   variant = "line",
-  range = "20",
+  range = "3m",
   onRangeChange,
   metricKind,
   showOuterLines = false,
@@ -360,6 +354,32 @@ export function ExerciseProgressChart({
       ),
     [chartZoom.chartWidth, chartZoom.pinchScale]
   );
+  const nextRangeIn = onRangeChange ? stepProgressRange(range, "in") : range;
+  const nextRangeOut = onRangeChange ? stepProgressRange(range, "out") : range;
+  const canStepRangeIn = !!onRangeChange && nextRangeIn !== range;
+  const canStepRangeOut = !!onRangeChange && nextRangeOut !== range;
+  const canZoomInControl = canStepRangeIn || chartZoom.canZoomIn;
+  const canZoomOutControl = canStepRangeOut || chartZoom.canZoomOut;
+  const handleZoomInPress = () => {
+    if (canStepRangeIn && onRangeChange) {
+      chartZoom.resetZoom();
+      onRangeChange(nextRangeIn);
+      return;
+    }
+    chartZoom.handleZoomIn();
+  };
+  const handleZoomOutPress = () => {
+    if (canStepRangeOut && onRangeChange) {
+      chartZoom.resetZoom();
+      onRangeChange(nextRangeOut);
+      return;
+    }
+    chartZoom.handleZoomOut();
+  };
+  const zoomLabel = formatZoomLabel(range, chartZoom.zoom, !!onRangeChange);
+  const controlDeck = headerControls ? (
+    <View style={styles.controlDeck}>{headerControls}</View>
+  ) : null;
 
   if (!prepared.points.length) {
     return (
@@ -373,6 +393,8 @@ export function ExerciseProgressChart({
         />
         <View pointerEvents="none" style={weightChartStyles.cardGlowTop} />
         <View pointerEvents="none" style={weightChartStyles.cardGlowBottom} />
+
+        {controlDeck}
 
         {showTitle && (
           <View style={weightChartStyles.headerRow}>
@@ -501,6 +523,8 @@ export function ExerciseProgressChart({
       <View pointerEvents="none" style={weightChartStyles.cardGlowTop} />
       <View pointerEvents="none" style={weightChartStyles.cardGlowBottom} />
 
+      {controlDeck}
+
       <View style={weightChartStyles.headerRow}>
         <View style={styles.headerText}>
           {showTitle && (
@@ -514,30 +538,28 @@ export function ExerciseProgressChart({
         {showZoomControls && (
           <View style={weightChartStyles.zoomContainer}>
             <TouchableOpacity
-              onPress={chartZoom.handleZoomOut}
-              disabled={!chartZoom.canZoomOut}
+              onPress={handleZoomOutPress}
+              disabled={!canZoomOutControl}
               activeOpacity={0.7}
               style={[
                 weightChartStyles.zoomButton,
-                !chartZoom.canZoomOut && weightChartStyles.zoomButtonDisabled,
+                !canZoomOutControl && weightChartStyles.zoomButtonDisabled,
               ]}
             >
               <Text style={weightChartStyles.zoomText}>-</Text>
             </TouchableOpacity>
 
             <View style={weightChartStyles.zoomPill}>
-              <Text style={weightChartStyles.zoomLabel}>
-                {chartZoom.zoom.toFixed(2)}x
-              </Text>
+              <Text style={weightChartStyles.zoomLabel}>{zoomLabel}</Text>
             </View>
 
             <TouchableOpacity
-              onPress={chartZoom.handleZoomIn}
-              disabled={!chartZoom.canZoomIn}
+              onPress={handleZoomInPress}
+              disabled={!canZoomInControl}
               activeOpacity={0.7}
               style={[
                 weightChartStyles.zoomButton,
-                !chartZoom.canZoomIn && weightChartStyles.zoomButtonDisabled,
+                !canZoomInControl && weightChartStyles.zoomButtonDisabled,
               ]}
             >
               <Text style={weightChartStyles.zoomText}>+</Text>
@@ -545,34 +567,6 @@ export function ExerciseProgressChart({
           </View>
         )}
       </View>
-
-      {!!onRangeChange && (
-        <View style={styles.rangeRow}>
-          {PROGRESS_TIME_RANGE_OPTIONS.map((option) => {
-            const active = option.value === range;
-            return (
-              <Pressable
-                key={option.value}
-                onPress={() => onRangeChange(option.value)}
-                style={({ pressed }) => [
-                  styles.rangePill,
-                  active && styles.rangePillActive,
-                  pressed && { opacity: 0.92 },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.rangePillText,
-                    active && styles.rangePillTextActive,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
 
       <View style={weightChartStyles.statsRow}>
         <View style={weightChartStyles.statBox}>

@@ -105,6 +105,16 @@ type SavePreview = {
   exercises: SavePreviewExercise[];
 };
 
+type ExerciseCoachPanelState =
+  | {
+      state: "ready";
+      recommendation: WorkoutCoachRecommendation;
+    }
+  | {
+      state: "loading" | "empty";
+      message: string;
+    };
+
 function buildCompletedSessionEditSnapshot(
   session: WorkoutSession,
   titleOverride?: string
@@ -506,26 +516,67 @@ export function WorkoutSessionOverlay() {
   const { queries: exerciseHistoryQueries, data: exerciseHistoryMap } =
     useAllExerciseSetsHistory(sessionExerciseIds);
 
-  const coachRecommendationsByLocalExerciseId = useMemo(() => {
-    const next: Record<string, WorkoutCoachRecommendation> = {};
+  const coachPanelsByLocalExerciseId = useMemo(() => {
+    const next: Record<string, ExerciseCoachPanelState> = {};
 
     if (sessionFinishedAtUtc || !userSettings.useWorkoutCoach) return next;
 
+    const historyQueryByExerciseId = new Map(
+      sessionExerciseIds.map((exerciseId, index) => [
+        exerciseId,
+        exerciseHistoryQueries[index],
+      ])
+    );
+
     for (const exercise of visibleExercises) {
+      const historyQuery = historyQueryByExerciseId.get(exercise.exerciseId);
+      const isLoadingHistory =
+        historyQuery != null &&
+        (historyQuery.isLoading ||
+          (historyQuery.isFetching && historyQuery.data == null));
+
+      if (isLoadingHistory) {
+        next[exercise.id] = {
+          state: "loading",
+          message: "Henter tidligere økter for denne øvelsen...",
+        };
+        continue;
+      }
+
+      if (historyQuery?.status === "error") {
+        next[exercise.id] = {
+          state: "empty",
+          message: "Kunne ikke hente treningshistorikk akkurat nå.",
+        };
+        continue;
+      }
+
       const history = (exerciseHistoryMap[exercise.exerciseId] ?? []).filter(
         (historySession) => historySession.sessionId !== session?.id
       );
       const recommendation = buildWorkoutCoachRecommendation(history);
 
       if (recommendation) {
-        next[exercise.id] = recommendation;
+        next[exercise.id] = {
+          state: "ready",
+          recommendation,
+        };
+        continue;
       }
+
+      next[exercise.id] = {
+        state: "empty",
+        message:
+          "Coachen blir klar etter første lagrede økt for denne øvelsen.",
+      };
     }
 
     return next;
   }, [
     exerciseHistoryMap,
+    exerciseHistoryQueries,
     session?.id,
+    sessionExerciseIds,
     sessionFinishedAtUtc,
     userSettings.useWorkoutCoach,
     visibleExercises,
@@ -834,7 +885,7 @@ export function WorkoutSessionOverlay() {
       `Du har fullført ${totals.completed} sett. Vil du avbryte økten?`,
       [
         { text: "Fortsett", style: "cancel" },
-        { text: "Avbryt", style: "destructive", onPress: closeSession },
+        { text: "Avbryt økt", style: "destructive", onPress: closeSession },
       ]
     );
   };
@@ -861,7 +912,7 @@ export function WorkoutSessionOverlay() {
 
     Alert.alert("Avbryt økt?", message, [
       { text: "Fortsett", style: "cancel" },
-      { text: "Avbryt", style: "destructive", onPress: closeSession },
+      { text: "Avbryt økt", style: "destructive", onPress: closeSession },
     ]);
   };
 
@@ -1386,27 +1437,37 @@ export function WorkoutSessionOverlay() {
                   </Pressable>
                 </View>
               ) : (
-                sortedExercises.map((ex) => (
-                  <ExerciseBlock
-                    key={ex.id}
-                    exercise={ex}
-                    coachRecommendation={
-                      coachRecommendationsByLocalExerciseId[ex.id] ?? null
-                    }
-                    onAddSet={() => addSet(ex.id)}
-                    onApplyCoachRecommendation={() => {
-                      const recommendation =
-                        coachRecommendationsByLocalExerciseId[ex.id];
-                      if (!recommendation) return;
-                      handleApplyCoachRecommendation(ex.id, recommendation);
-                    }}
-                    onInputFocus={handleSessionInputFocus}
-                    onUpdateSet={(setId, partial) =>
-                      updateSet(ex.id, setId, partial)
-                    }
-                    onRemoveSet={(setId) => removeSet(ex.id, setId)}
-                  />
-                ))
+                sortedExercises.map((ex) => {
+                  const coachPanel = coachPanelsByLocalExerciseId[ex.id];
+                  const coachRecommendation =
+                    coachPanel?.state === "ready"
+                      ? coachPanel.recommendation
+                      : null;
+
+                  return (
+                    <ExerciseBlock
+                      key={ex.id}
+                      exercise={ex}
+                      coachState={coachPanel?.state}
+                      coachMessage={
+                        coachPanel?.state !== "ready"
+                          ? coachPanel?.message ?? null
+                          : null
+                      }
+                      coachRecommendation={coachRecommendation}
+                      onAddSet={() => addSet(ex.id)}
+                      onApplyCoachRecommendation={() => {
+                        if (!coachRecommendation) return;
+                        handleApplyCoachRecommendation(ex.id, coachRecommendation);
+                      }}
+                      onInputFocus={handleSessionInputFocus}
+                      onUpdateSet={(setId, partial) =>
+                        updateSet(ex.id, setId, partial)
+                      }
+                      onRemoveSet={(setId) => removeSet(ex.id, setId)}
+                    />
+                  );
+                })
               )}
             </ScrollView>
 

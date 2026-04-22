@@ -1,11 +1,18 @@
 import { typography } from "@/config/typography";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import QuickStartWorkout from "../exercise/sub-tabs/overview/QuickStartWorkout";
 
-export default function QuickStartButtons() {
+type QuickStartButtonsProps = {
+  onLogMealPress: () => void;
+  onLogWeightPress: () => void;
+};
+
+export default function QuickStartButtons({
+  onLogMealPress,
+  onLogWeightPress,
+}: QuickStartButtonsProps) {
   return (
     <View>
       <View style={{ marginBottom: 30 }}>
@@ -17,7 +24,7 @@ export default function QuickStartButtons() {
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.buttonHitbox}
-          onPress={() => router.push("/(tabs)/food")}
+          onPress={onLogMealPress}
         >
           <View style={[styles.glassButton, styles.mealButton]}>
             {/* inner glow */}
@@ -50,7 +57,7 @@ export default function QuickStartButtons() {
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.buttonHitbox}
-          onPress={() => router.push("/(tabs)/weight")}
+          onPress={onLogWeightPress}
         >
           <View style={[styles.glassButton, styles.weightButton]}>
             {/* inner glow */}

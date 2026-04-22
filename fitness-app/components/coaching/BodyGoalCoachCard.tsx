@@ -154,8 +154,8 @@ function getActionCopy(
 }
 
 export function BodyGoalCoachCard({ recommendation, variant }: Props) {
-  const [collapsed, setCollapsed] = useState(false);
   const isFood = variant === "food";
+  const [collapsed, setCollapsed] = useState(isFood);
   const isCollapsed = isFood && collapsed;
   const tone = getTone(recommendation.status, variant);
   const action = getActionCopy(recommendation, variant);
@@ -204,6 +204,76 @@ export function BodyGoalCoachCard({ recommendation, variant }: Props) {
             value: `${recommendation.consecutiveCalorieDays} på rad`,
           },
         ];
+
+  if (isFood && isCollapsed) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Vis matcoach"
+        onPress={() => setCollapsed(false)}
+        style={({ pressed }) => [
+          generalStyles.newCard,
+          styles.foodToggleButton,
+          styles.cardFood,
+          pressed && styles.foodToggleButtonPressed,
+        ]}
+      >
+        <LinearGradient
+          pointerEvents="none"
+          colors={[
+            `${tone.accent}16`,
+            "rgba(34,197,94,0.03)",
+            "rgba(2,6,23,0)",
+          ]}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        <View style={styles.foodToggleLeft}>
+          <View
+            style={[
+              styles.iconWrap,
+              styles.iconWrapCompact,
+              { backgroundColor: tone.tint },
+            ]}
+          >
+            <Ionicons name={iconName} size={13} color={tone.accent} />
+          </View>
+
+          <Text style={[typography.bodyBold, styles.foodToggleLabel]}>
+            Vis matcoach
+          </Text>
+        </View>
+
+        <View style={styles.foodToggleRight}>
+          <View
+            style={[
+              styles.statusPill,
+              styles.statusPillCompact,
+              styles.foodToggleStatusPill,
+              {
+                backgroundColor: tone.tint,
+                borderColor: tone.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusText,
+                styles.statusTextCompact,
+                { color: tone.accent },
+              ]}
+            >
+              {recommendation.statusLabel}
+            </Text>
+          </View>
+
+          <Ionicons name="chevron-down" size={15} color={tone.accent} />
+        </View>
+      </Pressable>
+    );
+  }
 
   return (
     <View
@@ -436,6 +506,41 @@ const styles = StyleSheet.create({
   cardFood: {
     borderColor: "rgba(251,191,36,0.14)",
     backgroundColor: "rgba(20,19,15,0.42)",
+  },
+  foodToggleButton: {
+    position: "relative",
+    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 18,
+  },
+  foodToggleButtonPressed: {
+    opacity: 0.92,
+  },
+  foodToggleLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
+  foodToggleLabel: {
+    color: "#F8FAFC",
+    fontSize: 12.5,
+    lineHeight: 16,
+  },
+  foodToggleRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  foodToggleStatusPill: {
+    alignSelf: "center",
   },
   headerRow: {
     flexDirection: "row",

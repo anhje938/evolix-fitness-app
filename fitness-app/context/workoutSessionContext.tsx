@@ -1041,38 +1041,37 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
           }
         }
 
-        await Promise.all([
+        await options?.onSuccess?.();
+        closeSession();
+
+        void Promise.allSettled([
           queryClient.invalidateQueries({
             queryKey: ["completedWorkouts"],
-            refetchType: "all",
+            refetchType: "active",
           }),
           queryClient.invalidateQueries({
             queryKey: ["exerciseHistoryBulk"],
-            refetchType: "all",
+            refetchType: "active",
           }),
           ...affectedExerciseIds.flatMap((exerciseId) => [
             queryClient.invalidateQueries({
               queryKey: ["exerciseHistory", exerciseId],
-              refetchType: "all",
+              refetchType: "active",
             }),
             queryClient.invalidateQueries({
               queryKey: ["exerciseSetsHistory", exerciseId],
-              refetchType: "all",
+              refetchType: "active",
             }),
           ]),
           ...(editingCompletedSessionId
             ? [
                 queryClient.invalidateQueries({
                   queryKey: ["sessionDetails", editingCompletedSessionId],
-                  refetchType: "all",
+                  refetchType: "active",
                 }),
               ]
             : []),
         ]);
-
-        await options?.onSuccess?.();
-
-        closeSession();
       } catch (err) {
         console.log("finishAndSave error", err);
         Alert.alert(

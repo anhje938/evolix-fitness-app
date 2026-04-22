@@ -1,4 +1,4 @@
-﻿namespace backend.Features.Users
+namespace backend.Features.Users
 {
     public enum WeightDirection
     {
@@ -42,8 +42,8 @@
         public string RecoveryMapHiddenMusclesJson { get; set; } = "[]";
         public string FoodCoachExcludedDateKeysJson { get; set; } = "[]";
         public bool ShowOnlyCustomTrainingContent { get; set; } = false;
-        public bool UseFoodCoach { get; set; } = true;
-        public bool UseWorkoutCoach { get; set; } = true;
+        public bool UseFoodCoach { get; set; } = false;
+        public bool UseWorkoutCoach { get; set; } = false;
 
         public DateTime UpdatedUtc { get; set; } = DateTime.UtcNow;
         public int SchemaVersion { get; set; } = 1;

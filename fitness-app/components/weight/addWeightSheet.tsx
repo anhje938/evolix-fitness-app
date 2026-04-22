@@ -12,10 +12,12 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 
@@ -146,8 +148,8 @@ export function AddWeightSheet({
     const baseValue = Number.isFinite(current)
       ? current
       : hasLastWeight
-        ? lastWeight
-        : 0;
+      ? lastWeight
+      : 0;
     const next = +(baseValue + delta).toFixed(1);
 
     if (next <= 0) return;
@@ -221,231 +223,229 @@ export function AddWeightSheet({
               },
             ]}
           >
-            <View style={[generalStyles.newCard, styles.sheet]}>
-              <LinearGradient
-                pointerEvents="none"
-                colors={[
-                  "rgba(56,189,248,0.22)",
-                  "rgba(2,132,199,0.12)",
-                  "rgba(2,6,23,0)",
-                ]}
-                start={{ x: 0.1, y: 0 }}
-                end={{ x: 0.95, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-              <View pointerEvents="none" style={styles.orbTop} />
-              <View pointerEvents="none" style={styles.orbBottom} />
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={[generalStyles.newCard, styles.sheet]}>
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={[
+                    "rgba(56,189,248,0.22)",
+                    "rgba(2,132,199,0.12)",
+                    "rgba(2,6,23,0)",
+                  ]}
+                  start={{ x: 0.1, y: 0 }}
+                  end={{ x: 0.95, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View pointerEvents="none" style={styles.orbTop} />
+                <View pointerEvents="none" style={styles.orbBottom} />
 
-              <View style={styles.sheetContent}>
-                <View style={styles.contentLayout}>
-                  <View style={styles.mainStack}>
-                    <View style={styles.headerRow}>
-                      <View style={styles.headerCopy}>
-                        <Text style={[typography.h2, styles.title]}>
-                          Logg vekt
-                        </Text>
-                        <Text style={[typography.bodyBlack, styles.subtitle]}>
-                          Rask, stabil og presis logging med ren historikk.
-                        </Text>
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.sheetContent}
+                  keyboardShouldPersistTaps="always"
+                  keyboardDismissMode={
+                    Platform.OS === "ios" ? "interactive" : "on-drag"
+                  }
+                >
+                  <View style={styles.contentLayout}>
+                    <View style={styles.mainStack}>
+                      <View style={styles.headerRow}>
+                        <View style={styles.headerCopy}>
+                          <Text style={[typography.h2, styles.title]}>
+                            Logg vekt
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity
+                          onPress={handleRequestClose}
+                          style={styles.closeButton}
+                          activeOpacity={0.82}
+                        >
+                          <XIcon height={18} width={18} />
+                        </TouchableOpacity>
                       </View>
 
-                      <TouchableOpacity
-                        onPress={handleRequestClose}
-                        style={styles.closeButton}
-                        activeOpacity={0.82}
-                      >
-                        <XIcon height={18} width={18} />
-                      </TouchableOpacity>
-                    </View>
+                      <View style={styles.sectionCard}>
+                        <View style={styles.labelRow}>
+                          <Text style={[typography.bodyBlack, styles.label]}>
+                            Vekt (kg)
+                          </Text>
 
-                    <View style={styles.sectionCard}>
-                      <View style={styles.labelRow}>
-                        <Text style={[typography.bodyBlack, styles.label]}>
-                          Vekt (kg)
-                        </Text>
-
-                        {deltaFromLast !== null && (
-                          <View
-                            style={[
-                              styles.deltaChip,
-                              deltaFromLast <= 0
-                                ? styles.deltaChipDown
-                                : styles.deltaChipUp,
-                            ]}
-                          >
-                            <Ionicons
-                              name={
+                          {deltaFromLast !== null && (
+                            <View
+                              style={[
+                                styles.deltaChip,
                                 deltaFromLast <= 0
-                                  ? "trending-down-outline"
-                                  : "trending-up-outline"
-                              }
-                              size={12}
-                              color={deltaFromLast <= 0 ? "#99F6E4" : "#BFDBFE"}
-                            />
-                            <Text style={styles.deltaChipText}>
-                              {formatDelta(deltaFromLast)}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-
-                      <View style={styles.inputShell}>
-                        <TextInput
-                          style={styles.weightInput}
-                          placeholder={weightPlaceholder}
-                          value={weightKg}
-                          onChangeText={setWeightKg}
-                          placeholderTextColor="rgba(148,163,184,0.72)"
-                          keyboardType={
-                            Platform.OS === "ios" ? "decimal-pad" : "numeric"
-                          }
-                          returnKeyType="done"
-                          blurOnSubmit
-                          onSubmitEditing={() => {
-                            Keyboard.dismiss();
-                          }}
-                          autoCorrect={false}
-                          autoCapitalize="none"
-                        />
-
-                        <View style={styles.inputIconShell}>
-                          <Ionicons
-                            name="scale-outline"
-                            size={18}
-                            color="rgba(148,163,184,0.96)"
-                            pointerEvents="none"
-                          />
-                        </View>
-                      </View>
-                    </View>
-
-                    <View style={[styles.sectionCard, styles.dateCard]}>
-                      <View style={styles.sectionHeader}>
-                        <Text style={[typography.bodyBlack, styles.label]}>
-                          Tidspunkt
-                        </Text>
-                      </View>
-
-                      <View style={styles.dateRow}>
-                        <View style={styles.dateTimeColumn}>
-                          <AppDateTimePicker
-                            label="Dato"
-                            mode="date"
-                            value={selectedDate}
-                            onChange={setSelectedDate}
-                            compact
-                          />
-                        </View>
-
-                        <View style={styles.dateTimeColumn}>
-                          <AppDateTimePicker
-                            label="Tid"
-                            mode="time"
-                            value={selectedTime}
-                            onChange={setSelectedTime}
-                            compact
-                          />
-                        </View>
-                      </View>
-                    </View>
-
-                    <View style={[styles.sectionCard, styles.quickCard]}>
-                      <View style={styles.sectionHeader}>
-                        <Text style={[typography.bodyBlack, styles.label]}>
-                          Hurtigvalg
-                        </Text>
-                      </View>
-
-                      <View style={styles.quickGrid}>
-                        {QUICK_ADJUSTS.map((value) => (
-                          <TouchableOpacity
-                            key={value}
-                            style={styles.quickButton}
-                            onPress={() => handleQuickAdjust(value)}
-                            activeOpacity={0.86}
-                          >
-                            <LinearGradient
-                              pointerEvents="none"
-                              colors={[
-                                "rgba(255,255,255,0.08)",
-                                "rgba(255,255,255,0.02)",
+                                  ? styles.deltaChipDown
+                                  : styles.deltaChipUp,
                               ]}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 1, y: 1 }}
-                              style={StyleSheet.absoluteFill}
+                            >
+                              <Ionicons
+                                name={
+                                  deltaFromLast <= 0
+                                    ? "trending-down-outline"
+                                    : "trending-up-outline"
+                                }
+                                size={12}
+                                color={
+                                  deltaFromLast <= 0 ? "#99F6E4" : "#BFDBFE"
+                                }
+                              />
+                              <Text style={styles.deltaChipText}>
+                                {formatDelta(deltaFromLast)}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <View style={styles.inputShell}>
+                          <TextInput
+                            style={styles.weightInput}
+                            placeholder={weightPlaceholder}
+                            value={weightKg}
+                            onChangeText={setWeightKg}
+                            placeholderTextColor="rgba(148,163,184,0.72)"
+                            keyboardType={
+                              Platform.OS === "ios" ? "decimal-pad" : "numeric"
+                            }
+                            returnKeyType="done"
+                            submitBehavior="blurAndSubmit"
+                            onSubmitEditing={() => {
+                              Keyboard.dismiss();
+                            }}
+                            autoCorrect={false}
+                            autoCapitalize="none"
+                          />
+
+                          <View style={styles.inputIconShell}>
+                            <Ionicons
+                              name="scale-outline"
+                              size={18}
+                              color="rgba(148,163,184,0.96)"
+                              pointerEvents="none"
                             />
-                            <Text style={styles.quickText}>
-                              {value > 0 ? `+${value}` : value} kg
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
+                          </View>
+                        </View>
+
+                        <View style={styles.quickInlineSection}>
+                          <View style={styles.quickGrid}>
+                            {QUICK_ADJUSTS.map((value) => (
+                              <TouchableOpacity
+                                key={value}
+                                style={styles.quickButton}
+                                onPress={() => handleQuickAdjust(value)}
+                                activeOpacity={0.86}
+                              >
+                                <LinearGradient
+                                  pointerEvents="none"
+                                  colors={[
+                                    "rgba(255,255,255,0.08)",
+                                    "rgba(255,255,255,0.02)",
+                                  ]}
+                                  start={{ x: 0, y: 0 }}
+                                  end={{ x: 1, y: 1 }}
+                                  style={StyleSheet.absoluteFill}
+                                />
+                                <Text style={styles.quickText}>
+                                  {value > 0 ? `+${value}` : value} kg
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      </View>
+
+                      <View style={[styles.sectionCard, styles.dateCard]}>
+                        <View style={styles.dateRow}>
+                          <View style={styles.dateTimeColumn}>
+                            <AppDateTimePicker
+                              label="Dato"
+                              mode="date"
+                              value={selectedDate}
+                              onChange={setSelectedDate}
+                              compact
+                            />
+                          </View>
+
+                          <View style={styles.dateTimeColumn}>
+                            <AppDateTimePicker
+                              label="Tid"
+                              mode="time"
+                              value={selectedTime}
+                              onChange={setSelectedTime}
+                              compact
+                            />
+                          </View>
+                        </View>
+                      </View>
+
+                      <View style={styles.tipCard}>
+                        <View style={styles.tipIconWrapper}>
+                          <Ionicons
+                            name="sparkles-outline"
+                            size={15}
+                            color="#67E8F9"
+                          />
+                        </View>
+
+                        <View style={styles.tipCopy}>
+                          <Text style={styles.tipTitle}>Renere data</Text>
+                          <Text style={styles.tipText}>
+                            Målinger på samme tidspunkt gir bedre trendlinjer og
+                            sammenligning fra uke til uke.
+                          </Text>
+                        </View>
                       </View>
                     </View>
 
-                    <View style={styles.tipCard}>
-                      <View style={styles.tipIconWrapper}>
-                        <Ionicons
-                          name="sparkles-outline"
-                          size={15}
-                          color="#67E8F9"
-                        />
-                      </View>
-
-                      <View style={styles.tipCopy}>
-                        <Text style={styles.tipTitle}>Renere data</Text>
-                        <Text style={styles.tipText}>
-                          Målinger på samme tidspunkt gir roligere trendlinjer og
-                          bedre sammenligning fra uke til uke.
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.footerBlock}>
-                    <TouchableOpacity
-                      onPress={() => {
-                        void handleSave();
-                      }}
-                      style={styles.saveWrapper}
-                      activeOpacity={0.9}
-                      disabled={isSaving}
-                    >
-                      <LinearGradient
-                        colors={
-                          isSaving
-                            ? ["#1D4ED8", "#2563EB"]
-                            : ["#06B6D4", "#2563EB"]
-                        }
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.saveButton}
+                    <View style={styles.footerBlock}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          void handleSave();
+                        }}
+                        style={styles.saveWrapper}
+                        activeOpacity={0.9}
+                        disabled={isSaving}
                       >
                         <LinearGradient
-                          pointerEvents="none"
-                          colors={[
-                            "rgba(255,255,255,0.2)",
-                            "rgba(255,255,255,0.03)",
-                            "rgba(255,255,255,0)",
-                          ]}
-                          start={{ x: 0.15, y: 0 }}
-                          end={{ x: 0.85, y: 1 }}
-                          style={StyleSheet.absoluteFill}
-                        />
-                        <Ionicons
-                          name={isSaving ? "hourglass-outline" : "save-outline"}
-                          size={18}
-                          color="#FFFFFF"
-                          style={styles.saveIcon}
-                        />
-                        <Text style={styles.saveText}>
-                          {isSaving ? "Lagrer..." : "Lagre vekt"}
-                        </Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                          colors={
+                            isSaving
+                              ? ["#1D4ED8", "#2563EB"]
+                              : ["#06B6D4", "#2563EB"]
+                          }
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.saveButton}
+                        >
+                          <LinearGradient
+                            pointerEvents="none"
+                            colors={[
+                              "rgba(255,255,255,0.2)",
+                              "rgba(255,255,255,0.03)",
+                              "rgba(255,255,255,0)",
+                            ]}
+                            start={{ x: 0.15, y: 0 }}
+                            end={{ x: 0.85, y: 1 }}
+                            style={StyleSheet.absoluteFill}
+                          />
+                          <Ionicons
+                            name={
+                              isSaving ? "hourglass-outline" : "save-outline"
+                            }
+                            size={18}
+                            color="#FFFFFF"
+                            style={styles.saveIcon}
+                          />
+                          <Text style={styles.saveText}>
+                            {isSaving ? "Lagrer..." : "Lagre vekt"}
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
+                </ScrollView>
               </View>
-            </View>
+            </TouchableWithoutFeedback>
           </Animated.View>
         </View>
       </View>
@@ -508,13 +508,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(14,165,233,0.08)",
   },
   sheetContent: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 18,
   },
   contentLayout: {
-    flex: 1,
+    flexGrow: 1,
   },
   mainStack: {
     rowGap: 17,
@@ -559,12 +559,6 @@ const styles = StyleSheet.create({
   },
   dateCard: {
     paddingBottom: 13,
-  },
-  quickCard: {
-    paddingBottom: 13,
-  },
-  sectionHeader: {
-    marginBottom: 12,
   },
   labelRow: {
     flexDirection: "row",
@@ -629,6 +623,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(15,23,42,0.92)",
     borderWidth: 1,
     borderColor: "rgba(148,163,184,0.12)",
+  },
+  quickInlineSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(148,163,184,0.08)",
   },
   dateRow: {
     flexDirection: "row",

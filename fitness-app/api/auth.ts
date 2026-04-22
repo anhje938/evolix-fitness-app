@@ -29,6 +29,8 @@ export type AuthSessionPayload = {
   accessTokenExpiresAtUtc: string;
 };
 
+const AUTH_REQUEST_TIMEOUT_MS = 10000;
+
 function toErrorMessage(errorText: string): string {
   if (!errorText) return "";
 
@@ -77,11 +79,42 @@ async function parseAuthResponse(res: Response): Promise<AuthSessionPayload> {
   return normalizeAuthResponse(data);
 }
 
+async function fetchAuth(
+  path: string,
+  init: RequestInit
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AUTH_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(
+        "Fikk ikke kontakt med backend i tide. Sjekk at backend kjører og at API-adressen er riktig."
+      );
+    }
+
+    if (error instanceof TypeError) {
+      throw new Error(
+        `Kunne ikke nå backend på ${API_BASE_URL}. Sjekk nettverk og EXPO_PUBLIC_API_BASE_URL.`
+      );
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function loginWithApple(
   idToken: string
 ): Promise<AuthSessionPayload> {
   const normalizedToken = idToken.trim();
-  const res = await fetch(`${API_BASE_URL}/auth/apple`, {
+  const res = await fetchAuth("/auth/apple", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -97,7 +130,7 @@ export async function loginWithApple(
 export async function refreshWithToken(
   refreshToken: string
 ): Promise<AuthSessionPayload> {
-  const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+  const res = await fetchAuth("/auth/refresh", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refreshToken }),
@@ -109,7 +142,7 @@ export async function refreshWithToken(
 export async function logoutWithRefreshToken(
   refreshToken: string
 ): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/auth/logout`, {
+  const res = await fetchAuth("/auth/logout", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refreshToken }),

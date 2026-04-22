@@ -152,7 +152,7 @@ export function ComposedMealsSection({
         <View>
           <Text style={[typography.h2, styles.title]}>Matretter</Text>
           <Text style={[typography.body, styles.subtitle]}>
-            Favoritter og ferdige retter for rask, presis logging
+            Favoritter og ferdige retter
           </Text>
         </View>
 
@@ -523,7 +523,6 @@ export function ComposedMealsSection({
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }

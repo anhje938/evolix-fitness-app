@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Dimensions } from "react-native";
 import { State } from "react-native-gesture-handler";
 
@@ -86,11 +86,27 @@ export function useSvgChartZoom({
     pointCount,
     staticWidthOffset,
     zoom,
-    isPinching,
   ]);
 
-  const clampZoom = (value: number) =>
-    Math.min(zoomState.effectiveMaxZoom, Math.max(zoomState.effectiveMinZoom, value));
+  const clampZoom = useCallback(
+    (value: number) =>
+      Math.min(
+        zoomState.effectiveMaxZoom,
+        Math.max(zoomState.effectiveMinZoom, value)
+      ),
+    [zoomState.effectiveMaxZoom, zoomState.effectiveMinZoom]
+  );
+
+  const applyZoom = useCallback(
+    (value: number) => {
+      const nextZoom = clampZoom(value);
+      pinchScale.setValue(1);
+      baseZoomRef.current = nextZoom;
+      setZoom(nextZoom);
+      return nextZoom;
+    },
+    [clampZoom, pinchScale]
+  );
 
   useEffect(() => {
     setZoom((currentZoom) => {
@@ -101,22 +117,22 @@ export function useSvgChartZoom({
       baseZoomRef.current = nextZoom;
       return nextZoom;
     });
-  }, [zoomState.effectiveMaxZoom, zoomState.effectiveMinZoom]);
+  }, [clampZoom]);
 
   useEffect(() => {
     baseZoomRef.current = zoom;
   }, [zoom]);
 
   const handleZoomIn = () => {
-    const nextZoom = clampZoom(zoom * (1 + zoomStep));
-    baseZoomRef.current = nextZoom;
-    setZoom(nextZoom);
+    applyZoom(zoom * (1 + zoomStep));
   };
 
   const handleZoomOut = () => {
-    const nextZoom = clampZoom(zoom / (1 + zoomStep));
-    baseZoomRef.current = nextZoom;
-    setZoom(nextZoom);
+    applyZoom(zoom / (1 + zoomStep));
+  };
+
+  const resetZoom = (value = 1) => {
+    applyZoom(value);
   };
 
   const handlePinchEvent = useMemo(
@@ -184,6 +200,7 @@ export function useSvgChartZoom({
     dynamicMaxVisibleLabels,
     handleZoomIn,
     handleZoomOut,
+    resetZoom,
     handlePinchEvent,
     handlePinchStateChange,
     ...zoomState,

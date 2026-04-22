@@ -1,25 +1,11 @@
 import { formatShortDayMonthNO } from "@/utils/date";
 import type { Weight } from "@/types/weight";
 import { useMemo } from "react";
+import { calculateWeightTrendSeries } from "@/utils/weightTrend";
 
 import { useSvgChartZoom } from "./useSvgChartZoom";
 
 const WEIGHT_CHART_AXIS_WIDTH = 64;
-
-function getTrendWindow(pointCount: number) {
-  if (pointCount <= 5) return 2;
-  if (pointCount <= 20) return 3;
-  if (pointCount <= 60) return 5;
-  return 7;
-}
-
-function movingAverage(values: number[], windowSize: number) {
-  return values.map((_, index) => {
-    const start = Math.max(0, index - windowSize + 1);
-    const slice = values.slice(start, index + 1);
-    return slice.reduce((sum, value) => sum + value, 0) / slice.length;
-  });
-}
 
 type Params = {
   weightList: Weight[];
@@ -65,19 +51,18 @@ export function useWeightProgressChart({
     const cutoff = new Date();
     cutoff.setDate(now.getDate() - weeks * 7);
 
-    const filtered = weightList
-      .filter((item) => new Date(item.timestampUtc) >= cutoff)
-      .sort(
-        (a, b) =>
-          new Date(a.timestampUtc).getTime() -
-          new Date(b.timestampUtc).getTime()
-      );
+    const filtered = weightList.filter(
+      (item) => new Date(item.timestampUtc) >= cutoff
+    );
+    const trendSeries = calculateWeightTrendSeries(filtered);
 
-    return filtered.map((item) => {
+    return trendSeries.map((item) => {
       const d = new Date(item.timestampUtc);
       return {
         label: formatShortDayMonthNO(item.timestampUtc),
         value: item.weightKg,
+        trendValue: item.trendWeightKg,
+        deltaFromTrend: item.deltaFromTrendKg,
         date: d,
       };
     });
@@ -87,26 +72,31 @@ export function useWeightProgressChart({
     if (!dailyData.length) return null;
 
     const values = dailyData.map((d) => d.value);
+    const trendValues = dailyData.map((d) => d.trendValue);
     const first = values[0];
     const last = values[values.length - 1];
+    const trendFirst = trendValues[0];
+    const trendLast = trendValues[trendValues.length - 1];
+    const deltaFromTrend = dailyData[dailyData.length - 1].deltaFromTrend;
     const min = Math.min(...values);
     const max = Math.max(...values);
-    const change = last - first;
-    const changePercent = first !== 0 ? (change / first) * 100 : 0;
+    const rawChange = last - first;
+    const trendChange = trendLast - trendFirst;
+    const changePercent = trendFirst !== 0 ? (trendChange / trendFirst) * 100 : 0;
 
     const daysBetween =
       (dailyData[dailyData.length - 1].date.getTime() -
         dailyData[0].date.getTime()) /
       (1000 * 60 * 60 * 24);
     const weeksBetween = Math.max(daysBetween / 7, 1);
-    const avgChangePerWeek = change / weeksBetween;
+    const avgChangePerWeek = trendChange / weeksBetween;
 
     let weeksToGoal: number | null = null;
     let daysToGoal: number | null = null;
     let goalDirection: "correct" | "wrong" | "stable" = "stable";
 
     if (goalValue !== undefined && Math.abs(avgChangePerWeek) > 0.01) {
-      const remaining = goalValue - last;
+      const remaining = goalValue - trendLast;
       const isGainingWeight = avgChangePerWeek > 0;
       const needsToGain = remaining > 0;
 
@@ -122,9 +112,13 @@ export function useWeightProgressChart({
     return {
       first,
       last,
+      trendFirst,
+      trendLast,
+      deltaFromTrend,
       min,
       max,
-      change,
+      rawChange,
+      change: trendChange,
       changePercent,
       avgChangePerWeek,
       count: dailyData.length,
@@ -136,10 +130,10 @@ export function useWeightProgressChart({
 
   const labels = useMemo(() => dailyData.map((w) => w.label), [dailyData]);
   const values = useMemo(() => dailyData.map((w) => w.value), [dailyData]);
-  const trendValues = useMemo(() => {
-    if (values.length < 2) return [];
-    return movingAverage(values, getTrendWindow(values.length));
-  }, [values]);
+  const trendValues = useMemo(
+    () => dailyData.map((w) => w.trendValue),
+    [dailyData]
+  );
 
   const yRange = useMemo(() => {
     if (!values.length) {
@@ -201,26 +195,33 @@ export function useWeightProgressChart({
   }, [labels, zoomState.dynamicMaxVisibleLabels]);
 
   const trend = useMemo(() => {
-    const changeText = stats
-      ? stats.change > 0
-        ? `+${stats.change.toFixed(decimalPlaces)} kg`
-        : `${stats.change.toFixed(decimalPlaces)} kg`
+    const roundedDelta =
+      stats != null ? Number(stats.deltaFromTrend.toFixed(decimalPlaces)) : 0;
+    const deltaText = stats
+      ? `${roundedDelta > 0 ? "+" : ""}${roundedDelta.toFixed(decimalPlaces)} kg`
       : "";
-
-    const trendIcon =
-      stats && stats.change !== 0
-        ? stats.change > 0
-          ? "\u2197"
-          : "\u2198"
+    const deltaLabel =
+      roundedDelta > 0 ? "Over trend" : roundedDelta < 0 ? "Under trend" : "På trend";
+    const deltaIcon =
+      roundedDelta > 0
+        ? "\u2197"
+        : roundedDelta < 0
+        ? "\u2198"
         : "\u2192";
-    const trendColor =
-      stats && stats.change !== 0
-        ? stats.change > 0
-          ? "rgba(239, 68, 68, 0.9)"
-          : "rgba(34, 197, 94, 0.9)"
-        : "rgba(148, 163, 184, 0.9)";
+    const deltaColor =
+      roundedDelta > 0
+        ? "rgba(251, 146, 60, 0.96)"
+        : roundedDelta < 0
+        ? "rgba(103, 232, 249, 0.96)"
+        : "rgba(191, 219, 254, 0.9)";
+    const paceColor =
+      stats && stats.avgChangePerWeek > 0
+        ? "rgba(251, 146, 60, 0.96)"
+        : stats && stats.avgChangePerWeek < 0
+        ? "rgba(103, 232, 249, 0.96)"
+        : "rgba(191, 219, 254, 0.9)";
 
-    return { changeText, trendIcon, trendColor };
+    return { deltaText, deltaLabel, deltaIcon, deltaColor, paceColor };
   }, [decimalPlaces, stats]);
 
   return {

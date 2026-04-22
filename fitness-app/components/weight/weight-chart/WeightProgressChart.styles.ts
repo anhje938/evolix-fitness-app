@@ -19,6 +19,9 @@ export const styles = StyleSheet.create<{
   statValue: TextStyle;
   changeRow: ViewStyle;
   trendIcon: TextStyle;
+  trendCallout: ViewStyle;
+  trendCalloutIconWrap: ViewStyle;
+  trendCalloutText: TextStyle;
 
   goalIndicator: ViewStyle;
   goalBadge: ViewStyle;
@@ -206,6 +209,37 @@ export const styles = StyleSheet.create<{
   trendIcon: {
     fontSize: 13,
     fontWeight: "500",
+  },
+
+  trendCallout: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 11,
+    borderRadius: 14,
+    backgroundColor: "rgba(8,15,28,0.52)",
+    borderWidth: 1,
+    borderColor: "rgba(103,232,249,0.12)",
+  },
+  trendCalloutIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(8,47,73,0.4)",
+    borderWidth: 1,
+    borderColor: "rgba(103,232,249,0.16)",
+  },
+  trendCalloutText: {
+    flex: 1,
+    fontSize: 10,
+    fontWeight: "500",
+    lineHeight: 15,
+    color: "rgba(191,219,254,0.82)",
+    letterSpacing: 0.04,
   },
 
   goalIndicator: {

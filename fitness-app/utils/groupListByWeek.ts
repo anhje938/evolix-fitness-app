@@ -3,14 +3,16 @@ import {
   getOsloDateKey,
 } from "@/utils/date";
 import { Weight } from "@/types/weight";
+import { calculateWeightTrendSeries } from "@/utils/weightTrend";
 
 export function getWeeklySummary(weightList: Weight[]) {
+  const trendSeries = calculateWeightTrendSeries(weightList);
   const weekMap = new Map<
     string,
     { year: number; week: number; sum: number; count: number }
   >();
 
-  for (const entry of weightList) {
+  for (const entry of trendSeries) {
     const dateKey = getOsloDateKey(entry.timestampUtc);
     if (!dateKey) continue;
 
@@ -24,11 +26,11 @@ export function getWeeklySummary(weightList: Weight[]) {
       weekMap.set(key, {
         year: isoWeek.year,
         week: isoWeek.week,
-        sum: entry.weightKg,
+        sum: entry.trendWeightKg,
         count: 1,
       });
     } else {
-      weekData.sum += entry.weightKg;
+      weekData.sum += entry.trendWeightKg;
       weekData.count += 1;
     }
   }

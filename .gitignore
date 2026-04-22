@@ -6,9 +6,18 @@ backend/.vs/
 # Build / bin / obj
 bin/
 obj/
+backend/*.Backup.tmp
+backend/build-temp*/
+backend/build-ef-temp/
+backend/bin-temp-deletecheck/
 
 # Node / Expo
 node_modules/
 .expo/
 dist/
 build/
+
+# Docker env files
+.env.docker.dev
+.env.docker.dev.full
+.env.docker.prod

@@ -29,15 +29,11 @@ import type {
 import { useExerciseHistory } from "@/hooks/useExerciseHistory";
 import { useExerciseSetsHistory } from "@/hooks/useExerciseSetsHistory";
 import { getOsloDateKey } from "@/utils/date";
-import {
-  buildExerciseHistoryFromSessions,
-  DEMO_BENCH_EXERCISE_ID,
-  mergeExerciseSetsHistoryWithDemo,
-  mergeExercisesWithDemo,
-  shouldUseDemoBenchData,
-} from "@/utils/demoProgressData";
 
-import { CombinedExerciseChart } from "./progress/CombinedExerciseChart";
+import {
+  CombinedExerciseChart,
+  type CombinedChartViewMode,
+} from "./progress/CombinedExerciseChart";
 import {
   ExerciseProgressChart,
   ExerciseProgressPoint,
@@ -140,7 +136,7 @@ export default function ProgressTab({
   const { data: exerciseData } = useExercises();
   const searchInputRef = useRef<TextInput | null>(null);
   const exercises = useMemo(() => {
-    const allExercises = mergeExercisesWithDemo(exerciseData ?? []);
+    const allExercises = exerciseData ?? [];
     if (!userSettings.showOnlyCustomTrainingContent) return allExercises;
     return allExercises.filter(isUserCreatedExercise);
   }, [exerciseData, userSettings.showOnlyCustomTrainingContent]);
@@ -148,7 +144,9 @@ export default function ProgressTab({
   const [search, setSearch] = useState("");
   const [metric, setMetric] = useState<Metric>("weight");
   const [volumeMetric, setVolumeMetric] = useState<VolumeMetric>("sets");
-  const [timeRange, setTimeRange] = useState<ProgressTimeRange>("20");
+  const [timeRange, setTimeRange] = useState<ProgressTimeRange>("3m");
+  const [combinedView, setCombinedView] =
+    useState<CombinedChartViewMode>("relationship");
   const [searchFocused, setSearchFocused] = useState(false);
 
   // Keep selected exercise in sync with visible list
@@ -179,10 +177,7 @@ export default function ProgressTab({
 
   const selectedExercise =
     exercises.find((ex) => ex.id === selectedExerciseId) ?? null;
-  const historyExerciseId =
-    selectedExercise?.id === DEMO_BENCH_EXERCISE_ID
-      ? null
-      : selectedExerciseId;
+  const historyExerciseId = selectedExerciseId;
 
   // Aggregated history (top-set per session) – used for charts + year summary weight
   const { data: rawHistoryData = [] } = useExerciseHistory(historyExerciseId);
@@ -191,18 +186,8 @@ export default function ProgressTab({
   const { data: rawSetsHistoryData = [] } =
     useExerciseSetsHistory(historyExerciseId);
 
-  const setsHistoryData = useMemo(
-    () => mergeExerciseSetsHistoryWithDemo(rawSetsHistoryData, selectedExercise),
-    [rawSetsHistoryData, selectedExercise]
-  );
-
-  const historyData = useMemo(() => {
-    if (!shouldUseDemoBenchData(selectedExercise)) {
-      return rawHistoryData;
-    }
-
-    return buildExerciseHistoryFromSessions(setsHistoryData);
-  }, [rawHistoryData, selectedExercise, setsHistoryData]);
+  const setsHistoryData = rawSetsHistoryData;
+  const historyData = rawHistoryData;
 
   const sortedHistory: ExerciseHistoryPointDto[] = useMemo(() => {
     if (!historyData) return [];
@@ -487,36 +472,26 @@ export default function ProgressTab({
         </View>
       )}
 
-      <StatRow pr={pr} lastWeight={lastEst1Rm} diffToPr={diffToPr} />
-
-      <ProgressWindowSummary items={windowSummaryItems} />
-
-      <View style={[styles.modeCard, generalStyles.newCard]}>
-        <LinearGradient
-          colors={[
-            "rgba(255,255,255,0.06)",
-            "rgba(255,255,255,0.02)",
-            "rgba(255,255,255,0.00)",
-          ]}
-          start={{ x: 0.06, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-        <View pointerEvents="none" style={styles.modeInnerStroke} />
-
-        <MetricSwitcher
-          metric={metric}
-          onMetricChange={setMetric}
-          volumeMetric={volumeMetric}
-          onVolumeMetricChange={setVolumeMetric}
-        />
-      </View>
+      {metric !== "both" && (
+        <>
+          <StatRow pr={pr} lastWeight={lastEst1Rm} diffToPr={diffToPr} />
+          <ProgressWindowSummary items={windowSummaryItems} />
+        </>
+      )}
 
       {metric === "both" ? (
         <CombinedExerciseChart
-          title="1RM & volume"
-          metric={metric}
+          title="Styrke vs volum"
+          headerControls={
+            <MetricSwitcher
+              metric={metric}
+              onMetricChange={setMetric}
+              volumeMetric={volumeMetric}
+              onVolumeMetricChange={setVolumeMetric}
+            />
+          }
+          viewMode={combinedView}
+          onViewModeChange={setCombinedView}
           volumeMetric={volumeMetric}
           range={timeRange}
           onRangeChange={setTimeRange}
@@ -528,6 +503,14 @@ export default function ProgressTab({
         <ExerciseProgressChart
           data={chartData}
           title={chartTitle}
+          headerControls={
+            <MetricSwitcher
+              metric={metric}
+              onMetricChange={setMetric}
+              volumeMetric={volumeMetric}
+              onVolumeMetricChange={setVolumeMetric}
+            />
+          }
           variant={metric === "weight" ? "line" : "bar"}
           range={timeRange}
           onRangeChange={setTimeRange}
@@ -695,23 +678,5 @@ const styles = StyleSheet.create({
     color: ui.muted2,
     fontSize: 12,
     fontWeight: "600",
-  },
-
-  // MODE CARD
-  modeCard: {
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginBottom: 16,
-    backgroundColor: ui.glassBg,
-    borderWidth: 1,
-    borderColor: ui.glassStroke,
-    overflow: "hidden",
-  },
-  modeInnerStroke: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: ui.glassStrokeInner,
   },
 });

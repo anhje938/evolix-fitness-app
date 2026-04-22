@@ -7,8 +7,8 @@ import type { Exercise } from "@/types/exercise";
 import type { Weight } from "@/types/weight";
 import { estimate1RMFromTopSet } from "@/utils/exercise/oneRepMax";
 
-// Set this to false to instantly go back to the live system only.
-export const ENABLE_DEMO_PROGRESS_DATA = true;
+// Demo data is disabled so the app always uses the user's real data.
+export const ENABLE_DEMO_PROGRESS_DATA = false;
 
 export const DEMO_BENCH_EXERCISE_ID = "__demo_bench_press__";
 

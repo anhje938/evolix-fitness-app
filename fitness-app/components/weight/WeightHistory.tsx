@@ -9,7 +9,7 @@ import {
   parseISO,
 } from "@/utils/date";
 import { getRelativeDateLabel } from "@/utils/pastWeek";
-import { weeklyAverageProgression } from "@/utils/weightProgression";
+import { calculateWeightTrendSeries } from "@/utils/weightTrend";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMemo, useState } from "react";
@@ -42,22 +42,60 @@ export default function WeightHistory({
   );
 
   const latest = useMemo(() => weightList?.[0] ?? null, [weightList]);
+  const trendSeries = useMemo(
+    () => calculateWeightTrendSeries(weightList),
+    [weightList]
+  );
+  const trendById = useMemo(() => {
+    const byId = new Map<
+      string,
+      { trendWeightKg: number; deltaFromTrendKg: number; hasBaseline: boolean }
+    >();
 
-  const sevenDayAverage = useMemo(() => {
-    if (weightList.length === 0) return null;
-    const lastSeven = weightList.slice(0, 7);
-    const sum = lastSeven.reduce((acc, item) => acc + item.weightKg, 0);
-    return +(sum / lastSeven.length).toFixed(1);
-  }, [weightList]);
+    trendSeries.forEach((entry, index) => {
+      byId.set(entry.id, {
+        trendWeightKg: Number(entry.trendWeightKg.toFixed(1)),
+        deltaFromTrendKg: Number(entry.deltaFromTrendKg.toFixed(1)),
+        hasBaseline: index > 0,
+      });
+    });
+
+    return byId;
+  }, [trendSeries]);
+  const latestTrendEntry = useMemo(
+    () => (trendSeries.length ? trendSeries[trendSeries.length - 1] : null),
+    [trendSeries]
+  );
+  const latestTrendWeight = useMemo(
+    () =>
+      latestTrendEntry ? Number(latestTrendEntry.trendWeightKg.toFixed(1)) : null,
+    [latestTrendEntry]
+  );
+  const latestTrendDelta = useMemo(() => {
+    if (!latestTrendEntry || trendSeries.length < 2) return null;
+    return Number(latestTrendEntry.deltaFromTrendKg.toFixed(1));
+  }, [latestTrendEntry, trendSeries.length]);
 
   const handleLoadMore = () => {
     setVisibleCount((prev) => Math.min(prev + 100, weightList.length));
   };
 
-  const formatDifference = (diff: number | null) => {
+  const formatDifference = (
+    diff: number | null,
+    variant: "compact" | "trend" = "compact"
+  ) => {
     if (diff === null) return "-";
-    if (diff > 0) return `+${diff.toFixed(1)} kg`;
-    if (diff < 0) return `${diff.toFixed(1)} kg`;
+
+    const rounded = Number(diff.toFixed(1));
+
+    if (variant === "trend") {
+      if (rounded > 0) return `+${rounded.toFixed(1)} kg over trend`;
+      if (rounded < 0) return `${rounded.toFixed(1)} kg under trend`;
+      return "På trend";
+    }
+
+    if (rounded > 0) return `+${rounded.toFixed(1)} kg`;
+    if (rounded < 0) return `${rounded.toFixed(1)} kg`;
     return "0.0 kg";
   };
 
@@ -79,9 +117,9 @@ export default function WeightHistory({
     }
 
     return {
-      text: "rgba(74,222,128,0.95)",
-      bg: "rgba(74,222,128,0.10)",
-      border: "rgba(74,222,128,0.22)",
+      text: "rgba(103,232,249,0.96)",
+      bg: "rgba(6,182,212,0.10)",
+      border: "rgba(103,232,249,0.22)",
     };
   };
 
@@ -239,7 +277,7 @@ export default function WeightHistory({
 
       {listMode === "daily" ? (
         <View style={styles.listSection}>
-          {sevenDayAverage !== null && (
+          {latestTrendWeight !== null && (
             <View style={[generalStyles.newCard, styles.avgCard]}>
               <LinearGradient
                 pointerEvents="none"
@@ -262,16 +300,30 @@ export default function WeightHistory({
                   />
                 </View>
                 <Text style={[typography.body, styles.avgLabel]}>
-                  7-dagers snitt
+                  Trendvekt
                 </Text>
               </View>
 
               <View style={styles.avgValueRow}>
                 <Text style={[typography.body, styles.avgValue]}>
-                  {sevenDayAverage}
+                  {latestTrendWeight}
                 </Text>
                 <Text style={[typography.body, styles.avgUnit]}>kg</Text>
               </View>
+
+              <Text
+                style={[
+                  typography.body,
+                  styles.avgHint,
+                  latestTrendDelta !== null && {
+                    color: getDiffTone(latestTrendDelta).text,
+                  },
+                ]}
+              >
+                {latestTrendDelta === null
+                  ? "Trendvekten blir mer presis etter neste måling."
+                  : formatDifference(latestTrendDelta, "trend")}
+              </Text>
             </View>
           )}
 
@@ -295,8 +347,11 @@ export default function WeightHistory({
 
             const monthLabel = formatMonthYearNO(weight.timestampUtc);
 
-            const deviation = weeklyAverageProgression(weightList, weight.id);
-            const diff = deviation?.deviation ?? null;
+            const trendEntry = trendById.get(weight.id);
+            const diff =
+              trendEntry && trendEntry.hasBaseline
+                ? trendEntry.deltaFromTrendKg
+                : null;
             const diffText = formatDifference(diff);
             const tone = getDiffTone(diff);
 
@@ -325,7 +380,7 @@ export default function WeightHistory({
                         {label}
                       </Text>
                       <Text style={[typography.body, styles.secondaryText]}>
-                        {time}
+                        {diff !== null ? `${time} · trendavvik` : time}
                       </Text>
                     </View>
 
@@ -401,7 +456,7 @@ export default function WeightHistory({
                       {week.weekLabel}
                     </Text>
                     <Text style={[typography.body, styles.secondaryText]}>
-                      Ukentlig snitt
+                      Ukentlig trend
                     </Text>
                   </View>
 
@@ -655,6 +710,13 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     color: "rgba(191,219,254,0.7)",
     fontWeight: "400",
+  },
+  avgHint: {
+    marginTop: 6,
+    fontSize: 9.5,
+    lineHeight: 14,
+    color: "rgba(191,219,254,0.78)",
+    fontWeight: "500",
   },
   rowBlock: {
     width: "100%",

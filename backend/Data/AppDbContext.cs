@@ -82,11 +82,9 @@ namespace backend.Data
                 b.Property(x => x.ClientRequestId).HasMaxLength(100);
                 b.Property(x => x.SubmissionHash).HasMaxLength(64);
                 b.HasIndex(x => new { x.UserId, x.ClientRequestId })
-                    .IsUnique()
-                    .HasFilter("[ClientRequestId] IS NOT NULL");
+                    .IsUnique();
                 b.HasIndex(x => new { x.UserId, x.SubmissionHash })
-                    .IsUnique()
-                    .HasFilter("[SubmissionHash] IS NOT NULL");
+                    .IsUnique();
 
                 // Session 1 - * ExerciseLogs
                 b.HasMany(x => x.ExerciseLogs)
@@ -208,11 +206,8 @@ namespace backend.Data
                     .IsRequired()
                     .HasDefaultValue("[]");
                 b.Property(x => x.WeightGoalKg).HasPrecision(18, 2);
-                b.Property(x => x.WeightGoalTimeUtc)
-                    .HasColumnType("datetime2")
-                    .HasDefaultValueSql("DATEADD(hour, 12, CAST(CAST(DATEADD(day, 84, GETUTCDATE()) AS date) AS datetime2))");
-                b.Property(x => x.UseFoodCoach).HasDefaultValue(true);
-                b.Property(x => x.UseWorkoutCoach).HasDefaultValue(true);
+                b.Property(x => x.UseFoodCoach).HasDefaultValue(false);
+                b.Property(x => x.UseWorkoutCoach).HasDefaultValue(false);
 
                 b.HasOne(x => x.User)
                     .WithOne(u => u.Settings)

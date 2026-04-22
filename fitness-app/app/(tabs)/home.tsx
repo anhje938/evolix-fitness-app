@@ -1,8 +1,12 @@
 // app/(tabs)/home.tsx
+import { PostUserMeal } from "@/api/food";
 import { deleteMyUser } from "@/api/user";
+import { PostWeight } from "@/api/weight";
 import SettingsLogo from "@/assets/icons/white-settings.svg";
 import { DarkOceanBackground } from "@/components/DarkOceanBackground";
 import AnatomyFigure from "@/components/exercise/AnatomyFigure";
+import { AddMealSheet } from "@/components/food/addMealSheet";
+import { AddMealSheetQR } from "@/components/food/addMealSheetQR";
 import {
   HOME_ACCENT_BAR_COLORS,
   HOME_ACCENT_BAR_HEIGHT,
@@ -24,6 +28,7 @@ import { ProgressCircle } from "@/components/food/progressCircle";
 import { WeightSummaryBox } from "@/components/home/WeightSummary";
 import QuickStartButtons from "@/components/home/quickStartButtons";
 import SettingsModal from "@/components/settings/SettingsModal";
+import { AddWeightSheet } from "@/components/weight/addWeightSheet";
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
@@ -33,6 +38,7 @@ import { useWeightContext } from "@/context/WeightProvider";
 import { useExercises } from "@/hooks/useExercises";
 import { useRecoveryMap } from "@/hooks/useRecoveryMap";
 import { useCompletedWorkouts } from "@/hooks/workout-history/useCompletedWorkouts";
+import type { Food, FoodDto } from "@/types/meal";
 import type { HomeGoalTile, HomeSectionKey } from "@/types/userSettings";
 import {
   formatDateNO,
@@ -49,6 +55,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Easing,
   Pressable,
@@ -262,14 +269,22 @@ function uniq(list: HomeGoalTile[]) {
   return out;
 }
 
+function sortFoodsByTimestampDesc(list: Food[]) {
+  return [...list].sort(
+    (a, b) =>
+      new Date(b.timestampUtc).getTime() - new Date(a.timestampUtc).getTime()
+  );
+}
+
 const SECTION_GAP = 18;
 const HOME_HEADER_HIDE_OFFSET = 48;
 
 export default function HomePage() {
   const insets = useSafeAreaInsets();
   const { token, setToken, logout } = useAuth();
-  const { todayTotals } = useFoodContext();
-  const { progressionLast7, lastWeight } = useWeightContext();
+  const { todayTotals, setFoodList, refreshMeals } = useFoodContext();
+  const { progressionLast7, lastWeight, refetch: refetchWeights } =
+    useWeightContext();
   const {
     userSettings,
     setUserSettings,
@@ -283,6 +298,11 @@ export default function HomePage() {
   const { recoveryMap } = useRecoveryMap({ sessions, exercises });
 
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [isMealSheetOpen, setIsMealSheetOpen] = useState(false);
+  const [mealSheetMode, setMealSheetMode] = useState<"manual" | "qr">(
+    "manual"
+  );
+  const [isWeightSheetOpen, setIsWeightSheetOpen] = useState(false);
   const [musclePopup, setMusclePopup] = useState<{
     muscle: string;
     lastTrained: string;
@@ -352,6 +372,48 @@ export default function HomePage() {
       });
     });
   }, []);
+
+  const appendLoggedFood = useCallback(
+    (created: Food) => {
+      setFoodList((prev) => sortFoodsByTimestampDesc([created, ...prev]));
+    },
+    [setFoodList]
+  );
+
+  const handlePostMeal = useCallback(
+    async (values: FoodDto) => {
+      try {
+        if (!token) return;
+        const created = await PostUserMeal(token, {
+          ...values,
+          sourceType:
+            values.sourceType ?? (mealSheetMode === "qr" ? "qr" : "quickAdd"),
+        });
+        appendLoggedFood(created);
+        void refreshMeals();
+        setIsMealSheetOpen(false);
+      } catch (error) {
+        console.log("Could not save meal to backend", error);
+        Alert.alert("Kunne ikke lagre måltid", "Prøv igjen.");
+      }
+    },
+    [appendLoggedFood, mealSheetMode, refreshMeals, token]
+  );
+
+  const handlePostWeight = useCallback(
+    async (weightKg: number, timestampUtc: string) => {
+      try {
+        if (!token) return;
+        await PostWeight(token, weightKg, timestampUtc);
+        await refetchWeights();
+        setIsWeightSheetOpen(false);
+      } catch (error) {
+        console.log(error);
+        Alert.alert("Kunne ikke lagre vekt", "Prøv igjen.");
+      }
+    },
+    [refetchWeights, token]
+  );
 
   const filteredRecoveryMap = useMemo(() => {
     const hidden = new Set<string>(userSettings.recoveryMapHiddenMuscles ?? []);
@@ -579,7 +641,12 @@ export default function HomePage() {
     if (sectionKey === "quickStart") {
       homeSections.push({
         key: sectionKey,
-        content: <QuickStartButtons />,
+        content: (
+          <QuickStartButtons
+            onLogMealPress={() => setIsMealSheetOpen(true)}
+            onLogWeightPress={() => setIsWeightSheetOpen(true)}
+          />
+        ),
       });
       continue;
     }
@@ -954,6 +1021,35 @@ export default function HomePage() {
           </View>
         ))}
       </ScrollView>
+
+      {isMealSheetOpen && mealSheetMode === "manual" && (
+        <AddMealSheet
+          mode={mealSheetMode}
+          setMode={setMealSheetMode}
+          isOpen={isMealSheetOpen}
+          onClose={() => setIsMealSheetOpen(false)}
+          onSubmit={handlePostMeal}
+        />
+      )}
+
+      {isMealSheetOpen && mealSheetMode === "qr" && (
+        <AddMealSheetQR
+          onScanned={() => {}}
+          mode={mealSheetMode}
+          setMode={setMealSheetMode}
+          isOpen={isMealSheetOpen}
+          onClose={() => setIsMealSheetOpen(false)}
+          onSubmit={handlePostMeal}
+        />
+      )}
+
+      {isWeightSheetOpen && (
+        <AddWeightSheet
+          postWeight={handlePostWeight}
+          isOpen={isWeightSheetOpen}
+          onClose={() => setIsWeightSheetOpen(false)}
+        />
+      )}
 
       <SettingsModal
         visible={settingsVisible}

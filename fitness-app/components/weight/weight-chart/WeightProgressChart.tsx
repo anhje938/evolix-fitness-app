@@ -98,7 +98,11 @@ function calcChartScaler(data: number[], fromZero: boolean) {
   return Math.max(...values) - Math.min(...values) || 1;
 }
 
-function calcChartBaseHeight(data: number[], height: number, fromZero: boolean) {
+function calcChartBaseHeight(
+  data: number[],
+  height: number,
+  fromZero: boolean
+) {
   const min = Math.min(...data);
   const max = Math.max(...data);
 
@@ -158,7 +162,12 @@ function buildBezierTrendPath({
     );
   const baseHeight = calcChartBaseHeight(domainData, height, fromZero);
   const y = (index: number) => {
-    const yHeight = calcChartHeight(values[index], domainData, height, fromZero);
+    const yHeight = calcChartHeight(
+      values[index],
+      domainData,
+      height,
+      fromZero
+    );
     return Math.floor(((baseHeight - yHeight) / 4) * 3 + paddingTop);
   };
 
@@ -289,72 +298,53 @@ export function WeightProgressChart({
     );
   }
 
-  const showChartDots =
-    showDots && chart.renderMode === "full";
+  const showChartDots = showDots && chart.renderMode === "full";
   const shouldRenderDecorator = showTrendLine || showGoalLine;
-  const datasets = React.useMemo(
-    () => [
-      {
-        data: chart.values,
-        strokeWidth: lineStrokeWidth,
-        color: () => lineColor,
-      },
-      {
-        data: [chart.minY, chart.maxY],
-        strokeWidth: 0,
-        color: () => "rgba(0,0,0,0)",
-        withDots: false,
-      },
-    ],
-    [chart.maxY, chart.minY, chart.values, lineColor, lineStrokeWidth]
-  );
-  const chartConfig = React.useMemo(
-    () => ({
-      backgroundGradientFrom: "transparent",
-      backgroundGradientTo: "transparent",
-      decimalPlaces,
+  const datasets = [
+    {
+      data: chart.values,
+      strokeWidth: lineStrokeWidth,
       color: () => lineColor,
-      labelColor: () => labelColor,
-      useShadowColorFromDataset: true,
-      paddingTop: 20,
-      paddingRight: 16,
-      propsForDots: showChartDots
-        ? {
-            r: String(dotRadius),
-            strokeWidth: "1.5",
-            stroke: dotColor,
-            fill: weightChartColors.dotFillColor,
-          }
-        : { r: "0", strokeWidth: "0" },
-      propsForBackgroundLines: {
-        stroke: gridLineColor,
-        strokeDasharray: "",
-        strokeWidth: "1",
-      },
-      propsForLabels: {
-        fontSize: 10,
-        fontWeight: "600",
-      } as any,
-    }),
-    [
-      decimalPlaces,
-      dotColor,
-      dotRadius,
-      gridLineColor,
-      labelColor,
-      lineColor,
-      showChartDots,
-    ]
-  );
+    },
+    {
+      data: [chart.minY, chart.maxY],
+      strokeWidth: 0,
+      color: () => "rgba(0,0,0,0)",
+      withDots: false,
+    },
+  ];
+  const chartConfig = {
+    backgroundGradientFrom: "transparent",
+    backgroundGradientTo: "transparent",
+    decimalPlaces,
+    color: () => lineColor,
+    labelColor: () => labelColor,
+    useShadowColorFromDataset: true,
+    paddingTop: 20,
+    paddingRight: 16,
+    propsForDots: showChartDots
+      ? {
+          r: String(dotRadius),
+          strokeWidth: "1.5",
+          stroke: dotColor,
+          fill: weightChartColors.dotFillColor,
+        }
+      : { r: "0", strokeWidth: "0" },
+    propsForBackgroundLines: {
+      stroke: gridLineColor,
+      strokeDasharray: "",
+      strokeWidth: "1",
+    },
+    propsForLabels: {
+      fontSize: 10,
+      fontWeight: "600",
+    } as any,
+  };
   const shouldEnableHorizontalScroll =
     chart.chartWidth > chart.effectiveContainerWidth + 1;
-  const pinchTranslateX = React.useMemo(
-    () =>
-      Animated.multiply(
-        Animated.subtract(chart.pinchScale, 1),
-        chart.chartWidth / 2
-      ),
-    [chart.chartWidth, chart.pinchScale]
+  const pinchTranslateX = Animated.multiply(
+    Animated.subtract(chart.pinchScale, 1),
+    chart.chartWidth / 2
   );
   const shouldShowGoalToggle =
     showGoalLine &&
@@ -377,7 +367,9 @@ export function WeightProgressChart({
       {/* Header */}
       <View style={styles.headerRow}>
         <View style={{ flex: 1, paddingRight: 10 }}>
-          {showTitle && <Text style={[typography.h2, styles.title]}>{title}</Text>}
+          {showTitle && (
+            <Text style={[typography.h2, styles.title]}>{title}</Text>
+          )}
           <Text style={[typography.body, styles.meta]}>
             {`${chart.stats?.count} målinger · siste ${weeks} uker`}
           </Text>
@@ -418,89 +410,87 @@ export function WeightProgressChart({
 
       {/* Stats row */}
       {showStats && chart.stats && (
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <View style={styles.statHead}>
-              <View style={styles.statIconWrap}>
-                <Ionicons name="flag-outline" size={12} color="#7dd3fc" />
+        <>
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <View style={styles.statHead}>
+                <View style={styles.statIconWrap}>
+                  <Ionicons name="scale-outline" size={12} color="#7dd3fc" />
+                </View>
+                <Text style={styles.statLabel}>Vekt i dag</Text>
               </View>
-              <Text style={styles.statLabel}>Start</Text>
-            </View>
-            <Text style={styles.statValue}>
-              {chart.stats.first.toFixed(decimalPlaces)} kg
-            </Text>
-          </View>
-
-          <View style={[styles.statBox, styles.statBoxAccent]}>
-            <View style={styles.statHead}>
-              <View style={styles.statIconWrap}>
-                <Ionicons
-                  name="swap-vertical-outline"
-                  size={12}
-                  color="#7dd3fc"
-                />
-              </View>
-              <Text style={styles.statLabel}>Trend</Text>
-            </View>
-            <View style={styles.changeRow}>
-              <Text
-                style={[styles.trendIcon, { color: chart.trend.trendColor }]}
-              >
-                {chart.trend.trendIcon}
-              </Text>
-              <Text
-                style={[styles.statValue, { color: chart.trend.trendColor }]}
-              >
-                {chart.trend.changeText}
+              <Text style={styles.statValue}>
+                {chart.stats.last.toFixed(decimalPlaces)} kg
               </Text>
             </View>
-          </View>
 
-          <View style={styles.statBox}>
-            <View style={styles.statHead}>
-              <View style={styles.statIconWrap}>
-                <Ionicons name="scale-outline" size={12} color="#7dd3fc" />
+            <View style={[styles.statBox, styles.statBoxAccent]}>
+              <View style={styles.statHead}>
+                <View style={styles.statIconWrap}>
+                  <Ionicons name="pulse-outline" size={12} color="#7dd3fc" />
+                </View>
+                <Text style={styles.statLabel}>Trendvekt</Text>
               </View>
-              <Text style={styles.statLabel}>Siste</Text>
+              <Text style={styles.statValue}>
+                {chart.stats.trendLast.toFixed(decimalPlaces)} kg
+              </Text>
             </View>
-            <Text style={styles.statValue}>
-              {chart.stats.last.toFixed(decimalPlaces)} kg
-            </Text>
+
+            <View style={styles.statBox}>
+              <View style={styles.statHead}>
+                <View style={styles.statIconWrap}>
+                  <Ionicons name="sparkles-outline" size={12} color="#7dd3fc" />
+                </View>
+                <Text style={styles.statLabel}>{chart.trend.deltaLabel}</Text>
+              </View>
+              <View style={styles.changeRow}>
+                <Text
+                  style={[styles.trendIcon, { color: chart.trend.deltaColor }]}
+                >
+                  {chart.trend.deltaIcon}
+                </Text>
+                <Text
+                  style={[styles.statValue, { color: chart.trend.deltaColor }]}
+                >
+                  {chart.trend.deltaText}
+                </Text>
+              </View>
+            </View>
           </View>
-        </View>
+        </>
       )}
 
       {/* Goal indicator if goal is outside visible range */}
       {shouldShowGoalToggle && (
-          <View style={styles.goalIndicator}>
-            <TouchableOpacity
-              activeOpacity={0.86}
-              onPress={() => setShowGoalInChart((prev) => !prev)}
-              style={[styles.goalHint, showGoalInChart && styles.goalHintActive]}
+        <View style={styles.goalIndicator}>
+          <TouchableOpacity
+            activeOpacity={0.86}
+            onPress={() => setShowGoalInChart((prev) => !prev)}
+            style={[styles.goalHint, showGoalInChart && styles.goalHintActive]}
+          >
+            <Ionicons
+              name={showGoalInChart ? "eye-off-outline" : "arrow-down"}
+              size={12}
+              color={
+                showGoalInChart
+                  ? "rgba(125,211,252,0.96)"
+                  : "rgba(251,191,36,0.95)"
+              }
+            />
+            <Text
+              style={[
+                styles.goalHintText,
+                showGoalInChart && styles.goalHintTextActive,
+              ]}
             >
-              <Ionicons
-                name={showGoalInChart ? "eye-off-outline" : "arrow-down"}
-                size={12}
-                color={
-                  showGoalInChart
-                    ? "rgba(125,211,252,0.96)"
-                    : "rgba(251,191,36,0.95)"
-                }
-              />
-              <Text
-                style={[
-                  styles.goalHintText,
-                  showGoalInChart && styles.goalHintTextActive,
-                ]}
-              >
-                {showGoalInChart ? "Skjul mål" : "Vis mål"}
-              </Text>
-              <Text style={styles.goalHintValue}>
-                {`${chart.goal.toFixed(decimalPlaces)} kg`}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+              {showGoalInChart ? "Skjul mål" : "Vis mål"}
+            </Text>
+            <Text style={styles.goalHintValue}>
+              {`${chart.goal.toFixed(decimalPlaces)} kg`}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Chart */}
       <View
@@ -528,7 +518,9 @@ export function WeightProgressChart({
                   width: shouldEnableHorizontalScroll
                     ? chart.chartWidth
                     : chart.effectiveContainerWidth,
-                  alignItems: shouldEnableHorizontalScroll ? "flex-start" : "center",
+                  alignItems: shouldEnableHorizontalScroll
+                    ? "flex-start"
+                    : "center",
                 },
               ]}
             >
@@ -554,175 +546,177 @@ export function WeightProgressChart({
                 >
                   <View style={styles.panelAccent} />
 
-                <LineChart
-                  data={{ labels: chart.limitedLabels, datasets }}
-                  width={chart.chartWidth}
-                  height={chart.chartHeight}
-                  withShadow
-                  withInnerLines={showInnerLines}
-                  withVerticalLines={showVerticalLines}
-                  withOuterLines={showOuterLines}
-                  fromZero={fromZero}
-                  segments={segments}
-                  yAxisInterval={1}
-                  yAxisSuffix=""
-                  yAxisLabel=""
-                  chartConfig={chartConfig}
-                  bezier
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    right: 0,
-                    bottom: 0,
-                    paddingRight: CHART_PADDING_RIGHT,
-                  }}
-                  formatYLabel={(yValue) => {
-                    if (formatYLabelFn) return formatYLabelFn(yValue);
-                    const n = Number(yValue);
-                    if (!isFinite(n)) return yValue;
-                    return n.toFixed(decimalPlaces);
-                  }}
-                  decorator={(props: any) => {
-                    const {
-                      width: innerWidth,
-                      height: innerHeight,
-                      paddingTop = CHART_PADDING_TOP,
-                      paddingRight = CHART_PADDING_RIGHT,
-                      data: decoratorData = [],
-                    } = props;
+                  <LineChart
+                    data={{ labels: chart.limitedLabels, datasets }}
+                    width={chart.chartWidth}
+                    height={chart.chartHeight}
+                    withShadow
+                    withInnerLines={showInnerLines}
+                    withVerticalLines={showVerticalLines}
+                    withOuterLines={showOuterLines}
+                    fromZero={fromZero}
+                    segments={segments}
+                    yAxisInterval={1}
+                    yAxisSuffix=""
+                    yAxisLabel=""
+                    chartConfig={chartConfig}
+                    bezier
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      paddingRight: CHART_PADDING_RIGHT,
+                    }}
+                    formatYLabel={(yValue) => {
+                      if (formatYLabelFn) return formatYLabelFn(yValue);
+                      const n = Number(yValue);
+                      if (!isFinite(n)) return yValue;
+                      return n.toFixed(decimalPlaces);
+                    }}
+                    decorator={(props: any) => {
+                      const {
+                        width: innerWidth,
+                        height: innerHeight,
+                        paddingTop = CHART_PADDING_TOP,
+                        paddingRight = CHART_PADDING_RIGHT,
+                        data: decoratorData = [],
+                      } = props;
 
-                    const allDataValues = Array.isArray(decoratorData)
-                      ? decoratorData
-                          .flatMap((dataset: any) =>
-                            Array.isArray(dataset?.data) ? dataset.data : []
-                          )
-                          .filter(
-                            (v: unknown): v is number =>
-                              typeof v === "number" && Number.isFinite(v)
-                          )
-                      : [];
+                      const allDataValues = Array.isArray(decoratorData)
+                        ? decoratorData
+                            .flatMap((dataset: any) =>
+                              Array.isArray(dataset?.data) ? dataset.data : []
+                            )
+                            .filter(
+                              (v: unknown): v is number =>
+                                typeof v === "number" && Number.isFinite(v)
+                            )
+                        : [];
 
-                    if (!allDataValues.length) return null;
+                      if (!allDataValues.length) return null;
 
-                    const trendPath =
-                      shouldRenderDecorator &&
-                      showTrendLine && chart.trendValues.length > 1
-                        ? buildBezierTrendPath({
-                            values: chart.trendValues,
-                            domainData: allDataValues,
-                            width: innerWidth,
-                            height: innerHeight,
-                            paddingRight,
-                            paddingTop,
-                            fromZero,
-                          })
-                        : null;
-                    const shouldRenderGoal =
-                      shouldRenderDecorator &&
-                      showGoalLine &&
-                      goalValue !== undefined &&
-                      chart.maxY !== chart.minY &&
-                      chart.isGoalInRange;
+                      const trendPath =
+                        shouldRenderDecorator &&
+                        showTrendLine &&
+                        chart.trendValues.length > 1
+                          ? buildBezierTrendPath({
+                              values: chart.trendValues,
+                              domainData: allDataValues,
+                              width: innerWidth,
+                              height: innerHeight,
+                              paddingRight,
+                              paddingTop,
+                              fromZero,
+                            })
+                          : null;
+                      const shouldRenderGoal =
+                        shouldRenderDecorator &&
+                        showGoalLine &&
+                        goalValue !== undefined &&
+                        chart.maxY !== chart.minY &&
+                        chart.isGoalInRange;
 
-                    const min = Math.min(...allDataValues);
-                    const max = Math.max(...allDataValues);
-                    const scaler = fromZero
-                      ? Math.max(...allDataValues, 0) - Math.min(...allDataValues, 0) || 1
-                      : max - min || 1;
-                    const baseHeight =
-                      min >= 0 && max >= 0
-                        ? innerHeight
-                        : min < 0 && max <= 0
-                        ? 0
-                        : (innerHeight * max) / scaler;
-                    const goalHeight = shouldRenderGoal
-                      ? min < 0 && max > 0
-                        ? innerHeight * (chart.goal / scaler)
-                        : min >= 0 && max >= 0
-                        ? fromZero
+                      const min = Math.min(...allDataValues);
+                      const max = Math.max(...allDataValues);
+                      const scaler = fromZero
+                        ? Math.max(...allDataValues, 0) -
+                            Math.min(...allDataValues, 0) || 1
+                        : max - min || 1;
+                      const baseHeight =
+                        min >= 0 && max >= 0
+                          ? innerHeight
+                          : min < 0 && max <= 0
+                          ? 0
+                          : (innerHeight * max) / scaler;
+                      const goalHeight = shouldRenderGoal
+                        ? min < 0 && max > 0
                           ? innerHeight * (chart.goal / scaler)
-                          : innerHeight * ((chart.goal - min) / scaler)
-                        : fromZero
-                        ? innerHeight * (chart.goal / scaler)
-                        : innerHeight * ((chart.goal - max) / scaler)
-                      : null;
-                    const goalY =
-                      goalHeight != null
-                        ? ((baseHeight - goalHeight) / 4) * 3 + paddingTop
+                          : min >= 0 && max >= 0
+                          ? fromZero
+                            ? innerHeight * (chart.goal / scaler)
+                            : innerHeight * ((chart.goal - min) / scaler)
+                          : fromZero
+                          ? innerHeight * (chart.goal / scaler)
+                          : innerHeight * ((chart.goal - max) / scaler)
                         : null;
+                      const goalY =
+                        goalHeight != null
+                          ? ((baseHeight - goalHeight) / 4) * 3 + paddingTop
+                          : null;
 
-                    if (!trendPath && !shouldRenderGoal) return null;
+                      if (!trendPath && !shouldRenderGoal) return null;
 
-                    return (
-                      <>
-                        {trendPath ? (
-                          <SvgPath
-                            d={trendPath}
-                            fill="none"
-                            stroke={trendLineColor}
-                            strokeWidth={trendLineStrokeWidth}
-                            strokeDasharray={trendLineDashArray}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            opacity={0.95}
-                          />
-                        ) : null}
-
-                        {shouldRenderGoal && goalY != null ? (
-                          <>
-                        {/* Goal line */}
-                        <Line
-                          x1={paddingRight.toString()}
-                          x2={innerWidth.toString()}
-                          y1={goalY}
-                          y2={goalY}
-                          stroke={goalLineColor}
-                          strokeDasharray={goalLineDashArray}
-                          strokeWidth={1.5}
-                        />
-
-                        {/* Goal label */}
-                        <SvgText
-                          x={innerWidth - 6}
-                          y={goalY - 6}
-                          fill={goalLineColor}
-                          fontSize="11"
-                          fontWeight="700"
-                          textAnchor="end"
-                        >
-                          {`Mål: ${chart.goal.toFixed(decimalPlaces)} kg`}
-                        </SvgText>
-                          </>
-                        ) : null}
-
-                        {/* Gradient fill under line (kept for future use) */}
-                        <Defs>
-                          <SvgLinearGradient
-                            id="chartGradient"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <Stop
-                              offset="0%"
-                              stopColor={lineColor}
-                              stopOpacity="0.3"
+                      return (
+                        <>
+                          {trendPath ? (
+                            <SvgPath
+                              d={trendPath}
+                              fill="none"
+                              stroke={trendLineColor}
+                              strokeWidth={trendLineStrokeWidth}
+                              strokeDasharray={trendLineDashArray}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              opacity={0.95}
                             />
-                            <Stop
-                              offset="100%"
-                              stopColor={lineColor}
-                              stopOpacity="0"
-                            />
-                          </SvgLinearGradient>
-                        </Defs>
-                      </>
-                    );
-                  }}
-                />
+                          ) : null}
 
-                {/* Panel background */}
+                          {shouldRenderGoal && goalY != null ? (
+                            <>
+                              {/* Goal line */}
+                              <Line
+                                x1={paddingRight.toString()}
+                                x2={innerWidth.toString()}
+                                y1={goalY}
+                                y2={goalY}
+                                stroke={goalLineColor}
+                                strokeDasharray={goalLineDashArray}
+                                strokeWidth={1.5}
+                              />
+
+                              {/* Goal label */}
+                              <SvgText
+                                x={innerWidth - 6}
+                                y={goalY - 6}
+                                fill={goalLineColor}
+                                fontSize="11"
+                                fontWeight="700"
+                                textAnchor="end"
+                              >
+                                {`Mål: ${chart.goal.toFixed(decimalPlaces)} kg`}
+                              </SvgText>
+                            </>
+                          ) : null}
+
+                          {/* Gradient fill under line (kept for future use) */}
+                          <Defs>
+                            <SvgLinearGradient
+                              id="chartGradient"
+                              x1="0"
+                              y1="0"
+                              x2="0"
+                              y2="1"
+                            >
+                              <Stop
+                                offset="0%"
+                                stopColor={lineColor}
+                                stopOpacity="0.3"
+                              />
+                              <Stop
+                                offset="100%"
+                                stopColor={lineColor}
+                                stopOpacity="0"
+                              />
+                            </SvgLinearGradient>
+                          </Defs>
+                        </>
+                      );
+                    }}
+                  />
+
+                  {/* Panel background */}
                   <View
                     pointerEvents="none"
                     style={[
@@ -764,9 +758,9 @@ export function WeightProgressChart({
           </View>
 
           <View style={styles.goalStat}>
-            <Text style={styles.goalStatLabel}>Snitt/uke</Text>
+            <Text style={styles.goalStatLabel}>Trend/uke</Text>
             <Text
-              style={[styles.goalStatValue, { color: chart.trend.trendColor }]}
+              style={[styles.goalStatValue, { color: chart.trend.paceColor }]}
             >
               {chart.stats.avgChangePerWeek > 0 ? "+" : ""}
               {chart.stats.avgChangePerWeek.toFixed(2)} kg

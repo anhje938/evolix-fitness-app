@@ -455,24 +455,24 @@ function buildStatusCopy(
   switch (status) {
     case "increase":
       return {
-        statusLabel: "Klar for Ã¸kning",
+        statusLabel: "Klar for økning",
         headline: loadFocused
-          ? "Coachen vil at du prÃ¸ver tyngre"
+          ? "Coachen vil at du prøver tyngre"
           : "Coachen vil ha flere reps",
       };
     case "decrease":
       return {
         statusLabel: "Ta et lite steg tilbake",
         headline: loadFocused
-          ? "Skal ned litt for Ã¥ bygge opp igjen"
-          : "Skal ned litt pÃ¥ reps og bygge opp igjen",
+          ? "Skal ned litt for å bygge opp igjen"
+          : "Skal ned litt på reps og bygge opp igjen",
       };
     case "plateau":
       return {
         statusLabel: "Tegn til plateau",
         headline: loadFocused
-          ? "Ingen tydelig fremgang de siste Ã¸ktene"
-          : "Repsene stÃ¥r stille akkurat nÃ¥",
+          ? "Ingen tydelig fremgang de siste øktene"
+          : "Repsene står stille akkurat nå",
       };
     case "reentry":
       return {
@@ -484,7 +484,7 @@ function buildStatusCopy(
       return {
         statusLabel: "Hold deg her",
         headline: loadFocused
-          ? "Bygg en ny sterk Ã¸kt pÃ¥ samme vekt"
+          ? "Bygg en ny sterk økt på samme vekt"
           : "Gjenta oppsettet og eie repsene",
       };
   }

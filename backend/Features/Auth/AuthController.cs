@@ -105,9 +105,17 @@ namespace backend.Features.Auth
             {
                 // Hvis tokenet ikke engang kan parses (format feil)
                 _logger.LogWarning(ex, "Failed to parse Apple idToken as JWT. traceId={traceId}", reqId);
-                if (ReturnDebugDetails)
-                    return BadRequest(new { error = "Invalid token format", detail = ex.Message, traceId = reqId });
-                return BadRequest(new { error = "Invalid token format", traceId = reqId });
+
+                if (!_env.IsDevelopment())
+                {
+                    if (ReturnDebugDetails)
+                        return BadRequest(new { error = "Invalid token format", detail = ex.Message, traceId = reqId });
+                    return BadRequest(new { error = "Invalid token format", traceId = reqId });
+                }
+
+                _logger.LogInformation(
+                    "Continuing Apple login in development despite unparsable token. traceId={traceId}",
+                    reqId);
             }
 
             try

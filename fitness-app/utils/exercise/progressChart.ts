@@ -5,7 +5,7 @@ import {
   getOsloDateKey,
 } from "@/utils/date";
 
-export type ProgressTimeRange = "20" | "50" | "100" | "all";
+export type ProgressTimeRange = "1m" | "3m" | "6m" | "1y" | "all";
 export type ProgressMetricKind = "weight" | "volumeKg" | "volumeSets";
 export type ProgressUnit = "kg" | "lbs" | "sets";
 export type ProgressBucket = "day" | "week";
@@ -87,11 +87,37 @@ export const PROGRESS_TIME_RANGE_OPTIONS: {
   value: ProgressTimeRange;
   label: string;
 }[] = [
-  { value: "20", label: "20" },
-  { value: "50", label: "50" },
-  { value: "100", label: "100" },
-  { value: "all", label: "Alle" },
+  { value: "1m", label: "1M" },
+  { value: "3m", label: "3M" },
+  { value: "6m", label: "6M" },
+  { value: "1y", label: "1Y" },
+  { value: "all", label: "All" },
 ];
+
+export function getProgressRangeOption(range: ProgressTimeRange) {
+  return (
+    PROGRESS_TIME_RANGE_OPTIONS.find((option) => option.value === range) ??
+    PROGRESS_TIME_RANGE_OPTIONS[PROGRESS_TIME_RANGE_OPTIONS.length - 1]
+  );
+}
+
+export function stepProgressRange(
+  range: ProgressTimeRange,
+  direction: "in" | "out"
+) {
+  const currentIndex = PROGRESS_TIME_RANGE_OPTIONS.findIndex(
+    (option) => option.value === range
+  );
+  const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+  const delta = direction === "in" ? -1 : 1;
+  const nextIndex = clamp(
+    safeIndex + delta,
+    0,
+    PROGRESS_TIME_RANGE_OPTIONS.length - 1
+  );
+
+  return PROGRESS_TIME_RANGE_OPTIONS[nextIndex]?.value ?? range;
+}
 
 function addDays(date: Date, days: number) {
   const d = new Date(date.getTime());
@@ -126,10 +152,11 @@ function clamp(value: number, minValue: number, maxValue: number) {
   return Math.max(minValue, Math.min(maxValue, value));
 }
 
-function getRangeLimit(range: ProgressTimeRange) {
-  if (range === "20") return 20;
-  if (range === "50") return 50;
-  if (range === "100") return 100;
+function getRangeWindowDays(range: ProgressTimeRange) {
+  if (range === "1m") return 30;
+  if (range === "3m") return 90;
+  if (range === "6m") return 180;
+  if (range === "1y") return 365;
   return null;
 }
 
@@ -168,9 +195,10 @@ function formatFullLabel(dateKey: string, bucket: ProgressBucket) {
 }
 
 function formatRangeLabel(range: ProgressTimeRange) {
-  if (range === "20") return "Siste 20 økter";
-  if (range === "50") return "Siste 50 økter";
-  if (range === "100") return "Siste 100 økter";
+  if (range === "1m") return "Siste måned";
+  if (range === "3m") return "Siste 3 måneder";
+  if (range === "6m") return "Siste 6 måneder";
+  if (range === "1y") return "Siste år";
   return "Hele historikken";
 }
 
@@ -318,8 +346,16 @@ function sanitizePoints(
 
   cleaned.sort((a, b) => a.tsMs - b.tsMs);
 
-  const limit = getRangeLimit(range);
-  const ranged = limit != null ? cleaned.slice(-limit) : cleaned;
+  const windowDays = getRangeWindowDays(range);
+  const latestTsMs = cleaned[cleaned.length - 1]?.tsMs ?? null;
+  const cutoffTsMs =
+    windowDays != null && latestTsMs != null
+      ? latestTsMs - windowDays * 24 * 60 * 60 * 1000
+      : null;
+  const ranged =
+    cutoffTsMs != null
+      ? cleaned.filter((point) => point.tsMs >= cutoffTsMs)
+      : cleaned;
 
   return { cleaned: ranged, removed };
 }
@@ -389,15 +425,17 @@ function chooseBucket(
 ) {
   if (forcedBucket) return forcedBucket;
   if (pointCount > 60) return "week";
-  if (range === "all" && pointCount > 40) return "week";
+  if ((range === "6m" || range === "1y" || range === "all") && pointCount > 16) {
+    return "week";
+  }
   return "day";
 }
 
 function getGapThresholdDays(range: ProgressTimeRange, bucket: ProgressBucket) {
   if (bucket === "week") return 21;
-  if (range === "20") return 10;
-  if (range === "50") return 14;
-  if (range === "100") return 21;
+  if (range === "1m") return 10;
+  if (range === "3m") return 14;
+  if (range === "6m" || range === "1y") return 21;
   return 45;
 }
 

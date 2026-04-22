@@ -16,16 +16,25 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 
 const string DeployMarker = "delete-logging-v1-2026-03-18";
 
 var builder = WebApplication.CreateBuilder(args);
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection must be configured.");
+}
+
+var connectionInfo = new NpgsqlConnectionStringBuilder(connectionString);
 
 // DB
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"));
+    options.UseNpgsql(connectionString);
 });
 
 // Services
@@ -47,6 +56,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders =
         ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
 });
 
 // Settings
@@ -136,6 +147,8 @@ builder.Services
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapGet("/debug/env", (IHostEnvironment env) =>
@@ -167,12 +180,11 @@ app.MapGet("/health", () => "OK");  // health-test
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var hasConnectionString =
-        !string.IsNullOrWhiteSpace(
-            builder.Configuration.GetConnectionString("DefaultConnection"));
     Console.WriteLine("DEPLOY_MARKER=" + DeployMarker);
     Console.WriteLine("ENV=" + builder.Environment.EnvironmentName);
-    Console.WriteLine("ConnStrConfigured=" + hasConnectionString);
+    Console.WriteLine("ConnStrConfigured=True");
+    Console.WriteLine(
+        $"DbTarget=Host={connectionInfo.Host};Port={connectionInfo.Port};Database={connectionInfo.Database}");
     db.Database.Migrate();
 }
 

@@ -56,7 +56,9 @@ export function AddMealSheet({
   const [proteins, setProteins] = useState("");
   const [carbs, setCarbs] = useState("");
   const [fats, setFats] = useState("");
-  const [timestampUtc, setTimestampUtc] = useState<Date | null>(() => new Date());
+  const [timestampUtc, setTimestampUtc] = useState<Date | null>(
+    () => new Date()
+  );
   const titleInputRef = useRef<RNTextInput | null>(null);
   const caloriesInputRef = useRef<RNTextInput | null>(null);
   const proteinsInputRef = useRef<RNTextInput | null>(null);
@@ -393,8 +395,8 @@ export function AddMealSheet({
                       Tips for nøyaktig logging
                     </Text>
                     <Text style={styles.tipText}>
-                      Vei maten for mest nøyaktige resultater. Logg måltidet
-                      tett på når du spiser for en renere historikk.
+                      Vei maten for mest nøyaktige resultater. Husk å skille
+                      mellom tørr og våt vare
                     </Text>
                   </View>
                 </View>

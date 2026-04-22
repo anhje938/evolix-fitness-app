@@ -174,6 +174,8 @@ const AdjustValueButton = memo(function AdjustValueButton({
 
 type ExerciseBlockProps = {
   exercise: SessionExercise;
+  coachState?: "hidden" | "loading" | "empty" | "ready";
+  coachMessage?: string | null;
   coachRecommendation?: WorkoutCoachRecommendation | null;
   onAddSet: () => void;
   onApplyCoachRecommendation?: () => void;
@@ -223,17 +225,31 @@ const coachToneMap: Record<
   },
 };
 
+const placeholderCoachTone = {
+  icon: "sparkles-outline" as keyof typeof Ionicons.glyphMap,
+  tint: overlayColors.accent,
+  bg: overlayColors.accentBg,
+  border: overlayColors.accentDim,
+};
+
+type WorkoutCoachTone = {
+  icon: keyof typeof Ionicons.glyphMap;
+  tint: string;
+  bg: string;
+  border: string;
+};
+
 const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
-  recommendation,
+  tone,
   isVisible,
   onPress,
+  statusLabel,
 }: {
-  recommendation: WorkoutCoachRecommendation;
+  tone: WorkoutCoachTone;
   isVisible: boolean;
   onPress: () => void;
+  statusLabel?: string;
 }) {
-  const tone = coachToneMap[recommendation.status];
-
   return (
     <Pressable
       onPress={onPress}
@@ -259,7 +275,25 @@ const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
           <Ionicons name={tone.icon} size={15} color={tone.tint} />
         </View>
 
-        <Text style={[typography.body, styles.coachToggleLabel]}>Coach</Text>
+        <Text style={[typography.body, styles.coachToggleLabel]}>
+          Treningscoach
+        </Text>
+
+        {statusLabel ? (
+          <View
+            style={[
+              styles.coachToggleStatusBadge,
+              {
+                backgroundColor: tone.bg,
+                borderColor: tone.border,
+              },
+            ]}
+          >
+            <Text style={[styles.coachToggleStatusText, { color: tone.tint }]}>
+              {statusLabel}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View
@@ -336,7 +370,7 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
 
           <View style={styles.coachCardTitleCopy}>
             <Text style={[typography.body, styles.coachSectionLabel]}>
-              Coach
+              Treningscoach
             </Text>
             <Text style={[typography.bodyBold, styles.coachCardHeadline]}>
               {recommendation.headline}
@@ -421,8 +455,69 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
   );
 });
 
+const WorkoutCoachPlaceholderCard = memo(function WorkoutCoachPlaceholderCard({
+  state,
+  message,
+}: {
+  state: "loading" | "empty";
+  message: string;
+}) {
+  const tone =
+    state === "loading"
+      ? {
+          icon: "time-outline" as keyof typeof Ionicons.glyphMap,
+          tint: overlayColors.accent,
+          bg: overlayColors.accentBg,
+          border: overlayColors.accentDim,
+        }
+      : placeholderCoachTone;
+
+  return (
+    <View
+      style={[
+        styles.coachCard,
+        {
+          backgroundColor: tone.bg,
+          borderColor: tone.border,
+        },
+      ]}
+    >
+      <View style={styles.coachCardHeader}>
+        <View style={styles.coachCardTitleWrap}>
+          <View
+            style={[
+              styles.coachCardIconWrap,
+              {
+                backgroundColor: "rgba(2,6,23,0.28)",
+                borderColor: tone.border,
+              },
+            ]}
+          >
+            <Ionicons name={tone.icon} size={15} color={tone.tint} />
+          </View>
+
+          <View style={styles.coachCardTitleCopy}>
+            <Text style={[typography.body, styles.coachSectionLabel]}>
+              Treningscoach
+            </Text>
+            <Text style={[typography.bodyBold, styles.coachCardHeadline]}>
+              {state === "loading"
+                ? "Henter forslag for denne øvelsen"
+                : "Coachen bygger opp historikk"}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <Text style={[typography.body, styles.coachReason]}>{message}</Text>
+    </View>
+  );
+});
+
 export const ExerciseBlock = memo(function ExerciseBlock({
   exercise,
+  coachState = "hidden",
+  coachMessage,
   coachRecommendation,
   onAddSet,
   onApplyCoachRecommendation,
@@ -613,18 +708,48 @@ export const ExerciseBlock = memo(function ExerciseBlock({
         </Pressable>
       </View>
 
-      {coachRecommendation ? (
+      {coachState === "ready" && coachRecommendation ? (
         <>
           <WorkoutCoachToggle
-            recommendation={coachRecommendation}
+            tone={coachToneMap[coachRecommendation.status]}
             isVisible={isCoachVisible}
             onPress={() => setIsCoachVisible((current) => !current)}
+            statusLabel={coachRecommendation.statusLabel}
           />
           {isCoachVisible ? (
             <WorkoutCoachCard
               recommendation={coachRecommendation}
               canApply={canApplyCoachRecommendation}
               onApply={onApplyCoachRecommendation}
+            />
+          ) : null}
+        </>
+      ) : coachState === "loading" || coachState === "empty" ? (
+        <>
+          <WorkoutCoachToggle
+            tone={
+              coachState === "loading"
+                ? {
+                    icon: "time-outline",
+                    tint: overlayColors.accent,
+                    bg: overlayColors.accentBg,
+                    border: overlayColors.accentDim,
+                  }
+                : placeholderCoachTone
+            }
+            isVisible={isCoachVisible}
+            onPress={() => setIsCoachVisible((current) => !current)}
+            statusLabel={coachState === "loading" ? "Laster" : "Venter"}
+          />
+          {isCoachVisible ? (
+            <WorkoutCoachPlaceholderCard
+              state={coachState}
+              message={
+                coachMessage ??
+                (coachState === "loading"
+                  ? "Henter tidligere økter for denne øvelsen..."
+                  : "Coachen blir tilgjengelig når denne øvelsen har lagret historikk.")
+              }
             />
           ) : null}
         </>

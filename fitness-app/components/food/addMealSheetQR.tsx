@@ -165,7 +165,14 @@ export function AddMealSheetQR({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [backdropOpacity, isOpen, mode, sheetOpacity, sheetScale, sheetTranslateY]);
+  }, [
+    backdropOpacity,
+    isOpen,
+    mode,
+    sheetOpacity,
+    sheetScale,
+    sheetTranslateY,
+  ]);
 
   if (!isOpen || mode !== "qr") return null;
 
@@ -316,8 +323,7 @@ export function AddMealSheetQR({
           carbs: 0,
           fats: 0,
         };
-  const canSaveScannedMeal =
-    !!scannedCode && !!productName && !isResolvingScan;
+  const canSaveScannedMeal = !!scannedCode && !!productName && !isResolvingScan;
 
   const handleSave = async () => {
     if (!scannedCode || !productName || isResolvingScan) {
@@ -550,7 +556,7 @@ export function AddMealSheetQR({
                       </Text>
                       <Text style={styles.tipText}>
                         Skann først, juster deretter gram etter hvor mye du
-                        faktisk spiste. Det gir en langt renere logg.
+                        faktisk spiste.
                       </Text>
                     </View>
                   </View>
@@ -595,8 +601,8 @@ export function AddMealSheetQR({
                       {isResolvingScan
                         ? "Henter produkt..."
                         : canSaveScannedMeal
-                          ? "Lagre måltid"
-                          : "Skann et produkt først"}
+                        ? "Lagre måltid"
+                        : "Skann et produkt først"}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
