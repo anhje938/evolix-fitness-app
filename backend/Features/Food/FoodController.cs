@@ -62,7 +62,7 @@ namespace backend.Features.Food
 
             var dto = new FoodFromBarcodeDto
             {
-                Title = p.product_name,
+                Title = p.product_name ?? string.Empty,
                 CaloriesPr100 = n.energy_kcal_100g,
                 ProteinsPr100 = n.proteins_100g,
                 CarbsPr100 = n.carbohydrates_100g,

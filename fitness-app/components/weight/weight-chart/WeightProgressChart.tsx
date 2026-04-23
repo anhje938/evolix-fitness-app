@@ -292,69 +292,51 @@ export function WeightProgressChart({
   const showChartDots =
     showDots && chart.renderMode === "full";
   const shouldRenderDecorator = showTrendLine || showGoalLine;
-  const datasets = React.useMemo(
-    () => [
-      {
-        data: chart.values,
-        strokeWidth: lineStrokeWidth,
-        color: () => lineColor,
-      },
-      {
-        data: [chart.minY, chart.maxY],
-        strokeWidth: 0,
-        color: () => "rgba(0,0,0,0)",
-        withDots: false,
-      },
-    ],
-    [chart.maxY, chart.minY, chart.values, lineColor, lineStrokeWidth]
-  );
-  const chartConfig = React.useMemo(
-    () => ({
-      backgroundGradientFrom: "transparent",
-      backgroundGradientTo: "transparent",
-      decimalPlaces,
+  const datasets = [
+    {
+      data: chart.values,
+      strokeWidth: lineStrokeWidth,
       color: () => lineColor,
-      labelColor: () => labelColor,
-      useShadowColorFromDataset: true,
-      paddingTop: 20,
-      paddingRight: 16,
-      propsForDots: showChartDots
-        ? {
-            r: String(dotRadius),
-            strokeWidth: "1.5",
-            stroke: dotColor,
-            fill: weightChartColors.dotFillColor,
-          }
-        : { r: "0", strokeWidth: "0" },
-      propsForBackgroundLines: {
-        stroke: gridLineColor,
-        strokeDasharray: "",
-        strokeWidth: "1",
-      },
-      propsForLabels: {
-        fontSize: 10,
-        fontWeight: "600",
-      } as any,
-    }),
-    [
-      decimalPlaces,
-      dotColor,
-      dotRadius,
-      gridLineColor,
-      labelColor,
-      lineColor,
-      showChartDots,
-    ]
-  );
+    },
+    {
+      data: [chart.minY, chart.maxY],
+      strokeWidth: 0,
+      color: () => "rgba(0,0,0,0)",
+      withDots: false,
+    },
+  ];
+  const chartConfig = {
+    backgroundGradientFrom: "transparent",
+    backgroundGradientTo: "transparent",
+    decimalPlaces,
+    color: () => lineColor,
+    labelColor: () => labelColor,
+    useShadowColorFromDataset: true,
+    paddingTop: 20,
+    paddingRight: 16,
+    propsForDots: showChartDots
+      ? {
+          r: String(dotRadius),
+          strokeWidth: "1.5",
+          stroke: dotColor,
+          fill: weightChartColors.dotFillColor,
+        }
+      : { r: "0", strokeWidth: "0" },
+    propsForBackgroundLines: {
+      stroke: gridLineColor,
+      strokeDasharray: "",
+      strokeWidth: "1",
+    },
+    propsForLabels: {
+      fontSize: 10,
+      fontWeight: "600",
+    } as any,
+  };
   const shouldEnableHorizontalScroll =
     chart.chartWidth > chart.effectiveContainerWidth + 1;
-  const pinchTranslateX = React.useMemo(
-    () =>
-      Animated.multiply(
-        Animated.subtract(chart.pinchScale, 1),
-        chart.chartWidth / 2
-      ),
-    [chart.chartWidth, chart.pinchScale]
+  const pinchTranslateX = Animated.multiply(
+    Animated.subtract(chart.pinchScale, 1),
+    chart.chartWidth / 2
   );
   const shouldShowGoalToggle =
     showGoalLine &&

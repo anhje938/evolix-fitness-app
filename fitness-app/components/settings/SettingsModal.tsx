@@ -276,7 +276,7 @@ export default function SettingsModal({
         { key: "protein" as const, label: "Protein" },
         { key: "carbs" as const, label: "Karbo" },
         { key: "fat" as const, label: "Fett" },
-      ] satisfies Array<{ key: HomeGoalTile; label: string }>,
+      ] satisfies { key: HomeGoalTile; label: string }[],
     []
   );
 
@@ -354,6 +354,7 @@ export default function SettingsModal({
     );
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDeleteAccount = () => {
     if (isDeletingAccount) return;
 

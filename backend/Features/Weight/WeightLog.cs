@@ -7,7 +7,7 @@ namespace backend.Features.Weight
     {
         public Guid Id { get; set; } = Guid.NewGuid();
 
-        public string UserId { get; set; }
+        public string UserId { get; set; } = "";
 
         public DateTime TimestampUtc { get; set; }
 

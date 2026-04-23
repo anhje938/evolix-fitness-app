@@ -51,13 +51,6 @@ function getMacroDistribution(meal: ComposedMeal) {
   return { proteinPercent, carbsPercent, fatsPercent };
 }
 
-function formatScaledValue(value: number) {
-  const safe = toSafeMacroNumber(value);
-  const rounded = Math.round(safe);
-  if (Math.abs(safe - rounded) < 0.05) return String(rounded);
-  return safe.toFixed(1).replace(".", ",");
-}
-
 export function ComposedMealsSection({
   meals,
   history,

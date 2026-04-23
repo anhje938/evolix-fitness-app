@@ -24,7 +24,7 @@ var builder = WebApplication.CreateBuilder(args);
 // DB
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseSqlServer(
+    options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
@@ -47,6 +47,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders =
         ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
 });
 
 // Settings
@@ -77,14 +79,26 @@ var corsOrigins = builder.Configuration
     .GetSection("Cors:Origins")
     .Get<string[]>();
 
+if (corsOrigins is not null)
+{
+    corsOrigins = corsOrigins
+        .Where(origin => !string.IsNullOrWhiteSpace(origin))
+        .Select(origin => origin.Trim())
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+}
+
 if (builder.Environment.IsDevelopment())
 {
-    corsOrigins ??=
-    [
-        "http://localhost:19006",
-        "http://localhost:3000",
-        "http://localhost:5173"
-    ];
+    if (corsOrigins is null || corsOrigins.Length == 0)
+    {
+        corsOrigins =
+        [
+            "http://localhost:19006",
+            "http://localhost:3000",
+            "http://localhost:5173"
+        ];
+    }
 }
 
 if (corsOrigins is null || corsOrigins.Length == 0)
@@ -135,6 +149,8 @@ builder.Services
     });
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
 {

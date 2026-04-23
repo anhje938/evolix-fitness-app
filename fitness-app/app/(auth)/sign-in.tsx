@@ -69,7 +69,7 @@ export default function SignIn() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim, scaleAnim, logoRotate]);
 
   const handleLogin = async () => {
     if (isLoggingIn) return;

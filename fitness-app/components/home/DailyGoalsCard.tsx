@@ -68,13 +68,11 @@ export default function DailyGoalsCard({
   settings,
   onPressEdit,
 }: Props) {
-  // Ensure list exists + valid, and ALWAYS keep calories at top if enabled
-  const rawTiles = settings.homeGoalTiles?.length
-    ? settings.homeGoalTiles
-    : (["calories", "protein", "carbs", "fat"] as HomeGoalTile[]);
-
   // Remove duplicates + keep stable order
   const uniqueTiles = useMemo(() => {
+    const rawTiles = settings.homeGoalTiles?.length
+      ? settings.homeGoalTiles
+      : (["calories", "protein", "carbs", "fat"] as HomeGoalTile[]);
     const seen = new Set<HomeGoalTile>();
     const out: HomeGoalTile[] = [];
     for (const t of rawTiles) {
@@ -84,7 +82,7 @@ export default function DailyGoalsCard({
       }
     }
     return out;
-  }, [rawTiles]);
+  }, [settings.homeGoalTiles]);
 
   const enabled = useMemo(() => {
     const hasCalories = uniqueTiles.includes("calories");

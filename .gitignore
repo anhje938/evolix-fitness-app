@@ -6,9 +6,21 @@ backend/.vs/
 # Build / bin / obj
 bin/
 obj/
+backend/build-temp/
+backend/build-temp-2/
+backend/build-ef-temp/
+backend/bin-temp-deletecheck/
+backend/.codex-build/
+backend/*.tmp
+*.user
 
 # Node / Expo
 node_modules/
 .expo/
 dist/
 build/
+
+# Local env files
+.env.local
+.env.*.local
+.env.vps

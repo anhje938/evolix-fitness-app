@@ -2,8 +2,8 @@
 using backend.Data;
 using backend.Features.Training.Workouts;
 using backend.Features.Training.WorkoutSessions.Entities;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -141,8 +141,8 @@ namespace backend.Features.Training.WorkoutSessions
 
         private static bool IsUniqueClientRequestIdViolation(DbUpdateException exception)
         {
-            return exception.InnerException is SqlException sqlException &&
-                (sqlException.Number == 2601 || sqlException.Number == 2627);
+            return exception.InnerException is PostgresException postgresException &&
+                postgresException.SqlState == PostgresErrorCodes.UniqueViolation;
         }
 
         private async Task ApplySessionPayloadAsync(

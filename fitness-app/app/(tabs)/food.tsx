@@ -449,6 +449,7 @@ export default function FoodPage() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleRelogSameFromHistory = async (item: ComposedMealHistoryItem) => {
     try {
       if (!token) return;

@@ -1,4 +1,4 @@
-﻿import { typography } from "@/config/typography";
+import { typography } from "@/config/typography";
 import type { SessionExercise, SessionSet } from "@/types/exercise";
 import {
   getWorkoutCoachPlanSummaryParts,
