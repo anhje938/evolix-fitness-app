@@ -31,10 +31,10 @@ services:
       Jwt__SecretKey: ${JWT_SECRET_KEY}
       RefreshToken__LifetimeDays: ${REFRESH_TOKEN_LIFETIME_DAYS:-250}
       AppleSettings__ClientId: ${APPLE_CLIENT_ID}
-      Cors__Origins__0: ${CORS_ORIGIN}
-      Cors__Origins__1: ${CORS_ORIGIN_1:-}
+      Cors__Origins__0: ${CORS_ORIGIN_0}
+      Cors__Origins__1: ${CORS_ORIGIN_1}
     ports:
-      - "${API_HOST_PORT:-8080}:8080"
+      - "127.0.0.1:${API_HOST_PORT:-8080}:8080"
 
 volumes:
   postgres-data:
