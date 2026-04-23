@@ -87,6 +87,7 @@ export default function SignIn() {
 
       let identityToken: string | null | undefined;
       let appleUserId: string | null | undefined;
+      let tokenAudience: string | null = null;
 
       try {
         const AppleAuthentication = await import("expo-apple-authentication");
@@ -100,8 +101,13 @@ export default function SignIn() {
         identityToken = credential?.identityToken;
         appleUserId = credential?.user;
 
+        const payload = identityToken
+          ? decodeAppleJwtPayload(identityToken)
+          : null;
+        tokenAudience =
+          typeof payload?.aud === "string" ? payload.aud : null;
+
         if (__DEV__ && identityToken) {
-          const payload = decodeAppleJwtPayload(identityToken);
           console.log("Apple credential debug:", {
             hasIdentityToken: Boolean(identityToken),
             tokenSegmentCount: identityToken.split(".").length,
@@ -123,6 +129,14 @@ export default function SignIn() {
 
       if (!identityToken) {
         throw new Error("Apple Sign-In returnerte ikke identity token.");
+      }
+
+      if (__DEV__ && tokenAudience === "host.exp.Exponent") {
+        throw new Error(
+          "Apple Sign-In fra Expo Go bruker audience 'host.exp.Exponent'. " +
+            "Backenden validerer mot appens ekte bundle id, sa denne tokenen blir avvist. " +
+            "Bruk en development build eller TestFlight for a teste Apple-login mot backend."
+        );
       }
 
       const session = await loginWithApple(identityToken);

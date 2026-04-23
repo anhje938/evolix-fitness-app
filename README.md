@@ -5,11 +5,11 @@ Backenden er migrert til PostgreSQL med en ny EF Core-baseline i
 
 ## Lokal utvikling
 
-1. Fyll inn verdier i `.env.docker.dev.full` ved behov.
+1. Kopier `.env.docker.dev.example` til `.env.docker.dev` og fyll inn verdier ved behov.
 2. Start Postgres og API:
 
 ```bash
-docker compose --env-file .env.docker.dev.full up --build
+docker compose --env-file .env.docker.dev up --build
 ```
 
 API-en blir tilgjengelig pa `http://localhost:8080`.
@@ -17,18 +17,18 @@ API-en blir tilgjengelig pa `http://localhost:8080`.
 Hvis du bare vil kjore databasen i Docker og API-en lokalt:
 
 ```bash
-docker compose --env-file .env.docker.dev.full up postgres -d
+docker compose --env-file .env.docker.dev up postgres -d
 cd backend
 dotnet run
 ```
 
 ## VPS med PostgreSQL
 
-1. Kopier `.env.vps.example` til `.env.vps` pa VPS-en og fyll inn ekte verdier.
+1. Kopier `.env.vps.example` til `.env` eller `.env.vps` pa VPS-en og fyll inn ekte verdier.
 2. Start stacken:
 
 ```bash
-docker compose -f compose.vps.yaml --env-file .env.vps up -d --build
+docker compose -f compose.vps.yaml --env-file .env up -d --build
 ```
 
 3. Legg Nginx, Caddy eller tilsvarende foran API-en og proxie til `127.0.0.1:8080`.

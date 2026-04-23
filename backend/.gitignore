@@ -43,7 +43,6 @@ secrets.json
 # =====================
 # EF Core
 # =====================
-Migrations/*.Designer.cs
 Migrations/*.snapshots
 *.db
 *.db-shm
