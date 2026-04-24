@@ -75,39 +75,49 @@ namespace backend.Features.Auth
                 Request.Headers.UserAgent.ToString(),
                 HttpContext.Connection.RemoteIpAddress?.ToString());
 
-            // Parse JWT (uten å validere signatur) for å logge aud/iss/exp/kid
-            JwtSecurityToken? jwt = null;
-            try
+            var looksLikeJwt = request.IdToken.Split('.').Length == 3;
+            if (_env.IsDevelopment() && !looksLikeJwt)
             {
-                jwt = new JwtSecurityTokenHandler().ReadJwtToken(request.IdToken);
-
-                var aud = jwt.Audiences.FirstOrDefault();
-                var iss = jwt.Issuer;
-                var expUtc = jwt.ValidTo;     // UTC
-                var nbfUtc = jwt.ValidFrom;   // UTC
-                var kid = jwt.Header.TryGetValue("kid", out var kidObj) ? kidObj?.ToString() : null;
-
-                // AppleId tokens har ofte sub/email i payload; vi logger IKKE email/sub (persondata).
-                _logger.LogInformation("Apple token parsed. traceId={traceId} aud={aud} iss={iss} expUtc={exp} nbfUtc={nbf} kid={kid}",
-                    reqId, aud, iss, expUtc, nbfUtc, kid);
-
-                var expectedClientId = _config["AppleSettings:ClientId"];
-                _logger.LogInformation("Expected AppleSettings:ClientId = {clientId} traceId={traceId}",
-                    expectedClientId, reqId);
-
-                if (!string.IsNullOrWhiteSpace(expectedClientId) && !string.IsNullOrWhiteSpace(aud) && !string.Equals(expectedClientId, aud, StringComparison.Ordinal))
-                {
-                    _logger.LogWarning("AUDIENCE MISMATCH! tokenAud={aud} expectedClientId={clientId} traceId={traceId}",
-                        aud, expectedClientId, reqId);
-                }
+                _logger.LogInformation(
+                    "Development mock Apple login detected. Skipping JWT parse. traceId={traceId}",
+                    reqId);
             }
-            catch (Exception ex)
+            else
             {
-                // Hvis tokenet ikke engang kan parses (format feil)
-                _logger.LogWarning(ex, "Failed to parse Apple idToken as JWT. traceId={traceId}", reqId);
-                if (ReturnDebugDetails)
-                    return BadRequest(new { error = "Invalid token format", detail = ex.Message, traceId = reqId });
-                return BadRequest(new { error = "Invalid token format", traceId = reqId });
+                // Parse JWT (uten å validere signatur) for å logge aud/iss/exp/kid
+                JwtSecurityToken? jwt = null;
+                try
+                {
+                    jwt = new JwtSecurityTokenHandler().ReadJwtToken(request.IdToken);
+
+                    var aud = jwt.Audiences.FirstOrDefault();
+                    var iss = jwt.Issuer;
+                    var expUtc = jwt.ValidTo;     // UTC
+                    var nbfUtc = jwt.ValidFrom;   // UTC
+                    var kid = jwt.Header.TryGetValue("kid", out var kidObj) ? kidObj?.ToString() : null;
+
+                    // AppleId tokens har ofte sub/email i payload; vi logger IKKE email/sub (persondata).
+                    _logger.LogInformation("Apple token parsed. traceId={traceId} aud={aud} iss={iss} expUtc={exp} nbfUtc={nbf} kid={kid}",
+                        reqId, aud, iss, expUtc, nbfUtc, kid);
+
+                    var expectedClientId = _config["AppleSettings:ClientId"];
+                    _logger.LogInformation("Expected AppleSettings:ClientId = {clientId} traceId={traceId}",
+                        expectedClientId, reqId);
+
+                    if (!string.IsNullOrWhiteSpace(expectedClientId) && !string.IsNullOrWhiteSpace(aud) && !string.Equals(expectedClientId, aud, StringComparison.Ordinal))
+                    {
+                        _logger.LogWarning("AUDIENCE MISMATCH! tokenAud={aud} expectedClientId={clientId} traceId={traceId}",
+                            aud, expectedClientId, reqId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Hvis tokenet ikke engang kan parses (format feil)
+                    _logger.LogWarning(ex, "Failed to parse Apple idToken as JWT. traceId={traceId}", reqId);
+                    if (ReturnDebugDetails)
+                        return BadRequest(new { error = "Invalid token format", detail = ex.Message, traceId = reqId });
+                    return BadRequest(new { error = "Invalid token format", traceId = reqId });
+                }
             }
 
             try

@@ -88,6 +88,7 @@ export default function SignIn() {
       let identityToken: string | null | undefined;
       let appleUserId: string | null | undefined;
       let tokenAudience: string | null = null;
+      let usesExpoGoDevMock = false;
 
       try {
         const AppleAuthentication = await import("expo-apple-authentication");
@@ -132,14 +133,15 @@ export default function SignIn() {
       }
 
       if (__DEV__ && tokenAudience === "host.exp.Exponent") {
-        throw new Error(
-          "Apple Sign-In fra Expo Go bruker audience 'host.exp.Exponent'. " +
-            "Backenden validerer mot appens ekte bundle id, sa denne tokenen blir avvist. " +
-            "Bruk en development build eller TestFlight for a teste Apple-login mot backend."
+        usesExpoGoDevMock = true;
+        console.log(
+          "Expo Go detected. Using mock dev login against configured local API."
         );
       }
 
-      const session = await loginWithApple(identityToken);
+      const session = await loginWithApple(
+        usesExpoGoDevMock ? "mock-user" : identityToken
+      );
       await setAuthSession(session);
       router.replace("/(tabs)/home");
     } catch (error: unknown) {
