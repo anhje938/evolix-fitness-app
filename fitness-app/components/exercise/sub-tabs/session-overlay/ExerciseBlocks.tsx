@@ -29,17 +29,17 @@ import { clamp, isNonNegativeNumber, isPositiveInt } from "./overlayGuards";
  * Premium Dark Ocean colors
  */
 const overlayColors = {
-  container: "rgba(15,23,42,0.98)",
-  surface: "rgba(255,255,255,0.04)",
-  input: "rgba(30,41,59,0.95)",
+  container: "#0F172A",
+  surface: "rgba(30,58,138,0.22)",
+  input: "rgba(15,23,42,0.82)",
   text: "#E5ECFF",
   muted: "rgba(148,163,184,0.9)",
   muted2: "rgba(148,163,184,0.7)",
-  border: "rgba(255,255,255,0.08)",
-  borderSoft: "rgba(255,255,255,0.05)",
+  border: "rgba(6,182,212,0.16)",
+  borderSoft: "rgba(148,163,184,0.12)",
   accent: "#06b6d4",
-  accentDim: "rgba(6,182,212,0.2)",
-  accentBg: "rgba(6,182,212,0.08)",
+  accentDim: "rgba(6,182,212,0.34)",
+  accentBg: "rgba(6,182,212,0.12)",
   green: "rgba(34,197,94,0.9)",
   greenBg: "rgba(34,197,94,0.12)",
   greenBorder: "rgba(34,197,94,0.25)",
@@ -1356,7 +1356,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginHorizontal: ROW_METRICS.inputSideGap,
     borderWidth: 1,
-    borderColor: overlayColors.border,
+    borderColor: "rgba(6,182,212,0.14)",
   },
 
   adjustValueButton: {
@@ -1365,9 +1365,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(6,182,212,0.08)",
     borderWidth: 1,
-    borderColor: overlayColors.borderSoft,
+    borderColor: "rgba(6,182,212,0.14)",
   },
 
   setInput: {

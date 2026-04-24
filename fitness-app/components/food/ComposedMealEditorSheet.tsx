@@ -600,9 +600,9 @@ export function ComposedMealEditorSheet({
                   placeholder="F.eks. Kylling med ris"
                   placeholderTextColor="rgba(148,163,184,0.82)"
                   style={styles.input}
-                  returnKeyType={getReturnKeyTypeForKey(mealNameInputKey)}
-                  submitBehavior={getSubmitBehaviorForKey(mealNameInputKey)}
-                  onSubmitEditing={() => focusNextInput(mealNameInputKey)}
+                  returnKeyType="done"
+                  submitBehavior="blurAndSubmit"
+                  onSubmitEditing={Keyboard.dismiss}
                 />
               </View>
 
@@ -969,15 +969,9 @@ export function ComposedMealEditorSheet({
                           styles.smallInput,
                           ing.scannedPer100 && styles.smallInputDisabled,
                         ]}
-                        returnKeyType={getReturnKeyTypeForKey(
-                          ingredientInputKey(ing.key, "fats")
-                        )}
-                        submitBehavior={getSubmitBehaviorForKey(
-                          ingredientInputKey(ing.key, "fats")
-                        )}
-                        onSubmitEditing={() =>
-                          focusNextInput(ingredientInputKey(ing.key, "fats"))
-                        }
+                        returnKeyType="done"
+                        submitBehavior="blurAndSubmit"
+                        onSubmitEditing={Keyboard.dismiss}
                       />
                     </View>
                   </View>

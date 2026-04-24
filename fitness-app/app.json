@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "EvoliX",
-    "slug": "fitness-app",
+    "name": "Evolix",
+    "slug": "evolix-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/evolix_app_icon.png",
-    "scheme": "fitnessapp",
+    "scheme": "evolix",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {

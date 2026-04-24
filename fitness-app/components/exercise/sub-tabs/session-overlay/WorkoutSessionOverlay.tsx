@@ -51,18 +51,18 @@ const SUSPICIOUS_WEIGHT_THRESHOLD_KG = 500;
  * Premium Dark Ocean colors
  */
 const overlayColors = {
-  backdrop: "rgba(0,0,0,0.70)",
-  container: "rgba(15,23,42,0.98)",
-  surface: "rgba(255,255,255,0.04)",
-  input: "rgba(30,41,59,0.95)",
+  backdrop: "rgba(2,6,23,0.78)",
+  container: "#0F172A",
+  surface: "rgba(30,58,138,0.24)",
+  input: "rgba(15,23,42,0.82)",
   text: "#E5ECFF",
   muted: "rgba(148,163,184,0.9)",
   muted2: "rgba(148,163,184,0.7)",
-  border: "rgba(255,255,255,0.08)",
-  borderSoft: "rgba(255,255,255,0.05)",
+  border: "rgba(6,182,212,0.18)",
+  borderSoft: "rgba(148,163,184,0.12)",
   accent: "#06b6d4",
-  accentDim: "rgba(6,182,212,0.2)",
-  accentBg: "rgba(6,182,212,0.08)",
+  accentDim: "rgba(6,182,212,0.34)",
+  accentBg: "rgba(6,182,212,0.12)",
   danger: "#ef4444",
   dangerBg: "rgba(239,68,68,0.12)",
   dangerBorder: "rgba(239,68,68,0.25)",
@@ -543,6 +543,10 @@ export function WorkoutSessionOverlay() {
     },
     [applySetTemplate]
   );
+
+  const handleOpenExercisePicker = useCallback(() => {
+    setIsExercisePickerOpen(true);
+  }, []);
 
   const savePreview = useMemo(() => {
     if (!session) return null;
@@ -1094,11 +1098,24 @@ export function WorkoutSessionOverlay() {
                 },
               ]}
             >
+            <LinearGradient
+              colors={[
+                "rgba(15,23,42,0.98)",
+                "rgba(23,37,84,0.96)",
+                "rgba(2,6,23,0.99)",
+              ]}
+              locations={[0, 0.48, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+
             {/* Glass overlay */}
             <LinearGradient
               colors={[
-                "rgba(255,255,255,0.06)",
-                "rgba(255,255,255,0.02)",
+                "rgba(34,211,238,0.10)",
+                "rgba(59,130,246,0.04)",
                 "rgba(255,255,255,0.00)",
               ]}
               start={{ x: 0, y: 0 }}
@@ -1226,7 +1243,7 @@ export function WorkoutSessionOverlay() {
             {/* TOP ACTIONS (kun for utførte økter) */}
             <View style={styles.topActions}>
               <Pressable
-                onPress={() => setIsExercisePickerOpen(true)}
+                onPress={handleOpenExercisePicker}
                 style={({ pressed }) => [
                   styles.addExerciseTopBtn,
                   pressed && { opacity: 0.92 },
@@ -1369,7 +1386,7 @@ export function WorkoutSessionOverlay() {
                     Legg til øvelser for å starte økten
                   </Text>
                   <Pressable
-                    onPress={() => setIsExercisePickerOpen(true)}
+                    onPress={handleOpenExercisePicker}
                     style={({ pressed }) => [
                       styles.emptyActionBtn,
                       pressed && { opacity: 0.92 },
@@ -2133,6 +2150,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: overlayColors.border,
     overflow: "hidden",
+    shadowColor: "#06b6d4",
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
   },
 
   saveSuccessToast: {
@@ -2344,9 +2366,11 @@ const styles = StyleSheet.create({
     marginTop: 14,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    justifyContent: "center",
+    width: "100%",
+    maxWidth: 240,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 14,
     backgroundColor: overlayColors.accentBg,
     borderWidth: 1,
@@ -2366,7 +2390,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderTopWidth: 1,
     borderTopColor: overlayColors.border,
-    backgroundColor: overlayColors.container,
+    backgroundColor: "rgba(2,6,23,0.72)",
   },
 
   finishWrap: {
@@ -2385,9 +2409,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: overlayColors.accent,
+    backgroundColor: "#0891b2",
     borderWidth: 1,
-    borderColor: overlayColors.accentDim,
+    borderColor: "rgba(103,232,249,0.42)",
   },
 
   finishText: {

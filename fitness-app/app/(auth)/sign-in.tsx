@@ -2,12 +2,14 @@ import { AuthRequestError, loginWithApple } from "@/api/auth";
 import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
+import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
+  Image,
   Platform,
   StyleSheet,
   Text,
@@ -16,7 +18,7 @@ import {
 } from "react-native";
 import Apple from "../../assets/icons/apple.svg";
 import Bicep from "../../assets/icons/bicep.svg";
-import Logo from "../../assets/icons/evolix_logo.svg";
+import Fire from "../../assets/icons/fire.svg";
 import Graph from "../../assets/icons/graph.svg";
 import IphoneLogo from "../../assets/icons/iphone-logo.svg";
 import Scale from "../../assets/icons/scale.svg";
@@ -85,6 +87,16 @@ export default function SignIn() {
 
       setIsLoggingIn(true);
 
+      if (__DEV__ && Constants.appOwnership === "expo") {
+        console.log(
+          "Expo Go detected. Using mock dev login against configured local API."
+        );
+        const session = await loginWithApple("mock-user");
+        await setAuthSession(session);
+        router.replace("/(tabs)/home");
+        return;
+      }
+
       let identityToken: string | null | undefined;
       let appleUserId: string | null | undefined;
       let tokenAudience: string | null = null;
@@ -105,8 +117,7 @@ export default function SignIn() {
         const payload = identityToken
           ? decodeAppleJwtPayload(identityToken)
           : null;
-        tokenAudience =
-          typeof payload?.aud === "string" ? payload.aud : null;
+        tokenAudience = typeof payload?.aud === "string" ? payload.aud : null;
 
         if (__DEV__ && identityToken) {
           console.log("Apple credential debug:", {
@@ -172,6 +183,7 @@ export default function SignIn() {
     { Icon: Bicep, text: "Administrer treningsprogram", color: "#06b6d4" },
     { Icon: Scale, text: "Følg din vektutvikling", color: "#8b5cf6" },
     { Icon: Graph, text: "Mål fremgangen din", color: "#f97316" },
+    { Icon: Fire, text: "Få smarte mål og anbefalinger", color: "#f59e0b" },
   ];
 
   return (
@@ -198,7 +210,11 @@ export default function SignIn() {
         >
           <View style={styles.logoBox}>
             <View style={styles.logoGlow} />
-            <Logo height={90} width={112} />
+            <Image
+              source={require("../../assets/images/evolix_logo.png")}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
         </Animated.View>
 
@@ -212,7 +228,6 @@ export default function SignIn() {
             },
           ]}
         >
-          <Text style={[typography.h1, styles.mainTitle]}>Evolix</Text>
           <View style={styles.subtitleBadge}>
             <View style={styles.badgeGlow} />
             <Text style={[typography.h2, styles.subtitle]}>
@@ -382,7 +397,7 @@ const styles = StyleSheet.create({
   },
 
   logoBox: {
-    backgroundColor: "#0A2A4A",
+    backgroundColor: "#0A1C33",
     height: 136,
     width: 136,
     borderRadius: 36,
@@ -404,21 +419,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(6,182,212,0.08)",
   },
 
+  logoImage: {
+    width: 170,
+    height: 170,
+  },
+
   // Title Section
   titleSection: {
     alignItems: "center",
     marginBottom: 16,
-  },
-
-  mainTitle: {
-    color: "#FFFFFF",
-    fontSize: 36,
-    fontWeight: "900",
-    letterSpacing: -1,
-    marginBottom: 12,
-    textShadowColor: "rgba(0,0,0,0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
   },
 
   subtitleBadge: {
@@ -469,14 +478,15 @@ const styles = StyleSheet.create({
   },
 
   featuresList: {
-    gap: 12,
+    gap: 10,
   },
 
   featureItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingVertical: 6,
+    minHeight: 58,
+    paddingVertical: 7,
   },
 
   featureIconWrap: {

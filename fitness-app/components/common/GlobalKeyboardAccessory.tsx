@@ -25,17 +25,9 @@ export function GlobalKeyboardAccessory() {
     }).State;
 
     const focused = textInputState?.currentlyFocusedInput?.() as
-      | {
-          props?: { value?: string; onSubmitEditing?: (e: unknown) => void };
-          blur?: () => void;
-        }
+      | { blur?: () => void }
       | undefined;
 
-    focused?.props?.onSubmitEditing?.({
-      nativeEvent: {
-        text: String(focused?.props?.value ?? ""),
-      },
-    });
     focused?.blur?.();
     Keyboard.dismiss();
   };
