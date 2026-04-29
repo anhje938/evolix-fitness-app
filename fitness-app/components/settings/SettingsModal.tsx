@@ -43,7 +43,7 @@ const PRIVACY_POLICY_SECTIONS: LegalSection[] = [
   {
     title: "1. Hvem vi er",
     paragraphs: [
-      "Evolix er en trenings- og progresjonsapp.",
+      "EvoliX er en trenings- og progresjonsapp.",
       "Nettside: https://evolix.no",
       "Vi er behandlingsansvarlig for personopplysningene som behandles i appen.",
     ],
@@ -553,7 +553,7 @@ export default function SettingsModal({
                     <TouchableOpacity style={styles.settingsItemBox}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Om Evolix
+                          Om EvoliX
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
                           Kort om appen og formålet
@@ -1254,7 +1254,7 @@ export default function SettingsModal({
             <View style={[styles.container, styles.legalContainer]}>
               <View style={styles.headerRow}>
                 <Text style={[typography.h2, styles.title]}>
-                  Personvernerklæring for Evolix
+                  Personvernerklæring for EvoliX
                 </Text>
 
                 <TouchableOpacity

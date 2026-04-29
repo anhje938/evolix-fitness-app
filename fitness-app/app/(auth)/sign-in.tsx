@@ -23,6 +23,11 @@ import Graph from "../../assets/icons/graph.svg";
 import IphoneLogo from "../../assets/icons/iphone-logo.svg";
 import Scale from "../../assets/icons/scale.svg";
 
+const LOGO_BOX_WIDTH = 190;
+const LOGO_BOX_HEIGHT = 190;
+const LOGO_IMAGE_WIDTH = 250;
+const LOGO_IMAGE_HEIGHT = 250;
+
 function decodeAppleJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const [, payload] = token.split(".");
@@ -204,18 +209,20 @@ export default function SignIn() {
             styles.logoContainer,
             {
               opacity: fadeAnim,
-              transform: [{ scale: scaleAnim }, { rotate: rotation }],
+              transform: [{ scale: scaleAnim }],
             },
           ]}
         >
-          <View style={styles.logoBox}>
+          <Animated.View
+            style={[styles.logoBox, { transform: [{ rotate: rotation }] }]}
+          >
             <View style={styles.logoGlow} />
             <Image
               source={require("../../assets/images/evolix_logo.png")}
               style={styles.logoImage}
-              resizeMode="contain"
             />
-          </View>
+          </Animated.View>
+          <Text style={styles.logoTitle}>EvoliX</Text>
         </Animated.View>
 
         {/* Title Section */}
@@ -398,9 +405,9 @@ const styles = StyleSheet.create({
 
   logoBox: {
     backgroundColor: "#0A1C33",
-    height: 136,
-    width: 136,
-    borderRadius: 36,
+    height: LOGO_BOX_HEIGHT,
+    width: LOGO_BOX_WIDTH,
+    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -420,8 +427,16 @@ const styles = StyleSheet.create({
   },
 
   logoImage: {
-    width: 170,
-    height: 170,
+    width: LOGO_IMAGE_WIDTH,
+    height: LOGO_IMAGE_HEIGHT,
+  },
+
+  logoTitle: {
+    marginTop: 14,
+    color: "#F8FAFC",
+    fontSize: 25,
+    fontWeight: "400",
+    letterSpacing: 0,
   },
 
   // Title Section

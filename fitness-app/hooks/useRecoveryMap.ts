@@ -37,6 +37,31 @@ function parseSpecificMuscleGroups(input: unknown): string[] {
   return [];
 }
 
+function isPrimaryExerciseMuscle(role: unknown): boolean {
+  if (role === 0) return true;
+  return String(role ?? "").toLowerCase() === "primary";
+}
+
+function isSecondaryExerciseMuscle(role: unknown): boolean {
+  if (role === 1) return true;
+  return String(role ?? "").toLowerCase() === "secondary";
+}
+
+function musclesByRole(exercise: Exercise | undefined) {
+  const muscles = safeArray<any>(exercise?.muscles);
+
+  return {
+    primary: muscles
+      .filter((x) => isPrimaryExerciseMuscle(x?.role))
+      .map((x) => String(x?.muscle ?? "").trim())
+      .filter((x) => x.length > 0),
+    secondary: muscles
+      .filter((x) => isSecondaryExerciseMuscle(x?.role))
+      .map((x) => String(x?.muscle ?? "").trim())
+      .filter((x) => x.length > 0),
+  };
+}
+
 function firstArray<T>(...candidates: any[]): T[] {
   for (const c of candidates) {
     if (Array.isArray(c)) return c as T[];
@@ -141,10 +166,15 @@ function toCompletedWorkouts(
         const ex = exerciseById.get(exerciseId);
         const sets = safeArray<any>(l.sets);
 
+        const structuredMuscles = musclesByRole(ex);
         const groups = parseSpecificMuscleGroups(ex?.specificMuscleGroups);
         const fallbackGroups = groupsFromFallbackMuscle(l.muscle ?? ex?.muscle);
-        const primaryMuscles = (groups.length ? groups : fallbackGroups) as any[];
-        const secondaryMuscles: any[] = [];
+        const primaryMuscles = (structuredMuscles.primary.length
+          ? structuredMuscles.primary
+          : groups.length
+          ? groups
+          : fallbackGroups) as any[];
+        const secondaryMuscles = structuredMuscles.secondary as any[];
 
         const volume = numberOrZero(l.volume) || estimateVolumeFromSets(sets);
         const setsCount = sets.length;

@@ -7,6 +7,13 @@
         public string? Muscle { get; set; }
         public string? SpecificMuscleGroups { get; set; }
         public string? Equipment { get; set; }
+        public string? Category { get; set; }
+        public string? EquipmentType { get; set; }
+        public bool IsBodyweight { get; set; }
+        public bool IsIsolation { get; set; }
+        public bool IsCompound { get; set; }
+        public decimal? DefaultProgressionStepKg { get; set; }
+        public List<ExerciseMuscleDto> Muscles { get; set; } = [];
 
 
         // Only meaningful for admins: if true and caller is admin → global (UserId = null)
@@ -21,6 +28,13 @@
         public string? Muscle { get; set; }
         public string? SpecificMuscleGroups { get; set; }
         public string? Equipment { get; set; }
+        public string? Category { get; set; }
+        public string? EquipmentType { get; set; }
+        public bool IsBodyweight { get; set; }
+        public bool IsIsolation { get; set; }
+        public bool IsCompound { get; set; }
+        public decimal? DefaultProgressionStepKg { get; set; }
+        public List<ExerciseMuscleDto> Muscles { get; set; } = [];
 
         public string? UserId { get; set; }
 
@@ -33,5 +47,19 @@
         public string? Muscle { get; set; }
         public string? SpecificMuscleGroups { get; set; }
         public string? Equipment { get; set; }
+        public string? Category { get; set; }
+        public string? EquipmentType { get; set; }
+        public bool? IsBodyweight { get; set; }
+        public bool? IsIsolation { get; set; }
+        public bool? IsCompound { get; set; }
+        public decimal? DefaultProgressionStepKg { get; set; }
+        public List<ExerciseMuscleDto>? Muscles { get; set; }
+    }
+
+    public class ExerciseMuscleDto
+    {
+        public string Muscle { get; set; } = "";
+        public MuscleRole Role { get; set; }
+        public decimal Contribution { get; set; }
     }
 }

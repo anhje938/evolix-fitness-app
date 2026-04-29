@@ -2,6 +2,7 @@
 import { deleteMyUser } from "@/api/user";
 import SettingsLogo from "@/assets/icons/white-settings.svg";
 import { DarkOceanBackground } from "@/components/DarkOceanBackground";
+import { TodayFocusCard } from "@/components/adaptive/TodayFocusCard";
 import AnatomyFigure from "@/components/exercise/AnatomyFigure";
 import {
   HOME_ACCENT_BAR_COLORS,
@@ -939,6 +940,10 @@ export default function HomePage() {
               <SettingsLogo height={16} width={16} />
             </View>
           </Pressable>
+        </View>
+
+        <View style={styles.section}>
+          <TodayFocusCard />
         </View>
 
         {homeSections.map((section, index) => (

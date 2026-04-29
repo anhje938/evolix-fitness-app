@@ -1,5 +1,6 @@
 ﻿using backend.Features.Food;
 using backend.Features.Training.Exercises;
+using backend.Features.AdaptivePlanning;
 using backend.Features.Training.WorkoutPrograms;
 using backend.Features.Training.Workouts;
 using backend.Features.Training.WorkoutSessions.Entities;
@@ -29,7 +30,23 @@ namespace backend.Data
         public DbSet<WorkoutExercise> WorkoutExercises => Set<WorkoutExercise>();
         public DbSet<WorkoutProgram> WorkoutPrograms => Set<WorkoutProgram>();
         public DbSet<Exercise> Exercises => Set<Exercise>();
+        public DbSet<ExerciseMuscle> ExerciseMuscles => Set<ExerciseMuscle>();
         public DbSet<UserSettings> UserSettings => Set<UserSettings>();
+        public DbSet<CoachSettings> CoachSettings => Set<CoachSettings>();
+        public DbSet<ExerciseTarget> ExerciseTargets => Set<ExerciseTarget>();
+        public DbSet<NutritionTargetsHistory> NutritionTargetsHistory => Set<NutritionTargetsHistory>();
+        public DbSet<WeeklyReport> WeeklyReports => Set<WeeklyReport>();
+        public DbSet<WeeklyReportWeightSummary> WeeklyReportWeightSummaries => Set<WeeklyReportWeightSummary>();
+        public DbSet<WeeklyReportNutritionSummary> WeeklyReportNutritionSummaries => Set<WeeklyReportNutritionSummary>();
+        public DbSet<WeeklyReportTrainingSummary> WeeklyReportTrainingSummaries => Set<WeeklyReportTrainingSummary>();
+        public DbSet<WeeklyReportRecoverySummary> WeeklyReportRecoverySummaries => Set<WeeklyReportRecoverySummary>();
+        public DbSet<WeeklyReportMuscleBalanceSummary> WeeklyReportMuscleBalanceSummaries => Set<WeeklyReportMuscleBalanceSummary>();
+        public DbSet<WeeklyReportNextWeekAction> WeeklyReportNextWeekActions => Set<WeeklyReportNextWeekAction>();
+        public DbSet<AdaptiveRecommendation> AdaptiveRecommendations => Set<AdaptiveRecommendation>();
+        public DbSet<RecommendationNutritionChange> RecommendationNutritionChanges => Set<RecommendationNutritionChange>();
+        public DbSet<RecommendationExerciseTargetChange> RecommendationExerciseTargetChanges => Set<RecommendationExerciseTargetChange>();
+        public DbSet<RecommendationRecoveryAction> RecommendationRecoveryActions => Set<RecommendationRecoveryAction>();
+        public DbSet<RecommendationTargetDateChange> RecommendationTargetDateChanges => Set<RecommendationTargetDateChange>();
 
 
         // Logging
@@ -133,6 +150,25 @@ namespace backend.Data
                 b.HasKey(x => x.Id);
             });
 
+            modelBuilder.Entity<Exercise>(b =>
+            {
+                b.Property(x => x.Category).HasMaxLength(80);
+                b.Property(x => x.EquipmentType).HasMaxLength(80);
+                b.Property(x => x.DefaultProgressionStepKg).HasPrecision(8, 2);
+            });
+
+            modelBuilder.Entity<ExerciseMuscle>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Muscle).IsRequired().HasMaxLength(80);
+                b.Property(x => x.Contribution).HasPrecision(5, 2);
+                b.HasIndex(x => new { x.ExerciseId, x.Muscle, x.Role }).IsUnique();
+                b.HasOne(x => x.Exercise)
+                    .WithMany(x => x.ExerciseMuscles)
+                    .HasForeignKey(x => x.ExerciseId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
             // ==============================
             // Food
             // ==============================
@@ -214,6 +250,182 @@ namespace backend.Data
                 b.HasOne(x => x.User)
                     .WithOne(u => u.Settings)
                     .HasForeignKey<UserSettings>(x => x.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<CoachSettings>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+                b.HasIndex(x => x.UserId).IsUnique();
+            });
+
+            modelBuilder.Entity<ExerciseTarget>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+                b.Property(x => x.TargetWeightKg).HasPrecision(8, 2);
+                b.HasIndex(x => new { x.UserId, x.ExerciseId }).IsUnique();
+                b.HasOne(x => x.Exercise)
+                    .WithMany()
+                    .HasForeignKey(x => x.ExerciseId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<NutritionTargetsHistory>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+                b.Property(x => x.Source).IsRequired().HasMaxLength(80);
+                b.HasIndex(x => new { x.UserId, x.ActiveFrom });
+                b.HasOne(x => x.Recommendation)
+                    .WithMany()
+                    .HasForeignKey(x => x.RecommendationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<WeeklyReport>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+                b.Property(x => x.SummaryText).IsRequired().HasMaxLength(1000);
+                b.Property(x => x.AlgorithmVersion).IsRequired().HasMaxLength(80);
+                b.HasIndex(x => new { x.UserId, x.WeekStart, x.WeekEnd, x.AlgorithmVersion })
+                    .IsUnique();
+
+                b.HasOne(x => x.WeightSummary)
+                    .WithOne(x => x.WeeklyReport)
+                    .HasForeignKey<WeeklyReportWeightSummary>(x => x.WeeklyReportId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(x => x.NutritionSummary)
+                    .WithOne(x => x.WeeklyReport)
+                    .HasForeignKey<WeeklyReportNutritionSummary>(x => x.WeeklyReportId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(x => x.TrainingSummary)
+                    .WithOne(x => x.WeeklyReport)
+                    .HasForeignKey<WeeklyReportTrainingSummary>(x => x.WeeklyReportId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(x => x.RecoverySummary)
+                    .WithOne(x => x.WeeklyReport)
+                    .HasForeignKey<WeeklyReportRecoverySummary>(x => x.WeeklyReportId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<WeeklyReportWeightSummary>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Status).HasMaxLength(80);
+                b.Property(x => x.Insight).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<WeeklyReportNutritionSummary>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Status).HasMaxLength(80);
+                b.Property(x => x.Insight).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<WeeklyReportTrainingSummary>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.BestProgressText).HasMaxLength(240);
+                b.Property(x => x.Insight).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<WeeklyReportRecoverySummary>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.ReadyMusclesText).HasMaxLength(240);
+                b.Property(x => x.RestMusclesText).HasMaxLength(240);
+                b.Property(x => x.RecommendedNextSession).HasMaxLength(120);
+                b.Property(x => x.IntensityRecommendation).HasMaxLength(120);
+                b.Property(x => x.Insight).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<WeeklyReportMuscleBalanceSummary>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Muscle).IsRequired().HasMaxLength(80);
+                b.Property(x => x.Sets).HasPrecision(8, 2);
+                b.HasIndex(x => new { x.WeeklyReportId, x.Muscle }).IsUnique();
+                b.HasOne(x => x.WeeklyReport)
+                    .WithMany(x => x.MuscleBalance)
+                    .HasForeignKey(x => x.WeeklyReportId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<WeeklyReportNextWeekAction>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Category).HasMaxLength(80);
+                b.Property(x => x.Text).IsRequired().HasMaxLength(300);
+                b.HasIndex(x => new { x.WeeklyReportId, x.SortOrder });
+                b.HasOne(x => x.WeeklyReport)
+                    .WithMany(x => x.NextWeekActions)
+                    .HasForeignKey(x => x.WeeklyReportId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<AdaptiveRecommendation>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+                b.Property(x => x.Title).IsRequired().HasMaxLength(180);
+                b.Property(x => x.Explanation).IsRequired().HasMaxLength(900);
+                b.HasIndex(x => new { x.UserId, x.Status, x.ExpiresAtUtc });
+                b.HasOne(x => x.SourceReport)
+                    .WithMany(x => x.Recommendations)
+                    .HasForeignKey(x => x.SourceReportId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<RecommendationNutritionChange>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.HasIndex(x => x.RecommendationId).IsUnique();
+                b.HasOne(x => x.Recommendation)
+                    .WithOne(x => x.NutritionChange)
+                    .HasForeignKey<RecommendationNutritionChange>(x => x.RecommendationId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<RecommendationExerciseTargetChange>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.CurrentTargetWeightKg).HasPrecision(8, 2);
+                b.Property(x => x.SuggestedTargetWeightKg).HasPrecision(8, 2);
+                b.HasIndex(x => x.RecommendationId).IsUnique();
+                b.HasOne(x => x.Recommendation)
+                    .WithOne(x => x.ExerciseTargetChange)
+                    .HasForeignKey<RecommendationExerciseTargetChange>(x => x.RecommendationId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(x => x.Exercise)
+                    .WithMany()
+                    .HasForeignKey(x => x.ExerciseId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<RecommendationRecoveryAction>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.RecommendedSession).HasMaxLength(120);
+                b.Property(x => x.Intensity).HasMaxLength(120);
+                b.Property(x => x.FocusMusclesText).HasMaxLength(240);
+                b.Property(x => x.RestMusclesText).HasMaxLength(240);
+                b.HasIndex(x => x.RecommendationId).IsUnique();
+                b.HasOne(x => x.Recommendation)
+                    .WithOne(x => x.RecoveryAction)
+                    .HasForeignKey<RecommendationRecoveryAction>(x => x.RecommendationId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<RecommendationTargetDateChange>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.HasIndex(x => x.RecommendationId).IsUnique();
+                b.HasOne(x => x.Recommendation)
+                    .WithOne(x => x.TargetDateChange)
+                    .HasForeignKey<RecommendationTargetDateChange>(x => x.RecommendationId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 

@@ -1,5 +1,9 @@
 import { getValidAccessToken, authFetch } from "@/api/authSession";
-import { type CreateExercisePayload, Exercise } from "@/types/exercise";
+import {
+  type CreateExercisePayload,
+  type ExerciseMuscle,
+  Exercise,
+} from "@/types/exercise";
 import { API_BASE_URL } from "../baseUrl";
 
 export async function getExercisesForUser() {
@@ -58,6 +62,13 @@ export async function UpdateExercise(
     muscle?: string;
     specificMuscleGroups?: string;
     equipment?: string;
+    category?: string;
+    equipmentType?: string;
+    isBodyweight?: boolean;
+    isIsolation?: boolean;
+    isCompound?: boolean;
+    defaultProgressionStepKg?: number | null;
+    muscles?: ExerciseMuscle[];
   }
 ) {
   const token = await getValidAccessToken();

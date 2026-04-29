@@ -1,12 +1,27 @@
 export type Exercise = {
     id: string,
     name: string,
-    description: string,
-    muscle: string,
-    specificMuscleGroups: string[],
-    equipment: string,
-    userId: string,
+    description?: string | null,
+    muscle?: string | null,
+    specificMuscleGroups?: string | string[] | null,
+    equipment?: string | null,
+    category?: string | null,
+    equipmentType?: string | null,
+    isBodyweight?: boolean,
+    isIsolation?: boolean,
+    isCompound?: boolean,
+    defaultProgressionStepKg?: number | null,
+    muscles?: ExerciseMuscle[],
+    userId?: string | null,
 }
+
+export type ExerciseMuscleRole = 0 | 1 | "Primary" | "Secondary" | "primary" | "secondary";
+
+export type ExerciseMuscle = {
+  muscle: string;
+  role: ExerciseMuscleRole;
+  contribution: number;
+};
 
 export type CreateExercisePayload = {
   name: string;
@@ -14,6 +29,13 @@ export type CreateExercisePayload = {
   muscle?: string;
   equipment?: string;
   specificMuscleGroups?: string;
+  category?: string;
+  equipmentType?: string;
+  isBodyweight?: boolean;
+  isIsolation?: boolean;
+  isCompound?: boolean;
+  defaultProgressionStepKg?: number | null;
+  muscles?: ExerciseMuscle[];
 };
 
 export type Workout = {
