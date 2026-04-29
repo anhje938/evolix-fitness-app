@@ -81,6 +81,56 @@ namespace backend.Features.AdaptivePlanning
             };
         }
 
+        public async Task<TrainingAnalysis> AnalyzeRollingAsync(
+            string userId,
+            DateTime startUtc,
+            DateTime endExclusiveUtc,
+            CancellationToken ct = default)
+        {
+            var sessions = await _db.WorkoutSessions
+                .AsNoTracking()
+                .Where(x => x.UserId == userId &&
+                            x.FinishedAtUtc != null &&
+                            x.StartedAtUtc >= startUtc &&
+                            x.StartedAtUtc < endExclusiveUtc)
+                .Include(x => x.ExerciseLogs)
+                    .ThenInclude(x => x.Sets)
+                .Include(x => x.ExerciseLogs)
+                    .ThenInclude(x => x.Exercise)
+                    .ThenInclude(x => x.ExerciseMuscles)
+                .OrderBy(x => x.StartedAtUtc)
+                .ToListAsync(ct);
+
+            var totalSets = sessions.SelectMany(x => x.ExerciseLogs).SelectMany(x => x.Sets).Count();
+            var totalReps = sessions
+                .SelectMany(x => x.ExerciseLogs)
+                .SelectMany(x => x.Sets)
+                .Where(x => x.Reps.HasValue)
+                .Sum(x => x.Reps!.Value);
+            var totalVolume = sessions
+                .SelectMany(x => x.ExerciseLogs)
+                .SelectMany(x => x.Sets)
+                .Where(x => x.WeightKg.HasValue && x.Reps.HasValue)
+                .Sum(x => x.WeightKg!.Value * x.Reps!.Value);
+            var muscleLoads = BuildMuscleLoads(sessions);
+            var confidence = sessions.Count >= 2
+                ? DataQualityLevel.High
+                : sessions.Count == 1
+                    ? DataQualityLevel.Medium
+                    : DataQualityLevel.Low;
+
+            return new TrainingAnalysis
+            {
+                CompletedWorkouts = sessions.Count,
+                TotalSets = totalSets,
+                TotalReps = totalReps,
+                TotalVolumeKg = Math.Round(totalVolume, 1),
+                MuscleLoads = muscleLoads,
+                Confidence = confidence,
+                Insight = BuildInsight(sessions.Count, [])
+            };
+        }
+
         private static List<ExerciseProgress> BuildExerciseProgress(
             IReadOnlyList<WorkoutSession> sessions,
             WeekWindow week)

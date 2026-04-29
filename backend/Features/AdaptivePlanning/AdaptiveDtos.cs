@@ -18,6 +18,9 @@ namespace backend.Features.AdaptivePlanning
         public DateOnly WeekStart { get; set; }
         public DateOnly WeekEnd { get; set; }
         public DateTime GeneratedAtUtc { get; set; }
+        public DateTime DataThroughUtc { get; set; }
+        public bool IsStale { get; set; }
+        public string StaleReason { get; set; } = "";
         public DataQualityLevel DataQuality { get; set; }
         public int? OverallScore { get; set; }
         public string SummaryText { get; set; } = "";

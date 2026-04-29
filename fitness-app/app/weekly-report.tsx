@@ -3,7 +3,7 @@ import { RecommendationCard } from "@/components/adaptive/RecommendationCard";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import {
   useCurrentWeeklyReport,
-  useGenerateWeeklyReport,
+  useRegenerateWeeklyReport,
 } from "@/hooks/useAdaptive";
 import { DataQualityLevel, type WeeklyReport } from "@/types/adaptive";
 import { Ionicons } from "@expo/vector-icons";
@@ -155,6 +155,19 @@ function ReportContent({ report }: { report: WeeklyReport }) {
           </View>
         </View>
       </LinearGradient>
+
+      {report.isStale && (
+        <View style={styles.staleBox}>
+          <Ionicons
+            name="time-outline"
+            size={16}
+            color="rgba(251,191,36,0.96)"
+          />
+          <Text style={styles.staleText}>
+            {report.staleReason || "Rapporten har nyere data tilgjengelig."}
+          </Text>
+        </View>
+      )}
 
       <SectionCard title="Vekt og mål" icon="scale-outline">
         <MetricRow
@@ -316,10 +329,10 @@ function ReportContent({ report }: { report: WeeklyReport }) {
 export default function WeeklyReportScreen() {
   const insets = useSafeAreaInsets();
   const reportQuery = useCurrentWeeklyReport();
-  const generateReport = useGenerateWeeklyReport();
+  const regenerateReport = useRegenerateWeeklyReport();
 
   const handleRefresh = async () => {
-    await generateReport.mutateAsync();
+    await regenerateReport.mutateAsync();
     await reportQuery.refetch();
   };
 
@@ -339,15 +352,15 @@ export default function WeeklyReportScreen() {
         </Pressable>
         <Text style={styles.headerTitle}>Rapport</Text>
         <Pressable
-          disabled={generateReport.isPending}
+          disabled={regenerateReport.isPending}
           style={({ pressed }) => [
             styles.headerButton,
-            pressed && !generateReport.isPending && styles.headerButtonPressed,
-            generateReport.isPending && styles.headerButtonDisabled,
+            pressed && !regenerateReport.isPending && styles.headerButtonPressed,
+            regenerateReport.isPending && styles.headerButtonDisabled,
           ]}
           onPress={handleRefresh}
         >
-          {generateReport.isPending ? (
+          {regenerateReport.isPending ? (
             <ActivityIndicator size="small" color="rgba(226,232,240,0.96)" />
           ) : (
             <Ionicons name="refresh" size={17} color="rgba(226,232,240,0.96)" />
@@ -520,6 +533,25 @@ const styles = StyleSheet.create({
     color: "rgba(103,232,249,0.98)",
     fontSize: 12,
     fontWeight: "800",
+  },
+  staleBox: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.24)",
+    backgroundColor: "rgba(251,191,36,0.08)",
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 9,
+  },
+  staleText: {
+    flex: 1,
+    minWidth: 0,
+    color: "rgba(254,243,199,0.94)",
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
   },
   sectionCard: {
     borderRadius: 18,

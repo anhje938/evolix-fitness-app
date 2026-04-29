@@ -54,6 +54,12 @@ export function generateWeeklyReport(): Promise<WeeklyReport> {
   });
 }
 
+export function regenerateWeeklyReport(): Promise<WeeklyReport> {
+  return adaptiveFetch<WeeklyReport>("/adaptive/weekly-report/regenerate", {
+    method: "POST",
+  });
+}
+
 export function getAdaptiveRecommendations(): Promise<AdaptiveRecommendation[]> {
   return adaptiveFetch<AdaptiveRecommendation[]>("/adaptive/recommendations");
 }

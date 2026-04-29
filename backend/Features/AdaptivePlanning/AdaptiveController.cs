@@ -35,7 +35,7 @@ namespace backend.Features.AdaptivePlanning
         {
             var userId = GetUserId();
             var report = await _weeklyReportService.GetOrGenerateCurrentAsync(userId, ct);
-            return Ok(AdaptiveMapper.ToDto(report));
+            return Ok(await ToFreshDto(userId, report, ct));
         }
 
         [HttpGet("weekly-reports")]
@@ -45,7 +45,13 @@ namespace backend.Features.AdaptivePlanning
         {
             var userId = GetUserId();
             var reports = await _weeklyReportService.GetHistoryAsync(userId, limit, ct);
-            return Ok(reports.Select(AdaptiveMapper.ToDto).ToList());
+            var dtos = new List<WeeklyReportDto>();
+            foreach (var report in reports)
+            {
+                dtos.Add(await ToFreshDto(userId, report, ct));
+            }
+
+            return Ok(dtos);
         }
 
         [HttpPost("weekly-report/generate")]
@@ -53,7 +59,15 @@ namespace backend.Features.AdaptivePlanning
         {
             var userId = GetUserId();
             var report = await _weeklyReportService.GenerateCurrentAsync(userId, ct);
-            return Ok(AdaptiveMapper.ToDto(report));
+            return Ok(await ToFreshDto(userId, report, ct));
+        }
+
+        [HttpPost("weekly-report/regenerate")]
+        public async Task<ActionResult<WeeklyReportDto>> RegenerateWeeklyReport(CancellationToken ct)
+        {
+            var userId = GetUserId();
+            var report = await _weeklyReportService.RegenerateCurrentAsync(userId, ct);
+            return Ok(await ToFreshDto(userId, report, ct));
         }
 
         [HttpGet("recommendations")]
@@ -82,6 +96,19 @@ namespace backend.Features.AdaptivePlanning
             var userId = GetUserId();
             var recommendation = await _recommendationService.DismissAsync(userId, id, ct);
             return Ok(AdaptiveMapper.ToDto(recommendation));
+        }
+
+        private async Task<WeeklyReportDto> ToFreshDto(
+            string userId,
+            WeeklyReport report,
+            CancellationToken ct)
+        {
+            var dto = AdaptiveMapper.ToDto(report);
+            var freshness = await _weeklyReportService.GetFreshnessAsync(userId, report, ct);
+            dto.DataThroughUtc = freshness.DataThroughUtc;
+            dto.IsStale = freshness.IsStale;
+            dto.StaleReason = freshness.StaleReason;
+            return dto;
         }
     }
 }

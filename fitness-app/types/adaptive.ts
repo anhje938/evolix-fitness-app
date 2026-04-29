@@ -72,6 +72,9 @@ export type WeeklyReport = {
   weekStart: string;
   weekEnd: string;
   generatedAtUtc: string;
+  dataThroughUtc: string;
+  isStale: boolean;
+  staleReason: string;
   dataQuality: DataQualityLevel;
   overallScore: number | null;
   summaryText: string;

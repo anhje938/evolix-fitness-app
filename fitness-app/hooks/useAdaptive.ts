@@ -6,6 +6,7 @@ import {
   getCurrentWeeklyReport,
   getTodayFocus,
   getWeeklyReports,
+  regenerateWeeklyReport,
 } from "@/api/adaptive";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -76,6 +77,15 @@ export function useGenerateWeeklyReport() {
 
   return useMutation({
     mutationFn: generateWeeklyReport,
+    onSuccess: invalidateAdaptive,
+  });
+}
+
+export function useRegenerateWeeklyReport() {
+  const invalidateAdaptive = useInvalidateAdaptive();
+
+  return useMutation({
+    mutationFn: regenerateWeeklyReport,
     onSuccess: invalidateAdaptive,
   });
 }

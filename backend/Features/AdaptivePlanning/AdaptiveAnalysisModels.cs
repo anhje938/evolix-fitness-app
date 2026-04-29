@@ -73,4 +73,11 @@ namespace backend.Features.AdaptivePlanning
         public string Insight { get; set; } = "";
         public DataQualityLevel Confidence { get; set; }
     }
+
+    public sealed class WeeklyReportFreshness
+    {
+        public DateTime DataThroughUtc { get; set; }
+        public bool IsStale { get; set; }
+        public string StaleReason { get; set; } = "";
+    }
 }

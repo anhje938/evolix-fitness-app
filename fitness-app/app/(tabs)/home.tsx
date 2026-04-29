@@ -1,4 +1,5 @@
 // app/(tabs)/home.tsx
+import { SeedDevelopmentMockData } from "@/api/development";
 import { deleteMyUser } from "@/api/user";
 import SettingsLogo from "@/assets/icons/white-settings.svg";
 import { DarkOceanBackground } from "@/components/DarkOceanBackground";
@@ -25,6 +26,7 @@ import { ProgressCircle } from "@/components/food/progressCircle";
 import { WeightSummaryBox } from "@/components/home/WeightSummary";
 import QuickStartButtons from "@/components/home/quickStartButtons";
 import SettingsModal from "@/components/settings/SettingsModal";
+import { queryClient } from "@/config/queryClient";
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
@@ -269,8 +271,8 @@ const HOME_HEADER_HIDE_OFFSET = 48;
 export default function HomePage() {
   const insets = useSafeAreaInsets();
   const { token, setToken, logout } = useAuth();
-  const { todayTotals } = useFoodContext();
-  const { progressionLast7, lastWeight } = useWeightContext();
+  const { todayTotals, refreshMeals } = useFoodContext();
+  const { progressionLast7, lastWeight, refreshWeights } = useWeightContext();
   const {
     userSettings,
     setUserSettings,
@@ -569,6 +571,28 @@ export default function HomePage() {
     await setToken(null);
     router.replace("/(auth)/sign-in");
   };
+
+  const seedMockData = useCallback(async () => {
+    if (!token) {
+      throw new Error("Du er ikke logget inn.");
+    }
+
+    const result = await SeedDevelopmentMockData(token);
+
+    await Promise.all([
+      refreshMeals(),
+      refreshWeights(),
+      queryClient.invalidateQueries({ queryKey: ["completedWorkouts"] }),
+      queryClient.invalidateQueries({ queryKey: ["exercises"] }),
+      queryClient.invalidateQueries({ queryKey: ["exerciseHistoryBulk"] }),
+      queryClient.invalidateQueries({ queryKey: ["exerciseHistory"] }),
+      queryClient.invalidateQueries({ queryKey: ["exerciseSetsHistory"] }),
+      queryClient.invalidateQueries({ queryKey: ["sessionDetails"] }),
+      queryClient.invalidateQueries({ queryKey: ["adaptive"] }),
+    ]);
+
+    return result;
+  }, [refreshMeals, refreshWeights, token]);
 
   const orderedHomeSections = normalizeHomeSectionOrder(
     userSettings.homeSectionOrder
@@ -971,6 +995,7 @@ export default function HomePage() {
         userSettingsError={userSettingsError}
         onLogout={logOutUser}
         onDeleteAccount={deleteUserAccount}
+        onSeedMockData={seedMockData}
       />
     </DarkOceanBackground>
   );

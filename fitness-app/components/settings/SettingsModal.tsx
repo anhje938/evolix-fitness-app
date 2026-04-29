@@ -135,6 +135,14 @@ type Props = {
 
   onLogout?: () => Promise<void> | void;
   onDeleteAccount?: () => Promise<void> | void;
+  onSeedMockData?: () => Promise<MockDataSeedResult | void> | MockDataSeedResult | void;
+};
+
+type MockDataSeedResult = {
+  foodLogs?: number;
+  weightLogs?: number;
+  workoutSessions?: number;
+  exercises?: number;
 };
 
 const DELETE_CONFIRM_WORD = "SLETT";
@@ -237,12 +245,14 @@ export default function SettingsModal({
   userSettingsError = null,
   onLogout,
   onDeleteAccount,
+  onSeedMockData,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("general");
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isSeedingMockData, setIsSeedingMockData] = useState(false);
 
   const isControlled = !!userSettings && !!onChangeUserSettings;
 
@@ -449,6 +459,42 @@ export default function SettingsModal({
     }
   };
 
+  const handleSeedMockData = () => {
+    if (!onSeedMockData || isSeedingMockData) return;
+
+    Alert.alert(
+      "Fyll mock-data",
+      "Dette legger inn 30 dager med mat og vekt, pluss 10 Push-, 10 Pull- og 10 Legs-okter for denne brukeren.",
+      [
+        { text: "Avbryt", style: "cancel" },
+        {
+          text: "Fyll inn",
+          onPress: async () => {
+            try {
+              setIsSeedingMockData(true);
+              const result = await onSeedMockData();
+              const summary = result
+                ? `${result.foodLogs ?? 0} matlogger, ${
+                    result.weightLogs ?? 0
+                  } vektlogger og ${result.workoutSessions ?? 0} okter.`
+                : "Mock-data er lagt inn.";
+              Alert.alert("Ferdig", summary);
+            } catch (error) {
+              const message =
+                error instanceof Error && error.message.trim().length > 0
+                  ? error.message
+                  : "Kunne ikke fylle mock-data.";
+              Alert.alert("Feil", message);
+            } finally {
+              setIsSeedingMockData(false);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   return (
     <Modal visible={visible} animationType="fade" transparent>
       <View style={styles.overlay}>
@@ -604,6 +650,42 @@ export default function SettingsModal({
                       </View>
                     </TouchableOpacity>
                   </View>
+
+                  {__DEV__ && !!onSeedMockData && (
+                    <View style={styles.section}>
+                      <Text style={[typography.bodyBold, styles.sectionTitle]}>
+                        Utvikling
+                      </Text>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.developmentActionBox,
+                          isSeedingMockData && styles.disabledAction,
+                        ]}
+                        onPress={handleSeedMockData}
+                        disabled={isSeedingMockData}
+                      >
+                        <Text
+                          style={[
+                            typography.bodyBold,
+                            styles.developmentActionText,
+                          ]}
+                        >
+                          {isSeedingMockData
+                            ? "Fyller mock-data..."
+                            : "Fyll mock-data"}
+                        </Text>
+                        <Text
+                          style={[
+                            typography.body,
+                            styles.developmentActionSubtext,
+                          ]}
+                        >
+                          Mat, vekt og PPL-okter for lokal testing
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
                   {/* LOGG UT */}
                   <View style={styles.section}>
@@ -1728,6 +1810,27 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "rgba(148,163,184,0.92)",
     lineHeight: 20,
+  },
+
+  developmentActionBox: {
+    width: "100%",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: "rgba(34,197,94,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(74,222,128,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  developmentActionText: {
+    fontSize: 15,
+    color: "#BBF7D0",
+  },
+  developmentActionSubtext: {
+    marginTop: 2,
+    fontSize: 12,
+    color: "rgba(220,252,231,0.82)",
   },
 
   logoutBox: {

@@ -1,7 +1,4 @@
-import {
-  DataQualityLevel,
-  type TodayFocus,
-} from "@/types/adaptive";
+import { DataQualityLevel, type TodayFocus } from "@/types/adaptive";
 import { useTodayFocus } from "@/hooks/useAdaptive";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -33,7 +30,9 @@ function MainContent({ focus }: { focus: TodayFocus }) {
           <Text style={styles.badgeText}>EvoliX Plan</Text>
         </View>
         <View style={styles.qualityPill}>
-          <Text style={styles.qualityText}>{qualityLabel(focus.dataQuality)}</Text>
+          <Text style={styles.qualityText}>
+            {qualityLabel(focus.dataQuality)}
+          </Text>
         </View>
       </View>
 
@@ -47,7 +46,11 @@ function MainContent({ focus }: { focus: TodayFocus }) {
 
       <View style={styles.metricGrid}>
         <View style={styles.metricBox}>
-          <Ionicons name="flag-outline" size={15} color="rgba(96,165,250,0.98)" />
+          <Ionicons
+            name="flag-outline"
+            size={15}
+            color="rgba(96,165,250,0.98)"
+          />
           <Text style={styles.metricText} numberOfLines={2}>
             {focus.focus}
           </Text>
@@ -205,9 +208,9 @@ const styles = StyleSheet.create({
   mainAction: {
     marginTop: 14,
     color: "rgba(248,250,252,0.99)",
-    fontSize: 22,
+    fontSize: 20,
     lineHeight: 27,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   why: {
     marginTop: 7,
@@ -237,7 +240,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   footer: {
-    marginTop: 13,
+    marginTop: 23,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
@@ -250,8 +253,8 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   reportButton: {
-    minHeight: 38,
-    paddingHorizontal: 13,
+    minHeight: 30,
+    paddingHorizontal: 10,
     borderRadius: 14,
     flexDirection: "row",
     alignItems: "center",
@@ -265,8 +268,8 @@ const styles = StyleSheet.create({
   },
   reportButtonText: {
     color: "#02111f",
-    fontSize: 13,
-    fontWeight: "800",
+    fontSize: 12,
+    fontWeight: "700",
   },
   loadingRow: {
     minHeight: 138,
