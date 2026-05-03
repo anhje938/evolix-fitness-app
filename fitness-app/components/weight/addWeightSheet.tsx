@@ -1,6 +1,7 @@
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { useWeightContext } from "@/context/WeightProvider";
+import type { Weight } from "@/types/weight";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
@@ -26,6 +27,7 @@ type AddWeightSheetProps = {
   isOpen: boolean;
   onClose: () => void;
   postWeight: (weightKg: number, timestampUtc: string) => void | Promise<void>;
+  initialEntry?: Weight | null;
 };
 
 const QUICK_ADJUSTS = [-0.5, -0.1, 0.1, 0.5, 1, 2];
@@ -48,6 +50,7 @@ export function AddWeightSheet({
   isOpen,
   onClose,
   postWeight,
+  initialEntry = null,
 }: AddWeightSheetProps) {
   const { lastWeight } = useWeightContext();
   const isClosingRef = useRef(false);
@@ -65,6 +68,26 @@ export function AddWeightSheet({
     () => new Date()
   );
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (initialEntry) {
+      const parsedDate = new Date(initialEntry.timestampUtc);
+      const safeDate = Number.isFinite(parsedDate.getTime())
+        ? parsedDate
+        : new Date();
+
+      setWeightKg(formatWeightValue(initialEntry.weightKg));
+      setSelectedDate(safeDate);
+      setSelectedTime(safeDate);
+      return;
+    }
+
+    setWeightKg((lastWeight ?? "").toString());
+    setSelectedDate(new Date());
+    setSelectedTime(new Date());
+  }, [initialEntry, isOpen, lastWeight]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -242,7 +265,7 @@ export function AddWeightSheet({
                     <View style={styles.headerRow}>
                       <View style={styles.headerCopy}>
                         <Text style={[typography.h2, styles.title]}>
-                          Logg vekt
+                          {initialEntry ? "Rediger vekt" : "Logg vekt"}
                         </Text>
                         <Text style={[typography.bodyBlack, styles.subtitle]}>
                           Rask, stabil og presis logging med ren historikk.
@@ -438,7 +461,11 @@ export function AddWeightSheet({
                           style={styles.saveIcon}
                         />
                         <Text style={styles.saveText}>
-                          {isSaving ? "Lagrer..." : "Lagre vekt"}
+                          {isSaving
+                            ? "Lagrer..."
+                            : initialEntry
+                            ? "Oppdater vekt"
+                            : "Lagre vekt"}
                         </Text>
                       </LinearGradient>
                     </TouchableOpacity>

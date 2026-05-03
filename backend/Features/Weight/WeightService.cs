@@ -81,7 +81,45 @@ namespace backend.Features.Weight
             };
         }
 
+        public async Task<WeightLogResponse> UpdateUserWeight(
+            string userId,
+            Guid id,
+            WeightLogRequest request,
+            CancellationToken ct = default)
+        {
+            var entry = await _db.WeightLogs
+                .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId, ct);
 
+            if (entry == null)
+                throw new KeyNotFoundException("Weight not found");
+
+            entry.WeightKg = request.WeightKg;
+            entry.TimestampUtc = request.TimestampUtc;
+
+            await _db.SaveChangesAsync(ct);
+
+            return new WeightLogResponse
+            {
+                Id = entry.Id,
+                WeightKg = entry.WeightKg,
+                TimestampUtc = entry.TimestampUtc
+            };
+        }
+
+        public async Task DeleteUserWeight(
+            string userId,
+            Guid id,
+            CancellationToken ct = default)
+        {
+            var entry = await _db.WeightLogs
+                .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId, ct);
+
+            if (entry == null)
+                throw new KeyNotFoundException("Weight not found");
+
+            _db.WeightLogs.Remove(entry);
+            await _db.SaveChangesAsync(ct);
+        }
 
     }
 }

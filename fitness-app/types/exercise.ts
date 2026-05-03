@@ -12,6 +12,7 @@ export type Exercise = {
     isCompound?: boolean,
     defaultProgressionStepKg?: number | null,
     muscles?: ExerciseMuscle[],
+    usageCount?: number,
     userId?: string | null,
 }
 

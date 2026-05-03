@@ -75,6 +75,11 @@ type WorkoutSessionContextValue = {
     name: string;
     muscle?: string | null;
   }) => void;
+  updateExerciseDetails: (payload: {
+    exerciseId: string;
+    name: string;
+    muscle?: string | null;
+  }) => void;
 
   addSet: (sessionExerciseId: string) => void;
   applySetTemplate: (
@@ -800,6 +805,40 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
     [setSessionState]
   );
 
+  const updateExerciseDetails = useCallback(
+    (payload: { exerciseId: string; name: string; muscle?: string | null }) => {
+      const nextName = normalizeName(payload.name);
+      if (!nextName) return;
+
+      setSessionState((prev) => {
+        if (!prev) return prev;
+
+        let changed = false;
+        const updatedExercises = prev.exercises.map((exercise) => {
+          if (exercise.exerciseId !== payload.exerciseId) return exercise;
+
+          const next = {
+            ...exercise,
+            name: nextName,
+            muscle: payload.muscle ?? null,
+          };
+
+          if (
+            next.name !== exercise.name ||
+            next.muscle !== (exercise.muscle ?? null)
+          ) {
+            changed = true;
+          }
+
+          return next;
+        });
+
+        return changed ? { ...prev, exercises: updatedExercises } : prev;
+      });
+    },
+    [setSessionState]
+  );
+
   const addSet = useCallback((sessionExerciseId: string) => {
     setSessionState((prev) => {
       if (!prev) return prev;
@@ -1105,6 +1144,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
       renameSession,
       deleteSession,
       addExercise,
+      updateExerciseDetails,
       addSet,
       applySetTemplate,
       updateSet,
@@ -1113,6 +1153,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
     }),
     [
       addExercise,
+      updateExerciseDetails,
       addSet,
       applySetTemplate,
       closeSession,

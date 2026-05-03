@@ -129,7 +129,18 @@ namespace backend.Features.Training.Exercises
                 .Where(e => e.UserId == userId || e.UserId == null)
                 .ToListAsync(ct);
 
-            return exercises.Select(MapExercise).ToList();
+            var usageByExerciseId = await _db.WorkoutExerciseLogs
+                .AsNoTracking()
+                .Where(log => log.WorkoutSession.UserId == userId)
+                .GroupBy(log => log.ExerciseId)
+                .Select(group => new { ExerciseId = group.Key, Count = group.Count() })
+                .ToDictionaryAsync(x => x.ExerciseId, x => x.Count, ct);
+
+            return exercises
+                .Select(e => MapExercise(e, usageByExerciseId.GetValueOrDefault(e.Id)))
+                .OrderByDescending(e => e.UsageCount)
+                .ThenBy(e => e.Name)
+                .ToList();
 
         }
 
@@ -167,7 +178,7 @@ namespace backend.Features.Training.Exercises
             }
         }
 
-        private static ExerciseResponse MapExercise(Exercise e)
+        private static ExerciseResponse MapExercise(Exercise e, int usageCount = 0)
         {
             return new ExerciseResponse
             {
@@ -184,6 +195,7 @@ namespace backend.Features.Training.Exercises
                 IsCompound = e.IsCompound,
                 DefaultProgressionStepKg = e.DefaultProgressionStepKg,
                 UserId = e.UserId,
+                UsageCount = usageCount,
                 Muscles = e.ExerciseMuscles
                     .OrderBy(m => m.Role)
                     .ThenByDescending(m => m.Contribution)

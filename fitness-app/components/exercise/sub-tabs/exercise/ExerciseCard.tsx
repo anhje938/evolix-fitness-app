@@ -20,6 +20,7 @@ import { MiniExerciseChart } from "./MiniExerciseChart";
 
 import { DeleteExercise, UpdateExercise } from "@/api/exercise/exercise";
 import { queryClient } from "@/config/queryClient";
+import { useWorkoutSession } from "@/context/workoutSessionContext";
 import {
   ADVANCED_MUSCLE_FILTERS,
   MUSCLE_FILTERS,
@@ -132,6 +133,7 @@ export default function ExerciseCard({
   const [muscle, setMuscle] = useState<MuscleFilterValue>("ALL");
   const [equipment, setEquipment] = useState("");
   const [description, setDescription] = useState("");
+  const { updateExerciseDetails } = useWorkoutSession();
 
   const isGlobal = exercise.userId == null;
   const canEdit = isAdmin || !isGlobal;
@@ -245,13 +247,19 @@ export default function ExerciseCard({
 
       const cleanedSpecific = normalizeSpecificToKnownAdvanced(specificGroups);
 
-      await UpdateExercise(exercise.id, {
+      const updatedExercise = await UpdateExercise(exercise.id, {
         name: trimmed,
         description: description.trim() ? description.trim() : "",
         muscle: muscle === "ALL" ? "" : muscle,
         equipment: equipment.trim() ? equipment.trim() : "",
         specificMuscleGroups:
           cleanedSpecific.length > 0 ? cleanedSpecific.join(",") : "",
+      });
+
+      updateExerciseDetails({
+        exerciseId: exercise.id,
+        name: updatedExercise.name ?? trimmed,
+        muscle: updatedExercise.muscle ?? (muscle === "ALL" ? null : muscle),
       });
 
       await Promise.all([

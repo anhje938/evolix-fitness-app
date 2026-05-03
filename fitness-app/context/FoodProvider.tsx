@@ -20,11 +20,15 @@ type TodayTotals = {
   totalFats: number;
 };
 
+type RefreshMealsOptions = {
+  force?: boolean;
+};
+
 type FoodContextValue = {
   foodList: Food[];
   setFoodList: React.Dispatch<React.SetStateAction<Food[]>>;
   todayTotals: TodayTotals;
-  refreshMeals: () => Promise<void>;
+  refreshMeals: (options?: RefreshMealsOptions) => Promise<Food[]>;
   isLoadingMeals: boolean;
 };
 
@@ -42,7 +46,7 @@ export function FoodProvider({ children }: { children: ReactNode }) {
   const [isLoadingMeals, setIsLoadingMeals] = useState(false);
 
   const mountedRef = useRef(true);
-  const inFlightRef = useRef(false); // ✅ lås mot parallelle fetches
+  const refreshPromiseRef = useRef<Promise<Food[]> | null>(null);
 
   const { token, setToken } = useAuth();
 
@@ -53,35 +57,60 @@ export function FoodProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const refreshMeals = useCallback(async () => {
-    if (inFlightRef.current) return; // ✅ stopper spam
-    inFlightRef.current = true;
-
+  const runRefreshMeals = useCallback(async (): Promise<Food[]> => {
     setIsLoadingMeals(true);
     try {
       if (!token) {
         if (mountedRef.current) setFoodList([]);
-        return;
+        return [];
       }
       const data = await FetchUserMeals(token);
+      const sortedData = sortFoodsByTimestampDesc(data);
 
-      if (!mountedRef.current) return;
-      setFoodList(sortFoodsByTimestampDesc(data));
+      if (!mountedRef.current) return sortedData;
+      setFoodList(sortedData);
+      return sortedData;
     } catch (error) {
       if (isUnauthorizedError(error)) {
         if (mountedRef.current) setFoodList([]);
         void setToken(null);
-        return;
+        return [];
       }
       console.log("Feil ved henting av meals:", error);
+      return [];
     } finally {
-      inFlightRef.current = false;
       if (mountedRef.current) setIsLoadingMeals(false);
     }
   }, [setToken, token]);
 
+  const refreshMeals = useCallback(
+    async (options?: RefreshMealsOptions): Promise<Food[]> => {
+      const activeRefresh = refreshPromiseRef.current;
+
+      if (activeRefresh) {
+        if (!options?.force) {
+          return await activeRefresh;
+        }
+
+        await activeRefresh.catch(() => undefined);
+      }
+
+      const nextRefresh = runRefreshMeals();
+      refreshPromiseRef.current = nextRefresh;
+
+      try {
+        return await nextRefresh;
+      } finally {
+        if (refreshPromiseRef.current === nextRefresh) {
+          refreshPromiseRef.current = null;
+        }
+      }
+    },
+    [runRefreshMeals]
+  );
+
   useEffect(() => {
-    refreshMeals(); // ✅ kjører EN gang på mount
+    void refreshMeals();
   }, [refreshMeals]);
 
   const { todayTotals } = useTodayMacros(foodList);

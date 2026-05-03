@@ -23,12 +23,16 @@ type FoodHistoryProps = {
   foodList: Food[];
   excludedFoodCoachDateKeys: string[];
   onToggleFoodCoachDate: (dateKey: string) => void;
+  onEditMeal?: (meal: Food) => void;
+  onDeleteMeal?: (mealId: string) => void;
 };
 
 export function FoodHistory({
   foodList,
   excludedFoodCoachDateKeys,
   onToggleFoodCoachDate,
+  onEditMeal,
+  onDeleteMeal,
 }: FoodHistoryProps) {
   const [listMode, setListMode] = useState<"daily" | "weekly">("daily");
   const [dailyVisible, setDailyVisible] = useState(PAGE_SIZE);
@@ -309,6 +313,42 @@ export function FoodHistory({
                       </Text>
                     </View>
                   </View>
+
+                  {(onEditMeal || onDeleteMeal) && (
+                    <View style={styles.mealActions}>
+                      {onEditMeal && (
+                        <TouchableOpacity
+                          activeOpacity={0.86}
+                          onPress={() => onEditMeal(meal)}
+                          style={styles.mealActionBtn}
+                          accessibilityRole="button"
+                          accessibilityLabel="Rediger måltid"
+                        >
+                          <Ionicons
+                            name="create-outline"
+                            size={13}
+                            color="rgba(226,232,240,0.9)"
+                          />
+                        </TouchableOpacity>
+                      )}
+
+                      {onDeleteMeal && (
+                        <TouchableOpacity
+                          activeOpacity={0.86}
+                          onPress={() => onDeleteMeal(String(meal.id))}
+                          style={[styles.mealActionBtn, styles.mealActionDanger]}
+                          accessibilityRole="button"
+                          accessibilityLabel="Slett måltid"
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={13}
+                            color="rgba(254,202,202,0.96)"
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
 
                   {!isLast && <View style={styles.rowDivider} />}
                 </View>
@@ -929,6 +969,26 @@ const styles = StyleSheet.create({
   mealRightCol: {
     alignItems: "flex-end",
     marginLeft: 8,
+  },
+  mealActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginLeft: 8,
+  },
+  mealActionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(15,23,42,0.62)",
+    borderWidth: 0.8,
+    borderColor: "rgba(148,163,184,0.14)",
+  },
+  mealActionDanger: {
+    backgroundColor: "rgba(127,29,29,0.18)",
+    borderColor: "rgba(248,113,113,0.22)",
   },
 
   mealKcal: {

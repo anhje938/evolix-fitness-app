@@ -28,6 +28,50 @@ export async function PostWeight(
   return await res.json();
 }
 
+export async function UpdateWeight(
+  token: string,
+  weightId: string,
+  weightKg: number,
+  timestampUtc: string
+): Promise<Weight> {
+  const res = await authFetch(
+    `${API_BASE_URL}/weight/${weightId}`,
+    {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ weightKg, timestampUtc }),
+    },
+    { token }
+  );
+
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => "");
+    throw new Error(errorText || `Request failed with status ${res.status}`);
+  }
+
+  return (await res.json()) as Weight;
+}
+
+export async function DeleteWeight(
+  token: string,
+  weightId: string
+): Promise<void> {
+  const res = await authFetch(
+    `${API_BASE_URL}/weight/${weightId}`,
+    {
+    method: "DELETE",
+    },
+    { token }
+  );
+
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => "");
+    throw new Error(errorText || `Request failed with status ${res.status}`);
+  }
+}
+
 export async function getUserWeights(token: string): Promise<Weight[]> {
   const res = await authFetch(
     `${API_BASE_URL}/weight`,

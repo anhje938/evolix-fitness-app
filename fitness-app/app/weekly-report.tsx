@@ -5,7 +5,11 @@ import {
   useCurrentWeeklyReport,
   useRegenerateWeeklyReport,
 } from "@/hooks/useAdaptive";
-import { DataQualityLevel, type WeeklyReport } from "@/types/adaptive";
+import {
+  AdaptiveRecommendationType,
+  DataQualityLevel,
+  type WeeklyReport,
+} from "@/types/adaptive";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -63,6 +67,17 @@ function scoreLabel(score: number | null) {
   return "Ujevn uke";
 }
 
+function isBodyPlanRecommendation(type: number) {
+  return (
+    type === AdaptiveRecommendationType.HoldCalories ||
+    type === AdaptiveRecommendationType.ReduceCalories ||
+    type === AdaptiveRecommendationType.IncreaseCalories ||
+    type === AdaptiveRecommendationType.IncreaseProtein ||
+    type === AdaptiveRecommendationType.AdjustTargetDate ||
+    type === AdaptiveRecommendationType.NeedMoreData
+  );
+}
+
 function SectionCard({
   title,
   icon,
@@ -107,6 +122,12 @@ function MetricRow({
 function ReportContent({ report }: { report: WeeklyReport }) {
   const { refreshUserSettings } = useUserSettings();
   const score = report.overallScore;
+  const bodyRecommendations = report.recommendations.filter((item) =>
+    isBodyPlanRecommendation(item.type)
+  );
+  const nextActions = report.nextWeekActions.filter((item) =>
+    item.category === "Nutrition" || item.category === "Weight"
+  );
 
   return (
     <>
@@ -134,7 +155,7 @@ function ReportContent({ report }: { report: WeeklyReport }) {
               size={14}
               color="rgba(103,232,249,0.98)"
             />
-            <Text style={styles.heroBadgeText}>Weekly Intelligence</Text>
+            <Text style={styles.heroBadgeText}>Ukesrapport</Text>
           </View>
           <Text style={styles.weekText}>
             {formatDate(report.weekStart)} - {formatDate(report.weekEnd)}
@@ -169,7 +190,7 @@ function ReportContent({ report }: { report: WeeklyReport }) {
         </View>
       )}
 
-      <SectionCard title="Vekt og mål" icon="scale-outline">
+      <SectionCard title="Vekt" icon="scale-outline">
         <MetricRow
           label="Trend"
           value={`${formatNumber(report.weight?.startTrendWeightKg, " kg")} → ${formatNumber(
@@ -197,7 +218,7 @@ function ReportContent({ report }: { report: WeeklyReport }) {
         </Text>
       </SectionCard>
 
-      <SectionCard title="Ernæring" icon="nutrition-outline">
+      <SectionCard title="Mat" icon="nutrition-outline">
         <MetricRow
           label="Kalorier"
           value={`${formatNumber(report.nutrition?.averageCalories, " kcal")} / ${formatNumber(
@@ -222,71 +243,9 @@ function ReportContent({ report }: { report: WeeklyReport }) {
         </Text>
       </SectionCard>
 
-      <SectionCard title="Trening" icon="barbell-outline">
-        <MetricRow
-          label="Økter"
-          value={`${report.training?.completedWorkouts ?? 0}`}
-          accent
-        />
-        <MetricRow label="Sett" value={`${report.training?.totalSets ?? 0}`} />
-        <MetricRow
-          label="Volum"
-          value={formatNumber(report.training?.totalVolumeKg, " kg")}
-        />
-        <MetricRow
-          label="Forbedret"
-          value={`${report.training?.exercisesImproved ?? 0} øvelser`}
-        />
-        <Text style={styles.insightText}>
-          {report.training?.bestProgressText ||
-            report.training?.insight ||
-            "Fullfør økter for bedre progresjonsforslag."}
-        </Text>
-      </SectionCard>
-
-      <SectionCard title="Recovery" icon="pulse-outline">
-        <MetricRow
-          label="Neste økt"
-          value={report.recovery?.recommendedNextSession || "Ingen data"}
-          accent
-        />
-        <MetricRow
-          label="Intensitet"
-          value={report.recovery?.intensityRecommendation || "Ingen data"}
-        />
-        <MetricRow
-          label="Klar"
-          value={report.recovery?.readyMusclesText || "Ingen data"}
-        />
-        <MetricRow
-          label="Bør hvile"
-          value={report.recovery?.restMusclesText || "Ingen tydelige"}
-        />
-        <Text style={styles.insightText}>
-          {report.recovery?.insight ?? "Recovery blir bedre etter flere økter."}
-        </Text>
-      </SectionCard>
-
-      {report.muscleBalance.length > 0 && (
-        <SectionCard title="Muskelbalanse" icon="body-outline">
-          <View style={styles.muscleGrid}>
-            {report.muscleBalance.slice(0, 8).map((item) => (
-              <View key={item.muscle} style={styles.musclePill}>
-                <Text style={styles.muscleName} numberOfLines={1}>
-                  {item.muscle}
-                </Text>
-                <Text style={styles.muscleSets}>
-                  {formatNumber(item.sets)} sett
-                </Text>
-              </View>
-            ))}
-          </View>
-        </SectionCard>
-      )}
-
-      <SectionCard title="Neste uke" icon="calendar-outline">
+      <SectionCard title="Neste steg" icon="calendar-outline">
         <View style={styles.actionList}>
-          {report.nextWeekActions.map((action) => (
+          {(nextActions.length > 0 ? nextActions : report.nextWeekActions.slice(0, 2)).map((action) => (
             <View key={`${action.sortOrder}-${action.text}`} style={styles.actionRow}>
               <View style={styles.actionIndex}>
                 <Text style={styles.actionIndexText}>{action.sortOrder}</Text>
@@ -300,12 +259,12 @@ function ReportContent({ report }: { report: WeeklyReport }) {
       <View style={styles.recommendationsHeader}>
         <Text style={styles.recommendationsTitle}>Anbefalinger</Text>
         <Text style={styles.recommendationsCount}>
-          {report.recommendations.length}
+          {bodyRecommendations.length}
         </Text>
       </View>
 
       <View style={styles.recommendationList}>
-        {report.recommendations.length === 0 ? (
+        {bodyRecommendations.length === 0 ? (
           <View style={styles.emptyRecommendations}>
             <Text style={styles.emptyTitle}>Ingen nye endringer</Text>
             <Text style={styles.emptyText}>
@@ -313,7 +272,7 @@ function ReportContent({ report }: { report: WeeklyReport }) {
             </Text>
           </View>
         ) : (
-          report.recommendations.map((recommendation) => (
+          bodyRecommendations.map((recommendation) => (
             <RecommendationCard
               key={recommendation.id}
               recommendation={recommendation}
@@ -438,7 +397,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: "rgba(248,250,252,0.98)",
     fontSize: 18,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   scrollContent: {
     gap: 14,
@@ -478,12 +437,12 @@ const styles = StyleSheet.create({
   heroBadgeText: {
     color: "rgba(226,232,240,0.94)",
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   weekText: {
     color: "rgba(148,163,184,0.92)",
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   scoreRow: {
     marginTop: 18,
@@ -503,14 +462,14 @@ const styles = StyleSheet.create({
   },
   scoreValue: {
     color: "rgba(248,250,252,0.99)",
-    fontSize: 28,
+    fontSize: 26,
     lineHeight: 32,
-    fontWeight: "900",
+    fontWeight: "600",
   },
   scoreMax: {
     color: "rgba(148,163,184,0.92)",
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   scoreCopy: {
     flex: 1,
@@ -520,7 +479,7 @@ const styles = StyleSheet.create({
     color: "rgba(248,250,252,0.98)",
     fontSize: 18,
     lineHeight: 23,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   summaryText: {
     marginTop: 5,
@@ -532,7 +491,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     color: "rgba(103,232,249,0.98)",
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   staleBox: {
     borderRadius: 16,
@@ -551,7 +510,7 @@ const styles = StyleSheet.create({
     color: "rgba(254,243,199,0.94)",
     fontSize: 12,
     lineHeight: 17,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   sectionCard: {
     borderRadius: 18,
@@ -579,7 +538,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: "rgba(248,250,252,0.97)",
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   metricRow: {
     minHeight: 30,
@@ -591,20 +550,20 @@ const styles = StyleSheet.create({
   metricLabel: {
     color: "rgba(148,163,184,0.92)",
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   metricValue: {
     flex: 1,
     color: "rgba(226,232,240,0.96)",
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: "700",
+    fontWeight: "500",
     textAlign: "right",
   },
   metricValueAccent: {
     color: "rgba(103,232,249,0.98)",
     fontSize: 14,
-    fontWeight: "900",
+    fontWeight: "600",
   },
   insightText: {
     marginTop: 10,

@@ -9,21 +9,15 @@ namespace backend.Features.AdaptivePlanning
         private readonly AppDbContext _db;
         private readonly WeeklyReportService _weeklyReportService;
         private readonly RecommendationService _recommendationService;
-        private readonly TrainingAnalysisService _trainingAnalysisService;
-        private readonly RecoveryAnalysisService _recoveryAnalysisService;
 
         public AdaptivePlanService(
             AppDbContext db,
             WeeklyReportService weeklyReportService,
-            RecommendationService recommendationService,
-            TrainingAnalysisService trainingAnalysisService,
-            RecoveryAnalysisService recoveryAnalysisService)
+            RecommendationService recommendationService)
         {
             _db = db;
             _weeklyReportService = weeklyReportService;
             _recommendationService = recommendationService;
-            _trainingAnalysisService = trainingAnalysisService;
-            _recoveryAnalysisService = recoveryAnalysisService;
         }
 
         public async Task<TodayFocusDto> GetTodayFocusAsync(
@@ -37,24 +31,19 @@ namespace backend.Features.AdaptivePlanning
                 .FirstOrDefaultAsync(x => x.UserId == userId, ct)
                 ?? new UserSettings { UserId = userId };
             var todayNutrition = await GetTodayNutritionAsync(userId, settings, ct);
-            var recovery = await GetLiveRecoveryAsync(userId, ct);
-            var latestWorkout = await _db.WorkoutSessions
-                .AsNoTracking()
-                .Where(x => x.UserId == userId && x.FinishedAtUtc != null)
-                .OrderByDescending(x => x.StartedAtUtc)
-                .Select(x => new { x.Title, x.StartedAtUtc })
-                .FirstOrDefaultAsync(ct);
+            var planRecommendations = pending
+                .Where(IsBodyPlanRecommendation)
+                .ToList();
+            var primaryRecommendation = planRecommendations.FirstOrDefault(x => x.NutritionChange != null)
+                ?? planRecommendations.FirstOrDefault();
 
-            var mainAction = recovery.RecommendedNextSession is { Length: > 0 } &&
-                             recovery.RecommendedNextSession != "Logg en Ã¸kt"
-                ? $"{recovery.RecommendedNextSession}"
-                : "Logg dagens plan";
-            var why = recovery.Insight.Length > 0 ? recovery.Insight : report.SummaryText;
-            var focus = pending.FirstOrDefault(x => x.ExerciseTargetChange != null)?.Title
-                ?? pending.FirstOrDefault()?.Title
-                ?? BuildLatestWorkoutFocus(latestWorkout?.Title, latestWorkout?.StartedAtUtc)
-                ?? "Hold planen stabil i dag";
-            var recoveryLine = $"{recovery.IntensityRecommendation}. Klar: {recovery.ReadyMusclesText}.";
+            var mainAction = primaryRecommendation?.Title
+                ?? BuildMainAction(todayNutrition, report);
+            var why = primaryRecommendation?.Explanation
+                ?? report.SummaryText;
+            var focus = report.WeightSummary?.Insight
+                ?? "Logg vekt jevnt, så blir planen mer presis.";
+            var secondaryLine = BuildSecondaryLine(report);
 
             return new TodayFocusDto
             {
@@ -62,10 +51,10 @@ namespace backend.Features.AdaptivePlanning
                 Why = why,
                 Focus = focus,
                 Nutrition = todayNutrition.Line,
-                Recovery = recoveryLine,
-                DataQuality = CombineTodayQuality(report.DataQuality, todayNutrition.Confidence, recovery.Confidence),
+                Recovery = secondaryLine,
+                DataQuality = CombineTodayQuality(report.DataQuality, todayNutrition.Confidence),
                 WeeklyReportId = report.Id,
-                Recommendations = pending.Take(3).Select(AdaptiveMapper.ToDto).ToList()
+                Recommendations = planRecommendations.Take(3).Select(AdaptiveMapper.ToDto).ToList()
             };
         }
 
@@ -94,7 +83,7 @@ namespace backend.Features.AdaptivePlanning
             {
                 return new TodayNutritionFocus
                 {
-                    Line = $"Logg fÃ¸rste mÃ¥ltid. Dagens mÃ¥l: {settings.ProteinGoal} g protein.",
+                    Line = $"Logg første måltid. Dagens mål: {settings.ProteinGoal} g protein.",
                     Confidence = DataQualityLevel.Low
                 };
             }
@@ -109,7 +98,7 @@ namespace backend.Features.AdaptivePlanning
 
             var line = proteinRemaining > 0
                 ? $"Du mangler ca. {proteinRemaining} g protein i dag. {caloriesRemaining} kcal igjen."
-                : $"ProteinmÃ¥let er truffet. Ca. {caloriesRemaining} kcal igjen.";
+                : $"Proteinmålet er truffet. Ca. {caloriesRemaining} kcal igjen.";
 
             return new TodayNutritionFocus
             {
@@ -118,38 +107,46 @@ namespace backend.Features.AdaptivePlanning
             };
         }
 
-        private async Task<RecoveryAnalysis> GetLiveRecoveryAsync(
-            string userId,
-            CancellationToken ct)
+        private static bool IsBodyPlanRecommendation(AdaptiveRecommendation recommendation)
         {
-            var now = DateTime.UtcNow;
-            var rollingTraining = await _trainingAnalysisService.AnalyzeRollingAsync(
-                userId,
-                now.AddDays(-14),
-                now.AddMinutes(1),
-                ct);
-
-            return _recoveryAnalysisService.Analyze(rollingTraining);
+            return recommendation.Type is AdaptiveRecommendationType.HoldCalories
+                or AdaptiveRecommendationType.ReduceCalories
+                or AdaptiveRecommendationType.IncreaseCalories
+                or AdaptiveRecommendationType.IncreaseProtein
+                or AdaptiveRecommendationType.AdjustTargetDate
+                or AdaptiveRecommendationType.NeedMoreData;
         }
 
-        private static string? BuildLatestWorkoutFocus(string? title, DateTime? startedAtUtc)
+        private static string BuildMainAction(
+            TodayNutritionFocus todayNutrition,
+            WeeklyReport report)
         {
-            if (string.IsNullOrWhiteSpace(title) || !startedAtUtc.HasValue) return null;
+            if (todayNutrition.Confidence == DataQualityLevel.Low)
+                return "Få inn dagens første måltid";
 
-            var hoursAgo = (DateTime.UtcNow - startedAtUtc.Value).TotalHours;
-            return hoursAgo <= 30
-                ? $"Sist Ã¸kt: {title.Trim()}. La recovery styre neste valg."
-                : null;
+            if (report.DataQuality == DataQualityLevel.Low)
+                return "Bygg nok data før planen justeres";
+
+            return "Hold planen rolig i dag";
+        }
+
+        private static string BuildSecondaryLine(WeeklyReport report)
+        {
+            if (report.NutritionSummary == null)
+                return "Matloggen styrer dagens råd.";
+
+            return report.NutritionSummary.LoggedDays >= 5
+                ? "God matdekning denne uken."
+                : $"Matlogg: {report.NutritionSummary.LoggedDays} av 7 dager.";
         }
 
         private static DataQualityLevel CombineTodayQuality(
             DataQualityLevel report,
-            DataQualityLevel nutrition,
-            DataQualityLevel recovery)
+            DataQualityLevel nutrition)
         {
-            var levels = new[] { report, nutrition, recovery };
+            var levels = new[] { report, nutrition };
             var usable = levels.Count(x => x != DataQualityLevel.Low);
-            if (usable >= 2 && levels.Count(x => x == DataQualityLevel.High) >= 2)
+            if (usable == 2 && levels.Count(x => x == DataQualityLevel.High) == 2)
                 return DataQualityLevel.High;
             if (usable >= 2) return DataQualityLevel.Medium;
             return DataQualityLevel.Low;

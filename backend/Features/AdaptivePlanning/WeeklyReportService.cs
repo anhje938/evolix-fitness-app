@@ -6,7 +6,7 @@ namespace backend.Features.AdaptivePlanning
 {
     public class WeeklyReportService
     {
-        public const string AlgorithmVersion = "adaptive-plan-v1.0";
+        public const string AlgorithmVersion = "adaptive-plan-v1.1";
         private const double KcalPerKg = 7700;
 
         private readonly AppDbContext _db;
@@ -93,22 +93,13 @@ namespace backend.Features.AdaptivePlanning
             var weightLogs = await _db.WeightLogs
                 .AsNoTracking()
                 .CountAsync(x => x.UserId == userId && x.TimestampUtc > dataThrough, ct);
-            var workouts = await _db.WorkoutSessions
-                .AsNoTracking()
-                .CountAsync(x =>
-                    x.UserId == userId &&
-                    x.FinishedAtUtc != null &&
-                    ((x.FinishedAtUtc.HasValue && x.FinishedAtUtc.Value > dataThrough) ||
-                     x.StartedAtUtc > dataThrough),
-                    ct);
             var settingsChanged = await _db.UserSettings
                 .AsNoTracking()
                 .AnyAsync(x => x.UserId == userId && x.UpdatedUtc > dataThrough, ct);
 
             var reasons = new List<string>();
-            if (workouts > 0) reasons.Add($"{workouts} nye Ã¸kter");
-            if (foodLogs > 0) reasons.Add($"{foodLogs} nye mÃ¥ltider");
-            if (weightLogs > 0) reasons.Add($"{weightLogs} nye vektmÃ¥linger");
+            if (foodLogs > 0) reasons.Add($"{foodLogs} nye måltider");
+            if (weightLogs > 0) reasons.Add($"{weightLogs} nye vektmålinger");
             if (settingsChanged) reasons.Add("endrede innstillinger");
 
             return new WeeklyReportFreshness
@@ -117,7 +108,7 @@ namespace backend.Features.AdaptivePlanning
                 IsStale = reasons.Count > 0,
                 StaleReason = reasons.Count == 0
                     ? ""
-                    : $"Rapporten er basert pÃ¥ data fram til {dataThrough:dd.MM HH:mm} UTC. Etter dette finnes {string.Join(", ", reasons)}."
+                    : $"Rapporten er basert på data fram til {dataThrough:dd.MM HH:mm} UTC. Etter dette finnes {string.Join(", ", reasons)}."
             };
         }
 
@@ -154,8 +145,8 @@ namespace backend.Features.AdaptivePlanning
                 week.EndExclusiveUtc,
                 ct);
             var recovery = _recovery.Analyze(recoveryTraining);
-            var dataQuality = CombineQuality(weight.Confidence, nutrition.Confidence, training.Confidence);
-            int? score = CalculateScore(weight, nutrition, training, recovery);
+            var dataQuality = CombineQuality(weight.Confidence, nutrition.Confidence);
+            int? score = CalculateScore(weight, nutrition);
 
             var report = new WeeklyReport
             {
@@ -165,7 +156,7 @@ namespace backend.Features.AdaptivePlanning
                 GeneratedAtUtc = DateTime.UtcNow,
                 DataQuality = dataQuality,
                 OverallScore = score,
-                SummaryText = BuildSummary(dataQuality, weight, nutrition, training),
+                SummaryText = BuildSummary(dataQuality, weight, nutrition),
                 AlgorithmVersion = AlgorithmVersion,
                 WeightSummary = new WeeklyReportWeightSummary
                 {
@@ -225,12 +216,12 @@ namespace backend.Features.AdaptivePlanning
                 });
             }
 
-            foreach (var action in BuildNextWeekActions(weight, nutrition, training, recovery))
+            foreach (var action in BuildNextWeekActions(weight, nutrition))
             {
                 report.NextWeekActions.Add(action);
             }
 
-            foreach (var recommendation in BuildRecommendations(userId, report, settings, weight, nutrition, training, recovery, dataQuality))
+            foreach (var recommendation in BuildRecommendations(userId, report, settings, weight, nutrition, dataQuality))
             {
                 report.Recommendations.Add(recommendation);
             }
@@ -281,9 +272,7 @@ namespace backend.Features.AdaptivePlanning
 
         private static int? CalculateScore(
             WeightTrendAnalysis weight,
-            NutritionAnalysis nutrition,
-            TrainingAnalysis training,
-            RecoveryAnalysis recovery)
+            NutritionAnalysis nutrition)
         {
             double weightedScore = 0;
             double availableWeight = 0;
@@ -308,29 +297,12 @@ namespace backend.Features.AdaptivePlanning
                 availableWeight += 35;
             }
 
-            var trainingScore = Math.Min(35,
-                Math.Min(training.CompletedWorkouts, 4) * 5 +
-                Math.Min(training.ExercisesImproved, 5) * 2 +
-                (training.TotalSets > 0 ? 8 : 0));
-            if (training.Confidence != DataQualityLevel.Low)
-            {
-                weightedScore += trainingScore;
-                availableWeight += 35;
-            }
-
-            if (recovery.Confidence != DataQualityLevel.Low)
-            {
-                var recoveryScore = recovery.RestMusclesText == "Ingen tydelige begrensninger" ? 15 : 11;
-                weightedScore += recoveryScore;
-                availableWeight += 15;
-            }
-
             if (weight.Confidence != DataQualityLevel.Low)
             {
-                var progressScore = weight.Status is "onTrack" or "maintaining" ? 15 :
-                    weight.Status == "slightlyBehind" ? 11 : 8;
+                var progressScore = weight.Status is "onTrack" or "maintaining" ? 65 :
+                    weight.Status == "slightlyBehind" ? 50 : 38;
                 weightedScore += progressScore;
-                availableWeight += 15;
+                availableWeight += 65;
             }
 
             if (availableWeight <= 0) return null;
@@ -341,50 +313,42 @@ namespace backend.Features.AdaptivePlanning
         private static string BuildSummary(
             DataQualityLevel dataQuality,
             WeightTrendAnalysis weight,
-            NutritionAnalysis nutrition,
-            TrainingAnalysis training)
+            NutritionAnalysis nutrition)
         {
             if (dataQuality == DataQualityLevel.Low)
             {
-                if (nutrition.LoggedDays > 0 || training.CompletedWorkouts > 0 || weight.RecentLogsCount > 0)
-                    return "EvoliX har forelopige signaler, men trenger mer dekning for storre planendringer.";
+                if (nutrition.LoggedDays > 0 || weight.RecentLogsCount > 0)
+                    return "EvoliX har foreløpige signaler, men trenger mer dekning før planen bør justeres.";
                 return "EvoliX trenger litt mer data for planen kan justeres trygt.";
             }
 
-            if (training.ExercisesImproved > 0 &&
-                nutrition.AverageProtein.HasValue &&
+            if (nutrition.AverageProtein.HasValue &&
                 nutrition.AverageProtein.Value < nutrition.TargetProtein)
-                return "Treningen viste fremgang, men protein ligger litt lavt. Neste uke bor protein og jevn logging prioriteres.";
+                return "Protein ligger litt lavt. Prioriter protein og jevn logging før kaloriene justeres hardere.";
 
             if (weight.Status is "onTrack" or "maintaining")
-                return "Du er naer riktig spor. EvoliX anbefaler sma, rolige justeringer og ny vurdering etter neste uke.";
+                return "Du er nær riktig spor. Hold målene stabile og vurder på nytt etter neste uke.";
 
-            return "Uken gir nok data til en forsiktig justering av planen.";
+            return "Uken gir nok data til en forsiktig justering av mat- og vektplanen.";
         }
 
         private static IEnumerable<WeeklyReportNextWeekAction> BuildNextWeekActions(
             WeightTrendAnalysis weight,
-            NutritionAnalysis nutrition,
-            TrainingAnalysis training,
-            RecoveryAnalysis recovery)
+            NutritionAnalysis nutrition)
         {
             var actions = new List<(string Category, string Text)>
             {
                 ("Nutrition", nutrition.AverageProtein.HasValue && nutrition.AverageProtein < nutrition.TargetProtein
                     ? $"Løft protein mot {nutrition.TargetProtein} g per dag."
-                    : $"Hold kalorimålet rundt {nutrition.TargetCalories} kcal."),
-                ("Recovery", $"{recovery.RecommendedNextSession}: {recovery.IntensityRecommendation}.")
+                    : $"Hold kalorimålet rundt {nutrition.TargetCalories} kcal.")
             };
-
-            if (training.MuscleLoads.Count > 0)
-            {
-                var lowest = training.MuscleLoads.Values.OrderBy(x => x.Sets).FirstOrDefault();
-                if (lowest != null)
-                    actions.Add(("Training", $"Legg inn noen ekstra sett for {lowest.Muscle} hvis det passer programmet."));
-            }
 
             if (weight.Status is "behind" or "slightlyBehind")
                 actions.Add(("Weight", "Vurder en liten kaloriendring, ikke et stort hopp."));
+            else if (weight.Status is "tooAggressive")
+                actions.Add(("Weight", "Øk handlingsrommet litt hvis tempoet blir for hardt."));
+            else
+                actions.Add(("Weight", "Hold vektmålingene jevne, helst 3 ganger i uken."));
 
             return actions.Select((x, i) => new WeeklyReportNextWeekAction
             {
@@ -400,8 +364,6 @@ namespace backend.Features.AdaptivePlanning
             UserSettings settings,
             WeightTrendAnalysis weight,
             NutritionAnalysis nutrition,
-            TrainingAnalysis training,
-            RecoveryAnalysis recovery,
             DataQualityLevel dataQuality)
         {
             var recommendations = new List<AdaptiveRecommendation>();
@@ -416,14 +378,13 @@ namespace backend.Features.AdaptivePlanning
                     SourceReport = report,
                     Type = AdaptiveRecommendationType.NeedMoreData,
                     Title = "Logg litt mer før EvoliX justerer planen",
-                    Explanation = "EvoliX trenger minst 5 matdager, 3 vektmålinger og helst 2 økter for høy sikkerhet.",
+                    Explanation = "EvoliX trenger minst 5 matdager og 3 vektmålinger for høy sikkerhet.",
                     Confidence = RecommendationConfidence.Low,
                     AppliesFromDate = appliesFrom,
                     ExpiresAtUtc = DateTime.UtcNow.AddDays(7)
                 });
                 if (weight.Confidence == DataQualityLevel.Low &&
-                    nutrition.Confidence == DataQualityLevel.Low &&
-                    training.Confidence == DataQualityLevel.Low)
+                    nutrition.Confidence == DataQualityLevel.Low)
                 {
                     return recommendations;
                 }
@@ -508,49 +469,6 @@ namespace backend.Features.AdaptivePlanning
                     }
                 });
             }
-
-            if (training.BestProgressExerciseId.HasValue && training.SuggestedBestProgressWeightKg.HasValue)
-            {
-                recommendations.Add(new AdaptiveRecommendation
-                {
-                    UserId = userId,
-                    SourceReport = report,
-                    Type = AdaptiveRecommendationType.IncreaseLoad,
-                    Title = $"Øk {training.BestProgressExerciseName}",
-                    Explanation = training.BestProgressText,
-                    Confidence = ToRecommendationConfidence(training.Confidence),
-                    AppliesFromDate = appliesFrom,
-                    ExpiresAtUtc = DateTime.UtcNow.AddDays(14),
-                    ExerciseTargetChange = new RecommendationExerciseTargetChange
-                    {
-                        ExerciseId = training.BestProgressExerciseId.Value,
-                        SuggestedTargetWeightKg = training.SuggestedBestProgressWeightKg,
-                        SuggestedTargetSets = 3,
-                        MinReps = 6,
-                        MaxReps = 8,
-                        ProgressionModel = ExerciseProgressionModel.DoubleProgression
-                    }
-                });
-            }
-
-            recommendations.Add(new AdaptiveRecommendation
-            {
-                UserId = userId,
-                SourceReport = report,
-                Type = AdaptiveRecommendationType.RecoveryNextSession,
-                Title = $"Neste økt: {recovery.RecommendedNextSession}",
-                Explanation = recovery.Insight,
-                Confidence = ToRecommendationConfidence(recovery.Confidence),
-                AppliesFromDate = appliesFrom,
-                ExpiresAtUtc = DateTime.UtcNow.AddDays(7),
-                RecoveryAction = new RecommendationRecoveryAction
-                {
-                    RecommendedSession = recovery.RecommendedNextSession,
-                    Intensity = recovery.IntensityRecommendation,
-                    FocusMusclesText = recovery.ReadyMusclesText,
-                    RestMusclesText = recovery.RestMusclesText
-                }
-            });
 
             return recommendations;
         }

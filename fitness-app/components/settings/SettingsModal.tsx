@@ -1,5 +1,6 @@
 import { clearStoredAuthSession } from "@/api/authSession";
 import CloseIcon from "@/assets/icons/white-x.svg";
+import { GLOBAL_IOS_KEYBOARD_ACCESSORY_ID } from "@/components/common/GlobalKeyboardAccessory";
 import { AppDateTimePicker } from "@/components/date/AppDateTimePicker";
 import { typography } from "@/config/typography";
 import {
@@ -16,6 +17,7 @@ import { getFutureUtcNoonIsoDate, toUtcNoonIsoDate } from "@/utils/date";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -139,10 +141,19 @@ type Props = {
 };
 
 type MockDataSeedResult = {
+  userId?: string;
   foodLogs?: number;
   weightLogs?: number;
   workoutSessions?: number;
+  verifiedFoodLogs?: number;
+  verifiedWorkoutSessions?: number;
   exercises?: number;
+  workoutPrograms?: number;
+  workouts?: number;
+  composedMeals?: number;
+  exerciseTargets?: number;
+  nutritionTargetsHistory?: number;
+  adaptiveRecommendations?: number;
 };
 
 const DELETE_CONFIRM_WORD = "SLETT";
@@ -155,6 +166,13 @@ const ALL_HOME_SECTIONS: HomeSectionKey[] = [
 const ALL_RECOVERY_MUSCLES: RecoveryMapMuscleKey[] = ADVANCED_MUSCLE_FILTERS.filter(
   (item) => item.value !== "ALL"
 ).map((item) => item.value as RecoveryMapMuscleKey);
+
+const settingsInputProps = {
+  inputAccessoryViewID: GLOBAL_IOS_KEYBOARD_ACCESSORY_ID,
+  returnKeyType: "done" as const,
+  submitBehavior: "blurAndSubmit" as const,
+  onSubmitEditing: () => Keyboard.dismiss(),
+};
 
 function clampInt(value: string, fallback: number) {
   const cleaned = value.replace(",", ".").trim();
@@ -464,7 +482,7 @@ export default function SettingsModal({
 
     Alert.alert(
       "Fyll mock-data",
-      "Dette legger inn 30 dager med mat og vekt, pluss 10 Push-, 10 Pull- og 10 Legs-okter for denne brukeren.",
+      "Dette legger inn 30 dager med mat og vekt, plan, øvelsesmål, anbefalinger og 10 Push-, 10 Pull- og 10 Legs-økter for denne brukeren.",
       [
         { text: "Avbryt", style: "cancel" },
         {
@@ -476,9 +494,20 @@ export default function SettingsModal({
               const summary = result
                 ? `${result.foodLogs ?? 0} matlogger, ${
                     result.weightLogs ?? 0
-                  } vektlogger og ${result.workoutSessions ?? 0} okter.`
+                  } vektlogger, ${result.workoutSessions ?? 0} økter og ${
+                    result.adaptiveRecommendations ?? 0
+                  } anbefalinger.`
                 : "Mock-data er lagt inn.";
-              Alert.alert("Ferdig", summary);
+              const verification = result
+                ? `\n\nVerifisert i appen: ${
+                    result.verifiedFoodLogs ?? 0
+                  } matlogger og ${
+                    result.verifiedWorkoutSessions ?? 0
+                  } fullførte økter.${
+                    result.userId ? `\n\nBruker: ${result.userId}` : ""
+                  }`
+                : "";
+              Alert.alert("Ferdig", `${summary}${verification}`);
             } catch (error) {
               const message =
                 error instanceof Error && error.message.trim().length > 0
@@ -681,7 +710,7 @@ export default function SettingsModal({
                             styles.developmentActionSubtext,
                           ]}
                         >
-                          Mat, vekt og PPL-okter for lokal testing
+                          Mat, vekt og PPL-økter for lokal testing
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -769,6 +798,7 @@ export default function SettingsModal({
                       </View>
 
                       <TextInput
+                        {...settingsInputProps}
                         value={String(settings.calorieGoal)}
                         onChangeText={(t) =>
                           updateSettings({
@@ -793,6 +823,7 @@ export default function SettingsModal({
                       </View>
 
                       <TextInput
+                        {...settingsInputProps}
                         value={String(settings.proteinGoal)}
                         onChangeText={(t) =>
                           updateSettings({
@@ -817,6 +848,7 @@ export default function SettingsModal({
                       </View>
 
                       <TextInput
+                        {...settingsInputProps}
                         value={String(settings.fatGoal)}
                         onChangeText={(t) =>
                           updateSettings({
@@ -841,6 +873,7 @@ export default function SettingsModal({
                       </View>
 
                       <TextInput
+                        {...settingsInputProps}
                         value={String(settings.carbGoal)}
                         onChangeText={(t) =>
                           updateSettings({
@@ -865,6 +898,7 @@ export default function SettingsModal({
                       </View>
 
                       <TextInput
+                        {...settingsInputProps}
                         value={String(settings.weightGoalKg)}
                         onChangeText={(t) =>
                           updateSettings({
@@ -969,7 +1003,7 @@ export default function SettingsModal({
                           Egne treningsdata
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Vis alle eller bare selvlagde ovelser, okter og program
+                          Vis alle eller bare selvlagde øvelser, økter og program
                         </Text>
                       </View>
 
@@ -1401,6 +1435,7 @@ export default function SettingsModal({
               </Text>
 
               <TextInput
+                {...settingsInputProps}
                 value={deleteConfirmInput}
                 onChangeText={setDeleteConfirmInput}
                 editable={!isDeletingAccount}

@@ -25,6 +25,8 @@ type WeeklySummaryItem = {
 type WeightHistoryProps = {
   weightList: Weight[];
   weeklySummary: WeeklySummaryItem[];
+  onEditWeight?: (weight: Weight) => void;
+  onDeleteWeight?: (weight: Weight) => void;
 };
 
 const DAILY_PAGE_SIZE = 30;
@@ -32,6 +34,8 @@ const DAILY_PAGE_SIZE = 30;
 export default function WeightHistory({
   weightList,
   weeklySummary,
+  onEditWeight,
+  onDeleteWeight,
 }: WeightHistoryProps) {
   const [listMode, setListMode] = useState<"daily" | "weekly">("daily");
   const [visibleCount, setVisibleCount] = useState<number>(DAILY_PAGE_SIZE);
@@ -359,6 +363,42 @@ export default function WeightHistory({
                         </Text>
                       </View>
                     </View>
+
+                    {(onEditWeight || onDeleteWeight) && (
+                      <View style={styles.rowActions}>
+                        {onEditWeight && (
+                          <TouchableOpacity
+                            activeOpacity={0.86}
+                            onPress={() => onEditWeight(weight)}
+                            style={styles.rowActionBtn}
+                            accessibilityRole="button"
+                            accessibilityLabel="Rediger vekt"
+                          >
+                            <Ionicons
+                              name="create-outline"
+                              size={14}
+                              color="rgba(226,232,240,0.9)"
+                            />
+                          </TouchableOpacity>
+                        )}
+
+                        {onDeleteWeight && (
+                          <TouchableOpacity
+                            activeOpacity={0.86}
+                            onPress={() => onDeleteWeight(weight)}
+                            style={[styles.rowActionBtn, styles.rowActionDanger]}
+                            accessibilityRole="button"
+                            accessibilityLabel="Slett vekt"
+                          >
+                            <Ionicons
+                              name="trash-outline"
+                              size={14}
+                              color="rgba(254,202,202,0.96)"
+                            />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
                   </View>
                 </View>
               </View>
@@ -724,6 +764,26 @@ const styles = StyleSheet.create({
   valueCol: {
     alignItems: "flex-end",
     marginLeft: 8,
+  },
+  rowActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginLeft: 8,
+  },
+  rowActionBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(15,23,42,0.62)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.14)",
+  },
+  rowActionDanger: {
+    backgroundColor: "rgba(127,29,29,0.18)",
+    borderColor: "rgba(248,113,113,0.22)",
   },
   weightStack: {
     flexDirection: "row",

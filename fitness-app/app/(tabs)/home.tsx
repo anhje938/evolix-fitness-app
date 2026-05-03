@@ -1,5 +1,6 @@
 // app/(tabs)/home.tsx
 import { SeedDevelopmentMockData } from "@/api/development";
+import { getCompletedWorkouts } from "@/api/exercise/completedWorkouts";
 import { deleteMyUser } from "@/api/user";
 import SettingsLogo from "@/assets/icons/white-settings.svg";
 import { DarkOceanBackground } from "@/components/DarkOceanBackground";
@@ -235,6 +236,25 @@ const SIDE_AWARE_SLUGS = new Set([
   "calves",
 ]);
 
+const RECOVERY_INTERACTIVE_SLUGS = new Set([
+  "chest",
+  "deltoids",
+  "biceps",
+  "triceps",
+  "forearm",
+  "abs",
+  "obliques",
+  "quadriceps",
+  "adductors",
+  "tibialis",
+  "trapezius",
+  "upper-back",
+  "lower-back",
+  "gluteal",
+  "hamstring",
+  "calves",
+]);
+
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
@@ -445,6 +465,7 @@ export default function HomePage() {
     ) => {
       const slug = bodyPart?.slug;
       if (!slug) return;
+      if (!RECOVERY_INTERACTIVE_SLUGS.has(slug)) return;
 
       const figureLayout =
         figureSide === "front" ? frontFigureLayout : backFigureLayout;
@@ -469,12 +490,7 @@ export default function HomePage() {
 
       const candidates = recoveryBySlug.get(slug) ?? [];
       if (candidates.length === 0) {
-        setMusclePopup({
-          muscle: slug,
-          lastTrained: "Ingen data",
-          estimatedReady: "Ingen data",
-          anchor,
-        });
+        setMusclePopup(null);
         return;
       }
 
@@ -579,11 +595,20 @@ export default function HomePage() {
 
     const result = await SeedDevelopmentMockData(token);
 
+    const [foodLogs, completedWorkouts] = await Promise.all([
+      refreshMeals({ force: true }),
+      queryClient.fetchQuery({
+        queryKey: ["completedWorkouts"],
+        queryFn: getCompletedWorkouts,
+        staleTime: 0,
+      }),
+    ]);
+
     await Promise.all([
-      refreshMeals(),
       refreshWeights(),
-      queryClient.invalidateQueries({ queryKey: ["completedWorkouts"] }),
       queryClient.invalidateQueries({ queryKey: ["exercises"] }),
+      queryClient.invalidateQueries({ queryKey: ["workouts"] }),
+      queryClient.invalidateQueries({ queryKey: ["programs"] }),
       queryClient.invalidateQueries({ queryKey: ["exerciseHistoryBulk"] }),
       queryClient.invalidateQueries({ queryKey: ["exerciseHistory"] }),
       queryClient.invalidateQueries({ queryKey: ["exerciseSetsHistory"] }),
@@ -591,7 +616,11 @@ export default function HomePage() {
       queryClient.invalidateQueries({ queryKey: ["adaptive"] }),
     ]);
 
-    return result;
+    return {
+      ...result,
+      verifiedFoodLogs: foodLogs.length,
+      verifiedWorkoutSessions: completedWorkouts.length,
+    };
   }, [refreshMeals, refreshWeights, token]);
 
   const orderedHomeSections = normalizeHomeSectionOrder(

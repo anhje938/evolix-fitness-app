@@ -17,89 +17,12 @@ type Props = {
   variant: "food" | "weight";
 };
 
-function getTone(
-  status: BodyGoalCoachRecommendation["status"],
-  variant: Props["variant"]
-) {
-  if (variant === "food") {
-    switch (status) {
-      case "goalReached":
-        return {
-          accent: "#4ADE80",
-          tint: "rgba(74,222,128,0.14)",
-          border: "rgba(74,222,128,0.22)",
-        };
-      case "onTrack":
-        return {
-          accent: "#34D399",
-          tint: "rgba(52,211,153,0.14)",
-          border: "rgba(52,211,153,0.22)",
-        };
-      case "increaseCalories":
-        return {
-          accent: "#F59E0B",
-          tint: "rgba(245,158,11,0.14)",
-          border: "rgba(245,158,11,0.22)",
-        };
-      case "decreaseCalories":
-        return {
-          accent: "#FB7185",
-          tint: "rgba(251,113,133,0.14)",
-          border: "rgba(251,113,133,0.22)",
-        };
-      case "deadlineRisk":
-        return {
-          accent: "#F59E0B",
-          tint: "rgba(245,158,11,0.14)",
-          border: "rgba(245,158,11,0.24)",
-        };
-      default:
-        return {
-          accent: "#FBBF24",
-          tint: "rgba(251,191,36,0.12)",
-          border: "rgba(251,191,36,0.20)",
-        };
-    }
-  }
-
-  switch (status) {
-    case "goalReached":
-      return {
-        accent: "#4ADE80",
-        tint: "rgba(74,222,128,0.18)",
-        border: "rgba(74,222,128,0.28)",
-      };
-    case "onTrack":
-      return {
-        accent: "#38BDF8",
-        tint: "rgba(56,189,248,0.18)",
-        border: "rgba(56,189,248,0.28)",
-      };
-    case "increaseCalories":
-      return {
-        accent: "#FB923C",
-        tint: "rgba(251,146,60,0.18)",
-        border: "rgba(251,146,60,0.28)",
-      };
-    case "decreaseCalories":
-      return {
-        accent: "#F472B6",
-        tint: "rgba(244,114,182,0.18)",
-        border: "rgba(244,114,182,0.28)",
-      };
-    case "deadlineRisk":
-      return {
-        accent: "#F59E0B",
-        tint: "rgba(245,158,11,0.18)",
-        border: "rgba(245,158,11,0.28)",
-      };
-    default:
-      return {
-        accent: "#94A3B8",
-        tint: "rgba(148,163,184,0.16)",
-        border: "rgba(148,163,184,0.24)",
-      };
-  }
+function getTone() {
+  return {
+    accent: "#FBBF24",
+    tint: "rgba(251,191,36,0.14)",
+    border: "rgba(251,191,36,0.26)",
+  };
 }
 
 function getActionCopy(
@@ -153,11 +76,33 @@ function getActionCopy(
   };
 }
 
+function getWeightCoachSummary(recommendation: BodyGoalCoachRecommendation) {
+  if (recommendation.status === "insufficientData") {
+    return recommendation.latestMeasuredWeightKg === null
+      ? "Logg vekt og mat noen dager til, så kan coachen skille trend fra normal variasjon."
+      : "Coachen trenger mer sammenhengende matlogg og flere vektmålinger før den anbefaler en endring.";
+  }
+
+  if (recommendation.status === "goalReached") {
+    return "Trendvekten ligger rundt målet. Hold området stabilt og se etter ro over flere målinger.";
+  }
+
+  if (recommendation.status === "onTrack") {
+    return "Trendvekten følger målet godt nok. Det viktigste nå er å ikke overjustere.";
+  }
+
+  if (recommendation.status === "deadlineRisk") {
+    return "Målfarten er stram. Bruk et realistisk kaloriområde i stedet for å presse planen hardere.";
+  }
+
+  return "Trendvekten peker på en liten justering. Gjør endringen rolig og vurder igjen etter 7-14 dager.";
+}
+
 export function BodyGoalCoachCard({ recommendation, variant }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const isFood = variant === "food";
   const isCollapsed = isFood && collapsed;
-  const tone = getTone(recommendation.status, variant);
+  const tone = getTone();
   const action = getActionCopy(recommendation, variant);
   const title = variant === "weight" ? "Vektcoach" : "Matcoach";
   const iconName =
@@ -177,12 +122,6 @@ export function BodyGoalCoachCard({ recommendation, variant }: Props) {
             label: "Trend nå",
             value: formatBodyGoalCoachTrend(
               recommendation.currentTrendKgPerWeek
-            ),
-          },
-          {
-            label: "Plan",
-            value: formatBodyGoalCoachTrend(
-              recommendation.requiredTrendKgPerWeek
             ),
           },
         ]
@@ -337,7 +276,7 @@ export function BodyGoalCoachCard({ recommendation, variant }: Props) {
         <>
           {isFood ? null : (
             <Text style={[typography.body, styles.summary]}>
-              {recommendation.summary}
+              {getWeightCoachSummary(recommendation)}
             </Text>
           )}
 
@@ -407,7 +346,11 @@ export function BodyGoalCoachCard({ recommendation, variant }: Props) {
             ))}
           </View>
 
-          {isFood ? null : <Text style={styles.note}>{recommendation.note}</Text>}
+          {isFood ? null : (
+            <Text style={styles.note}>
+              {recommendation.confidenceLabel}. Juster bare når trenden holder seg over flere målinger.
+            </Text>
+          )}
         </>
       )}
     </View>

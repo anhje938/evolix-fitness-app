@@ -19,7 +19,7 @@ export function groupMealsByDate(meals: Food[]) {
   }, {} as Record<string, Food[]>);
 }
 
-// WEEKLY: grupperer mÃ¥ltider per ISO-uke basert pÃ¥ Oslo-dato
+// Groups meals by ISO week based on Oslo date.
 export function groupMealsByWeek(meals: Food[]) {
   return meals.reduce((acc, meal) => {
     const dateKey = getOsloDateKey(meal.timestampUtc);

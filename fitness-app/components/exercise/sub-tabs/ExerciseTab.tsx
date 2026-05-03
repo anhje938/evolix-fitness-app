@@ -27,6 +27,7 @@ import { useAuth } from "@/context/AuthProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { MuscleFilterValue } from "@/types/muscles";
 import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
+import { sortExercisesByPopularity } from "@/utils/exercise/sortExercisesByPopularity";
 import { LinearGradient } from "expo-linear-gradient";
 import ExerciseCard from "./exercise/ExerciseCard";
 
@@ -63,8 +64,10 @@ export default function ExerciseTab({ onPressExercise }: Props) {
   const { data, isLoading, error } = useExercises();
   const exercises = useMemo(() => {
     const allExercises = data ?? [];
-    if (!userSettings.showOnlyCustomTrainingContent) return allExercises;
-    return allExercises.filter(isUserCreatedExercise);
+    const visible = userSettings.showOnlyCustomTrainingContent
+      ? allExercises.filter(isUserCreatedExercise)
+      : allExercises;
+    return sortExercisesByPopularity(visible);
   }, [data, userSettings.showOnlyCustomTrainingContent]);
 
   useEffect(() => {
@@ -93,7 +96,7 @@ export default function ExerciseTab({ onPressExercise }: Props) {
 
   const filteredExercises = useMemo(() => {
     const s = search.toLowerCase().trim();
-    return exercises.filter((ex) => {
+    return sortExercisesByPopularity(exercises.filter((ex) => {
       const matchesSearch =
         s.length === 0 ||
         ex.name.toLowerCase().includes(s) ||
@@ -103,7 +106,7 @@ export default function ExerciseTab({ onPressExercise }: Props) {
         muscleFilter === "ALL" || ex.muscle === muscleFilter;
 
       return matchesSearch && matchesMuscle;
-    });
+    }));
   }, [exercises, search, muscleFilter]);
 
   const historyExerciseIds = useMemo(() => {

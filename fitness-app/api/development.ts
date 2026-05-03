@@ -2,10 +2,17 @@ import { authFetch } from "./authSession";
 import { API_BASE_URL } from "./baseUrl";
 
 export type DevelopmentSeedResult = {
+  userId: string;
   foodLogs: number;
   weightLogs: number;
   workoutSessions: number;
   exercises: number;
+  workoutPrograms: number;
+  workouts: number;
+  composedMeals: number;
+  exerciseTargets: number;
+  nutritionTargetsHistory: number;
+  adaptiveRecommendations: number;
   foodAndWeightFromUtc: string;
   foodAndWeightToUtc: string;
   trainingFromUtc: string;

@@ -35,6 +35,7 @@
         public bool IsCompound { get; set; }
         public decimal? DefaultProgressionStepKg { get; set; }
         public List<ExerciseMuscleDto> Muscles { get; set; } = [];
+        public int UsageCount { get; set; }
 
         public string? UserId { get; set; }
 

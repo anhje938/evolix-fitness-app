@@ -251,6 +251,12 @@ export default function FoodPage() {
     setIsEditOpen(true);
   };
 
+  const handleEditMealLog = (meal: Food) => {
+    closeComposedEditor();
+    setEditingMeal(meal);
+    setIsEditOpen(true);
+  };
+
   const handleDeleteFromCard = async (mealId: string) => {
     const prev = foodList;
 
@@ -624,6 +630,8 @@ export default function FoodPage() {
           foodList={foodList}
           excludedFoodCoachDateKeys={userSettings.foodCoachExcludedDateKeys}
           onToggleFoodCoachDate={handleToggleFoodCoachDate}
+          onEditMeal={handleEditMealLog}
+          onDeleteMeal={handleDeleteFromCard}
         />
       </ScrollView>
 

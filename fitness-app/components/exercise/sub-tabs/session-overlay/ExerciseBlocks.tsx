@@ -175,11 +175,22 @@ const AdjustValueButton = memo(function AdjustValueButton({
 type ExerciseBlockProps = {
   exercise: SessionExercise;
   coachRecommendation?: WorkoutCoachRecommendation | null;
+  previousSets?: {
+    reps: number | null;
+    weight: number | null;
+  }[];
   onAddSet: () => void;
   onApplyCoachRecommendation?: () => void;
   onUpdateSet: (setId: string, partial: Partial<SessionSet>) => void;
   onRemoveSet: (setId: string) => void;
   onInputFocus?: (input: RNTextInput | null) => void;
+};
+
+const coachGoldTone = {
+  icon: "sparkles-outline" as const,
+  tint: overlayColors.amber,
+  bg: "rgba(251,191,36,0.12)",
+  border: "rgba(251,191,36,0.28)",
 };
 
 const coachToneMap: Record<
@@ -191,36 +202,11 @@ const coachToneMap: Record<
     border: string;
   }
 > = {
-  increase: {
-    icon: "trending-up-outline",
-    tint: overlayColors.green,
-    bg: overlayColors.greenBg,
-    border: overlayColors.greenBorder,
-  },
-  hold: {
-    icon: "pause-circle-outline",
-    tint: overlayColors.accent,
-    bg: overlayColors.accentBg,
-    border: overlayColors.accentDim,
-  },
-  decrease: {
-    icon: "arrow-down-circle-outline",
-    tint: overlayColors.amber,
-    bg: overlayColors.amberBg,
-    border: overlayColors.amberBorder,
-  },
-  plateau: {
-    icon: "analytics-outline",
-    tint: overlayColors.violet,
-    bg: overlayColors.violetBg,
-    border: overlayColors.violetBorder,
-  },
-  reentry: {
-    icon: "refresh-circle-outline",
-    tint: overlayColors.amber,
-    bg: overlayColors.amberBg,
-    border: overlayColors.amberBorder,
-  },
+  increase: coachGoldTone,
+  hold: coachGoldTone,
+  decrease: coachGoldTone,
+  plateau: coachGoldTone,
+  reentry: coachGoldTone,
 };
 
 const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
@@ -424,6 +410,7 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
 export const ExerciseBlock = memo(function ExerciseBlock({
   exercise,
   coachRecommendation,
+  previousSets = [],
   onAddSet,
   onApplyCoachRecommendation,
   onUpdateSet,
@@ -437,6 +424,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
   );
   const [weightDrafts, setWeightDrafts] = useState<Record<string, string>>({});
   const [isCoachVisible, setIsCoachVisible] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const ensuredForIdRef = useRef<string | null>(null);
   const didEnsureRef = useRef(false);
@@ -457,7 +445,24 @@ export const ExerciseBlock = memo(function ExerciseBlock({
 
   useEffect(() => {
     setIsCoachVisible(false);
+    setIsCollapsed(false);
   }, [exercise.id]);
+
+  const compactSummary = useMemo(() => {
+    const completed = exercise.sets.filter((set) => set.completed).length;
+    const total = exercise.sets.length;
+    const bestWeight = exercise.sets.reduce<number | null>((best, set) => {
+      if (set.weight == null || !Number.isFinite(set.weight)) return best;
+      return best == null ? set.weight : Math.max(best, set.weight);
+    }, null);
+
+    return {
+      completed,
+      total,
+      bestWeightLabel:
+        bestWeight == null ? "Ingen kg" : `${formatWeightInputValue(bestWeight)} kg`,
+    };
+  }, [exercise.sets]);
 
   useEffect(() => {
     setWeightDrafts((prev) => {
@@ -496,30 +501,42 @@ export const ExerciseBlock = memo(function ExerciseBlock({
     onUpdateSet(setId, { weight: normalizedWeight });
   };
 
-  const adjustReps = (set: SessionSet, delta: -1 | 1) => {
+  const adjustReps = (set: SessionSet, delta: -1 | 1, setIndex: number) => {
     const currentReps =
       set.reps != null && Number.isFinite(set.reps) ? set.reps : null;
+    const previousReps =
+      previousSets[setIndex]?.reps != null &&
+      Number.isFinite(previousSets[setIndex]?.reps)
+        ? previousSets[setIndex].reps
+        : null;
+    const baseReps = currentReps ?? previousReps;
 
     if (delta < 0) {
-      if (currentReps == null) return;
-      if (currentReps <= 1) {
+      if (baseReps == null) return;
+      if (baseReps <= 1) {
         onUpdateSet(set.id, { reps: null });
         return;
       }
     }
 
-    const nextReps = Math.max(1, (currentReps ?? 0) + delta);
+    const nextReps = Math.max(1, (baseReps ?? 0) + delta);
     onUpdateSet(set.id, { reps: nextReps });
   };
 
-  const adjustWeight = (set: SessionSet, delta: -1 | 1) => {
+  const adjustWeight = (set: SessionSet, delta: -1 | 1, setIndex: number) => {
     const currentWeight =
       set.weight != null && Number.isFinite(set.weight) ? set.weight : null;
+    const previousWeight =
+      previousSets[setIndex]?.weight != null &&
+      Number.isFinite(previousSets[setIndex]?.weight)
+        ? previousSets[setIndex].weight
+        : null;
+    const baseWeight = currentWeight ?? previousWeight;
 
-    if (delta < 0 && currentWeight == null) return;
+    if (delta < 0 && baseWeight == null) return;
 
     const nextWeight = Math.round(
-      (((currentWeight ?? 0) + delta * WEIGHT_ADJUST_STEP) /
+      (((baseWeight ?? 0) + delta * WEIGHT_ADJUST_STEP) /
         WEIGHT_ADJUST_STEP) *
         WEIGHT_ADJUST_STEP *
         100
@@ -598,22 +615,53 @@ export const ExerciseBlock = memo(function ExerciseBlock({
           )}
         </View>
 
-        <Pressable
-          onPress={onAddSet}
-          hitSlop={8}
-          style={({ pressed }) => [
-            styles.addSetAction,
-            pressed && { opacity: 0.85 },
-          ]}
-        >
-          <Ionicons name="add" size={16} color={overlayColors.accent} />
-          <Text style={[typography.body, styles.addSetText]}>
-            Legg til sett
-          </Text>
-        </Pressable>
+        <View style={styles.exerciseHeaderActions}>
+          {!isCollapsed ? (
+            <Pressable
+              onPress={onAddSet}
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.addSetAction,
+                pressed && { opacity: 0.85 },
+              ]}
+            >
+              <Ionicons name="add" size={16} color={overlayColors.accent} />
+              <Text style={[typography.body, styles.addSetText]}>
+                Legg til sett
+              </Text>
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            onPress={() => setIsCollapsed((current) => !current)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={isCollapsed ? "Vis øvelse" : "Minimer øvelse"}
+            style={({ pressed }) => [
+              styles.collapseExerciseBtn,
+              pressed && { opacity: 0.85 },
+            ]}
+          >
+            <Ionicons
+              name={isCollapsed ? "chevron-down" : "chevron-up"}
+              size={17}
+              color={overlayColors.text}
+            />
+          </Pressable>
+        </View>
       </View>
 
-      {coachRecommendation ? (
+      {isCollapsed ? (
+        <View style={styles.exerciseCompactSummary}>
+          <Text style={styles.exerciseCompactText}>
+            {compactSummary.completed}/{compactSummary.total} sett ferdig
+          </Text>
+          <View style={styles.exerciseCompactDot} />
+          <Text style={styles.exerciseCompactText}>
+            Topp {compactSummary.bestWeightLabel}
+          </Text>
+        </View>
+      ) : coachRecommendation ? (
         <>
           <WorkoutCoachToggle
             recommendation={coachRecommendation}
@@ -630,6 +678,8 @@ export const ExerciseBlock = memo(function ExerciseBlock({
         </>
       ) : null}
 
+      {!isCollapsed && (
+        <>
       <View style={styles.setHeaderRow}>
         <Text style={[typography.body, styles.setHeaderIndex]}>#</Text>
 
@@ -664,7 +714,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
               <AdjustValueButton
                 icon="remove"
                 label={`Reduser reps for sett ${idx + 1}`}
-                onPress={() => adjustReps(set, -1)}
+                onPress={() => adjustReps(set, -1, idx)}
               />
               <TextInput
                 ref={(el) => {
@@ -672,7 +722,11 @@ export const ExerciseBlock = memo(function ExerciseBlock({
                 }}
                 style={[typography.body, styles.setInput]}
                 keyboardType="numeric"
-                placeholder="-"
+                placeholder={
+                  previousSets[idx]?.reps != null
+                    ? String(previousSets[idx]?.reps)
+                    : "-"
+                }
                 placeholderTextColor={overlayColors.muted2}
                 value={set.reps ?? set.reps === 0 ? String(set.reps) : ""}
                 returnKeyType="next"
@@ -686,7 +740,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
               <AdjustValueButton
                 icon="add"
                 label={`Øk reps for sett ${idx + 1}`}
-                onPress={() => adjustReps(set, 1)}
+                onPress={() => adjustReps(set, 1, idx)}
               />
             </View>
 
@@ -694,7 +748,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
               <AdjustValueButton
                 icon="remove"
                 label={`Reduser vekt for sett ${idx + 1}`}
-                onPress={() => adjustWeight(set, -1)}
+                onPress={() => adjustWeight(set, -1, idx)}
               />
               <TextInput
                 ref={(el) => {
@@ -702,7 +756,11 @@ export const ExerciseBlock = memo(function ExerciseBlock({
                 }}
                 style={[typography.body, styles.setInput]}
                 keyboardType="numeric"
-                placeholder="-"
+                placeholder={
+                  previousSets[idx]?.weight != null
+                    ? formatWeightInputValue(previousSets[idx]?.weight)
+                    : "-"
+                }
                 placeholderTextColor={overlayColors.muted2}
                 value={
                   focusedWeightSetId === set.id
@@ -745,7 +803,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
               <AdjustValueButton
                 icon="add"
                 label={`Øk vekt for sett ${idx + 1}`}
-                onPress={() => adjustWeight(set, 1)}
+                onPress={() => adjustWeight(set, 1, idx)}
               />
             </View>
 
@@ -776,6 +834,8 @@ export const ExerciseBlock = memo(function ExerciseBlock({
           </View>
         </SwipeToDeleteRow>
       ))}
+        </>
+      )}
     </View>
   );
 });
@@ -1015,6 +1075,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     gap: 10,
   },
+  exerciseHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
 
   exerciseTitle: {
     color: overlayColors.text,
@@ -1047,6 +1112,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0.1,
+  },
+  collapseExerciseBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(15,23,42,0.62)",
+    borderWidth: 1,
+    borderColor: overlayColors.borderSoft,
+  },
+  exerciseCompactSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+    borderRadius: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    backgroundColor: "rgba(15,23,42,0.46)",
+    borderWidth: 1,
+    borderColor: overlayColors.borderSoft,
+  },
+  exerciseCompactDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: overlayColors.muted2,
+  },
+  exerciseCompactText: {
+    color: overlayColors.muted,
+    fontSize: 11.5,
+    fontWeight: "500",
   },
 
   coachToggleButton: {

@@ -49,6 +49,7 @@ import { StatRow } from "./progress/StatRow";
 
 import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { estimate1RMFromTopSet } from "@/utils/exercise/oneRepMax";
+import { sortExercisesByPopularity } from "@/utils/exercise/sortExercisesByPopularity";
 import { type ProgressTimeRange } from "@/utils/exercise/progressChart";
 
 type ProgressTabProps = {
@@ -141,8 +142,10 @@ export default function ProgressTab({
   const searchInputRef = useRef<TextInput | null>(null);
   const exercises = useMemo(() => {
     const allExercises = mergeExercisesWithDemo(exerciseData ?? []);
-    if (!userSettings.showOnlyCustomTrainingContent) return allExercises;
-    return allExercises.filter(isUserCreatedExercise);
+    const visible = userSettings.showOnlyCustomTrainingContent
+      ? allExercises.filter(isUserCreatedExercise)
+      : allExercises;
+    return sortExercisesByPopularity(visible);
   }, [exerciseData, userSettings.showOnlyCustomTrainingContent]);
 
   const [search, setSearch] = useState("");
@@ -170,11 +173,11 @@ export default function ProgressTab({
     const s = search.toLowerCase().trim();
     if (!s) return exercises;
 
-    return exercises.filter(
+    return sortExercisesByPopularity(exercises.filter(
       (ex) =>
         ex.name.toLowerCase().includes(s) ||
         (ex.muscle ?? "").toLowerCase().includes(s)
-    );
+    ));
   }, [exercises, search]);
 
   const selectedExercise =
@@ -332,7 +335,7 @@ export default function ProgressTab({
       ? "Treningsvolum (sett)"
       : "Treningsvolum";
 
-  const showResults = search.trim().length > 0;
+  const showResults = searchFocused || search.trim().length > 0;
 
   return (
     <ScrollView

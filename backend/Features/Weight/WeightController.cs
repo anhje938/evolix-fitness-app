@@ -44,5 +44,47 @@ namespace backend.Features.Weight
 
             return Ok(result);
         }
+
+        [HttpPut("{id:guid}")]
+        public async Task<ActionResult<WeightLogResponse>> UpdateWeight(
+            [FromRoute] Guid id,
+            [FromBody] WeightLogRequest req,
+            CancellationToken ct = default)
+        {
+            if (req.WeightKg <= 0)
+            {
+                return BadRequest("Weight must be greater than 0");
+            }
+
+            var userId = GetUserId();
+
+            try
+            {
+                var result = await _weights.UpdateUserWeight(userId, id, req, ct);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { message = "Weight not found" });
+            }
+        }
+
+        [HttpDelete("{id:guid}")]
+        public async Task<IActionResult> DeleteWeight(
+            [FromRoute] Guid id,
+            CancellationToken ct = default)
+        {
+            var userId = GetUserId();
+
+            try
+            {
+                await _weights.DeleteUserWeight(userId, id, ct);
+                return NoContent();
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { message = "Weight not found" });
+            }
+        }
     }
 }

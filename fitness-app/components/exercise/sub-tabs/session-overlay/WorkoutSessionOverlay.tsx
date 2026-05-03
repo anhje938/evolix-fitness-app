@@ -9,6 +9,7 @@ import { useLiveDurationLabel } from "@/hooks/useLiveDurationLabel";
 import { useExercises } from "@/hooks/useExercises";
 import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { estimate1RMFromTopSet } from "@/utils/exercise/oneRepMax";
+import { sortExercisesByPopularity } from "@/utils/exercise/sortExercisesByPopularity";
 import {
   buildWorkoutCoachRecommendation,
   type WorkoutCoachRecommendation,
@@ -179,6 +180,37 @@ function getSessionBestOneRm(session: ExerciseSessionSetsDto) {
   }
 
   return best;
+}
+
+function getPreviousSetsForSessionExercise(
+  history: ExerciseSessionSetsDto[],
+  currentSessionId: string | undefined,
+  startedAtUtc: string | undefined
+) {
+  const startedAtMs = startedAtUtc ? new Date(startedAtUtc).getTime() : NaN;
+
+  const candidates = history
+    .filter((item) => item.sessionId !== currentSessionId)
+    .filter((item) => {
+      if (!Number.isFinite(startedAtMs)) return true;
+      const performedAtMs = new Date(item.performedAtUtc).getTime();
+      return Number.isFinite(performedAtMs) && performedAtMs < startedAtMs;
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.performedAtUtc).getTime() -
+        new Date(a.performedAtUtc).getTime()
+    );
+
+  const previous = candidates[0];
+  if (!previous) return [];
+
+  return [...(previous.sets ?? [])]
+    .sort((a, b) => a.setNumber - b.setNumber)
+    .map((set) => ({
+      reps: set.reps ?? null,
+      weight: set.weightKg ?? null,
+    }));
 }
 
 function buildSavePreview(
@@ -491,16 +523,14 @@ export function WorkoutSessionOverlay() {
 
   const sessionExerciseIds = useMemo(
     () =>
-      userSettings.useWorkoutCoach
-        ? Array.from(
+      Array.from(
         new Set(
           visibleExercises
             .map((exercise) => exercise.exerciseId)
             .filter((exerciseId): exerciseId is string => !!exerciseId)
         )
-          )
-        : [],
-    [userSettings.useWorkoutCoach, visibleExercises]
+      ),
+    [visibleExercises]
   );
 
   const { queries: exerciseHistoryQueries, data: exerciseHistoryMap } =
@@ -530,6 +560,23 @@ export function WorkoutSessionOverlay() {
     userSettings.useWorkoutCoach,
     visibleExercises,
   ]);
+
+  const previousSetsByLocalExerciseId = useMemo(() => {
+    const next: Record<
+      string,
+      { reps: number | null; weight: number | null }[]
+    > = {};
+
+    for (const exercise of visibleExercises) {
+      next[exercise.id] = getPreviousSetsForSessionExercise(
+        exerciseHistoryMap[exercise.exerciseId] ?? [],
+        session?.id,
+        sessionStartedAtUtc
+      );
+    }
+
+    return next;
+  }, [exerciseHistoryMap, session?.id, sessionStartedAtUtc, visibleExercises]);
 
   const handleApplyCoachRecommendation = useCallback(
     (sessionExerciseId: string, recommendation: WorkoutCoachRecommendation) => {
@@ -608,9 +655,10 @@ export function WorkoutSessionOverlay() {
   ]);
 
   const searchableExercises = useMemo(() => {
-    return userSettings.showOnlyCustomTrainingContent
+    const visible = userSettings.showOnlyCustomTrainingContent
       ? exerciseData.filter(isUserCreatedExercise)
       : exerciseData;
+    return sortExercisesByPopularity(visible);
   }, [exerciseData, userSettings.showOnlyCustomTrainingContent]);
 
   const pickerExercises = useMemo(() => {
@@ -618,16 +666,16 @@ export function WorkoutSessionOverlay() {
       visibleExercises.map((exercise) => exercise.exerciseId)
     );
 
-    return searchableExercises.filter(
+    return sortExercisesByPopularity(searchableExercises.filter(
       (exercise) => !existingExerciseIds.has(exercise.id)
-    );
+    ));
   }, [searchableExercises, visibleExercises]);
 
   const filteredPickerExercises = useMemo(() => {
     const normalizedSearch = exerciseSearch.trim().toLowerCase();
     if (!normalizedSearch) return pickerExercises;
 
-    return pickerExercises.filter((exercise) => {
+    return sortExercisesByPopularity(pickerExercises.filter((exercise) => {
       const name = exercise.name.toLowerCase();
       const muscle = (exercise.muscle ?? "").toLowerCase();
       const equipment = (exercise.equipment ?? "").toLowerCase();
@@ -636,7 +684,7 @@ export function WorkoutSessionOverlay() {
         muscle.includes(normalizedSearch) ||
         equipment.includes(normalizedSearch)
       );
-    });
+    }));
   }, [exerciseSearch, pickerExercises]);
 
   const trimmedExerciseSearch = exerciseSearch.trim();
@@ -1410,6 +1458,7 @@ export function WorkoutSessionOverlay() {
                     coachRecommendation={
                       coachRecommendationsByLocalExerciseId[ex.id] ?? null
                     }
+                    previousSets={previousSetsByLocalExerciseId[ex.id] ?? []}
                     onAddSet={() => addSet(ex.id)}
                     onApplyCoachRecommendation={() => {
                       const recommendation =
