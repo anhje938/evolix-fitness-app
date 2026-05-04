@@ -25,6 +25,14 @@ namespace backend.Features.Users
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
 
+        private static readonly HashSet<string> AllowedGenders = new(
+            ["male", "female"],
+            StringComparer.Ordinal);
+
+        private static readonly HashSet<string> AllowedLanguages = new(
+            ["nb", "en"],
+            StringComparer.Ordinal);
+
         private sealed class HomeUiSettingsPayload
         {
             public string[] HomeProgressCircles { get; set; } = [.. DefaultHomeProgressCircles];
@@ -514,6 +522,18 @@ namespace backend.Features.Users
             if (settings == null)
                 return false;
 
+            if (dto.Age.HasValue)
+                settings.Age = NormalizeAge(dto.Age.Value);
+
+            if (dto.Gender != null)
+                settings.Gender = NormalizeGender(dto.Gender);
+
+            if (dto.Language != null)
+                settings.Language = NormalizeLanguage(dto.Language);
+
+            if (dto.HasCompletedRegistration.HasValue)
+                settings.HasCompletedRegistration = dto.HasCompletedRegistration.Value;
+
             // Goals
             if (dto.CalorieGoal.HasValue)
                 settings.CalorieGoal = dto.CalorieGoal.Value;
@@ -795,6 +815,27 @@ namespace backend.Features.Users
 
             next.Sort(StringComparer.Ordinal);
             return [.. next];
+        }
+
+        private static int? NormalizeAge(int age)
+        {
+            return age is >= 10 and <= 120 ? age : null;
+        }
+
+        private static string? NormalizeGender(string? gender)
+        {
+            if (string.IsNullOrWhiteSpace(gender)) return null;
+
+            var value = gender.Trim();
+            return AllowedGenders.Contains(value) ? value : null;
+        }
+
+        private static string NormalizeLanguage(string? language)
+        {
+            if (string.IsNullOrWhiteSpace(language)) return "nb";
+
+            var value = language.Trim().ToLowerInvariant();
+            return AllowedLanguages.Contains(value) ? value : "nb";
         }
     }
 }

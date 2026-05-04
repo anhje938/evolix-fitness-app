@@ -1,8 +1,10 @@
 import {
+  type AppLanguage,
   type HomeGoalTile,
   type HomeSectionKey,
   type RecoveryMapMuscleKey,
   type UserSettings,
+  type UserGender,
 } from "@/types/userSettings";
 import { ADVANCED_MUSCLE_FILTERS } from "@/types/muscles";
 import {
@@ -25,6 +27,10 @@ const ALLOWED_RECOVERY_MUSCLES: RecoveryMapMuscleKey[] = ADVANCED_MUSCLE_FILTERS
   (item) => item.value !== "ALL"
 ).map((item) => item.value as RecoveryMapMuscleKey);
 const FALLBACK_SETTINGS: UserSettings = {
+  age: null,
+  gender: null,
+  language: "nb",
+  hasCompletedRegistration: false,
   calorieGoal: 2500,
   proteinGoal: 180,
   fatGoal: 70,
@@ -54,9 +60,17 @@ type BackendSettingsResponse = Partial<UserSettings> & {
   foodCoachExcludedDateKeys?: unknown;
   weightDirection?: BackendEnum;
   muscleFilter?: BackendEnum;
+  age?: unknown;
+  gender?: unknown;
+  language?: unknown;
+  hasCompletedRegistration?: unknown;
 };
 
 type UpdateUserSettingsDto = {
+  age: number;
+  gender: UserGender | "";
+  language: AppLanguage;
+  hasCompletedRegistration: boolean;
   calorieGoal: number;
   proteinGoal: number;
   fatGoal: number;
@@ -90,6 +104,34 @@ function normalizeBoolean(value: unknown, fallback = false): boolean {
     if (raw === "false" || raw === "0") return false;
   }
   return fallback;
+}
+
+function normalizeAge(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  const rounded = Math.round(n);
+  if (rounded < 10 || rounded > 120) return null;
+  return rounded;
+}
+
+function normalizeGender(value: unknown): UserGender | null {
+  if (typeof value !== "string") return null;
+  const raw = value.trim();
+  if (raw === "male" || raw === "female") {
+    return raw;
+  }
+  return null;
+}
+
+function normalizeLanguage(value: unknown): AppLanguage {
+  if (typeof value !== "string") return FALLBACK_SETTINGS.language;
+  const raw = value.trim().toLowerCase();
+  if (raw === "en" || raw === "english") return "en";
+  if (raw === "nb" || raw === "no" || raw === "norwegian" || raw === "norsk") {
+    return "nb";
+  }
+  return FALLBACK_SETTINGS.language;
 }
 
 function normalizeHomeGoalTiles(value: unknown): HomeGoalTile[] {
@@ -268,6 +310,13 @@ function normalizeUserSettings(raw?: BackendSettingsResponse | null): UserSettin
     src.showOnlyCustomTrainingContent !== undefined;
 
   return {
+    age: normalizeAge(src.age),
+    gender: normalizeGender(src.gender),
+    language: normalizeLanguage(src.language),
+    hasCompletedRegistration: normalizeBoolean(
+      src.hasCompletedRegistration,
+      FALLBACK_SETTINGS.hasCompletedRegistration
+    ),
     calorieGoal: toSafeInt(src.calorieGoal, FALLBACK_SETTINGS.calorieGoal),
     proteinGoal: toSafeInt(src.proteinGoal, FALLBACK_SETTINGS.proteinGoal),
     fatGoal: toSafeInt(src.fatGoal, FALLBACK_SETTINGS.fatGoal),
@@ -316,6 +365,13 @@ function toBackendDto(settings: UserSettings): UpdateUserSettingsDto {
   );
 
   return {
+    age: normalizeAge(settings.age) ?? 0,
+    gender: normalizeGender(settings.gender) ?? "",
+    language: normalizeLanguage(settings.language),
+    hasCompletedRegistration: normalizeBoolean(
+      settings.hasCompletedRegistration,
+      FALLBACK_SETTINGS.hasCompletedRegistration
+    ),
     calorieGoal: toSafeInt(settings.calorieGoal, FALLBACK_SETTINGS.calorieGoal),
     proteinGoal: toSafeInt(settings.proteinGoal, FALLBACK_SETTINGS.proteinGoal),
     fatGoal: toSafeInt(settings.fatGoal, FALLBACK_SETTINGS.fatGoal),

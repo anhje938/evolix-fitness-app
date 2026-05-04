@@ -104,6 +104,10 @@ namespace backend.Features.Users
 
             return Ok(new
             {
+                age = settings.Age,
+                gender = settings.Gender,
+                language = settings.Language,
+                hasCompletedRegistration = settings.HasCompletedRegistration,
                 calorieGoal = settings.CalorieGoal,
                 proteinGoal = settings.ProteinGoal,
                 fatGoal = settings.FatGoal,

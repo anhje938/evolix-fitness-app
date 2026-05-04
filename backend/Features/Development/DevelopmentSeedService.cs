@@ -206,6 +206,12 @@ namespace backend.Features.Development
             }
 
             settings.CalorieGoal = 2450;
+            settings.Age ??= 28;
+            settings.Gender ??= "male";
+            settings.Language = string.IsNullOrWhiteSpace(settings.Language)
+                ? "nb"
+                : settings.Language;
+            settings.HasCompletedRegistration = true;
             settings.ProteinGoal = 185;
             settings.FatGoal = 75;
             settings.CarbGoal = 255;

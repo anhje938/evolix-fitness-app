@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "EvoliX",
-    "slug": "evolix-app",
+    "slug": "fitness-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/evolix_app_icon.png",

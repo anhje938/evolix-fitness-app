@@ -22,6 +22,11 @@
         public User User { get; set; } = null!;
 
        
+        public int? Age { get; set; }
+        public string? Gender { get; set; }
+        public string Language { get; set; } = "nb";
+        public bool HasCompletedRegistration { get; set; } = false;
+
         public int CalorieGoal { get; set; } = 2500;
         public int ProteinGoal { get; set; } = 180;
         public int FatGoal { get; set; } = 70;

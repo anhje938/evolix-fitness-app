@@ -8,10 +8,12 @@ import {
   type AdvancedMuscleFilterValue,
 } from "@/types/muscles";
 import {
+  type AppLanguage,
   type HomeGoalTile,
   type HomeSectionKey,
   type RecoveryMapMuscleKey,
   type UserSettings,
+  type UserGender,
 } from "@/types/userSettings";
 import { getFutureUtcNoonIsoDate, toUtcNoonIsoDate } from "@/utils/date";
 import React, { useEffect, useMemo, useState } from "react";
@@ -107,6 +109,10 @@ const PRIVACY_POLICY_SECTIONS: LegalSection[] = [
 ];
 
 const INITIAL_SETTINGS: UserSettings = {
+  age: null,
+  gender: null,
+  language: "nb",
+  hasCompletedRegistration: false,
   calorieGoal: 2500,
   proteinGoal: 180,
   fatGoal: 70,
@@ -130,6 +136,7 @@ type Props = {
 
   userSettings?: UserSettings;
   onChangeUserSettings?: (next: UserSettings) => void;
+  onSaveUserSettingsNow?: (next: UserSettings) => Promise<void> | void;
   onRefreshUserSettings?: () => Promise<void> | void;
   isLoadingUserSettings?: boolean;
   isSavingUserSettings?: boolean;
@@ -166,6 +173,14 @@ const ALL_HOME_SECTIONS: HomeSectionKey[] = [
 const ALL_RECOVERY_MUSCLES: RecoveryMapMuscleKey[] = ADVANCED_MUSCLE_FILTERS.filter(
   (item) => item.value !== "ALL"
 ).map((item) => item.value as RecoveryMapMuscleKey);
+const GENDER_OPTIONS: { value: UserGender; label: string }[] = [
+  { value: "male", label: "Mann" },
+  { value: "female", label: "Kvinne" },
+];
+const LANGUAGE_OPTIONS: { value: AppLanguage; label: string }[] = [
+  { value: "nb", label: "Norsk" },
+  { value: "en", label: "English" },
+];
 
 const settingsInputProps = {
   inputAccessoryViewID: GLOBAL_IOS_KEYBOARD_ACCESSORY_ID,
@@ -179,6 +194,14 @@ function clampInt(value: string, fallback: number) {
   const n = Number(cleaned);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.round(n));
+}
+
+function clampOptionalAge(value: string) {
+  const cleaned = value.replace(",", ".").trim();
+  if (!cleaned) return null;
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(120, Math.max(0, Math.round(n)));
 }
 
 function toSafeDate(value: string | null | undefined) {
@@ -257,6 +280,7 @@ export default function SettingsModal({
   setVisible,
   userSettings,
   onChangeUserSettings,
+  onSaveUserSettingsNow,
   onRefreshUserSettings,
   isLoadingUserSettings = false,
   isSavingUserSettings = false,
@@ -295,6 +319,16 @@ export default function SettingsModal({
     const next = { ...settings, ...patch };
     if (isControlled) onChangeUserSettings?.(next);
     else setLocalSettings(next);
+  };
+
+  const saveSettingsNow = (patch: Partial<UserSettings>) => {
+    const next = { ...settings, ...patch };
+    if (isControlled) {
+      if (onSaveUserSettingsNow) onSaveUserSettingsNow(next);
+      else onChangeUserSettings?.(next);
+      return;
+    }
+    setLocalSettings(next);
   };
 
   const tileLabels = useMemo(
@@ -582,7 +616,7 @@ export default function SettingsModal({
                     activeTab === "user" && styles.tabTextActive,
                   ]}
                 >
-                  Brukerinstillinger
+                  Brukerinnstillinger
                 </Text>
               </Pressable>
             </View>
@@ -785,6 +819,112 @@ export default function SettingsModal({
                     <Text style={[typography.bodyBold, styles.sectionTitle]}>
                       Brukerinnstillinger
                     </Text>
+
+                    <View style={styles.settingsItemBox}>
+                      <View style={styles.itemTextBox}>
+                        <Text style={[typography.body, styles.itemText]}>
+                          Alder
+                        </Text>
+                        <Text style={[typography.body, styles.itemSubtext]}>
+                          Brukes til mer presis tilpasning
+                        </Text>
+                      </View>
+
+                      <TextInput
+                        {...settingsInputProps}
+                        value={settings.age ? String(settings.age) : ""}
+                        onChangeText={(t) =>
+                          updateSettings({
+                            age: clampOptionalAge(t),
+                          })
+                        }
+                        onEndEditing={() => saveSettingsNow({ age: settings.age })}
+                        keyboardType="number-pad"
+                        style={[typography.body, styles.inputValue]}
+                        placeholder="0"
+                        placeholderTextColor="rgba(148,163,184,0.6)"
+                      />
+                    </View>
+
+                    <View style={[styles.settingsItemBox, styles.stackItem]}>
+                      <View style={styles.itemTextBox}>
+                        <Text style={[typography.body, styles.itemText]}>
+                          Kjønn
+                        </Text>
+                        <Text style={[typography.body, styles.itemSubtext]}>
+                          Kan endres når som helst
+                        </Text>
+                      </View>
+
+                      <View style={styles.chipRow}>
+                        {GENDER_OPTIONS.map((option) => {
+                          const active = settings.gender === option.value;
+                          return (
+                            <Pressable
+                              key={option.value}
+                              onPress={() =>
+                                saveSettingsNow({ gender: option.value })
+                              }
+                              style={({ pressed }) => [
+                                styles.chip,
+                                active && styles.chipActive,
+                                pressed && styles.pressed,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  typography.bodyBold,
+                                  styles.chipText,
+                                  active && styles.chipTextActive,
+                                ]}
+                              >
+                                {option.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    <View style={[styles.settingsItemBox, styles.stackItem]}>
+                      <View style={styles.itemTextBox}>
+                        <Text style={[typography.body, styles.itemText]}>
+                          Språk
+                        </Text>
+                        <Text style={[typography.body, styles.itemSubtext]}>
+                          Lagres i profilen din
+                        </Text>
+                      </View>
+
+                      <View style={styles.segment}>
+                        {LANGUAGE_OPTIONS.map((option) => {
+                          const active = settings.language === option.value;
+                          return (
+                            <Pressable
+                              key={option.value}
+                              onPress={() =>
+                                saveSettingsNow({ language: option.value })
+                              }
+                              style={({ pressed }) => [
+                                styles.segmentBtn,
+                                active && styles.segmentBtnActive,
+                                pressed && styles.pressed,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  typography.bodyBold,
+                                  styles.segmentText,
+                                  active && styles.segmentTextActive,
+                                ]}
+                              >
+                                {option.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
 
                     {/* Goals */}
                     <View style={styles.settingsItemBox}>

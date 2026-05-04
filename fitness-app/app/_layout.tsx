@@ -4,6 +4,7 @@ import {
   GlobalKeyboardAccessory,
 } from "@/components/common/GlobalKeyboardAccessory";
 import { queryClient } from "@/config/queryClient";
+import { RegistrationOnboardingModal } from "@/components/settings/RegistrationOnboardingModal";
 import { AuthProvider, useAuth } from "@/context/AuthProvider";
 import { UserSettingsProvider } from "@/context/UserSettingsProvider";
 import {
@@ -89,6 +90,7 @@ export default function RootLayout() {
               <AuthStateCleanup />
               <Stack screenOptions={{ headerShown: false }} />
               <WorkoutSessionOverlay />
+              <RegistrationOnboardingModal />
               <GlobalKeyboardAccessory />
             </UserSettingsProvider>
           </WorkoutSessionProvider>

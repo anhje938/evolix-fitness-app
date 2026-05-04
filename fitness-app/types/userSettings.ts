@@ -3,8 +3,14 @@ import type { AdvancedMuscleFilterValue } from "./muscles";
 export type HomeGoalTile = "calories" | "protein" | "carbs" | "fat";
 export type HomeSectionKey = "quickStart" | "goals" | "weight" | "recoveryMap";
 export type RecoveryMapMuscleKey = Exclude<AdvancedMuscleFilterValue, "ALL">;
+export type AppLanguage = "nb" | "en";
+export type UserGender = "male" | "female";
 
 export interface UserSettings {
+  age: number | null;
+  gender: UserGender | null;
+  language: AppLanguage;
+  hasCompletedRegistration: boolean;
   calorieGoal: number;
   proteinGoal: number;
   fatGoal: number;

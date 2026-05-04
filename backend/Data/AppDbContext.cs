@@ -243,6 +243,12 @@ namespace backend.Data
                 b.Property(x => x.FoodCoachExcludedDateKeysJson)
                     .IsRequired()
                     .HasDefaultValue("[]");
+                b.Property(x => x.Gender).HasMaxLength(32);
+                b.Property(x => x.Language)
+                    .IsRequired()
+                    .HasMaxLength(8)
+                    .HasDefaultValue("nb");
+                b.Property(x => x.HasCompletedRegistration).HasDefaultValue(false);
                 b.Property(x => x.WeightGoalKg).HasPrecision(18, 2);
                 b.Property(x => x.UseFoodCoach).HasDefaultValue(true);
                 b.Property(x => x.UseWorkoutCoach).HasDefaultValue(true);

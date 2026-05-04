@@ -296,6 +296,7 @@ export default function HomePage() {
   const {
     userSettings,
     setUserSettings,
+    saveUserSettingsNow,
     refreshUserSettings,
     isLoadingUserSettings,
     isSavingUserSettings,
@@ -1018,6 +1019,7 @@ export default function HomePage() {
         setVisible={setSettingsVisible}
         userSettings={userSettings}
         onChangeUserSettings={setUserSettings}
+        onSaveUserSettingsNow={saveUserSettingsNow}
         onRefreshUserSettings={refreshUserSettings}
         isLoadingUserSettings={isLoadingUserSettings}
         isSavingUserSettings={isSavingUserSettings}

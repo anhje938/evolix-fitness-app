@@ -18,15 +18,21 @@ import React, {
 type UserSettingsCtx = {
   userSettings: UserSettings;
   setUserSettings: (next: UserSettings) => void;
+  saveUserSettingsNow: (next: UserSettings) => Promise<void>;
   refreshUserSettings: () => Promise<void>;
   isLoadingUserSettings: boolean;
   isSavingUserSettings: boolean;
+  hasLoadedUserSettings: boolean;
   userSettingsError: string | null;
 };
 
 const KEY = "user_settings";
 const SAVE_DEBOUNCE_MS = 700;
 const INITIAL_USER_SETTINGS: UserSettings = {
+  age: null,
+  gender: null,
+  language: "nb",
+  hasCompletedRegistration: false,
   calorieGoal: 2500,
   proteinGoal: 180,
   fatGoal: 70,
@@ -62,6 +68,13 @@ function mergeWithDefaults(raw: Partial<UserSettings>): UserSettings {
     foodCoachExcludedDateKeys: Array.isArray(raw.foodCoachExcludedDateKeys)
       ? raw.foodCoachExcludedDateKeys
       : INITIAL_USER_SETTINGS.foodCoachExcludedDateKeys,
+    age: typeof raw.age === "number" ? raw.age : INITIAL_USER_SETTINGS.age,
+    gender: raw.gender ?? INITIAL_USER_SETTINGS.gender,
+    language: raw.language ?? INITIAL_USER_SETTINGS.language,
+    hasCompletedRegistration:
+      typeof raw.hasCompletedRegistration === "boolean"
+        ? raw.hasCompletedRegistration
+        : INITIAL_USER_SETTINGS.hasCompletedRegistration,
   };
 }
 
@@ -76,6 +89,10 @@ function sameStringArray(a: string[], b: string[]) {
 function areSettingsEqual(a: UserSettings, b: UserSettings) {
   return (
     a.calorieGoal === b.calorieGoal &&
+    a.age === b.age &&
+    a.gender === b.gender &&
+    a.language === b.language &&
+    a.hasCompletedRegistration === b.hasCompletedRegistration &&
     a.proteinGoal === b.proteinGoal &&
     a.fatGoal === b.fatGoal &&
     a.carbGoal === b.carbGoal &&
@@ -104,6 +121,7 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
     useState<UserSettings>(INITIAL_USER_SETTINGS);
   const [isLoadingUserSettings, setIsLoadingUserSettings] = useState(false);
   const [isSavingUserSettings, setIsSavingUserSettings] = useState(false);
+  const [hasLoadedUserSettings, setHasLoadedUserSettings] = useState(false);
   const [userSettingsError, setUserSettingsError] = useState<string | null>(
     null
   );
@@ -144,9 +162,14 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUserSettings = useCallback(async () => {
-    if (!authReady || !token) return;
+    if (!authReady) return;
+    if (!token) {
+      setHasLoadedUserSettings(true);
+      return;
+    }
 
     setIsLoadingUserSettings(true);
+    setHasLoadedUserSettings(false);
     setUserSettingsError(null);
 
     try {
@@ -166,7 +189,10 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
       }
       setUserSettingsError(toErrorMessage(error));
     } finally {
-      if (mountedRef.current) setIsLoadingUserSettings(false);
+      if (mountedRef.current) {
+        setIsLoadingUserSettings(false);
+        setHasLoadedUserSettings(true);
+      }
     }
   }, [authReady, persistLocal, setToken, token]);
 
@@ -229,6 +255,46 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
     [flushQueuedSave, persistLocal, token]
   );
 
+  const saveUserSettingsNow = useCallback(
+    async (next: UserSettings) => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+
+      setUserSettingsState(next);
+      queuedSaveRef.current = next;
+      setUserSettingsError(null);
+      await persistLocal(next);
+
+      if (!token) return;
+
+      setIsSavingUserSettings(true);
+
+      try {
+        const saved = await upsertUserSettings(token, next);
+        if (!mountedRef.current) return;
+
+        queuedSaveRef.current = saved;
+        setUserSettingsState((prev) =>
+          areSettingsEqual(prev, saved) ? prev : saved
+        );
+        await persistLocal(saved);
+      } catch (error) {
+        if (!mountedRef.current) return;
+        if (isUnauthorizedError(error)) {
+          setUserSettingsError(null);
+          void setToken(null);
+          return;
+        }
+        setUserSettingsError(toErrorMessage(error));
+      } finally {
+        if (mountedRef.current) setIsSavingUserSettings(false);
+      }
+    },
+    [persistLocal, setToken, token]
+  );
+
   useEffect(() => {
     if (token) return;
 
@@ -240,6 +306,7 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
     queuedSaveRef.current = null;
     setIsSavingUserSettings(false);
     setIsLoadingUserSettings(false);
+    setHasLoadedUserSettings(false);
     setUserSettingsError(null);
     setUserSettingsState(INITIAL_USER_SETTINGS);
   }, [token]);
@@ -248,15 +315,19 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
     () => ({
       userSettings,
       setUserSettings,
+      saveUserSettingsNow,
       refreshUserSettings,
       isLoadingUserSettings,
       isSavingUserSettings,
+      hasLoadedUserSettings,
       userSettingsError,
     }),
     [
       isLoadingUserSettings,
       isSavingUserSettings,
+      hasLoadedUserSettings,
       refreshUserSettings,
+      saveUserSettingsNow,
       setUserSettings,
       userSettings,
       userSettingsError,

@@ -2,6 +2,12 @@
 {
     public class UpdateUserSettingsDto
     {
+        // Profile
+        public int? Age { get; set; }
+        public string? Gender { get; set; }
+        public string? Language { get; set; }
+        public bool? HasCompletedRegistration { get; set; }
+
         // Goals
         public int? CalorieGoal { get; set; }
         public int? ProteinGoal { get; set; }
