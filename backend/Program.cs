@@ -5,12 +5,12 @@ using backend.Data;
 using backend.Features.AdaptivePlanning;
 using backend.Features.Auth;
 using backend.Features.AuthAuth;
-using backend.Features.Development;
 using backend.Features.Food;
 using backend.Features.Training.Exercises;
 using backend.Features.Training.WorkoutPrograms;
 using backend.Features.Training.Workouts;
 using backend.Features.Training.WorkoutSessions;
+using backend.Features.Subscriptions;
 using backend.Features.Users;
 using backend.Features.Weight;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -47,7 +47,7 @@ builder.Services.AddScoped<RecoveryAnalysisService>();
 builder.Services.AddScoped<WeeklyReportService>();
 builder.Services.AddScoped<RecommendationService>();
 builder.Services.AddScoped<AdaptivePlanService>();
-builder.Services.AddScoped<DevelopmentSeedService>();
+builder.Services.AddHttpClient<RevenueCatSubscriptionService>();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<BarcodeLookupService>();
@@ -70,6 +70,9 @@ builder.Services.Configure<RefreshTokenSettings>(
 
 builder.Services.Configure<AppleSettings>(
     builder.Configuration.GetSection("AppleSettings"));
+
+builder.Services.Configure<RevenueCatOptions>(
+    builder.Configuration.GetSection("RevenueCat"));
 
 builder.Services.AddSingleton<JwtService>();
 

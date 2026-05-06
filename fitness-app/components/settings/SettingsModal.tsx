@@ -5,6 +5,7 @@ import {
   GlobalKeyboardAccessory,
 } from "@/components/common/GlobalKeyboardAccessory";
 import { AppDateTimePicker } from "@/components/date/AppDateTimePicker";
+import { MODAL_MAX_HEIGHT, modalTheme } from "@/config/modalTheme";
 import { typography } from "@/config/typography";
 import { useSubscription } from "@/context/SubscriptionProvider";
 import {
@@ -150,26 +151,6 @@ type Props = {
 
   onLogout?: () => Promise<void> | void;
   onDeleteAccount?: () => Promise<void> | void;
-  onSeedMockData?: () =>
-    | Promise<MockDataSeedResult | void>
-    | MockDataSeedResult
-    | void;
-};
-
-type MockDataSeedResult = {
-  userId?: string;
-  foodLogs?: number;
-  weightLogs?: number;
-  workoutSessions?: number;
-  verifiedFoodLogs?: number;
-  verifiedWorkoutSessions?: number;
-  exercises?: number;
-  workoutPrograms?: number;
-  workouts?: number;
-  composedMeals?: number;
-  exerciseTargets?: number;
-  nutritionTargetsHistory?: number;
-  adaptiveRecommendations?: number;
 };
 
 const DELETE_CONFIRM_WORD = "SLETT";
@@ -301,14 +282,12 @@ export default function SettingsModal({
   userSettingsError = null,
   onLogout,
   onDeleteAccount,
-  onSeedMockData,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("general");
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const [isSeedingMockData, setIsSeedingMockData] = useState(false);
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
   const [isRefreshingSubscription, setIsRefreshingSubscription] =
     useState(false);
@@ -533,53 +512,6 @@ export default function SettingsModal({
     } finally {
       setIsDeletingAccount(false);
     }
-  };
-
-  const handleSeedMockData = () => {
-    if (!onSeedMockData || isSeedingMockData) return;
-
-    Alert.alert(
-      "Fyll mock-data",
-      "Dette legger inn 30 dager med mat og vekt, plan, øvelsesmål, anbefalinger og 10 Push-, 10 Pull- og 10 Legs-økter for denne brukeren.",
-      [
-        { text: "Avbryt", style: "cancel" },
-        {
-          text: "Fyll inn",
-          onPress: async () => {
-            try {
-              setIsSeedingMockData(true);
-              const result = await onSeedMockData();
-              const summary = result
-                ? `${result.foodLogs ?? 0} matlogger, ${
-                    result.weightLogs ?? 0
-                  } vektlogger, ${result.workoutSessions ?? 0} økter og ${
-                    result.adaptiveRecommendations ?? 0
-                  } anbefalinger.`
-                : "Mock-data er lagt inn.";
-              const verification = result
-                ? `\n\nVerifisert i appen: ${
-                    result.verifiedFoodLogs ?? 0
-                  } matlogger og ${
-                    result.verifiedWorkoutSessions ?? 0
-                  } fullførte økter.${
-                    result.userId ? `\n\nBruker: ${result.userId}` : ""
-                  }`
-                : "";
-              Alert.alert("Ferdig", `${summary}${verification}`);
-            } catch (error) {
-              const message =
-                error instanceof Error && error.message.trim().length > 0
-                  ? error.message
-                  : "Kunne ikke fylle mock-data.";
-              Alert.alert("Feil", message);
-            } finally {
-              setIsSeedingMockData(false);
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
   };
 
   const handleRestorePurchases = async () => {
@@ -878,41 +810,6 @@ export default function SettingsModal({
                     </TouchableOpacity>
                   </View>
 
-                  {__DEV__ && !!onSeedMockData && (
-                    <View style={styles.section}>
-                      <Text style={[typography.bodyBold, styles.sectionTitle]}>
-                        Utvikling
-                      </Text>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.developmentActionBox,
-                          isSeedingMockData && styles.disabledAction,
-                        ]}
-                        onPress={handleSeedMockData}
-                        disabled={isSeedingMockData}
-                      >
-                        <Text
-                          style={[
-                            typography.bodyBold,
-                            styles.developmentActionText,
-                          ]}
-                        >
-                          {isSeedingMockData
-                            ? "Fyller mock-data..."
-                            : "Fyll mock-data"}
-                        </Text>
-                        <Text
-                          style={[
-                            typography.body,
-                            styles.developmentActionSubtext,
-                          ]}
-                        >
-                          Mat, vekt og PPL-økter for lokal testing
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
 
                   {/* LOGG UT */}
                   <View style={styles.section}>
@@ -1837,30 +1734,37 @@ export default function SettingsModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: modalTheme.backdrop,
     justifyContent: "center",
-    padding: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 24,
   },
   kb: {
     flex: 1,
     justifyContent: "center",
   },
   container: {
-    backgroundColor: "#111827",
+    backgroundColor: modalTheme.surface,
     width: "100%",
-    borderRadius: 18,
+    maxWidth: 640,
+    borderRadius: 28,
     paddingHorizontal: 22,
     paddingTop: 18,
     paddingBottom: 16,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
-    maxHeight: "85%",
+    borderColor: modalTheme.border,
+    maxHeight: MODAL_MAX_HEIGHT,
+    shadowColor: modalTheme.shadow,
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
   },
   legalContainer: {
-    maxHeight: "88%",
+    maxHeight: MODAL_MAX_HEIGHT,
   },
   deleteConfirmContainer: {
-    maxHeight: undefined,
+    maxHeight: MODAL_MAX_HEIGHT,
   },
   headerRow: {
     flexDirection: "row",
@@ -1873,7 +1777,11 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   closeButton: {
-    padding: 4,
+    padding: 6,
+    borderRadius: 999,
+    backgroundColor: modalTheme.surfaceSoft,
+    borderWidth: 1,
+    borderColor: modalTheme.borderSoft,
   },
 
   tabRow: {
@@ -1881,9 +1789,9 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 6,
     borderRadius: 14,
-    backgroundColor: "rgba(15,23,42,0.6)",
+    backgroundColor: modalTheme.surfaceSoft,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.14)",
+    borderColor: modalTheme.borderSoft,
   },
   tabPill: {
     flex: 1,

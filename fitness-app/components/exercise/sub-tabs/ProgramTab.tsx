@@ -291,7 +291,8 @@ export default function ProgramTab() {
       )}
 
       {/* LISTE */}
-      <ProgramList
+      <View style={{ marginTop: 15 }}>
+        <ProgramList
           programs={programs}
           workoutsByProgramId={workoutsByProgramId}
           exerciseMap={exerciseMap}
@@ -300,6 +301,7 @@ export default function ProgramTab() {
             if (p) setEditingProgram(p);
           }}
         />
+      </View>
 
       <Paywall
         visible={paywallVisible}

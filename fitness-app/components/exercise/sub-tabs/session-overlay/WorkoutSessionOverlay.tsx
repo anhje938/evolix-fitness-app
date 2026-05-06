@@ -1,4 +1,5 @@
 import type { CreateExercisePayload, WorkoutSession } from "@/types/exercise";
+import { MODAL_MAX_HEIGHT, modalTheme } from "@/config/modalTheme";
 import { typography } from "@/config/typography";
 import { Paywall } from "@/components/subscription/Paywall";
 import { useSubscription } from "@/context/SubscriptionProvider";
@@ -54,15 +55,15 @@ const SUSPICIOUS_WEIGHT_THRESHOLD_KG = 500;
  * Premium Dark Ocean colors
  */
 const overlayColors = {
-  backdrop: "rgba(2,6,23,0.78)",
-  container: "#0F172A",
+  backdrop: modalTheme.backdrop,
+  container: modalTheme.surface,
   surface: "rgba(30,58,138,0.24)",
   input: "rgba(15,23,42,0.82)",
   text: "#E5ECFF",
   muted: "rgba(148,163,184,0.9)",
   muted2: "rgba(148,163,184,0.7)",
-  border: "rgba(6,182,212,0.18)",
-  borderSoft: "rgba(148,163,184,0.12)",
+  border: modalTheme.border,
+  borderSoft: modalTheme.borderSoft,
   accent: "#06b6d4",
   accentDim: "rgba(6,182,212,0.34)",
   accentBg: "rgba(6,182,212,0.12)",
@@ -2203,20 +2204,23 @@ const styles = StyleSheet.create({
 
   sheetWrap: {
     flex: 1,
-    justifyContent: "flex-start",
-    paddingTop: 36,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 24,
   },
 
   sheet: {
-    flex: 1,
-    marginHorizontal: 14,
-    borderRadius: 22,
+    width: "100%",
+    maxWidth: 640,
+    height: MODAL_MAX_HEIGHT,
+    maxHeight: MODAL_MAX_HEIGHT,
+    borderRadius: 28,
     backgroundColor: overlayColors.container,
     borderWidth: 1,
     borderColor: overlayColors.border,
     overflow: "hidden",
-    shadowColor: "#06b6d4",
-    shadowOpacity: 0.12,
+    shadowColor: modalTheme.shadow,
+    shadowOpacity: 0.22,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 },
     elevation: 8,

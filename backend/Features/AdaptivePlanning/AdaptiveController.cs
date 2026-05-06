@@ -1,5 +1,7 @@
 using backend.Common;
+using backend.Features.Subscriptions;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.Features.AdaptivePlanning
@@ -12,21 +14,27 @@ namespace backend.Features.AdaptivePlanning
         private readonly AdaptivePlanService _adaptivePlanService;
         private readonly WeeklyReportService _weeklyReportService;
         private readonly RecommendationService _recommendationService;
+        private readonly RevenueCatSubscriptionService _subscriptionService;
 
         public AdaptiveController(
             AdaptivePlanService adaptivePlanService,
             WeeklyReportService weeklyReportService,
-            RecommendationService recommendationService)
+            RecommendationService recommendationService,
+            RevenueCatSubscriptionService subscriptionService)
         {
             _adaptivePlanService = adaptivePlanService;
             _weeklyReportService = weeklyReportService;
             _recommendationService = recommendationService;
+            _subscriptionService = subscriptionService;
         }
 
         [HttpGet("today")]
         public async Task<ActionResult<TodayFocusDto>> GetToday(CancellationToken ct)
         {
             var userId = GetUserId();
+            if (await RequirePremiumAsync(userId, ct) is { } premiumError)
+                return premiumError;
+
             return Ok(await _adaptivePlanService.GetTodayFocusAsync(userId, ct));
         }
 
@@ -34,6 +42,9 @@ namespace backend.Features.AdaptivePlanning
         public async Task<ActionResult<WeeklyReportDto>> GetCurrentWeeklyReport(CancellationToken ct)
         {
             var userId = GetUserId();
+            if (await RequirePremiumAsync(userId, ct) is { } premiumError)
+                return premiumError;
+
             var report = await _weeklyReportService.GetOrGenerateCurrentAsync(userId, ct);
             return Ok(await ToFreshDto(userId, report, ct));
         }
@@ -44,6 +55,9 @@ namespace backend.Features.AdaptivePlanning
             CancellationToken ct = default)
         {
             var userId = GetUserId();
+            if (await RequirePremiumAsync(userId, ct) is { } premiumError)
+                return premiumError;
+
             var reports = await _weeklyReportService.GetHistoryAsync(userId, limit, ct);
             var dtos = new List<WeeklyReportDto>();
             foreach (var report in reports)
@@ -58,6 +72,9 @@ namespace backend.Features.AdaptivePlanning
         public async Task<ActionResult<WeeklyReportDto>> GenerateWeeklyReport(CancellationToken ct)
         {
             var userId = GetUserId();
+            if (await RequirePremiumAsync(userId, ct) is { } premiumError)
+                return premiumError;
+
             var report = await _weeklyReportService.GenerateCurrentAsync(userId, ct);
             return Ok(await ToFreshDto(userId, report, ct));
         }
@@ -66,6 +83,9 @@ namespace backend.Features.AdaptivePlanning
         public async Task<ActionResult<WeeklyReportDto>> RegenerateWeeklyReport(CancellationToken ct)
         {
             var userId = GetUserId();
+            if (await RequirePremiumAsync(userId, ct) is { } premiumError)
+                return premiumError;
+
             var report = await _weeklyReportService.RegenerateCurrentAsync(userId, ct);
             return Ok(await ToFreshDto(userId, report, ct));
         }
@@ -74,6 +94,9 @@ namespace backend.Features.AdaptivePlanning
         public async Task<ActionResult<List<AdaptiveRecommendationDto>>> GetRecommendations(CancellationToken ct)
         {
             var userId = GetUserId();
+            if (await RequirePremiumAsync(userId, ct) is { } premiumError)
+                return premiumError;
+
             var recommendations = await _recommendationService.GetPendingAsync(userId, ct);
             return Ok(recommendations.Select(AdaptiveMapper.ToDto).ToList());
         }
@@ -84,6 +107,9 @@ namespace backend.Features.AdaptivePlanning
             CancellationToken ct)
         {
             var userId = GetUserId();
+            if (await RequirePremiumAsync(userId, ct) is { } premiumError)
+                return premiumError;
+
             var recommendation = await _recommendationService.AcceptAsync(userId, id, ct);
             return Ok(AdaptiveMapper.ToDto(recommendation));
         }
@@ -94,8 +120,24 @@ namespace backend.Features.AdaptivePlanning
             CancellationToken ct)
         {
             var userId = GetUserId();
+            if (await RequirePremiumAsync(userId, ct) is { } premiumError)
+                return premiumError;
+
             var recommendation = await _recommendationService.DismissAsync(userId, id, ct);
             return Ok(AdaptiveMapper.ToDto(recommendation));
+        }
+
+        private async Task<ActionResult?> RequirePremiumAsync(
+            string userId,
+            CancellationToken ct)
+        {
+            if (await _subscriptionService.HasPremiumAccessAsync(userId, ct))
+                return null;
+
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                error = "upgrade_required"
+            });
         }
 
         private async Task<WeeklyReportDto> ToFreshDto(

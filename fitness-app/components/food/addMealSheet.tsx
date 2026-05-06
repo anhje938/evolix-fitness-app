@@ -1,4 +1,5 @@
 import { generalStyles } from "@/config/styles";
+import { MODAL_MAX_HEIGHT, modalGradientColors, modalTheme } from "@/config/modalTheme";
 import { typography } from "@/config/typography";
 import { useKeyboardAwareSheetScroll } from "@/hooks/useKeyboardAwareSheetScroll";
 import { FoodDto } from "@/types/meal";
@@ -8,7 +9,6 @@ import { useEffect, useRef, useState } from "react";
 import type { TextInput as RNTextInput } from "react-native";
 import {
   Animated,
-  Dimensions,
   Keyboard,
   Modal,
   Platform,
@@ -33,7 +33,7 @@ type AddMealSheetProps = {
   onSubmit: (values: FoodDto) => Promise<void> | void;
 };
 
-const SHEET_MAX_HEIGHT = Dimensions.get("window").height * 0.88;
+const SHEET_MAX_HEIGHT = MODAL_MAX_HEIGHT;
 const ENTER_DURATION = 220;
 const EXIT_DURATION = 170;
 
@@ -217,11 +217,7 @@ export function AddMealSheet({
             >
               <LinearGradient
                 pointerEvents="none"
-                colors={[
-                  "rgba(34,211,238,0.18)",
-                  "rgba(59,130,246,0.1)",
-                  "rgba(2,6,23,0)",
-                ]}
+                colors={modalGradientColors}
                 start={{ x: 0.1, y: 0 }}
                 end={{ x: 0.9, y: 1 }}
                 style={StyleSheet.absoluteFill}
@@ -445,14 +441,14 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(2,6,23,0.78)",
+    backgroundColor: modalTheme.backdrop,
   },
   sheetFrame: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 28,
+    paddingHorizontal: 14,
+    paddingVertical: 24,
   },
   sheetAnimationWrap: {
     width: "100%",
@@ -466,10 +462,10 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     paddingHorizontal: 20,
     paddingVertical: 20,
-    backgroundColor: "rgba(2,6,23,0.985)",
+    backgroundColor: modalTheme.surface,
     borderWidth: 1,
-    borderColor: "rgba(103,232,249,0.12)",
-    shadowColor: "#020617",
+    borderColor: modalTheme.border,
+    shadowColor: modalTheme.shadow,
     shadowOpacity: 0.28,
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 10 },
@@ -482,7 +478,7 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 999,
-    backgroundColor: "rgba(34,211,238,0.08)",
+    backgroundColor: modalTheme.orbTop,
   },
   orbBottom: {
     position: "absolute",
@@ -491,7 +487,7 @@ const styles = StyleSheet.create({
     width: 146,
     height: 146,
     borderRadius: 999,
-    backgroundColor: "rgba(37,99,235,0.08)",
+    backgroundColor: modalTheme.orbBottom,
   },
   sheetContent: {
     paddingBottom: 16,
@@ -503,7 +499,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   title: {
-    color: "#F8FAFC",
+    color: modalTheme.text,
     fontSize: 20,
     fontWeight: "600",
     letterSpacing: -0.35,
@@ -523,7 +519,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 11.5,
-    color: "rgba(191,219,254,0.72)",
+    color: modalTheme.label,
     marginBottom: 7,
     letterSpacing: 0.14,
   },

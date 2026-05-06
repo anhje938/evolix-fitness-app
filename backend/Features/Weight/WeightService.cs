@@ -37,9 +37,9 @@ namespace backend.Features.Weight
             WeightLogRequest request,
             CancellationToken ct = default)
         {
-            // Bruk datoen fra requesten (UTC) som "target day"
-            var targetDay = request.TimestampUtc.Date;      // f.eks. 2025-11-28 00:00:00
-            var nextDay = targetDay.AddDays(1);             // 2025-11-29 00:00:00
+            var timestampUtc = NormalizeTimestamp(request.TimestampUtc);
+            var targetDay = timestampUtc.Date;
+            var nextDay = targetDay.AddDays(1);
 
             var existing = await _db.WeightLogs
                 .FirstOrDefaultAsync(w =>
@@ -51,7 +51,7 @@ namespace backend.Features.Weight
             if (existing != null)
             {
                 existing.WeightKg = request.WeightKg;
-                existing.TimestampUtc = request.TimestampUtc;
+                existing.TimestampUtc = timestampUtc;
 
                 await _db.SaveChangesAsync(ct);
 
@@ -66,7 +66,7 @@ namespace backend.Features.Weight
             var entry = new WeightLog
             {
                 WeightKg = request.WeightKg,
-                TimestampUtc = request.TimestampUtc,
+                TimestampUtc = timestampUtc,
                 UserId = userId
             };
 
@@ -87,6 +87,7 @@ namespace backend.Features.Weight
             WeightLogRequest request,
             CancellationToken ct = default)
         {
+            var timestampUtc = NormalizeTimestamp(request.TimestampUtc);
             var entry = await _db.WeightLogs
                 .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId, ct);
 
@@ -94,7 +95,7 @@ namespace backend.Features.Weight
                 throw new KeyNotFoundException("Weight not found");
 
             entry.WeightKg = request.WeightKg;
-            entry.TimestampUtc = request.TimestampUtc;
+            entry.TimestampUtc = timestampUtc;
 
             await _db.SaveChangesAsync(ct);
 
@@ -119,6 +120,19 @@ namespace backend.Features.Weight
 
             _db.WeightLogs.Remove(entry);
             await _db.SaveChangesAsync(ct);
+        }
+
+        private static DateTime NormalizeTimestamp(DateTime timestampUtc)
+        {
+            if (timestampUtc == default) return DateTime.UtcNow;
+
+            return timestampUtc.Kind switch
+            {
+                DateTimeKind.Utc => timestampUtc,
+                DateTimeKind.Local => timestampUtc.ToUniversalTime(),
+                DateTimeKind.Unspecified => DateTime.SpecifyKind(timestampUtc, DateTimeKind.Utc),
+                _ => timestampUtc.ToUniversalTime()
+            };
         }
 
     }

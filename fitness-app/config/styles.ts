@@ -51,8 +51,8 @@ export const generalStyles = StyleSheet.create({
    */
   newCard: {
     borderWidth: 0.2,
-    backgroundColor: "rgba(15, 23, 42, 0.3)",
-    borderColor: "rgba(6, 182, 212, 0.12)", // cyan-ish
+    backgroundColor: "rgba(5, 10, 51, 0.81)",
+    borderColor: "rgba(59, 130, 246, 0.14)",
   },
 
   

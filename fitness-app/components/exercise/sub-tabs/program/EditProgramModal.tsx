@@ -1,4 +1,5 @@
 // components/exercise/sub-tabs/program/EditProgramModal.tsx
+import { MODAL_MAX_HEIGHT, modalTheme } from "@/config/modalTheme";
 import { typography } from "@/config/typography";
 import type { Workout } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
@@ -48,22 +49,22 @@ type Props = {
 };
 
 const colors = {
-  backdrop: "rgba(0,0,0,0.66)",
+  backdrop: modalTheme.backdrop,
 
-  sheet: "rgba(10,16,30,0.96)",
-  strokeOuter: "rgba(255,255,255,0.10)",
-  strokeInner: "rgba(255,255,255,0.05)",
+  sheet: modalTheme.surface,
+  strokeOuter: modalTheme.border,
+  strokeInner: modalTheme.borderSoft,
   divider: "rgba(255,255,255,0.08)",
 
-  text: "rgba(255,255,255,0.94)",
+  text: modalTheme.text,
   muted: "rgba(148,163,184,0.86)",
-  muted2: "rgba(148,163,184,0.72)",
+  muted2: modalTheme.muted,
 
   accentA: "rgba(99,102,241,0.94)", // indigo
   accentB: "rgba(34,211,238,0.78)", // cyan
 
-  inputBg: "rgba(255,255,255,0.045)",
-  inputStroke: "rgba(255,255,255,0.10)",
+  inputBg: modalTheme.surfaceMuted,
+  inputStroke: modalTheme.inputBorder,
   inputStrokeFocus: "rgba(34,211,238,0.26)",
 
   chipBg: "rgba(255,255,255,0.05)",
@@ -603,11 +604,20 @@ const styles = StyleSheet.create({
   },
 
   sheet: {
-    flex: 1,
-    marginTop: 22,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    width: "100%",
+    maxWidth: 560,
+    height: MODAL_MAX_HEIGHT,
+    maxHeight: MODAL_MAX_HEIGHT,
+    alignSelf: "center",
+    marginTop: 24,
+    marginBottom: 24,
+    borderRadius: 28,
     overflow: "hidden",
+    shadowColor: modalTheme.shadow,
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
   },
 
   base: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.sheet },
@@ -623,8 +633,7 @@ const styles = StyleSheet.create({
   },
   outerStroke: {
     ...StyleSheet.absoluteFillObject,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    borderRadius: 28,
     borderWidth: 1,
     borderColor: colors.strokeOuter,
   },
@@ -634,8 +643,7 @@ const styles = StyleSheet.create({
     left: 1,
     right: 1,
     bottom: 0,
-    borderTopLeftRadius: 21,
-    borderTopRightRadius: 21,
+    borderRadius: 27,
     borderWidth: 1,
     borderColor: colors.strokeInner,
   },
@@ -695,7 +703,7 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.iconBg,
+    backgroundColor: modalTheme.surfaceSoft,
     borderWidth: 1,
     borderColor: colors.iconStroke,
   },

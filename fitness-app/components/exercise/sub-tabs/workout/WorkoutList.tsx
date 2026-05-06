@@ -1,54 +1,36 @@
-// components/exercise/sub-tabs/workout/WorkoutList.tsx
+import { Paywall } from "@/components/subscription/Paywall";
+import { useSubscription } from "@/context/SubscriptionProvider";
+import { typography } from "@/config/typography";
+import type { Exercise, Workout } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { memo, useCallback, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { generalStyles } from "@/config/styles";
-import { typography } from "@/config/typography";
-import { useSubscription } from "@/context/SubscriptionProvider";
-
-import { Paywall } from "@/components/subscription/Paywall";
-import type { Exercise, Workout } from "@/types/exercise";
-
-// 🎨 Premium (samme språk som ProgramWorkoutCard)
 const colors = {
-  // Card base
-  cardSolid: "rgba(10,16,30,0.92)",
-  glassTop: "rgba(255,255,255,0.055)",
-  glassMid: "rgba(255,255,255,0.020)",
-  glassNone: "rgba(255,255,255,0.00)",
-
-  // Strokes
-  borderSoft: "rgba(255,255,255,0.08)",
-  insetStroke: "rgba(255,255,255,0.05)",
-  divider: "rgba(255,255,255,0.08)",
-
-  // Text
-  text: "rgba(255,255,255,0.94)",
-  muted: "rgba(148,163,184,0.92)",
-  muted2: "rgba(148,163,184,0.74)",
-
-  // Pills / chips (subtle neon tints)
-  pillBg: "rgba(255,255,255,0.060)",
-  pillStroke: "rgba(255,255,255,0.12)",
-
-  indigoBg: "rgba(99,102,241,0.10)",
-  indigoStroke: "rgba(99,102,241,0.22)",
-  cyanBg: "rgba(34,211,238,0.085)",
-  cyanStroke: "rgba(34,211,238,0.20)",
-  emeraldBg: "rgba(16,185,129,0.080)",
-  emeraldStroke: "rgba(16,185,129,0.18)",
-
-  moreBg: "rgba(34,211,238,0.16)",
-  moreStroke: "rgba(34,211,238,0.28)",
-
-  // Icon buttons
-  iconBg: "rgba(255,255,255,0.05)",
-  iconStroke: "rgba(255,255,255,0.10)",
-
-  // Start button
-  startStroke: "rgba(255,255,255,0.18)",
+  cardSolid: "rgba(7,22,52,0.97)",
+  glassTop: "rgba(255,255,255,0.06)",
+  glassMid: "rgba(255,255,255,0.022)",
+  glassNone: "rgba(197, 7, 7, 0)",
+  borderSoft: "rgba(96,165,250,0.20)",
+  insetStroke: "rgba(255,255,255,0.045)",
+  divider: "rgba(148,163,184,0.12)",
+  text: "rgba(248,250,252,0.96)",
+  muted: "rgba(191,219,254,0.80)",
+  muted2: "rgba(148,163,184,0.76)",
+  rowBg: "rgba(10,31,68,0.94)",
+  rowStroke: "rgba(96,165,250,0.18)",
+  rowIndexBg: "rgba(7,20,46,0.96)",
+  rowIndexStroke: "rgba(96,165,250,0.24)",
+  iconBg: "rgba(10,30,66,0.98)",
+  iconStroke: "rgba(96,165,250,0.22)",
+  pillBg: "rgba(255,255,255,0.055)",
+  pillStroke: "rgba(255,255,255,0.09)",
+  pillText: "rgba(226,232,240,0.82)",
+  cyanDot: "#22d3ee",
+  emeraldDot: "#2dd4bf",
+  actionStroke: "rgba(96,165,250,0.18)",
+  startStroke: "rgba(255,255,255,0.16)",
 };
 
 type StartWorkoutPayload = {
@@ -62,13 +44,35 @@ type Props = {
   workouts: Workout[];
   exercises: Exercise[];
   onEdit: (workout: Workout) => void;
-
-  /**
-   * ✅ SAME as ProgramWorkoutCard:
-   * Parent bruker denne til å åpne WorkoutSessionOverlay.
-   */
   onStart: (payload: StartWorkoutPayload) => void;
 };
+
+function estimateWorkoutMinutes(exerciseCount: number) {
+  if (exerciseCount <= 0) return 20;
+  return Math.max(20, Math.min(90, exerciseCount * 10));
+}
+
+function getExerciseAccent(index: number) {
+  const mod = index % 3;
+  if (mod === 0) {
+    return {
+      bg: "rgba(37,99,235,0.10)",
+      border: "rgba(96,165,250,0.18)",
+    };
+  }
+
+  if (mod === 1) {
+    return {
+      bg: "rgba(34,211,238,0.08)",
+      border: "rgba(34,211,238,0.16)",
+    };
+  }
+
+  return {
+    bg: "rgba(45,212,191,0.08)",
+    border: "rgba(45,212,191,0.16)",
+  };
+}
 
 export const WorkoutList = memo(function WorkoutList({
   workouts,
@@ -86,7 +90,7 @@ export const WorkoutList = memo(function WorkoutList({
 
   const exerciseMap = useMemo(() => {
     const map = new Map<string, Exercise>();
-    exercises.forEach((ex) => map.set(ex.id, ex));
+    exercises.forEach((exercise) => map.set(exercise.id, exercise));
     return map;
   }, [exercises]);
 
@@ -110,28 +114,30 @@ export const WorkoutList = memo(function WorkoutList({
   return (
     <View style={styles.list}>
       {workouts.map((workout) => {
-        const exercisesInWorkout: Exercise[] =
+        const exercisesInWorkout =
           workout.exerciseIds
             ?.map((id) => exerciseMap.get(id))
-            ?.filter((x): x is Exercise => !!x) ?? [];
+            ?.filter((item): item is Exercise => !!item) ?? [];
 
         const exerciseCount = exercisesInWorkout.length;
+        const estimatedMinutes = estimateWorkoutMinutes(exerciseCount);
+        const isExpanded = expandedId === workout.id;
+        const requiresPremium =
+          workout.isPremium === true ||
+          workout.workoutProgramIsPremium === true;
+        const isWorkoutLocked = requiresPremium && !isPremium;
 
         const startPayload: StartWorkoutPayload = {
           workoutProgramId: workout.workoutProgramId ?? null,
           workoutId: workout.id,
           name: workout.name,
-          exercises: exercisesInWorkout.map((ex) => ({
-            exerciseId: ex.id,
-            name: ex.name,
-            muscle: ex.muscle,
+          exercises: exercisesInWorkout.map((exercise) => ({
+            exerciseId: exercise.id,
+            name: exercise.name,
+            muscle: exercise.muscle,
           })),
         };
 
-        const isExpanded = expandedId === workout.id;
-        const requiresPremium =
-          workout.isPremium === true || workout.workoutProgramIsPremium === true;
-        const isWorkoutLocked = requiresPremium && !isPremium;
         const handleToggle = () => {
           if (isWorkoutLocked) {
             setPaywallVisible(true);
@@ -142,14 +148,9 @@ export const WorkoutList = memo(function WorkoutList({
         };
 
         return (
-          <View
-            key={workout.id}
-            style={[generalStyles.newCard, styles.cardOuter]}
-          >
-            {/* Base */}
+          <View key={workout.id} style={styles.cardOuter}>
             <View pointerEvents="none" style={styles.base} />
 
-            {/* Glass overlay */}
             <LinearGradient
               colors={[colors.glassTop, colors.glassMid, colors.glassNone]}
               start={{ x: 0.05, y: 0 }}
@@ -158,25 +159,22 @@ export const WorkoutList = memo(function WorkoutList({
               pointerEvents="none"
             />
 
-            {/* Accent sheen */}
             <LinearGradient
               colors={[
-                "rgba(99,102,241,0.12)",
-                "rgba(34,211,238,0.08)",
+                "rgba(59,130,246,0.24)",
+                "rgba(34,211,238,0.14)",
                 "rgba(255,255,255,0.00)",
               ]}
               start={{ x: 1, y: 0 }}
-              end={{ x: 0.25, y: 1 }}
+              end={{ x: 0.2, y: 1 }}
               style={styles.accentSheen}
               pointerEvents="none"
             />
 
-            {/* Strokes */}
             <View pointerEvents="none" style={styles.outerStroke} />
             <View pointerEvents="none" style={styles.innerInset} />
 
             <View style={styles.cardInner}>
-              {/* HEADER ROW */}
               <View style={styles.topRow}>
                 <Pressable
                   onPress={handleToggle}
@@ -184,170 +182,160 @@ export const WorkoutList = memo(function WorkoutList({
                     styles.headerPress,
                     pressed && styles.headerPressed,
                   ]}
-                  hitSlop={6}
+                  hitSlop={8}
                 >
-                  <View style={styles.headerTopLine}>
+                  <View style={styles.headerMainRow}>
                     <View style={styles.iconCircle}>
                       <Ionicons
                         name="barbell-outline"
-                        size={14}
-                        color={colors.muted}
+                        size={15}
+                        color={colors.cyanDot}
                       />
                     </View>
 
-                    <Text
-                      style={[typography.bodyBold, styles.title]}
-                      numberOfLines={1}
-                    >
-                      {workout.name}
-                    </Text>
-
-                    {requiresPremium ? (
-                      <View style={styles.premiumBadge}>
-                        <Ionicons
-                          name="lock-closed"
-                          size={10}
-                          color="#FDE68A"
-                        />
-                        <Text style={styles.premiumBadgeText}>Premium</Text>
-                      </View>
-                    ) : null}
-
-                    <View style={styles.expandPipWrap}>
-                      <View
-                        style={[
-                          styles.expandPip,
-                          isExpanded ? styles.expandPipOn : styles.expandPipOff,
-                        ]}
-                      />
-                    </View>
-                  </View>
-
-                  {!!workout.description && (
-                    <Text
-                      style={[typography.body, styles.description]}
-                      numberOfLines={2}
-                    >
-                      {workout.description}
-                    </Text>
-                  )}
-
-                  {/* META PILLS */}
-                  <View style={styles.metaRow}>
-                    {!!workout.dayLabel && (
-                      <View style={[styles.metaPill, styles.pillIndigo]}>
-                        <Ionicons
-                          name="calendar-outline"
-                          size={12}
-                          color="rgba(226,232,240,0.82)"
-                        />
+                    <View style={styles.headerTextWrap}>
+                      <View style={styles.titleRow}>
                         <Text
-                          style={[typography.bodyBlack, styles.metaText]}
+                          style={[typography.bodyBold, styles.title]}
                           numberOfLines={1}
                         >
-                          {workout.dayLabel}
+                          {workout.name}
                         </Text>
-                      </View>
-                    )}
 
-                    <View style={[styles.metaPill, styles.pillCyan]}>
-                      <Ionicons
-                        name="fitness-outline"
-                        size={12}
-                        color="rgba(226,232,240,0.82)"
-                      />
-                      <Text style={[typography.bodyBlack, styles.metaText]}>
-                        {exerciseCount} øvelse{exerciseCount === 1 ? "" : "r"}
-                      </Text>
+                        {requiresPremium ? (
+                          <View style={styles.premiumBadge}>
+                            <Ionicons
+                              name="lock-closed"
+                              size={10}
+                              color="#FDE68A"
+                            />
+                            <Text style={styles.premiumBadgeText}>Premium</Text>
+                          </View>
+                        ) : null}
+                      </View>
+
+                      <View style={styles.metaRow}>
+                        <View style={styles.metaInline}>
+                          <Ionicons
+                            name="heart-outline"
+                            size={12}
+                            color={colors.muted2}
+                          />
+                          <Text style={styles.metaInlineText}>
+                            {exerciseCount} øvelse
+                            {exerciseCount === 1 ? "" : "r"}
+                          </Text>
+                        </View>
+
+                        <View style={styles.metaDivider} />
+
+                        <View style={styles.metaInline}>
+                          <Ionicons
+                            name="time-outline"
+                            size={12}
+                            color={colors.muted2}
+                          />
+                          <Text style={styles.metaInlineText}>
+                            {estimatedMinutes} min
+                          </Text>
+                        </View>
+                      </View>
                     </View>
                   </View>
                 </Pressable>
 
-                {/* RIGHT CONTROLS */}
                 <View style={styles.rightCol}>
-                  <Pressable
-                    onPress={() => {
-                      if (isWorkoutLocked) {
-                        setPaywallVisible(true);
-                        return;
-                      }
-
-                      onEdit(workout);
-                    }}
-                    style={({ pressed }) => [
-                      styles.iconBtn,
-                      pressed && styles.iconPressed,
+                  <View
+                    style={[
+                      styles.statusDot,
+                      isWorkoutLocked ? styles.statusDotLocked : null,
                     ]}
-                    hitSlop={8}
-                  >
-                    <View style={styles.iconBtnInner}>
+                  />
+
+                  <View style={styles.actionButtonsRow}>
+                    <Pressable
+                      onPress={() => {
+                        if (isWorkoutLocked) {
+                          setPaywallVisible(true);
+                          return;
+                        }
+
+                        onEdit(workout);
+                      }}
+                      style={({ pressed }) => [
+                        styles.actionButton,
+                        pressed && styles.iconPressed,
+                      ]}
+                      hitSlop={8}
+                    >
                       <Ionicons
                         name="pencil-outline"
-                        size={16}
+                        size={15}
                         color={colors.text}
                       />
-                    </View>
-                  </Pressable>
+                    </Pressable>
 
-                  <Pressable
-                    onPress={handleToggle}
-                    style={({ pressed }) => [
-                      styles.chevBtn,
-                      pressed && styles.iconPressed,
-                    ]}
-                    hitSlop={10}
-                  >
-                    <View style={styles.iconBtnInner}>
+                    <Pressable
+                      onPress={handleToggle}
+                      style={({ pressed }) => [
+                        styles.actionButton,
+                        pressed && styles.iconPressed,
+                      ]}
+                      hitSlop={10}
+                    >
                       <Ionicons
                         name={
                           isExpanded
                             ? "chevron-up-outline"
                             : "chevron-down-outline"
                         }
-                        size={18}
+                        size={17}
                         color={colors.text}
                       />
-                    </View>
-                  </Pressable>
+                    </Pressable>
+                  </View>
                 </View>
               </View>
 
-              {/* DROPDOWN */}
-              {isExpanded && (
+              {isExpanded ? (
                 <View style={styles.dropdown}>
-                  <View style={styles.dropdownHeader}>
-                    <Text style={[typography.body, styles.sectionTitle]}>
-                      Øvelser
-                    </Text>
-                    <View style={styles.dropdownDivider} />
-                  </View>
-
                   {exercisesInWorkout.length === 0 ? (
                     <Text style={[typography.body, styles.emptyText]}>
                       Ingen øvelser lagt til ennå.
                     </Text>
                   ) : (
-                    <View style={{ gap: 8 }}>
-                      {exercisesInWorkout.map((ex, idx) => {
-                        const mod = idx % 3;
-                        const tint =
-                          mod === 0
-                            ? styles.rowIndigo
-                            : mod === 1
-                            ? styles.rowCyan
-                            : styles.rowEmerald;
+                    <View style={styles.exerciseList}>
+                      {exercisesInWorkout.map((exercise, index) => {
+                        const accent = getExerciseAccent(index);
 
                         return (
-                          <View key={ex.id} style={[styles.exerciseRow, tint]}>
+                          <View
+                            key={exercise.id}
+                            style={[
+                              styles.exerciseRow,
+                              {
+                                backgroundColor: accent.bg,
+                                borderColor: accent.border,
+                              },
+                            ]}
+                          >
+                            <View style={styles.dragDots}>
+                              <Ionicons
+                                name="reorder-two-outline"
+                                size={14}
+                                color="rgba(148,163,184,0.54)"
+                              />
+                            </View>
+
                             <View style={styles.exerciseIndex}>
                               <Text
                                 style={[typography.bodyBlack, styles.indexText]}
                               >
-                                {idx + 1}
+                                {index + 1}
                               </Text>
                             </View>
 
-                            <View style={{ flex: 1, minWidth: 0 }}>
+                            <View style={styles.exerciseInfo}>
                               <Text
                                 style={[
                                   typography.bodyBold,
@@ -355,20 +343,30 @@ export const WorkoutList = memo(function WorkoutList({
                                 ]}
                                 numberOfLines={1}
                               >
-                                {ex.name}
+                                {exercise.name}
                               </Text>
+                            </View>
 
-                              {!!ex.muscle && (
-                                <Text
-                                  style={[
-                                    typography.body,
-                                    styles.exerciseMuscle,
-                                  ]}
-                                  numberOfLines={1}
-                                >
-                                  {ex.muscle}
-                                </Text>
+                            <View style={styles.exerciseRightMeta}>
+                              {!!exercise.muscle && (
+                                <View style={styles.musclePill}>
+                                  <Text
+                                    style={[
+                                      typography.bodyBlack,
+                                      styles.musclePillText,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {exercise.muscle}
+                                  </Text>
+                                </View>
                               )}
+
+                              <Ionicons
+                                name="bar-chart-outline"
+                                size={15}
+                                color={colors.cyanDot}
+                              />
                             </View>
                           </View>
                         );
@@ -376,9 +374,8 @@ export const WorkoutList = memo(function WorkoutList({
                     </View>
                   )}
                 </View>
-              )}
+              ) : null}
 
-              {/* ACTIONS */}
               <View style={styles.actions}>
                 <Pressable
                   onPress={() => {
@@ -391,18 +388,18 @@ export const WorkoutList = memo(function WorkoutList({
                   }}
                   style={({ pressed }) => [
                     styles.primaryWrap,
-                    pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
+                    pressed && styles.startPressed,
                   ]}
                 >
                   <LinearGradient
-                    colors={["rgba(99,102,241,0.94)", "rgba(34,211,238,0.78)"]}
-                    start={{ x: 0, y: 0 }}
+                    colors={["rgba(99,102,241,0.96)", "rgba(6,182,212,0.92)"]}
+                    start={{ x: 0, y: 0.1 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.primary}
                   >
                     <Ionicons
                       name={isWorkoutLocked ? "lock-closed" : "play"}
-                      size={16}
+                      size={15}
                       color="white"
                     />
                     <Text style={[typography.bodyBold, styles.primaryText]}>
@@ -415,6 +412,7 @@ export const WorkoutList = memo(function WorkoutList({
           </View>
         );
       })}
+
       <Paywall
         visible={paywallVisible}
         onClose={() => setPaywallVisible(false)}
@@ -426,9 +424,9 @@ export const WorkoutList = memo(function WorkoutList({
 });
 
 const styles = StyleSheet.create({
-  list: { gap: 14 },
-
-  // EMPTY
+  list: {
+    gap: 14,
+  },
   emptyWrap: {
     paddingTop: 18,
     paddingHorizontal: 6,
@@ -444,11 +442,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
   },
-  emptyTitle: { color: colors.text },
-  emptySub: { color: colors.muted2, fontSize: 13 },
-  inlinePlus: { color: colors.text },
-
-  // CARD
+  emptyTitle: {
+    color: colors.text,
+  },
+  emptySub: {
+    color: colors.muted2,
+    fontSize: 13,
+  },
+  inlinePlus: {
+    color: colors.text,
+  },
   cardOuter: {
     borderRadius: 22,
     overflow: "hidden",
@@ -459,10 +462,10 @@ const styles = StyleSheet.create({
   },
   accentSheen: {
     position: "absolute",
-    top: -36,
-    right: -64,
-    width: 220,
-    height: 180,
+    top: -44,
+    right: -70,
+    width: 240,
+    height: 200,
     borderRadius: 999,
     opacity: 0.9,
   },
@@ -483,12 +486,10 @@ const styles = StyleSheet.create({
     borderColor: colors.insetStroke,
   },
   cardInner: {
+    paddingHorizontal: 12,
     paddingVertical: 12,
-    paddingHorizontal: 13,
-    gap: 10,
+    gap: 12,
   },
-
-  // HEADER
   topRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -498,34 +499,40 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     borderRadius: 16,
-    paddingVertical: 2,
   },
   headerPressed: {
-    backgroundColor: "rgba(255,255,255,0.025)",
+    opacity: 0.96,
   },
-
-  headerTopLine: {
+  headerMainRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    minWidth: 0,
+    alignItems: "flex-start",
+    gap: 10,
   },
-
   iconCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.iconBg,
     borderWidth: 1,
     borderColor: colors.iconStroke,
   },
-
+  headerTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    paddingTop: 1,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
   title: {
     color: colors.text,
-    fontSize: 15,
-    letterSpacing: 0.12,
+    fontSize: 18,
+    letterSpacing: 0.08,
     flexShrink: 1,
   },
   premiumBadge: {
@@ -544,194 +551,154 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "900",
   },
-
-  expandPipWrap: {
-    marginLeft: "auto",
-    paddingLeft: 6,
-  },
-  expandPip: {
-    width: 10,
-    height: 6,
-    borderRadius: 99,
-    marginTop: 2,
-  },
-  expandPipOn: {
-    backgroundColor: "rgba(34,211,238,0.90)",
-    opacity: 0.95,
-  },
-  expandPipOff: {
-    backgroundColor: "rgba(255,255,255,0.16)",
-  },
-
-  description: {
-    color: colors.muted2,
-    fontSize: 12.5,
-    lineHeight: 16,
-    marginTop: 5,
-    fontWeight: "500",
-  },
-
-  // META PILLS
   metaRow: {
-    marginTop: 8,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  metaPill: {
+    marginTop: 6,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  metaInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  metaInlineText: {
+    color: colors.muted2,
+    fontSize: 12.5,
+    fontWeight: "600",
+  },
+  metaDivider: {
+    width: 3,
+    height: 3,
     borderRadius: 999,
-    borderWidth: 1,
+    backgroundColor: "rgba(148,163,184,0.40)",
   },
-  metaText: {
-    color: "rgba(226,232,240,0.88)",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.12,
-  },
-  pillIndigo: {
-    backgroundColor: colors.indigoBg,
-    borderColor: colors.indigoStroke,
-  },
-  pillCyan: {
-    backgroundColor: colors.cyanBg,
-    borderColor: colors.cyanStroke,
-  },
-
-  // RIGHT CONTROLS
   rightCol: {
     alignItems: "flex-end",
-    alignSelf: "stretch",
-    justifyContent: "flex-start",
+    gap: 10,
+    paddingTop: 4,
   },
-  iconBtn: {
-    alignSelf: "flex-start",
+  statusDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    backgroundColor: colors.cyanDot,
   },
-  chevBtn: {
-    marginTop: "auto",
-    alignSelf: "flex-start",
+  statusDotLocked: {
+    backgroundColor: colors.emeraldDot,
   },
-  iconBtnInner: {
-    width: 34,
-    height: 34,
-    borderRadius: 13,
+  actionButtonsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  actionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.iconBg,
     borderWidth: 1,
-    borderColor: colors.iconStroke,
+    borderColor: colors.actionStroke,
   },
   iconPressed: {
     opacity: 0.88,
     transform: [{ scale: 0.985 }],
   },
-
-  // DROPDOWN
   dropdown: {
-    marginTop: 4,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-    gap: 10,
-  },
-  dropdownHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  dropdownDivider: {
-    height: 1,
-    flex: 1,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    marginTop: 2,
-  },
-  sectionTitle: {
-    color: colors.muted2,
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-    textTransform: "uppercase",
+    gap: 8,
   },
   emptyText: {
     color: colors.muted2,
     fontSize: 13,
     fontStyle: "italic",
-    paddingVertical: 4,
+    paddingTop: 2,
   },
-
+  exerciseList: {
+    gap: 6,
+  },
   exerciseRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingVertical: 9,
+    gap: 8,
+    paddingVertical: 7,
     paddingHorizontal: 10,
     borderRadius: 14,
     borderWidth: 1,
-    backgroundColor: "rgba(255,255,255,0.035)",
-    borderColor: "rgba(255,255,255,0.09)",
   },
-  rowIndigo: {
-    backgroundColor: colors.indigoBg,
-    borderColor: colors.indigoStroke,
-  },
-  rowCyan: {
-    backgroundColor: colors.cyanBg,
-    borderColor: colors.cyanStroke,
-  },
-  rowEmerald: {
-    backgroundColor: colors.emeraldBg,
-    borderColor: colors.emeraldStroke,
-  },
-
-  exerciseIndex: {
-    width: 26,
-    height: 26,
-    borderRadius: 10,
+  dragDots: {
+    width: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.pillBg,
+  },
+  exerciseIndex: {
+    width: 24,
+    height: 24,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.rowIndexBg,
     borderWidth: 1,
-    borderColor: colors.pillStroke,
+    borderColor: colors.rowIndexStroke,
   },
   indexText: {
-    color: "rgba(226,232,240,0.86)",
-    fontSize: 12,
+    color: "rgba(226,232,240,0.88)",
+    fontSize: 11,
     fontWeight: "900",
+  },
+  exerciseInfo: {
+    flex: 1,
+    minWidth: 0,
   },
   exerciseName: {
     color: colors.text,
     fontSize: 13,
   },
-  exerciseMuscle: {
-    color: colors.muted2,
-    fontSize: 12,
-    marginTop: 1,
-  },
-
-  // ACTIONS
-  actions: {
+  exerciseRightMeta: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 0,
+    gap: 6,
+    paddingLeft: 6,
   },
-  primaryWrap: { flex: 1 },
+  musclePill: {
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: colors.pillBg,
+    borderWidth: 1,
+    borderColor: colors.pillStroke,
+    maxWidth: 94,
+  },
+  musclePillText: {
+    color: colors.pillText,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  actions: {
+    marginTop: 2,
+  },
+  primaryWrap: {
+    width: "100%",
+  },
+  startPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.99 }],
+  },
   primary: {
-    paddingVertical: 12,
+    minHeight: 50,
     borderRadius: 999,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 8,
+    gap: 9,
     borderWidth: 1,
     borderColor: colors.startStroke,
   },
   primaryText: {
     color: "white",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "800",
     letterSpacing: 0.12,
   },

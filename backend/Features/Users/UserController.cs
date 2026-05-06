@@ -108,6 +108,8 @@ namespace backend.Features.Users
                 gender = settings.Gender,
                 language = settings.Language,
                 hasCompletedRegistration = settings.HasCompletedRegistration,
+                hasDismissedRegistrationOnboarding =
+                    settings.HasDismissedRegistrationOnboarding,
                 calorieGoal = settings.CalorieGoal,
                 proteinGoal = settings.ProteinGoal,
                 fatGoal = settings.FatGoal,

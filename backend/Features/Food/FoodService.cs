@@ -378,9 +378,13 @@ namespace backend.Features.Food
         {
             if (timestampUtc == default) return DateTime.UtcNow;
 
-            return timestampUtc.Kind == DateTimeKind.Utc
-                ? timestampUtc
-                : timestampUtc.ToUniversalTime();
+            return timestampUtc.Kind switch
+            {
+                DateTimeKind.Utc => timestampUtc,
+                DateTimeKind.Local => timestampUtc.ToUniversalTime(),
+                DateTimeKind.Unspecified => DateTime.SpecifyKind(timestampUtc, DateTimeKind.Utc),
+                _ => timestampUtc.ToUniversalTime()
+            };
         }
 
         private static string NormalizeRequiredName(string? raw, string fallback)

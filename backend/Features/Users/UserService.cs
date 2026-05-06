@@ -534,6 +534,10 @@ namespace backend.Features.Users
             if (dto.HasCompletedRegistration.HasValue)
                 settings.HasCompletedRegistration = dto.HasCompletedRegistration.Value;
 
+            if (dto.HasDismissedRegistrationOnboarding.HasValue)
+                settings.HasDismissedRegistrationOnboarding =
+                    dto.HasDismissedRegistrationOnboarding.Value;
+
             // Goals
             if (dto.CalorieGoal.HasValue)
                 settings.CalorieGoal = dto.CalorieGoal.Value;

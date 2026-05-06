@@ -12,6 +12,7 @@ namespace backend.Features.Training.Workouts
 
         // Optional: label used in splits, e.g. "Push", "Pull", "Legs", "Upper"
         public string? DayLabel { get; set; }
+        public bool IsPremium { get; set; }
 
         // Foreign key → Program 
         public Guid? WorkoutProgramId { get; set; }

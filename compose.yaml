@@ -33,6 +33,8 @@ services:
       Jwt__SecretKey: ${JWT_SECRET_KEY:-replace-with-a-long-random-dev-secret-key}
       RefreshToken__LifetimeDays: ${REFRESH_TOKEN_LIFETIME_DAYS:-250}
       AppleSettings__ClientId: ${APPLE_CLIENT_ID:-no.evolix.app}
+      RevenueCat__SecretApiKey: ${REVENUECAT_SECRET_API_KEY:-}
+      RevenueCat__PremiumEntitlementId: ${REVENUECAT_PREMIUM_ENTITLEMENT_ID:-premium}
       Cors__Origins__0: http://localhost:19006
       Cors__Origins__1: http://localhost:3000
       Cors__Origins__2: http://localhost:5173

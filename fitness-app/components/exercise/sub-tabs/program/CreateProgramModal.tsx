@@ -1,3 +1,4 @@
+import { MODAL_MAX_HEIGHT, modalGradientColors, modalTheme } from "@/config/modalTheme";
 import React, { useState } from "react";
 import {
   View,
@@ -33,12 +34,25 @@ export default function CreateProgramModal({
     <Modal visible={visible} animationType="fade" transparent>
       <View style={styles.overlay}>
         <View style={styles.container}>
+          <LinearGradient
+            pointerEvents="none"
+            colors={modalGradientColors}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 0.95, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View pointerEvents="none" style={styles.orbTop} />
+          <View pointerEvents="none" style={styles.orbBottom} />
           {/* HEADER */}
           <View style={styles.header}>
             <Text style={styles.title}>Nytt program</Text>
 
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#ccc" />
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons
+                name="close"
+                size={20}
+                color={modalTheme.textStrong}
+              />
             </TouchableOpacity>
           </View>
 
@@ -72,17 +86,44 @@ export default function CreateProgramModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: modalTheme.backdrop,
     justifyContent: "center",
-    padding: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 24,
   },
   container: {
-    backgroundColor: "#111827",
+    backgroundColor: modalTheme.surface,
     width: "100%",
-    borderRadius: 18,
+    maxWidth: 560,
+    maxHeight: MODAL_MAX_HEIGHT,
+    borderRadius: 28,
     padding: 22,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    borderColor: modalTheme.border,
+    shadowColor: modalTheme.shadow,
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
+    overflow: "hidden",
+  },
+  orbTop: {
+    position: "absolute",
+    top: -56,
+    right: -30,
+    width: 160,
+    height: 160,
+    borderRadius: 999,
+    backgroundColor: modalTheme.orbTop,
+  },
+  orbBottom: {
+    position: "absolute",
+    left: -36,
+    bottom: -72,
+    width: 146,
+    height: 146,
+    borderRadius: 999,
+    backgroundColor: modalTheme.orbBottom,
   },
   header: {
     flexDirection: "row",
@@ -91,21 +132,33 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    color: "white",
-    fontSize: 22,
+    color: modalTheme.text,
+    fontSize: 20,
     fontWeight: "600",
   },
+  closeButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: modalTheme.surfaceSoft,
+    borderWidth: 1,
+    borderColor: modalTheme.borderSoft,
+  },
   label: {
-    color: "#cbd5e1",
+    color: modalTheme.label,
     marginBottom: 6,
     fontSize: 14,
   },
   input: {
-    backgroundColor: "#1e293b",
+    backgroundColor: modalTheme.surfaceMuted,
     borderRadius: 12,
     padding: 14,
-    color: "white",
+    color: modalTheme.textStrong,
     fontSize: 16,
+    borderWidth: 1,
+    borderColor: modalTheme.inputBorder,
   },
   buttonWrapper: {
     marginTop: 18,

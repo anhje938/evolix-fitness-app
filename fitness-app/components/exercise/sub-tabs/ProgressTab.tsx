@@ -29,13 +29,6 @@ import type {
 import { useExerciseHistory } from "@/hooks/useExerciseHistory";
 import { useExerciseSetsHistory } from "@/hooks/useExerciseSetsHistory";
 import { getOsloDateKey } from "@/utils/date";
-import {
-  buildExerciseHistoryFromSessions,
-  DEMO_BENCH_EXERCISE_ID,
-  mergeExerciseSetsHistoryWithDemo,
-  mergeExercisesWithDemo,
-  shouldUseDemoBenchData,
-} from "@/utils/demoProgressData";
 
 import { CombinedExerciseChart } from "./progress/CombinedExerciseChart";
 import {
@@ -141,7 +134,7 @@ export default function ProgressTab({
   const { data: exerciseData } = useExercises();
   const searchInputRef = useRef<TextInput | null>(null);
   const exercises = useMemo(() => {
-    const allExercises = mergeExercisesWithDemo(exerciseData ?? []);
+    const allExercises = exerciseData ?? [];
     const visible = userSettings.showOnlyCustomTrainingContent
       ? allExercises.filter(isUserCreatedExercise)
       : allExercises;
@@ -182,30 +175,14 @@ export default function ProgressTab({
 
   const selectedExercise =
     exercises.find((ex) => ex.id === selectedExerciseId) ?? null;
-  const historyExerciseId =
-    selectedExercise?.id === DEMO_BENCH_EXERCISE_ID
-      ? null
-      : selectedExerciseId;
+  const historyExerciseId = selectedExerciseId;
 
   // Aggregated history (top-set per session) – used for charts + year summary weight
-  const { data: rawHistoryData = [] } = useExerciseHistory(historyExerciseId);
+  const { data: historyData = [] } = useExerciseHistory(historyExerciseId);
 
   // Raw sets history – used for StatRow + ExerciseHistoryList + year summary volume (best set)
-  const { data: rawSetsHistoryData = [] } =
+  const { data: setsHistoryData = [] } =
     useExerciseSetsHistory(historyExerciseId);
-
-  const setsHistoryData = useMemo(
-    () => mergeExerciseSetsHistoryWithDemo(rawSetsHistoryData, selectedExercise),
-    [rawSetsHistoryData, selectedExercise]
-  );
-
-  const historyData = useMemo(() => {
-    if (!shouldUseDemoBenchData(selectedExercise)) {
-      return rawHistoryData;
-    }
-
-    return buildExerciseHistoryFromSessions(setsHistoryData);
-  }, [rawHistoryData, selectedExercise, setsHistoryData]);
 
   const sortedHistory: ExerciseHistoryPointDto[] = useMemo(() => {
     if (!historyData) return [];

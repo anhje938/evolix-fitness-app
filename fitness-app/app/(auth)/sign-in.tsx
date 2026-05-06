@@ -23,9 +23,7 @@ import Graph from "../../assets/icons/graph.svg";
 import IphoneLogo from "../../assets/icons/iphone-logo.svg";
 import Scale from "../../assets/icons/scale.svg";
 
-const LOGO_BOX_WIDTH = 190;
-const LOGO_BOX_HEIGHT = 190;
-const LOGO_IMAGE_WIDTH = 250;
+const LOGO_IMAGE_WIDTH = 350;
 const LOGO_IMAGE_HEIGHT = 250;
 
 function decodeAppleJwtPayload(token: string): Record<string, unknown> | null {
@@ -362,7 +360,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 80,
+    paddingTop: 45,
     paddingBottom: 40,
     alignItems: "center",
   },
@@ -398,20 +396,15 @@ const styles = StyleSheet.create({
 
   // Logo
   logoContainer: {
-    marginBottom: 40,
+    marginBottom: 15,
     alignItems: "center",
     justifyContent: "center",
   },
 
   logoBox: {
-    backgroundColor: "#0A1C33",
-    height: LOGO_BOX_HEIGHT,
-    width: LOGO_BOX_WIDTH,
-    borderRadius: 0,
+    backgroundColor: "rgba(63, 207, 255, 0)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(63,208,255,0.12)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
@@ -423,7 +416,7 @@ const styles = StyleSheet.create({
 
   logoGlow: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(6,182,212,0.08)",
+    backgroundColor: "rgba(120, 207, 223, 0)",
   },
 
   logoImage: {
@@ -432,7 +425,7 @@ const styles = StyleSheet.create({
   },
 
   logoTitle: {
-    marginTop: 14,
+    marginTop: -10,
     color: "#F8FAFC",
     fontSize: 25,
     fontWeight: "400",
@@ -545,7 +538,7 @@ const styles = StyleSheet.create({
   // Apple Button
   buttonWrapper: {
     width: "100%",
-    marginBottom: 18,
+    marginBottom: 12,
   },
 
   appleButton: {

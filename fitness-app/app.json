@@ -7,7 +7,6 @@
     "icon": "./assets/images/evolix_app_icon.png",
     "scheme": "evolix",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "no.evolix.app",
@@ -20,10 +19,9 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#081E36",
-        "foregroundImage": "./assets/images/evolix_adaptive_foreground.png",
-        "monochromeImage": "./assets/images/evolix_adaptive_monochrome.png"
+        "foregroundImage": "",
+        "monochromeImage": ""
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA",
@@ -39,7 +37,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/evolix_splash.png",
+          "image": "./assets/images/evolix_app_icon.png",
           "imageWidth": 220,
           "resizeMode": "contain",
           "backgroundColor": "#081E36",

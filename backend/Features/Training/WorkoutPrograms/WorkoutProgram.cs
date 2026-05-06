@@ -9,6 +9,7 @@ namespace backend.Features.Training.WorkoutPrograms
         public string Name { get; set; } = null!;
         public string? Goal { get; set; }
         public string? Level { get; set; }
+        public bool IsPremium { get; set; }
 
 
         // null = global program | not null = custom user program

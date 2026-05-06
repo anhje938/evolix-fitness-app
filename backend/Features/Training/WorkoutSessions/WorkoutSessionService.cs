@@ -19,6 +19,24 @@ namespace backend.Features.Training.WorkoutSessions
             _db = db;
         }
 
+        private static DateTime NormalizeUtc(DateTime value)
+        {
+            if (value == default) return DateTime.UtcNow;
+
+            return value.Kind switch
+            {
+                DateTimeKind.Utc => value,
+                DateTimeKind.Local => value.ToUniversalTime(),
+                DateTimeKind.Unspecified => DateTime.SpecifyKind(value, DateTimeKind.Utc),
+                _ => value.ToUniversalTime()
+            };
+        }
+
+        private static DateTime NormalizeOptionalUtc(DateTime? value, DateTime fallbackUtc)
+        {
+            return value.HasValue ? NormalizeUtc(value.Value) : fallbackUtc;
+        }
+
         private async Task<WorkoutSession?> FindSessionByClientRequestIdAsync(
             string userId,
             string clientRequestId,
@@ -51,8 +69,9 @@ namespace backend.Features.Training.WorkoutSessions
             {
                 UserId = userId.Trim(),
                 WorkoutId = req.WorkoutId,
-                StartedAtUtc = (req.StartedAtUtc ?? DateTime.MinValue)
-                    .ToUniversalTime()
+                StartedAtUtc = (req.StartedAtUtc.HasValue
+                        ? NormalizeUtc(req.StartedAtUtc.Value)
+                        : DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc))
                     .ToString("O"),
                 Title = req.Title?.Trim() ?? string.Empty,
                 Notes = req.Notes?.Trim() ?? string.Empty,
@@ -155,7 +174,7 @@ namespace backend.Features.Training.WorkoutSessions
 
             if (req.StartedAtUtc.HasValue)
             {
-                session.StartedAtUtc = req.StartedAtUtc.Value;
+                session.StartedAtUtc = NormalizeUtc(req.StartedAtUtc.Value);
             }
 
             var requestedLogs = req.ExerciseLogs ?? new List<UpdateWorkoutSessionExerciseLogRequest>();
@@ -231,7 +250,7 @@ namespace backend.Features.Training.WorkoutSessions
                 WorkoutId = workout?.Id,                 // null means quick/custom session
                 WorkoutProgramId = workoutProgramId,     // null means no program
 
-                StartedAtUtc = req.StartedAtUtc ?? DateTime.UtcNow,
+                StartedAtUtc = NormalizeOptionalUtc(req.StartedAtUtc, DateTime.UtcNow),
 
                 // If no title given, fall back to workout name when available
                 Title = req.Title ?? workout?.Name,
@@ -347,7 +366,7 @@ namespace backend.Features.Training.WorkoutSessions
                 SubmissionHash = submissionHash,
                 WorkoutId = workout?.Id,
                 WorkoutProgramId = workoutProgramId,
-                StartedAtUtc = req.StartedAtUtc ?? DateTime.UtcNow,
+                StartedAtUtc = NormalizeOptionalUtc(req.StartedAtUtc, DateTime.UtcNow),
                 FinishedAtUtc = DateTime.UtcNow,
                 Title = normalizedTitle,
                 Notes = req.Notes?.Trim(),

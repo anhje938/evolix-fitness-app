@@ -931,6 +931,11 @@ namespace backend.Migrations
                     b.Property<string>("Goal")
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsPremium")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Level")
                         .HasColumnType("text");
 
@@ -1088,6 +1093,11 @@ namespace backend.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsPremium")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1153,6 +1163,9 @@ namespace backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int?>("Age")
+                        .HasColumnType("integer");
+
                     b.Property<int>("CalorieGoal")
                         .HasColumnType("integer");
 
@@ -1168,6 +1181,20 @@ namespace backend.Migrations
                         .HasColumnType("text")
                         .HasDefaultValue("[]");
 
+                    b.Property<string>("Gender")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<bool>("HasCompletedRegistration")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("HasDismissedRegistrationOnboarding")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("HomeProgressCirclesJson")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1175,6 +1202,13 @@ namespace backend.Migrations
                     b.Property<string>("HomeSectionOrderJson")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasDefaultValue("nb");
 
                     b.Property<int>("MuscleFilter")
                         .HasColumnType("integer");

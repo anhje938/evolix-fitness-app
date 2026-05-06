@@ -1,5 +1,6 @@
 ﻿using backend.Common;
 using backend.Data;
+using backend.Features.Training.WorkoutPrograms;
 using backend.Features.Training.WorkoutSessions.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +13,28 @@ namespace backend.Features.Training.Workouts
         public WorkoutService(AppDbContext db)
         {
             _db = db;
+        }
+
+        private async Task<WorkoutProgram?> ResolveAssignableProgramAsync(
+            Guid? programId,
+            string userId,
+            bool isAdmin,
+            CancellationToken ct)
+        {
+            if (!programId.HasValue)
+                return null;
+
+            var program = await _db.WorkoutPrograms
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == programId.Value, ct);
+
+            if (program == null)
+                throw new NotFoundException("Program not found");
+
+            if (!isAdmin && program.UserId != userId)
+                throw new ForbiddenException("You cannot link workouts to this program");
+
+            return program;
         }
 
         //CREATE WORKOUT 
@@ -38,12 +61,19 @@ namespace backend.Features.Training.Workouts
                 }
             }
 
+            var linkedProgram = await ResolveAssignableProgramAsync(
+                req.WorkoutProgramId,
+                userId,
+                isAdmin,
+                ct);
+
             var workout = new Workout
             {
                 Name = req.Name,
                 Description = req.Description,
                 DayLabel = req.DayLabel,
                 WorkoutProgramId = req.WorkoutProgramId,
+                IsPremium = isAdmin && req.IsPremium,
                 UserId = isAdmin ? null : userId,
                 WorkoutExercises = orderedExerciseIds
                     .Select((exerciseId, index) => new WorkoutExercise
@@ -64,6 +94,8 @@ namespace backend.Features.Training.Workouts
                 Description = workout.Description ?? string.Empty,
                 DayLabel = workout.DayLabel ?? string.Empty,
                 WorkoutProgramId = workout.WorkoutProgramId,
+                IsPremium = workout.IsPremium,
+                WorkoutProgramIsPremium = linkedProgram?.IsPremium ?? false,
                 ExerciseIds = orderedExerciseIds,
                 UserId = workout.UserId,
                 IsCustom = workout.IsCustom
@@ -98,6 +130,8 @@ namespace backend.Features.Training.Workouts
                     Description = w.Description ?? string.Empty,
                     DayLabel = w.DayLabel ?? string.Empty,
                     WorkoutProgramId = w.WorkoutProgramId,
+                    IsPremium = w.IsPremium,
+                    WorkoutProgramIsPremium = w.WorkoutProgram != null && w.WorkoutProgram.IsPremium,
                     ExerciseIds = w.WorkoutExercises
                         .OrderBy(we => we.Order)
                         .Select(we => we.ExerciseId)
@@ -159,10 +193,18 @@ namespace backend.Features.Training.Workouts
             if (!isAdmin && existing.UserId != userId)
                 throw new ForbiddenException("You cannot edit this workout");
 
+            var linkedProgram = await ResolveAssignableProgramAsync(
+                req.WorkoutProgramId,
+                userId,
+                isAdmin,
+                ct);
+
             existing.Name = req.Name;
             existing.Description = req.Description;
             existing.DayLabel = req.DayLabel;
-            existing.WorkoutProgramId = req.WorkoutProgramId;
+            existing.WorkoutProgramId = linkedProgram?.Id;
+            if (isAdmin && req.IsPremium.HasValue)
+                existing.IsPremium = req.IsPremium.Value;
 
             var orderedExerciseIds = (req.ExerciseIds ?? new List<Guid>())
                 .Where(exerciseId => exerciseId != Guid.Empty)

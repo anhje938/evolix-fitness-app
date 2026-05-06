@@ -1,12 +1,12 @@
 ﻿import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
+import { MODAL_MAX_HEIGHT, modalTheme } from "@/config/modalTheme";
 import { Food, FoodDto } from "@/types/meal";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -32,7 +32,7 @@ type EditMealSheetProps = {
   onDelete?: (mealId: string) => Promise<void> | void;
 };
 
-const SHEET_MAX_HEIGHT = Dimensions.get("window").height * 0.85;
+const SHEET_MAX_HEIGHT = MODAL_MAX_HEIGHT;
 
 type FieldErrors = {
   title?: string;
@@ -425,13 +425,14 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(3,7,18,0.75)",
+    backgroundColor: modalTheme.backdrop,
   },
   sheetWrapper: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 24,
   },
   sheet: {
     width: "100%",
@@ -439,7 +440,14 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     paddingHorizontal: 24,
     paddingVertical: 22,
-    backgroundColor: "rgba(15,23,42,0.98)",
+    backgroundColor: modalTheme.surface,
+    borderWidth: 1,
+    borderColor: modalTheme.border,
+    shadowColor: modalTheme.shadow,
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
   },
   sheetContent: {
     paddingBottom: 10,
@@ -453,7 +461,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    color: "#FFFFFF",
+    color: modalTheme.text,
     fontSize: 20,
     fontWeight: "600",
   },
@@ -461,12 +469,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 12,
     fontWeight: "500",
-    color: "rgba(148,163,184,0.95)",
+    color: modalTheme.muted,
   },
   closeButton: {
     padding: 6,
     borderRadius: 999,
-    backgroundColor: "rgba(15,23,42,0.9)",
+    backgroundColor: modalTheme.surfaceSoft,
+    borderWidth: 1,
+    borderColor: modalTheme.borderSoft,
   },
 
   actionRow: {

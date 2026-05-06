@@ -11,7 +11,7 @@ const colors = {
   accentBg: "rgba(6,182,212,0.12)",
   accentBorder: "rgba(6,182,212,0.25)",
   text: "#E5ECFF",
-  textMuted: "rgba(148,163,184,0.75)",
+  textMuted: "rgba(148, 163, 184, 0.81)",
   textActive: "#ffffff",
 };
 
@@ -124,12 +124,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 5,
-    borderRadius: 20,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 16,
+    padding: 0,
+    marginBottom: 5,
     gap: 5,
     width: "95%",
     alignSelf: "center",
@@ -142,7 +138,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 6,
     borderRadius: 16,
-    minHeight: 42,
+    minHeight: 50,
   },
   buttonContent: {
     alignItems: "center",

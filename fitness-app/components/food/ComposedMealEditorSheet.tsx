@@ -1,4 +1,5 @@
 import { FetchFoodFromBarcode } from "@/api/food";
+import { MODAL_MAX_HEIGHT, modalGradientColors, modalTheme } from "@/config/modalTheme";
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
@@ -23,18 +24,19 @@ import {
   Alert,
   Dimensions,
   Keyboard,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import QRScanner from "./QRScanner";
 
-const SHEET_MAX_HEIGHT = Dimensions.get("window").height * 0.88;
+const SHEET_MAX_HEIGHT = MODAL_MAX_HEIGHT;
 
 type Macros = {
   calories: number;
@@ -522,14 +524,24 @@ export function ComposedMealEditorSheet({
   };
 
   return (
-    <View style={styles.absoluteWrapper}>
-      <View style={styles.overlay}>
-        <View style={styles.sheetWrapper}>
-          <TouchableWithoutFeedback
-            accessible={false}
-            onPress={Keyboard.dismiss}
-          >
-            <View
+    <Modal
+      visible={isOpen}
+      animationType="none"
+      transparent
+      hardwareAccelerated
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalRoot}>
+        <Pressable
+          style={styles.backdrop}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Lukk ny rett"
+        />
+        <View style={styles.sheetWrapper} pointerEvents="box-none">
+          <View
               style={[
                 generalStyles.newCard,
                 styles.sheet,
@@ -538,11 +550,7 @@ export function ComposedMealEditorSheet({
             >
               <LinearGradient
                 pointerEvents="none"
-                colors={[
-                  "rgba(56,189,248,0.2)",
-                  "rgba(14,116,144,0.14)",
-                  "rgba(2,6,23,0)",
-                ]}
+              colors={modalGradientColors}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
@@ -560,7 +568,7 @@ export function ComposedMealEditorSheet({
                     paddingBottom: Math.max(24, keyboardInsetHeight + 24),
                   },
                 ]}
-                keyboardShouldPersistTaps="handled"
+                keyboardShouldPersistTaps="always"
                 keyboardDismissMode={
                   Platform.OS === "ios" ? "interactive" : "on-drag"
                 }
@@ -1011,32 +1019,26 @@ export function ComposedMealEditorSheet({
                 </TouchableOpacity>
               </ScrollView>
             </View>
-          </TouchableWithoutFeedback>
         </View>
       </View>
-    </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  absoluteWrapper: {
-    position: "absolute",
-    top: 20,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 80,
-  },
-  overlay: {
+  modalRoot: {
     flex: 1,
-    backgroundColor: "rgba(3,7,18,0.64)",
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: modalTheme.backdrop,
   },
   sheetWrapper: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 24,
   },
   sheet: {
     position: "relative",
@@ -1047,9 +1049,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(103,232,249,0.12)",
-    backgroundColor: "rgba(2,6,23,0.985)",
-    shadowColor: "#020617",
+    borderColor: modalTheme.border,
+    backgroundColor: modalTheme.surface,
+    shadowColor: modalTheme.shadow,
     shadowOpacity: 0.28,
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 10 },
@@ -1062,7 +1064,7 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 999,
-    backgroundColor: "rgba(34,211,238,0.08)",
+    backgroundColor: modalTheme.orbTop,
   },
   orbBottom: {
     position: "absolute",
@@ -1071,7 +1073,7 @@ const styles = StyleSheet.create({
     width: 146,
     height: 146,
     borderRadius: 999,
-    backgroundColor: "rgba(37,99,235,0.08)",
+    backgroundColor: modalTheme.orbBottom,
   },
   sheetScroll: {
     width: "100%",
@@ -1088,14 +1090,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    color: "#F8FAFC",
+    color: modalTheme.text,
     fontSize: 20,
     fontWeight: "600",
     letterSpacing: -0.35,
   },
   subtitle: {
     marginTop: 4,
-    color: "rgba(148,163,184,0.94)",
+    color: modalTheme.muted,
     fontSize: 12,
   },
   iconBtn: {
@@ -1105,22 +1107,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    backgroundColor: "rgba(15,23,42,0.92)",
+    borderColor: modalTheme.borderSoft,
+    backgroundColor: modalTheme.surfaceSoft,
   },
   section: {
     gap: 5,
   },
   label: {
-    color: "rgba(191,219,254,0.72)",
+    color: modalTheme.label,
     fontSize: 11.5,
   },
   input: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.12)",
-    backgroundColor: "rgba(8,15,28,0.72)",
-    color: "#E2E8F0",
+    borderColor: modalTheme.inputBorder,
+    backgroundColor: modalTheme.surfaceMuted,
+    color: modalTheme.textStrong,
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 14,

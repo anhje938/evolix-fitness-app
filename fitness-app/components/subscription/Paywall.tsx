@@ -179,7 +179,15 @@ export function Paywall({
   const isBusy = isPurchasing || isRestoring || isLoadingOfferings;
 
   return (
-    <Modal visible={visible} animationType="fade" transparent>
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent
+      hardwareAccelerated
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <LinearGradient

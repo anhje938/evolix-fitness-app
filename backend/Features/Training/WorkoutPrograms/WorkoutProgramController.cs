@@ -37,7 +37,7 @@ namespace backend.Features.Training.WorkoutPrograms
             var userId = GetUserId();
             var isAdmin = User.IsAdmin();
 
-            var response = await _workoutProgramService.GetUserWorkoutPrograms(userId, ct);
+            var response = await _workoutProgramService.GetUserWorkoutPrograms(userId, isAdmin, ct);
 
             return Ok(response);
         }

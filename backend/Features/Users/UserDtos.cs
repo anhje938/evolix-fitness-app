@@ -7,6 +7,7 @@
         public string? Gender { get; set; }
         public string? Language { get; set; }
         public bool? HasCompletedRegistration { get; set; }
+        public bool? HasDismissedRegistrationOnboarding { get; set; }
 
         // Goals
         public int? CalorieGoal { get; set; }

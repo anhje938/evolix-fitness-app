@@ -70,6 +70,16 @@ namespace backend.Data
                 .HasForeignKey(w => w.WorkoutProgramId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<WorkoutProgram>(b =>
+            {
+                b.Property(x => x.IsPremium).HasDefaultValue(false);
+            });
+
+            modelBuilder.Entity<Workout>(b =>
+            {
+                b.Property(x => x.IsPremium).HasDefaultValue(false);
+            });
+
             modelBuilder.Entity<WorkoutExercise>(b =>
             {
                 b.HasKey(x => new { x.WorkoutId, x.ExerciseId });
@@ -249,6 +259,8 @@ namespace backend.Data
                     .HasMaxLength(8)
                     .HasDefaultValue("nb");
                 b.Property(x => x.HasCompletedRegistration).HasDefaultValue(false);
+                b.Property(x => x.HasDismissedRegistrationOnboarding)
+                    .HasDefaultValue(false);
                 b.Property(x => x.WeightGoalKg).HasPrecision(18, 2);
                 b.Property(x => x.UseFoodCoach).HasDefaultValue(true);
                 b.Property(x => x.UseWorkoutCoach).HasDefaultValue(true);

@@ -20,7 +20,6 @@
 ## Innstillinger og navigasjon
 
 - [ ] Finne bedre plass til innstillingerknapp.
-- [ ] Kanskje legge hurtigstartknapper fast over navbar.
 
 ## Språk
 

@@ -1,3 +1,9 @@
+import {
+  MODAL_MAX_HEIGHT,
+  modalConfirmButtonColors,
+  modalGradientColors,
+  modalTheme,
+} from "@/config/modalTheme";
 import { ADVANCED_MUSCLE_FILTERS } from "@/types/muscles";
 import type { CreateExercisePayload } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +20,9 @@ import {
   View,
 } from "react-native";
 import { MuscleFilterBar } from "../../MuscleFilterBar";
+import XIcon from "../../../../assets/icons/white-x.svg";
+import { colors, newColors } from "@/config/theme";
+import DumbbellIcon from "../../../../assets/icons/dumbbell-white.svg";
 
 type Props = {
   visible: boolean;
@@ -86,16 +95,46 @@ export function AddExerciseModal({
   const content = (
     <View style={[styles.overlay, !useModal && styles.inlineOverlay]}>
       <View style={styles.container}>
+        <LinearGradient
+          pointerEvents="none"
+          colors={modalGradientColors}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.95, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View pointerEvents="none" style={styles.orbTop} />
+        <View pointerEvents="none" style={styles.orbBottom} />
         <View style={styles.header}>
-          <Text style={styles.title}>Ny øvelse</Text>
-          <TouchableOpacity onPress={onClose} disabled={isSubmitting}>
-            <Ionicons name="close" size={24} color="#ccc" />
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              width: "40%",
+            }}
+          >
+            <DumbbellIcon
+              height={25}
+              width={25}
+              stroke={newColors.primary.light}
+              fill={newColors.primary.light}
+            />
+            <Text style={styles.title}>Ny øvelse</Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={onClose}
+            disabled={isSubmitting}
+            style={styles.closeButton}
+          >
+            <XIcon height={18} width={18} />
           </TouchableOpacity>
         </View>
 
         <ScrollView
-          style={{ maxHeight: "90%" }}
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <Text style={styles.label}>Navn</Text>
           <TextInput
@@ -171,7 +210,7 @@ export function AddExerciseModal({
             value={description}
             onChangeText={setDescription}
             editable={!isSubmitting}
-            multiline
+            returnKeyType="done"
           />
         </ScrollView>
 
@@ -180,7 +219,10 @@ export function AddExerciseModal({
           onPress={handleSubmit}
           disabled={isSubmitting}
         >
-          <LinearGradient colors={["#3A7BD5", "#00d2ff"]} style={styles.button}>
+          <LinearGradient
+            colors={modalConfirmButtonColors}
+            style={styles.button}
+          >
             <Ionicons name="save-outline" size={18} color="white" />
             <Text style={styles.buttonText}>
               {isSubmitting ? "Oppretter..." : "Opprett øvelse"}
@@ -205,9 +247,10 @@ export function AddExerciseModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: modalTheme.backdrop,
     justifyContent: "center",
-    padding: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 24,
   },
   inlineOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -215,38 +258,81 @@ const styles = StyleSheet.create({
     elevation: 40,
   },
   container: {
-    backgroundColor: "#111827",
+    backgroundColor: modalTheme.surface,
     width: "100%",
-    height: "95%",
-    borderRadius: 18,
-    padding: 22,
-    paddingVertical: 40,
+    maxWidth: 560,
+    height: MODAL_MAX_HEIGHT,
+    maxHeight: MODAL_MAX_HEIGHT,
+    borderRadius: 28,
+    padding: 12,
+    paddingVertical: 18,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    borderColor: modalTheme.border,
+    shadowColor: modalTheme.shadow,
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
+    overflow: "hidden",
+  },
+  orbTop: {
+    position: "absolute",
+    top: -56,
+    right: -30,
+    width: 160,
+    height: 160,
+    borderRadius: 999,
+    backgroundColor: modalTheme.orbTop,
+  },
+  orbBottom: {
+    position: "absolute",
+    left: -36,
+    bottom: -72,
+    width: 146,
+    height: 146,
+    borderRadius: 999,
+    backgroundColor: modalTheme.orbBottom,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   title: {
-    color: "white",
-    fontSize: 22,
-    fontWeight: "600",
+    color: modalTheme.text,
+    fontSize: 25,
+    fontWeight: "500",
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scroll: {
+    flex: 1,
+    minHeight: 0,
+  },
+  scrollContent: {
+    paddingBottom: 8,
+    flexGrow: 1,
   },
   label: {
-    color: "#cbd5e1",
+    color: modalTheme.label,
     marginBottom: 6,
-    marginTop: 10,
+    marginTop: 15,
     fontSize: 14,
   },
   input: {
-    backgroundColor: "#1e293b",
+    backgroundColor: modalTheme.surfaceMuted,
     borderRadius: 12,
     padding: 12,
-    color: "white",
-    fontSize: 15,
+    color: modalTheme.textStrong,
+    fontSize: 13,
+    borderWidth: 1,
+    borderColor: modalTheme.inputBorder,
   },
   textarea: {
     height: 90,
@@ -274,18 +360,18 @@ const styles = StyleSheet.create({
   multiChipText: {
     color: "rgba(255,255,255,0.7)",
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "500",
   },
   multiChipTextActive: {
     color: "white",
   },
   selectedHint: {
     marginTop: 4,
-    color: "rgba(148,163,184,0.9)",
+    color: newColors.primary.light,
     fontSize: 12,
   },
   buttonWrapper: {
-    marginTop: 24,
+    marginTop: 12,
   },
   buttonDisabled: {
     opacity: 0.72,
@@ -301,6 +387,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "white",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "500",
   },
 });

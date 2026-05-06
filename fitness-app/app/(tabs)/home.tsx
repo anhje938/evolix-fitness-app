@@ -1,6 +1,4 @@
 // app/(tabs)/home.tsx
-import { SeedDevelopmentMockData } from "@/api/development";
-import { getCompletedWorkouts } from "@/api/exercise/completedWorkouts";
 import { PostUserMeal } from "@/api/food";
 import { deleteMyUser } from "@/api/user";
 import { PostWeight } from "@/api/weight";
@@ -33,7 +31,6 @@ import { WeightSummaryBox } from "@/components/home/WeightSummary";
 import QuickStartButtons from "@/components/home/quickStartButtons";
 import SettingsModal from "@/components/settings/SettingsModal";
 import { AddWeightSheet } from "@/components/weight/addWeightSheet";
-import { queryClient } from "@/config/queryClient";
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
@@ -295,7 +292,6 @@ function uniq(list: HomeGoalTile[]) {
 
 const SECTION_GAP = 18;
 const HOME_HEADER_HIDE_OFFSET = 48;
-const TAB_BAR_HEIGHT = 110;
 const QUICK_ACTIONS_DOCK_HEIGHT = 78;
 const QUICK_ACTIONS_BOTTOM_OFFSET = 92;
 
@@ -604,41 +600,6 @@ export default function HomePage() {
     await setToken(null);
     router.replace("/(auth)/sign-in");
   };
-
-  const seedMockData = useCallback(async () => {
-    if (!token) {
-      throw new Error("Du er ikke logget inn.");
-    }
-
-    const result = await SeedDevelopmentMockData(token);
-
-    const [foodLogs, completedWorkouts] = await Promise.all([
-      refreshMeals({ force: true }),
-      queryClient.fetchQuery({
-        queryKey: ["completedWorkouts"],
-        queryFn: getCompletedWorkouts,
-        staleTime: 0,
-      }),
-    ]);
-
-    await Promise.all([
-      refreshWeights(),
-      queryClient.invalidateQueries({ queryKey: ["exercises"] }),
-      queryClient.invalidateQueries({ queryKey: ["workouts"] }),
-      queryClient.invalidateQueries({ queryKey: ["programs"] }),
-      queryClient.invalidateQueries({ queryKey: ["exerciseHistoryBulk"] }),
-      queryClient.invalidateQueries({ queryKey: ["exerciseHistory"] }),
-      queryClient.invalidateQueries({ queryKey: ["exerciseSetsHistory"] }),
-      queryClient.invalidateQueries({ queryKey: ["sessionDetails"] }),
-      queryClient.invalidateQueries({ queryKey: ["adaptive"] }),
-    ]);
-
-    return {
-      ...result,
-      verifiedFoodLogs: foodLogs.length,
-      verifiedWorkoutSessions: completedWorkouts.length,
-    };
-  }, [refreshMeals, refreshWeights, token]);
 
   const openMealSheet = useCallback(() => {
     setMealSheetMode("manual");
@@ -1139,7 +1100,6 @@ export default function HomePage() {
         userSettingsError={userSettingsError}
         onLogout={logOutUser}
         onDeleteAccount={deleteUserAccount}
-        onSeedMockData={seedMockData}
       />
     </DarkOceanBackground>
   );

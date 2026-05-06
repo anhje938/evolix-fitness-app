@@ -7,6 +7,7 @@ namespace backend.Features.Training.WorkoutPrograms
         public string Name { get; set; } = null!;
         public string? Goal { get; set; }
         public string? Level { get; set; }
+        public bool IsPremium { get; set; }
 
         // Øktene i dette programmet
         public List<CreateWorkoutInProgramRequest> Workouts { get; set; } = [];
@@ -29,6 +30,7 @@ namespace backend.Features.Training.WorkoutPrograms
         public string Name { get; set; } = null!;
         public string? Goal { get; set; }
         public string? Level { get; set; }
+        public bool IsPremium { get; set; }
         public bool IsCustom { get; set; }
         public string? UserId { get; set; }
 
@@ -48,6 +50,7 @@ namespace backend.Features.Training.WorkoutPrograms
         public string? Name { get; set; }
         public string? Goal { get; set; }
         public string? Level { get; set; }
+        public bool? IsPremium { get; set; }
 
         // De øktene som skal være i programmet etter oppdatering
         public List<Guid> WorkoutIds { get; set; } = new();

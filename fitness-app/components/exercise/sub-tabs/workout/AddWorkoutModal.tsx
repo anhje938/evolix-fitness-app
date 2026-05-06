@@ -1,3 +1,4 @@
+import { MODAL_MAX_HEIGHT, modalTheme } from "@/config/modalTheme";
 import { typography } from "@/config/typography";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -25,17 +26,17 @@ type Props = {
 
 const colors = {
   // Backdrop
-  backdrop: "rgba(0,0,0,0.62)",
+  backdrop: modalTheme.backdrop,
 
   // Modal base
-  cardSolid: "rgba(10,16,30,0.96)",
-  strokeOuter: "rgba(255,255,255,0.10)",
-  strokeInner: "rgba(255,255,255,0.05)",
+  cardSolid: modalTheme.surface,
+  strokeOuter: modalTheme.border,
+  strokeInner: modalTheme.borderSoft,
 
   // Text
-  text: "rgba(255,255,255,0.94)",
+  text: modalTheme.text,
   muted: "rgba(148,163,184,0.86)",
-  muted2: "rgba(148,163,184,0.72)",
+  muted2: modalTheme.muted,
 
   // Surfaces
   surface: "rgba(255,255,255,0.05)",
@@ -46,14 +47,14 @@ const colors = {
   accentB: "rgba(34,211,238,0.78)", // cyan
 
   // Inputs
-  inputBg: "rgba(255,255,255,0.045)",
-  inputStroke: "rgba(255,255,255,0.10)",
+  inputBg: modalTheme.surfaceMuted,
+  inputStroke: modalTheme.inputBorder,
   inputStrokeFocus: "rgba(34,211,238,0.26)",
   inputGlow: "rgba(34,211,238,0.10)",
 
   // Buttons
   iconBg: "rgba(255,255,255,0.05)",
-  iconStroke: "rgba(255,255,255,0.10)",
+  iconStroke: modalTheme.borderSoft,
   ctaStroke: "rgba(255,255,255,0.18)",
 
   danger: "rgba(248,113,113,0.95)",
@@ -283,12 +284,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.backdrop,
     justifyContent: "center",
-    padding: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 24,
   },
 
   cardOuter: {
-    borderRadius: 22,
+    width: "100%",
+    maxWidth: 560,
+    maxHeight: MODAL_MAX_HEIGHT,
+    borderRadius: 28,
     overflow: "hidden",
+    alignSelf: "center",
+    shadowColor: modalTheme.shadow,
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
   },
 
   base: {
@@ -308,7 +319,7 @@ const styles = StyleSheet.create({
 
   outerStroke: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 22,
+    borderRadius: 28,
     borderWidth: 1,
     borderColor: colors.strokeOuter,
   },
@@ -318,7 +329,7 @@ const styles = StyleSheet.create({
     left: 1,
     right: 1,
     bottom: 1,
-    borderRadius: 21,
+    borderRadius: 27,
     borderWidth: 1,
     borderColor: colors.strokeInner,
   },
@@ -357,7 +368,7 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.iconBg,
+    backgroundColor: modalTheme.surfaceSoft,
     borderWidth: 1,
     borderColor: colors.iconStroke,
   },

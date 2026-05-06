@@ -1,7 +1,11 @@
 ﻿using System.Security.Claims;
 using backend.Common;
+using backend.Data;
+using backend.Features.Subscriptions;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Features.Training.WorkoutSessions
 {
@@ -11,10 +15,17 @@ namespace backend.Features.Training.WorkoutSessions
     public class WorkoutSessionController : BaseApiController
     {
         private readonly WorkoutSessionService _workoutSessionService;
+        private readonly RevenueCatSubscriptionService _subscriptionService;
+        private readonly AppDbContext _db;
 
-        public WorkoutSessionController(WorkoutSessionService workoutSessionService)
+        public WorkoutSessionController(
+            WorkoutSessionService workoutSessionService,
+            RevenueCatSubscriptionService subscriptionService,
+            AppDbContext db)
         {
             _workoutSessionService = workoutSessionService;
+            _subscriptionService = subscriptionService;
+            _db = db;
         }
 
         private static WorkoutSessionResponse ToResponse(Entities.WorkoutSession session)
@@ -47,6 +58,9 @@ namespace backend.Features.Training.WorkoutSessions
                 return Unauthorized("User id missing in token.");
             }
 
+            if (await RequirePremiumForWorkoutAsync(userId, req.WorkoutId, ct) is { } premiumError)
+                return premiumError;
+
             var session = await _workoutSessionService.StartWorkoutSession(userId, req, ct);
             return Ok(ToResponse(session));
         }
@@ -67,8 +81,37 @@ namespace backend.Features.Training.WorkoutSessions
                 return BadRequest("clientRequestId is required.");
             }
 
+            if (await RequirePremiumForWorkoutAsync(userId, req.WorkoutId, ct) is { } premiumError)
+                return premiumError;
+
             var session = await _workoutSessionService.SaveCompletedSessionOnceAsync(userId, req, ct);
             return Ok(ToResponse(session));
+        }
+
+        private async Task<ActionResult?> RequirePremiumForWorkoutAsync(
+            string userId,
+            Guid? workoutId,
+            CancellationToken ct)
+        {
+            if (!workoutId.HasValue)
+                return null;
+
+            var requiresPremium = await _db.Workouts
+                .AsNoTracking()
+                .Where(w => w.Id == workoutId.Value)
+                .Select(w => w.IsPremium || (w.WorkoutProgram != null && w.WorkoutProgram.IsPremium))
+                .FirstOrDefaultAsync(ct);
+
+            if (!requiresPremium)
+                return null;
+
+            if (await _subscriptionService.HasPremiumAccessAsync(userId, ct))
+                return null;
+
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                error = "upgrade_required"
+            });
         }
 
         // Replaces an existing session (title + logs/sets)

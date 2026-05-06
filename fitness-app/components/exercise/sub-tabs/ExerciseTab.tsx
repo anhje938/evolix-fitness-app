@@ -14,21 +14,19 @@ import {
   type ViewToken,
 } from "react-native";
 
+import { fetchMyUser } from "@/api/user";
+import { useAuth } from "@/context/AuthProvider";
+import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useAllExerciseSetsHistory } from "@/hooks/useAllExerciseSetsHistory";
 import { useCreateExercise } from "@/hooks/useCreateExercise";
 import { useExercises } from "@/hooks/useExercises";
-import { MuscleFilterBar } from "../MuscleFilterBar";
-
-import { fetchMyUser } from "@/api/user";
-import AddButton from "../AddButton";
-import { AddExerciseModal } from "./exercise/AddExerciseModal";
-
-import { useAuth } from "@/context/AuthProvider";
-import { useUserSettings } from "@/context/UserSettingsProvider";
 import { MuscleFilterValue } from "@/types/muscles";
 import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { sortExercisesByPopularity } from "@/utils/exercise/sortExercisesByPopularity";
 import { LinearGradient } from "expo-linear-gradient";
+import AddButton from "../AddButton";
+import { MuscleFilterBar } from "../MuscleFilterBar";
+import { AddExerciseModal } from "./exercise/AddExerciseModal";
 import ExerciseCard from "./exercise/ExerciseCard";
 
 type Props = {
@@ -39,11 +37,9 @@ const ui = {
   text: "rgba(255,255,255,0.94)",
   muted: "rgba(148,163,184,0.86)",
   muted2: "rgba(148,163,184,0.72)",
-
   inputBg: "rgba(255,255,255,0.045)",
   inputStroke: "rgba(255,255,255,0.10)",
   inputStrokeFocus: "rgba(34,211,238,0.26)",
-
   sheenA: "rgba(99,102,241,0.14)",
   sheenB: "rgba(34,211,238,0.10)",
 };
@@ -62,6 +58,7 @@ export default function ExerciseTab({ onPressExercise }: Props) {
   const { token, authReady } = useAuth();
   const { userSettings } = useUserSettings();
   const { data, isLoading, error } = useExercises();
+
   const exercises = useMemo(() => {
     const allExercises = data ?? [];
     const visible = userSettings.showOnlyCustomTrainingContent
@@ -96,17 +93,19 @@ export default function ExerciseTab({ onPressExercise }: Props) {
 
   const filteredExercises = useMemo(() => {
     const s = search.toLowerCase().trim();
-    return sortExercisesByPopularity(exercises.filter((ex) => {
-      const matchesSearch =
-        s.length === 0 ||
-        ex.name.toLowerCase().includes(s) ||
-        (ex.muscle ?? "").toLowerCase().includes(s);
+    return sortExercisesByPopularity(
+      exercises.filter((ex) => {
+        const matchesSearch =
+          s.length === 0 ||
+          ex.name.toLowerCase().includes(s) ||
+          (ex.muscle ?? "").toLowerCase().includes(s);
 
-      const matchesMuscle =
-        muscleFilter === "ALL" || ex.muscle === muscleFilter;
+        const matchesMuscle =
+          muscleFilter === "ALL" || ex.muscle === muscleFilter;
 
-      return matchesSearch && matchesMuscle;
-    }));
+        return matchesSearch && matchesMuscle;
+      })
+    );
   }, [exercises, search, muscleFilter]);
 
   const historyExerciseIds = useMemo(() => {
@@ -122,7 +121,8 @@ export default function ExerciseTab({ onPressExercise }: Props) {
       .map((exercise) => exercise.id);
   }, [filteredExercises, visibleExerciseIds]);
 
-  const { data: setsHistoryMap } = useAllExerciseSetsHistory(historyExerciseIds);
+  const { data: setsHistoryMap } =
+    useAllExerciseSetsHistory(historyExerciseIds);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -186,14 +186,18 @@ export default function ExerciseTab({ onPressExercise }: Props) {
         ListHeaderComponent={
           <>
             <View style={styles.headerRow}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[typography.h2, styles.headerTitle]}>Øvelser</Text>
+              <View style={styles.headerTextWrap}>
+                <Text style={[typography.h2, styles.headerTitle]}>
+                  Dine øvelser
+                </Text>
                 <Text style={[typography.body, styles.headerSub]}>
-                  Bibliotek + historikk. Trykk på en øvelse for detaljer.
+                  Trykk på en øvelse for detaljer og historikk.
                 </Text>
               </View>
 
-              <AddButton setOpen={setOpenAdd} open={openAdd} />
+              <View style={styles.headerActions}>
+                <AddButton setOpen={setOpenAdd} open={openAdd} />
+              </View>
             </View>
 
             <Pressable
@@ -259,11 +263,11 @@ export default function ExerciseTab({ onPressExercise }: Props) {
               )}
             </Pressable>
 
-            <View style={{ marginBottom: 12 }}>
+            <View style={styles.filterWrap}>
               <MuscleFilterBar
                 value={muscleFilter}
                 onChange={(v) => setMuscleFilter(v as MuscleFilterValue)}
-                preset={"basic"}
+                preset="basic"
               />
             </View>
           </>
@@ -300,13 +304,16 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 44,
   },
-
   headerRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 12,
     marginBottom: 14,
+  },
+  headerTextWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   headerTitle: {
     color: newColors.text.primary,
@@ -317,7 +324,17 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 16,
   },
-
+  headerActions: {
+    alignItems: "flex-end",
+    gap: 8,
+  },
+  headerMeta: {
+    color: ui.muted2,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.1,
+    textTransform: "uppercase",
+  },
   searchWrap: {
     borderRadius: 20,
     flexDirection: "row",
@@ -354,14 +371,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
   },
-
   input: {
     flex: 1,
     fontSize: 14,
     color: newColors.text.primary,
     paddingVertical: 0,
   },
-
   clearBtn: {
     width: 30,
     height: 30,
@@ -372,7 +387,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
   },
-
+  filterWrap: {
+    marginBottom: 12,
+  },
   emptyWrap: {
     marginTop: 10,
     padding: 14,
@@ -381,6 +398,14 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.08)",
     backgroundColor: "rgba(2,6,23,0.20)",
   },
-  emptyTitle: { color: ui.text, fontSize: 14 },
-  emptySub: { marginTop: 4, color: ui.muted2, fontSize: 12.5, lineHeight: 16 },
+  emptyTitle: {
+    color: ui.text,
+    fontSize: 14,
+  },
+  emptySub: {
+    marginTop: 4,
+    color: ui.muted2,
+    fontSize: 12.5,
+    lineHeight: 16,
+  },
 });

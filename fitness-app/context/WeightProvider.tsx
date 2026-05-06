@@ -2,7 +2,6 @@
 import { getUserWeights } from "@/api/weight";
 import { useAuth } from "@/context/AuthProvider";
 import { Weight } from "@/types/weight";
-import { mergeWeightEntriesWithDemo } from "@/utils/demoProgressData";
 import { isUnauthorizedError } from "@/utils/isUnauthorizedError";
 import React, {
   createContext,
@@ -66,9 +65,7 @@ export function WeightProvider({ children }: { children: ReactNode }) {
       const data = await getUserWeights(token);
 
       if (!mountedRef.current) return;
-      setWeightList(
-        Array.isArray(data) ? mergeWeightEntriesWithDemo(data) : []
-      );
+      setWeightList(Array.isArray(data) ? sortWeightsByTimestampDesc(data) : []);
     } catch (err: any) {
       if (!mountedRef.current) return;
       if (isUnauthorizedError(err)) {

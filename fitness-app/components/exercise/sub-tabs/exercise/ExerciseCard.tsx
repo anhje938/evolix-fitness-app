@@ -1,52 +1,42 @@
 import { generalStyles } from "@/config/styles";
 import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-
 import type { ExerciseSessionSetsDto } from "@/api/exercise/exerchiseHistory";
 import { Exercise } from "@/types/exercise";
+import { ADVANCED_MUSCLE_FILTERS } from "@/types/muscles";
 import { sessionBest1RmFromSets } from "@/utils/exercise/sessionBest1RmFromSets";
-import { MiniExerciseChart } from "./MiniExerciseChart";
-
-import { DeleteExercise, UpdateExercise } from "@/api/exercise/exercise";
-import { queryClient } from "@/config/queryClient";
-import { useWorkoutSession } from "@/context/workoutSessionContext";
-import {
-  ADVANCED_MUSCLE_FILTERS,
-  MUSCLE_FILTERS,
-  MuscleFilterValue,
-} from "@/types/muscles";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import React, { useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { EditExerciseModal } from "./EditExerciseModal";
+import { MiniExerciseChart } from "./MiniExerciseChart";
 
 type MiniHistoryPoint = {
   performedAt: string;
   topSetWeight: number;
 };
 
+const ui = {
+  cardBg: "rgba(1,6,16,0.985)",
+  cardStroke: "rgba(96,165,250,0.08)",
+  cardStrokeInner: "rgba(255,255,255,0.02)",
+  divider: "rgba(148,163,184,0.14)",
+  text: "rgba(241,245,249,0.97)",
+  muted: "rgba(148,163,184,0.82)",
+  muted2: "rgba(148,163,184,0.68)",
+  iconBg: "rgba(3,12,30,0.995)",
+  iconStroke: "rgba(96,165,250,0.10)",
+  sheenA: "rgba(30,64,175,0.09)",
+  sheenB: "rgba(8,145,178,0.05)",
+  pillCyanBg: "rgba(34,211,238,0.12)",
+  pillCyanStroke: "rgba(34,211,238,0.18)",
+  pillIndigoBg: "rgba(59,130,246,0.12)",
+  pillIndigoStroke: "rgba(96,165,250,0.18)",
+};
+
 function formatKg(v: number | null) {
-  return v != null ? `${v}kg` : "--";
-}
-
-function normalizeMuscle(v?: string | null): MuscleFilterValue {
-  const s = (v ?? "").trim();
-  if (!s) return "ALL";
-
-  const hit = MUSCLE_FILTERS.find(
-    (x) => x.value !== "ALL" && x.value.toLowerCase() === s.toLowerCase()
-  );
-
-  return hit?.value ?? "ALL";
+  return v != null ? `${v} kg` : "--";
 }
 
 function parseSpecificGroups(input: unknown): string[] {
@@ -78,42 +68,6 @@ function normalizeSpecificToKnownAdvanced(values: string[]) {
   );
 }
 
-const ui = {
-  // Card
-  cardBg: "rgba(2,6,23,0.22)",
-  cardStroke: "rgba(255,255,255,0.08)",
-  cardStrokeInner: "rgba(255,255,255,0.05)",
-  divider: "rgba(255,255,255,0.08)",
-
-  // Text
-  text: "rgba(255,255,255,0.94)",
-  muted: "rgba(148,163,184,0.86)",
-  muted2: "rgba(148,163,184,0.72)",
-
-  // Accents
-  accentA: "rgba(99,102,241,0.95)",
-  accentB: "rgba(34,211,238,0.86)",
-  accentSoft: "rgba(34,211,238,0.10)",
-
-  // Pills
-  pillBg: "rgba(255,255,255,0.05)",
-  pillStroke: "rgba(255,255,255,0.10)",
-  pillCyanBg: "rgba(34,211,238,0.12)",
-  pillCyanStroke: "rgba(34,211,238,0.22)",
-  pillIndigoBg: "rgba(99,102,241,0.12)",
-  pillIndigoStroke: "rgba(99,102,241,0.22)",
-
-  // Modal
-  backdrop: "rgba(0,0,0,0.62)",
-  modalBg: "rgba(10,16,30,0.96)",
-  modalStroke: "rgba(255,255,255,0.10)",
-  inputBg: "rgba(255,255,255,0.045)",
-  inputStroke: "rgba(255,255,255,0.10)",
-  dangerBg: "rgba(127,29,29,0.32)",
-  dangerStroke: "rgba(248,113,113,0.55)",
-  dangerText: "rgba(254,202,202,0.98)",
-};
-
 export default function ExerciseCard({
   exercise,
   sessions,
@@ -126,44 +80,18 @@ export default function ExerciseCard({
   onPress: () => void;
 }) {
   const [editOpen, setEditOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  const [name, setName] = useState("");
-  const [muscle, setMuscle] = useState<MuscleFilterValue>("ALL");
-  const [equipment, setEquipment] = useState("");
-  const [description, setDescription] = useState("");
-  const { updateExerciseDetails } = useWorkoutSession();
 
   const isGlobal = exercise.userId == null;
   const canEdit = isAdmin || !isGlobal;
 
-  const [specificGroups, setSpecificGroups] = useState<string[]>([]);
-
-  const advancedSpecificList = useMemo(() => {
-    const basic = new Set(
-      MUSCLE_FILTERS.map((x) => x.value).filter((v) => v !== "ALL")
-    );
-
-    return ADVANCED_MUSCLE_FILTERS.filter(
-      (x) => x.value !== "ALL" && !basic.has(x.value as any)
-    );
-  }, []);
-
-  const displayMuscleChips = useMemo(() => {
+  const displayTagChips = useMemo(() => {
     const fromDb = normalizeSpecificToKnownAdvanced(
-      parseSpecificGroups((exercise as any).specificMuscleGroups)
+      parseSpecificGroups(exercise.specificMuscleGroups)
     );
-
-    if (fromDb.length > 0) return fromDb;
+    if (fromDb.length > 0) return fromDb.slice(0, 2);
 
     const base = (exercise.muscle ?? "").trim();
     return base ? [base] : [];
-  }, [exercise]);
-
-  const displayEquipmentList = useMemo(() => {
-    const eq = (exercise.equipment ?? "").trim();
-    return eq ? [eq] : [];
   }, [exercise]);
 
   const vm = useMemo(() => {
@@ -181,7 +109,6 @@ export default function ExerciseCard({
       .filter((p) => p.oneRm > 0);
 
     const oneRms = points.map((p) => p.oneRm);
-
     const last1Rm = oneRms.at(-1) ?? null;
     const first1Rm = oneRms.at(0) ?? null;
     const pr1Rm = oneRms.length ? Math.max(...oneRms) : null;
@@ -208,103 +135,9 @@ export default function ExerciseCard({
   const progressColor =
     vm.progress != null && vm.progress !== 0
       ? vm.progress > 0
-        ? newColors.text.accent
-        : "#f97373"
+        ? "#4ade80"
+        : "#f87171"
       : ui.text;
-
-  const openEdit = () => setEditOpen(true);
-  const closeEdit = () => setEditOpen(false);
-
-  useEffect(() => {
-    if (!editOpen) return;
-
-    setName(exercise.name ?? "");
-    setMuscle(normalizeMuscle(exercise.muscle));
-    setEquipment(exercise.equipment ?? "");
-    setDescription(exercise.description ?? "");
-
-    const parsed = normalizeSpecificToKnownAdvanced(
-      parseSpecificGroups((exercise as any).specificMuscleGroups)
-    );
-    setSpecificGroups(parsed);
-  }, [editOpen, exercise]);
-
-  function toggleSpecific(v: string) {
-    setSpecificGroups((prev) =>
-      prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]
-    );
-  }
-
-  const handleSave = async () => {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      Alert.alert("Mangler navn", "Skriv inn navn på øvelsen.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      const cleanedSpecific = normalizeSpecificToKnownAdvanced(specificGroups);
-
-      const updatedExercise = await UpdateExercise(exercise.id, {
-        name: trimmed,
-        description: description.trim() ? description.trim() : "",
-        muscle: muscle === "ALL" ? "" : muscle,
-        equipment: equipment.trim() ? equipment.trim() : "",
-        specificMuscleGroups:
-          cleanedSpecific.length > 0 ? cleanedSpecific.join(",") : "",
-      });
-
-      updateExerciseDetails({
-        exerciseId: exercise.id,
-        name: updatedExercise.name ?? trimmed,
-        muscle: updatedExercise.muscle ?? (muscle === "ALL" ? null : muscle),
-      });
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["exercises"] }),
-        queryClient.invalidateQueries({ queryKey: ["sessionDetails"] }),
-        queryClient.invalidateQueries({ queryKey: ["completedWorkouts"] }),
-      ]);
-      closeEdit();
-    } catch (err) {
-      console.log("Feil ved oppdatering av øvelse", err);
-      Alert.alert("Noe gikk galt", "Kunne ikke lagre endringene.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const confirmDelete = () => {
-    Alert.alert(
-      "Slett øvelse?",
-      "Dette kan ikke angres. Vil du slette øvelsen?",
-      [
-        { text: "Avbryt", style: "cancel" },
-        { text: "Slett", style: "destructive", onPress: handleDelete },
-      ]
-    );
-  };
-
-  const handleDelete = async () => {
-    try {
-      setDeleting(true);
-      await DeleteExercise(exercise.id);
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["exercises"] }),
-        queryClient.invalidateQueries({ queryKey: ["sessionDetails"] }),
-        queryClient.invalidateQueries({ queryKey: ["completedWorkouts"] }),
-      ]);
-      closeEdit();
-    } catch (err) {
-      console.log("Feil ved sletting av øvelse", err);
-      Alert.alert("Noe gikk galt", "Kunne ikke slette øvelsen.");
-    } finally {
-      setDeleting(false);
-    }
-  };
 
   return (
     <>
@@ -313,14 +146,13 @@ export default function ExerciseCard({
         style={({ pressed }) => [
           styles.cardOuter,
           generalStyles.newCard,
-          pressed && { opacity: 0.96, transform: [{ scale: 0.995 }] },
+          pressed && styles.cardPressed,
         ]}
       >
-        {/* glass depth */}
         <LinearGradient
           colors={[
-            "rgba(255,255,255,0.06)",
-            "rgba(255,255,255,0.02)",
+            "rgba(255,255,255,0.05)",
+            "rgba(255,255,255,0.015)",
             "rgba(255,255,255,0.00)",
           ]}
           start={{ x: 0.06, y: 0 }}
@@ -328,110 +160,106 @@ export default function ExerciseCard({
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
-
-        {/* accent sheen */}
         <LinearGradient
-          colors={[
-            "rgba(99,102,241,0.16)",
-            "rgba(34,211,238,0.12)",
-            "rgba(255,255,255,0.00)",
-          ]}
+          colors={[ui.sheenA, ui.sheenB, "rgba(255,255,255,0.00)"]}
           start={{ x: 1, y: 0 }}
           end={{ x: 0.25, y: 1 }}
           style={styles.accentGlow}
           pointerEvents="none"
         />
-
-        {/* inner stroke */}
         <View pointerEvents="none" style={styles.innerStroke} />
 
-        {/* TOP ROW */}
         <View style={styles.topRow}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <View style={styles.titleRow}>
-              <Text
-                style={[typography.bodyBold, styles.title]}
-                numberOfLines={1}
-              >
-                {exercise.name}
-              </Text>
-
-              {/* ✅ edit only when user can edit */}
-              {canEdit && (
-                <Pressable
-                  hitSlop={12}
-                  onPress={(e: any) => {
-                    e?.stopPropagation?.();
-                    openEdit();
-                  }}
-                  style={({ pressed }) => [
-                    styles.iconBtn,
-                    pressed && styles.iconPressed,
-                  ]}
-                >
-                  <View style={styles.iconBtnInner}>
-                    <Ionicons name="pencil-outline" size={12} color={ui.text} />
-                  </View>
-                </Pressable>
-              )}
+          <View style={styles.leftCluster}>
+            <View style={styles.handleCol}>
+              <Ionicons
+                name="ellipsis-vertical"
+                size={12}
+                color="rgba(148,163,184,0.42)"
+              />
             </View>
 
-            {/* chips */}
-            {(displayMuscleChips.length > 0 ||
-              displayEquipmentList.length > 0) && (
-              <View style={styles.chipsSection}>
-                {displayMuscleChips.length > 0 && (
-                  <View style={styles.chipsWrap}>
-                    {displayMuscleChips.map((m, idx) => {
-                      const variant = idx % 2 === 0 ? "indigo" : "cyan";
-                      return (
-                        <View
-                          key={`m-${m}`}
-                          style={[
-                            styles.pill,
-                            variant === "indigo"
-                              ? styles.pillIndigo
-                              : styles.pillCyan,
-                          ]}
-                        >
-                          <Text
-                            style={[typography.bodyBlack, styles.pillText]}
-                            numberOfLines={1}
-                          >
-                            {m}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
+            <View style={styles.exerciseIconWrap}>
+              <Ionicons
+                name="barbell-outline"
+                size={16}
+                color={newColors.primary.extraLight}
+              />
+            </View>
 
-                {displayEquipmentList.length > 0 && (
-                  <View style={styles.equipmentWrap}>
-                    {displayEquipmentList.map((eq) => (
-                      <View key={`eq-${eq}`} style={styles.pill}>
+            <View style={styles.titleWrap}>
+              <View style={styles.titleRow}>
+                <Text
+                  style={[typography.bodyBold, styles.title]}
+                  numberOfLines={1}
+                >
+                  {exercise.name}
+                </Text>
+
+                {canEdit && (
+                  <Pressable
+                    hitSlop={12}
+                    onPress={(e: any) => {
+                      e?.stopPropagation?.();
+                      setEditOpen(true);
+                    }}
+                    style={({ pressed }) => [
+                      styles.iconBtn,
+                      pressed && styles.iconPressed,
+                    ]}
+                  >
+                    <View style={styles.iconBtnInner}>
+                      <Ionicons
+                        name="pencil-outline"
+                        size={11}
+                        color={ui.text}
+                      />
+                    </View>
+                  </Pressable>
+                )}
+              </View>
+
+              {displayTagChips.length > 0 && (
+                <View style={styles.chipsWrap}>
+                  {displayTagChips.map((muscle, idx) => {
+                    const variant = idx % 2 === 0 ? "indigo" : "cyan";
+                    return (
+                      <View
+                        key={`m-${muscle}`}
+                        style={[
+                          styles.pill,
+                          variant === "indigo"
+                            ? styles.pillIndigo
+                            : styles.pillCyan,
+                        ]}
+                      >
                         <Text
                           style={[typography.bodyBlack, styles.pillText]}
                           numberOfLines={1}
                         >
-                          {eq}
+                          {muscle}
                         </Text>
                       </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            )}
+                    );
+                  })}
+                </View>
+              )}
+            </View>
           </View>
 
-          {/* PR box */}
-          <View style={styles.prBox}>
-            <Text style={styles.prLabel}>Estimert PR</Text>
-            <Text style={styles.prValue}>{formatKg(vm.pr1Rm)}</Text>
+          <View style={styles.rightCluster}>
+            <View style={styles.prBox}>
+              <Text style={styles.prLabel}>Estimert PR</Text>
+              <Text style={styles.prValue}>{formatKg(vm.pr1Rm)}</Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={15}
+              color="rgba(148,163,184,0.72)"
+            />
           </View>
         </View>
 
-        {/* STATS */}
         <View style={styles.statsChartRow}>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
@@ -450,327 +278,132 @@ export default function ExerciseCard({
               <Text style={styles.statLabel}>Fremgang</Text>
               <Text style={[styles.statValue, { color: progressColor }]}>
                 {vm.progress != null
-                  ? `${vm.progress > 0 ? "+" : ""}${vm.progress}kg`
+                  ? `${vm.progress > 0 ? "+" : ""}${vm.progress} kg`
                   : "--"}
               </Text>
             </View>
           </View>
 
           <View style={styles.chartWrap}>
-            <MiniExerciseChart data={vm.miniHistory} height={78} />
+            <MiniExerciseChart data={vm.miniHistory} height={62} />
           </View>
         </View>
       </Pressable>
 
-      {/* EDIT MODAL */}
-      <Modal
+      <EditExerciseModal
         visible={editOpen}
-        animationType="fade"
-        transparent
-        onRequestClose={closeEdit}
-      >
-        <View style={styles.backdrop}>
-          <View style={styles.modalCard}>
-            {/* modal glass */}
-            <LinearGradient
-              colors={[
-                "rgba(255,255,255,0.06)",
-                "rgba(255,255,255,0.02)",
-                "rgba(255,255,255,0.00)",
-              ]}
-              start={{ x: 0.06, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-            <LinearGradient
-              colors={[
-                "rgba(99,102,241,0.16)",
-                "rgba(34,211,238,0.12)",
-                "rgba(255,255,255,0.00)",
-              ]}
-              start={{ x: 1, y: 0 }}
-              end={{ x: 0.25, y: 1 }}
-              style={styles.modalSheen}
-              pointerEvents="none"
-            />
-            <View pointerEvents="none" style={styles.modalInnerStroke} />
-
-            <View style={styles.modalHeaderRow}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[typography.h2, styles.modalTitle]}>
-                  Rediger øvelse
-                </Text>
-                <Text style={[typography.body, styles.modalSubtitle]}>
-                  Oppdater navn, muskelgrupper og detaljer.
-                </Text>
-              </View>
-
-              <Pressable
-                onPress={closeEdit}
-                hitSlop={12}
-                style={({ pressed }) => [
-                  styles.iconBtn,
-                  pressed && styles.iconPressed,
-                ]}
-              >
-                <View style={styles.iconBtnInner}>
-                  <Ionicons name="close" size={18} color={ui.text} />
-                </View>
-              </Pressable>
-            </View>
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 18 }}
-            >
-              <Text style={styles.sectionLabel}>Navn</Text>
-              <View style={[styles.inputWrapper, generalStyles.newCard]}>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="F.eks. Skrå benkpress"
-                  placeholderTextColor={ui.muted2}
-                  style={styles.input}
-                  returnKeyType="done"
-                />
-              </View>
-
-              <>
-                <Text style={[styles.sectionLabel, { marginTop: 14 }]}>
-                  Muskelgruppe
-                </Text>
-
-                <View style={styles.pillsRow}>
-                  {MUSCLE_FILTERS.map((m) => {
-                    const active = m.value === muscle;
-                    return (
-                      <Pressable
-                        key={m.value}
-                        onPress={() => setMuscle(m.value)}
-                        style={({ pressed }) => [
-                          styles.pillSelect,
-                          active
-                            ? styles.pillSelectActive
-                            : styles.pillSelectInactive,
-                          pressed && { opacity: 0.92 },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.pillSelectText,
-                            active
-                              ? styles.pillSelectTextActive
-                              : styles.pillSelectTextInactive,
-                          ]}
-                        >
-                          {m.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </>
-
-              <>
-                <Text style={[styles.sectionLabel, { marginTop: 14 }]}>
-                  Spesifikke muskelgrupper
-                </Text>
-
-                <View style={styles.chipWrap}>
-                  {advancedSpecificList.map((item) => {
-                    const active = specificGroups.includes(item.value);
-
-                    return (
-                      <Pressable
-                        key={item.value}
-                        onPress={() => toggleSpecific(item.value)}
-                        style={({ pressed }) => [
-                          styles.multiChip,
-                          active && styles.multiChipActive,
-                          pressed && { opacity: 0.92 },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.multiChipText,
-                            active && styles.multiChipTextActive,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {!!specificGroups.length && (
-                  <Text style={styles.selectedHint}>
-                    Valgt: {specificGroups.join(", ")}
-                  </Text>
-                )}
-              </>
-
-              <Text style={[styles.sectionLabel, { marginTop: 14 }]}>
-                Utstyr
-              </Text>
-              <View style={[styles.inputWrapper, generalStyles.newCard]}>
-                <TextInput
-                  value={equipment}
-                  onChangeText={setEquipment}
-                  placeholder="F.eks. Stang, Manualer, Maskin..."
-                  placeholderTextColor={ui.muted2}
-                  style={styles.input}
-                  returnKeyType="done"
-                />
-              </View>
-
-              <Text style={[styles.sectionLabel, { marginTop: 14 }]}>
-                Beskrivelse
-              </Text>
-              <View style={[styles.textAreaWrapper, generalStyles.newCard]}>
-                <TextInput
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="Kort beskrivelse av øvelsen, teknikk eller fokus..."
-                  placeholderTextColor={ui.muted2}
-                  style={[
-                    styles.input,
-                    { height: 110, textAlignVertical: "top" },
-                  ]}
-                  multiline
-                />
-              </View>
-
-              <View style={{ marginTop: 16, gap: 10 }}>
-                <Pressable
-                  onPress={handleSave}
-                  disabled={saving || deleting}
-                  style={({ pressed }) => [
-                    styles.primaryButtonWrap,
-                    (saving || deleting) && { opacity: 0.7 },
-                    pressed && !(saving || deleting) && { opacity: 0.92 },
-                  ]}
-                >
-                  <LinearGradient
-                    colors={[ui.accentA, ui.accentB]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.primaryButton}
-                  >
-                    <Ionicons name="save-outline" size={18} color="white" />
-                    <Text style={styles.primaryButtonText}>
-                      {saving ? "Lagrer..." : "Lagre endringer"}
-                    </Text>
-                  </LinearGradient>
-                </Pressable>
-
-                <Pressable
-                  onPress={confirmDelete}
-                  disabled={saving || deleting}
-                  style={({ pressed }) => [
-                    styles.deleteButton,
-                    (saving || deleting) && { opacity: 0.7 },
-                    pressed && !(saving || deleting) && { opacity: 0.92 },
-                  ]}
-                >
-                  <Ionicons
-                    name="trash-outline"
-                    size={18}
-                    color={ui.dangerText}
-                  />
-                  <Text style={styles.deleteButtonText}>
-                    {deleting ? "Sletter..." : "Slett øvelse"}
-                  </Text>
-                </Pressable>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        exercise={exercise}
+        onClose={() => setEditOpen(false)}
+      />
     </>
   );
 }
 
 const styles = StyleSheet.create({
   cardOuter: {
-    marginTop: 12,
-    borderRadius: 22,
+    marginTop: 10,
+    borderRadius: 18,
     overflow: "hidden",
     backgroundColor: ui.cardBg,
     borderWidth: 1,
     borderColor: ui.cardStroke,
-    padding: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    shadowColor: "#020617",
+    shadowOpacity: 0.26,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
+  cardPressed: {
+    opacity: 0.96,
+    transform: [{ scale: 0.995 }],
   },
   innerStroke: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 22,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: ui.cardStrokeInner,
   },
   accentGlow: {
     position: "absolute",
-    top: -44,
-    right: -72,
-    width: 240,
-    height: 190,
+    top: -34,
+    right: -60,
+    width: 210,
+    height: 160,
     borderRadius: 999,
     opacity: 0.95,
   },
-
   topRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  leftCluster: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  handleCol: {
+    width: 10,
+    paddingTop: 11,
+    alignItems: "center",
+  },
+  exerciseIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: ui.iconBg,
+    borderWidth: 1,
+    borderColor: ui.iconStroke,
+    marginTop: 2,
+  },
+  titleWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 6,
   },
   title: {
     color: ui.text,
-    fontSize: 16,
-    letterSpacing: 0.12,
+    fontSize: 15,
+    letterSpacing: 0.1,
   },
-
-  iconBtn: { alignSelf: "flex-start" },
+  iconBtn: {
+    alignSelf: "flex-start",
+  },
   iconBtnInner: {
-    width: 25,
-    height: 25,
-    borderRadius: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
-  iconPressed: { opacity: 0.88, transform: [{ scale: 0.985 }] },
-
-  chipsSection: {
-    marginTop: 10,
-    gap: 8,
+  iconPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.97 }],
   },
   chipsWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-  },
-  equipmentWrap: {
-    marginTop: 4,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+    gap: 6,
+    marginTop: 6,
   },
   pill: {
     maxWidth: "100%",
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 999,
-    backgroundColor: ui.pillBg,
     borderWidth: 1,
-    borderColor: ui.pillStroke,
   },
   pillIndigo: {
     backgroundColor: ui.pillIndigoBg,
@@ -781,37 +414,39 @@ const styles = StyleSheet.create({
     borderColor: ui.pillCyanStroke,
   },
   pillText: {
-    color: "rgba(226,232,240,0.82)",
+    color: "rgba(191,219,254,0.88)",
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.05,
+  },
+  rightCluster: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingTop: 1,
+  },
+  prBox: {
+    alignItems: "flex-end",
+  },
+  prLabel: {
     fontSize: 10,
+    color: ui.muted2,
+    fontWeight: "500",
+    letterSpacing: 0.08,
+  },
+  prValue: {
+    marginTop: 2,
+    color: "#38bdf8",
+    fontSize: 18,
     fontWeight: "700",
     letterSpacing: 0.08,
   },
-
-  prBox: {
-    alignItems: "flex-end",
-    paddingLeft: 8,
-    marginTop: 2,
-  },
-  prLabel: {
-    fontSize: 11,
-    color: ui.muted2,
-    fontWeight: "500",
-    letterSpacing: 0.12,
-  },
-  prValue: {
-    fontSize: 17,
-    color: newColors.text.accent,
-    marginTop: 3,
-    fontWeight: "600",
-    letterSpacing: 0.12,
-  },
-
   statsChartRow: {
-    marginTop: 14,
+    marginTop: 12,
     flexDirection: "row",
-    alignItems: "stretch",
-    gap: 12,
-    paddingTop: 12,
+    alignItems: "flex-end",
+    gap: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: ui.divider,
   },
@@ -820,209 +455,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
-  statItem: { flex: 1, justifyContent: "center" },
+  statItem: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
   statLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: ui.muted2,
-    fontWeight: "700",
-    letterSpacing: 0.12,
+    fontWeight: "600",
+    letterSpacing: 0.08,
   },
   statValue: {
     marginTop: 4,
     fontSize: 12,
     color: ui.text,
-    fontWeight: "600",
-    letterSpacing: 0.1,
-  },
-
-  chartWrap: {
-    width: 120,
-    justifyContent: "center",
-  },
-
-  // Modal
-  backdrop: {
-    flex: 1,
-    backgroundColor: ui.backdrop,
-    justifyContent: "center",
-    padding: 16,
-  },
-  modalCard: {
-    borderRadius: 24,
-    backgroundColor: ui.modalBg,
-    borderWidth: 1,
-    borderColor: ui.modalStroke,
-    overflow: "hidden",
-    padding: 16,
-    maxHeight: "92%",
-  },
-  modalSheen: {
-    position: "absolute",
-    top: -50,
-    right: -86,
-    width: 280,
-    height: 220,
-    borderRadius: 999,
-    opacity: 0.95,
-  },
-  modalInnerStroke: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
-  },
-
-  modalHeaderRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    marginBottom: 10,
-  },
-  modalTitle: {
-    color: ui.text,
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: 0.12,
-  },
-  modalSubtitle: {
-    marginTop: 4,
-    color: ui.muted2,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: "500",
-  },
-
-  sectionLabel: {
-    marginTop: 10,
-    marginBottom: 8,
-    fontSize: 12,
-    color: ui.muted,
-    fontWeight: "800",
-    letterSpacing: 0.18,
-    textTransform: "uppercase",
-  },
-
-  inputWrapper: {
-    borderRadius: 16,
-    backgroundColor: ui.inputBg,
-    borderWidth: 1,
-    borderColor: ui.inputStroke,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  textAreaWrapper: {
-    borderRadius: 16,
-    backgroundColor: ui.inputBg,
-    borderWidth: 1,
-    borderColor: ui.inputStroke,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  input: {
-    color: ui.text,
-    fontSize: 15,
-  },
-
-  pillsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: 4,
-  },
-  pillSelect: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderWidth: 1,
-  },
-  pillSelectActive: {
-    backgroundColor: ui.accentSoft,
-    borderColor: "rgba(34,211,238,0.35)",
-  },
-  pillSelectInactive: {
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderColor: "rgba(255,255,255,0.10)",
-  },
-  pillSelectText: { fontSize: 13, letterSpacing: 0.1 },
-  pillSelectTextActive: {
-    color: ui.text,
-    fontWeight: "800",
-  },
-  pillSelectTextInactive: {
-    color: ui.muted2,
     fontWeight: "700",
+    letterSpacing: 0.06,
   },
-
-  chipWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 6,
-  },
-  multiChip: {
-    maxWidth: "100%",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-  },
-  multiChipActive: {
-    backgroundColor: "rgba(34,211,238,0.12)",
-    borderColor: "rgba(34,211,238,0.28)",
-  },
-  multiChipText: {
-    color: "rgba(226,232,240,0.72)",
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.1,
-  },
-  multiChipTextActive: { color: ui.text },
-  selectedHint: {
-    marginTop: 8,
-    color: ui.muted2,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-
-  primaryButtonWrap: {
-    borderRadius: 999,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-  },
-  primaryButton: {
-    paddingVertical: 13,
-    borderRadius: 999,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
-  },
-  primaryButtonText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "900",
-    letterSpacing: 0.12,
-  },
-
-  deleteButton: {
-    borderRadius: 999,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 8,
-    backgroundColor: ui.dangerBg,
-    borderWidth: 1,
-    borderColor: ui.dangerStroke,
-  },
-  deleteButtonText: {
-    color: ui.dangerText,
-    fontSize: 13,
-    fontWeight: "900",
-    letterSpacing: 0.12,
+  chartWrap: {
+    width: 110,
+    justifyContent: "flex-end",
   },
 });

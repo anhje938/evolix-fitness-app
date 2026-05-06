@@ -11,6 +11,7 @@ namespace backend.Features.Training.Workouts
 
         // Denne trenger WorkoutService når du lager én økt
         public Guid? WorkoutProgramId { get; set; }
+        public bool IsPremium { get; set; }
 
         // Hvilke øvelser som skal inn i økta
         public List<Guid> ExerciseIds { get; set; } = [];
@@ -23,6 +24,8 @@ namespace backend.Features.Training.Workouts
         public string Description { get; set; } = null!;
         public string DayLabel { get; set; } = null!;
         public Guid? WorkoutProgramId { get; set; }
+        public bool IsPremium { get; set; }
+        public bool WorkoutProgramIsPremium { get; set; }
         public List<Guid> ExerciseIds { get; set; } = [];
         public string? UserId { get; set; }
         public bool IsCustom { get; set; }
@@ -34,6 +37,7 @@ namespace backend.Features.Training.Workouts
         public string? DayLabel { get; set; } = null!;
         public string? Description { get; set; }
         public Guid? WorkoutProgramId { get; set; }
+        public bool? IsPremium { get; set; }
         public List<Guid>? ExerciseIds { get; set; }
     }
 }
