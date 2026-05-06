@@ -6,7 +6,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
+import { useSubscription } from "@/context/SubscriptionProvider";
 
+import { Paywall } from "@/components/subscription/Paywall";
 import type { Exercise, Workout } from "@/types/exercise";
 
 // 🎨 Premium (samme språk som ProgramWorkoutCard)
@@ -50,7 +52,7 @@ const colors = {
 };
 
 type StartWorkoutPayload = {
-  workoutProgramId: string; // for "workouts" (ikke program) sender vi "manual"
+  workoutProgramId: string | null;
   workoutId: string;
   name: string;
   exercises: { exerciseId: string; name: string; muscle?: string | null }[];
@@ -75,6 +77,8 @@ export const WorkoutList = memo(function WorkoutList({
   onStart,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [paywallVisible, setPaywallVisible] = useState(false);
+  const { isPremium } = useSubscription();
 
   const toggleExpanded = useCallback((workoutId: string) => {
     setExpandedId((prev) => (prev === workoutId ? null : workoutId));
@@ -114,7 +118,7 @@ export const WorkoutList = memo(function WorkoutList({
         const exerciseCount = exercisesInWorkout.length;
 
         const startPayload: StartWorkoutPayload = {
-          workoutProgramId: "manual",
+          workoutProgramId: workout.workoutProgramId ?? null,
           workoutId: workout.id,
           name: workout.name,
           exercises: exercisesInWorkout.map((ex) => ({
@@ -125,6 +129,17 @@ export const WorkoutList = memo(function WorkoutList({
         };
 
         const isExpanded = expandedId === workout.id;
+        const requiresPremium =
+          workout.isPremium === true || workout.workoutProgramIsPremium === true;
+        const isWorkoutLocked = requiresPremium && !isPremium;
+        const handleToggle = () => {
+          if (isWorkoutLocked) {
+            setPaywallVisible(true);
+            return;
+          }
+
+          toggleExpanded(workout.id);
+        };
 
         return (
           <View
@@ -164,7 +179,7 @@ export const WorkoutList = memo(function WorkoutList({
               {/* HEADER ROW */}
               <View style={styles.topRow}>
                 <Pressable
-                  onPress={() => toggleExpanded(workout.id)}
+                  onPress={handleToggle}
                   style={({ pressed }) => [
                     styles.headerPress,
                     pressed && styles.headerPressed,
@@ -186,6 +201,17 @@ export const WorkoutList = memo(function WorkoutList({
                     >
                       {workout.name}
                     </Text>
+
+                    {requiresPremium ? (
+                      <View style={styles.premiumBadge}>
+                        <Ionicons
+                          name="lock-closed"
+                          size={10}
+                          color="#FDE68A"
+                        />
+                        <Text style={styles.premiumBadgeText}>Premium</Text>
+                      </View>
+                    ) : null}
 
                     <View style={styles.expandPipWrap}>
                       <View
@@ -240,7 +266,14 @@ export const WorkoutList = memo(function WorkoutList({
                 {/* RIGHT CONTROLS */}
                 <View style={styles.rightCol}>
                   <Pressable
-                    onPress={() => onEdit(workout)}
+                    onPress={() => {
+                      if (isWorkoutLocked) {
+                        setPaywallVisible(true);
+                        return;
+                      }
+
+                      onEdit(workout);
+                    }}
                     style={({ pressed }) => [
                       styles.iconBtn,
                       pressed && styles.iconPressed,
@@ -257,7 +290,7 @@ export const WorkoutList = memo(function WorkoutList({
                   </Pressable>
 
                   <Pressable
-                    onPress={() => toggleExpanded(workout.id)}
+                    onPress={handleToggle}
                     style={({ pressed }) => [
                       styles.chevBtn,
                       pressed && styles.iconPressed,
@@ -348,7 +381,14 @@ export const WorkoutList = memo(function WorkoutList({
               {/* ACTIONS */}
               <View style={styles.actions}>
                 <Pressable
-                  onPress={() => onStart(startPayload)}
+                  onPress={() => {
+                    if (isWorkoutLocked) {
+                      setPaywallVisible(true);
+                      return;
+                    }
+
+                    onStart(startPayload);
+                  }}
                   style={({ pressed }) => [
                     styles.primaryWrap,
                     pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
@@ -360,9 +400,13 @@ export const WorkoutList = memo(function WorkoutList({
                     end={{ x: 1, y: 1 }}
                     style={styles.primary}
                   >
-                    <Ionicons name="play" size={16} color="white" />
+                    <Ionicons
+                      name={isWorkoutLocked ? "lock-closed" : "play"}
+                      size={16}
+                      color="white"
+                    />
                     <Text style={[typography.bodyBold, styles.primaryText]}>
-                      Start økt
+                      {isWorkoutLocked ? "Lås opp" : "Start økt"}
                     </Text>
                   </LinearGradient>
                 </Pressable>
@@ -371,6 +415,12 @@ export const WorkoutList = memo(function WorkoutList({
           </View>
         );
       })}
+      <Paywall
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        onUnlocked={() => setPaywallVisible(false)}
+        source="premium-workout"
+      />
     </View>
   );
 });
@@ -477,6 +527,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: 0.12,
     flexShrink: 1,
+  },
+  premiumBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    backgroundColor: "rgba(251,191,36,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.2)",
+  },
+  premiumBadgeText: {
+    color: "#FDE68A",
+    fontSize: 10,
+    fontWeight: "900",
   },
 
   expandPipWrap: {

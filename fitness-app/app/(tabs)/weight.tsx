@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DeleteWeight, PostWeight, UpdateWeight } from "@/api/weight";
 import { BodyGoalCoachCard } from "@/components/coaching/BodyGoalCoachCard";
 import { DarkOceanBackground } from "@/components/DarkOceanBackground";
+import { PremiumGate } from "@/components/subscription/PremiumGate";
 import WeightHistory from "@/components/weight/WeightHistory";
 import { AddWeightButton } from "@/components/weight/addWeightButton";
 import { AddWeightSheet } from "@/components/weight/addWeightSheet";
@@ -66,7 +67,10 @@ export default function WeightPage() {
     setIsOpen(true);
   };
 
-  const handleDeleteWeight = (weight: Weight) => {
+  const handleDeleteWeight = (
+    weight: Weight,
+    options?: { closeSheet?: boolean }
+  ) => {
     Alert.alert(
       "Slette vekt?",
       `${weight.weightKg.toFixed(1)} kg fjernes fra historikken.`,
@@ -80,6 +84,10 @@ export default function WeightPage() {
               if (!token) return;
               await DeleteWeight(token, weight.id);
               await refetch();
+              if (options?.closeSheet) {
+                setIsOpen(false);
+                setEditingWeight(null);
+              }
             } catch (error) {
               console.log(error);
               Alert.alert("Kunne ikke slette vekt", "Prøv igjen om et øyeblikk.");
@@ -109,13 +117,18 @@ export default function WeightPage() {
           goalValue={goalWeight}
         />
 
-        <BodyGoalCoachCard recommendation={weightCoach} variant="weight" />
+        <PremiumGate
+          featureTitle="Vektcoach"
+          description="Få roligere og mer presise justeringer basert på trendvekt, mål og logging."
+          style={styles.coachSection}
+        >
+          <BodyGoalCoachCard recommendation={weightCoach} variant="weight" />
+        </PremiumGate>
 
         <WeightHistory
           weightList={weightList}
           weeklySummary={weeklySummary}
           onEditWeight={openEditWeight}
-          onDeleteWeight={handleDeleteWeight}
         />
       </ScrollView>
 
@@ -135,6 +148,11 @@ export default function WeightPage() {
           postWeight={handlePostWeight}
           isOpen={isOpen}
           initialEntry={editingWeight}
+          onDelete={() => {
+            if (editingWeight) {
+              handleDeleteWeight(editingWeight, { closeSheet: true });
+            }
+          }}
           onClose={() => {
             setIsOpen(false);
             setEditingWeight(null);
@@ -153,6 +171,9 @@ const styles = StyleSheet.create({
   content: {
     alignItems: "stretch",
     paddingBottom: 148,
+  },
+  coachSection: {
+    marginBottom: 16,
   },
   footerContainer: {
     ...floatingActionButtonDock,

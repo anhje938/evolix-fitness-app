@@ -1,11 +1,16 @@
 // app/(tabs)/home.tsx
 import { SeedDevelopmentMockData } from "@/api/development";
 import { getCompletedWorkouts } from "@/api/exercise/completedWorkouts";
+import { PostUserMeal } from "@/api/food";
 import { deleteMyUser } from "@/api/user";
+import { PostWeight } from "@/api/weight";
 import SettingsLogo from "@/assets/icons/white-settings.svg";
 import { DarkOceanBackground } from "@/components/DarkOceanBackground";
 import { TodayFocusCard } from "@/components/adaptive/TodayFocusCard";
+import { PremiumGate } from "@/components/subscription/PremiumGate";
 import AnatomyFigure from "@/components/exercise/AnatomyFigure";
+import { AddMealSheet } from "@/components/food/addMealSheet";
+import { AddMealSheetQR } from "@/components/food/addMealSheetQR";
 import {
   HOME_ACCENT_BAR_COLORS,
   HOME_ACCENT_BAR_HEIGHT,
@@ -27,6 +32,7 @@ import { ProgressCircle } from "@/components/food/progressCircle";
 import { WeightSummaryBox } from "@/components/home/WeightSummary";
 import QuickStartButtons from "@/components/home/quickStartButtons";
 import SettingsModal from "@/components/settings/SettingsModal";
+import { AddWeightSheet } from "@/components/weight/addWeightSheet";
 import { queryClient } from "@/config/queryClient";
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
@@ -37,6 +43,7 @@ import { useWeightContext } from "@/context/WeightProvider";
 import { useExercises } from "@/hooks/useExercises";
 import { useRecoveryMap } from "@/hooks/useRecoveryMap";
 import { useCompletedWorkouts } from "@/hooks/workout-history/useCompletedWorkouts";
+import type { FoodDto } from "@/types/meal";
 import type { HomeGoalTile, HomeSectionKey } from "@/types/userSettings";
 import {
   formatDateNO,
@@ -53,6 +60,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Easing,
   Pressable,
@@ -287,6 +295,9 @@ function uniq(list: HomeGoalTile[]) {
 
 const SECTION_GAP = 18;
 const HOME_HEADER_HIDE_OFFSET = 48;
+const TAB_BAR_HEIGHT = 110;
+const QUICK_ACTIONS_DOCK_HEIGHT = 78;
+const QUICK_ACTIONS_BOTTOM_OFFSET = 92;
 
 export default function HomePage() {
   const insets = useSafeAreaInsets();
@@ -307,6 +318,11 @@ export default function HomePage() {
   const { recoveryMap } = useRecoveryMap({ sessions, exercises });
 
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [isMealSheetOpen, setIsMealSheetOpen] = useState(false);
+  const [mealSheetMode, setMealSheetMode] = useState<"manual" | "qr">(
+    "manual"
+  );
+  const [isWeightSheetOpen, setIsWeightSheetOpen] = useState(false);
   const [musclePopup, setMusclePopup] = useState<{
     muscle: string;
     lastTrained: string;
@@ -624,18 +640,69 @@ export default function HomePage() {
     };
   }, [refreshMeals, refreshWeights, token]);
 
+  const openMealSheet = useCallback(() => {
+    setMealSheetMode("manual");
+    setIsMealSheetOpen(true);
+  }, []);
+
+  const closeMealSheet = useCallback(() => {
+    setIsMealSheetOpen(false);
+  }, []);
+
+  const openWeightSheet = useCallback(() => {
+    setIsWeightSheetOpen(true);
+  }, []);
+
+  const closeWeightSheet = useCallback(() => {
+    setIsWeightSheetOpen(false);
+  }, []);
+
+  const handlePostMeal = useCallback(
+    async (values: FoodDto) => {
+      try {
+        if (!token) return;
+
+        await PostUserMeal(token, {
+          ...values,
+          sourceType:
+            values.sourceType ?? (mealSheetMode === "qr" ? "qr" : "quickAdd"),
+        });
+
+        await refreshMeals({ force: true });
+        setIsMealSheetOpen(false);
+      } catch (error) {
+        console.log("Could not save meal from home", error);
+        Alert.alert("Kunne ikke lagre måltid", "Prøv igjen om et øyeblikk.");
+      }
+    },
+    [mealSheetMode, refreshMeals, token]
+  );
+
+  const handlePostWeight = useCallback(
+    async (weightKg: number, timestampUtc: string) => {
+      try {
+        if (!token) return;
+
+        await PostWeight(token, weightKg, timestampUtc);
+        await refreshWeights();
+        setIsWeightSheetOpen(false);
+      } catch (error) {
+        console.log("Could not save weight from home", error);
+        Alert.alert("Kunne ikke lagre vekt", "Prøv igjen om et øyeblikk.");
+      }
+    },
+    [refreshWeights, token]
+  );
+
   const orderedHomeSections = normalizeHomeSectionOrder(
     userSettings.homeSectionOrder
   );
+  const quickActionsBottomOffset = QUICK_ACTIONS_BOTTOM_OFFSET;
 
   const homeSections: { key: HomeSectionKey; content: React.ReactNode }[] = [];
 
   for (const sectionKey of orderedHomeSections) {
     if (sectionKey === "quickStart") {
-      homeSections.push({
-        key: sectionKey,
-        content: <QuickStartButtons />,
-      });
       continue;
     }
 
@@ -978,7 +1045,13 @@ export default function HomePage() {
       <ScrollView
         ref={homeScrollRef}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingBottom:
+              quickActionsBottomOffset + QUICK_ACTIONS_DOCK_HEIGHT + 24,
+          },
+        ]}
         onContentSizeChange={applyInitialHomeOffset}
       >
         {/* HEADER */}
@@ -997,7 +1070,12 @@ export default function HomePage() {
         </View>
 
         <View style={styles.section}>
-          <TodayFocusCard />
+          <PremiumGate
+            featureTitle="EvoliX Plan"
+            description="Lås opp dagens coachplan, ukesrapport og anbefalinger som følger progresjonen din."
+          >
+            <TodayFocusCard />
+          </PremiumGate>
         </View>
 
         {homeSections.map((section, index) => (
@@ -1013,6 +1091,41 @@ export default function HomePage() {
           </View>
         ))}
       </ScrollView>
+
+      <QuickStartButtons
+        style={styles.quickActionsDock}
+        onLogMealPress={openMealSheet}
+        onLogWeightPress={openWeightSheet}
+      />
+
+      {isMealSheetOpen && mealSheetMode === "manual" && (
+        <AddMealSheet
+          mode={mealSheetMode}
+          setMode={setMealSheetMode}
+          isOpen={isMealSheetOpen}
+          onClose={closeMealSheet}
+          onSubmit={handlePostMeal}
+        />
+      )}
+
+      {isMealSheetOpen && mealSheetMode === "qr" && (
+        <AddMealSheetQR
+          onScanned={() => {}}
+          mode={mealSheetMode}
+          setMode={setMealSheetMode}
+          isOpen={isMealSheetOpen}
+          onClose={closeMealSheet}
+          onSubmit={handlePostMeal}
+        />
+      )}
+
+      {isWeightSheetOpen && (
+        <AddWeightSheet
+          isOpen={isWeightSheetOpen}
+          onClose={closeWeightSheet}
+          postWeight={handlePostWeight}
+        />
+      )}
 
       <SettingsModal
         visible={settingsVisible}
@@ -1038,6 +1151,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   scrollContent: { paddingBottom: 24 },
+  quickActionsDock: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    bottom: 30,
+  },
 
   // ✅ Global, consistent vertical rhythm between sections
   section: { marginBottom: SECTION_GAP },

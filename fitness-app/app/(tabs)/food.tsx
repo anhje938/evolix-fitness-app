@@ -23,6 +23,7 @@ import { EditMealSheet } from "@/components/food/EditMealSheet";
 import { FoodHistory } from "@/components/food/foodHistory";
 import { MealCard } from "@/components/food/mealCard";
 import { ProgressCircle } from "@/components/food/progressCircle";
+import { PremiumGate } from "@/components/subscription/PremiumGate";
 import { floatingActionButtonDock } from "@/config/floatingActionButton";
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
@@ -257,7 +258,10 @@ export default function FoodPage() {
     setIsEditOpen(true);
   };
 
-  const handleDeleteFromCard = async (mealId: string) => {
+  const handleDeleteFromCard = async (
+    mealId: string,
+    options?: { closeSheet?: boolean }
+  ) => {
     const prev = foodList;
 
     setFoodList((p) => p.filter((m) => String(m.id) !== String(mealId)));
@@ -266,6 +270,9 @@ export default function FoodPage() {
       if (!token) return;
       await DeleteUserMeal(token, mealId);
       void refreshMeals();
+      if (options?.closeSheet) {
+        closeEdit();
+      }
     } catch (e) {
       console.log("DeleteUserMeal failed:", e);
       setFoodList(prev);
@@ -606,7 +613,13 @@ export default function FoodPage() {
         </View>
 
         {userSettings.useFoodCoach && foodCoach ? (
-          <BodyGoalCoachCard recommendation={foodCoach} variant="food" />
+          <PremiumGate
+            featureTitle="Matcoach"
+            description="Få kaloriråd mot vektmålet basert på matloggen og vekttrenden din."
+            style={styles.coachSection}
+          >
+            <BodyGoalCoachCard recommendation={foodCoach} variant="food" />
+          </PremiumGate>
         ) : null}
 
         <MealCard
@@ -631,7 +644,6 @@ export default function FoodPage() {
           excludedFoodCoachDateKeys={userSettings.foodCoachExcludedDateKeys}
           onToggleFoodCoachDate={handleToggleFoodCoachDate}
           onEditMeal={handleEditMealLog}
-          onDeleteMeal={handleDeleteFromCard}
         />
       </ScrollView>
 
@@ -668,6 +680,9 @@ export default function FoodPage() {
         onClose={closeEdit}
         meal={editingMeal}
         onSubmit={handleUpdateMeal}
+        onDelete={(mealId) =>
+          handleDeleteFromCard(mealId, { closeSheet: true })
+        }
       />
 
       <ComposedMealEditorSheet
@@ -728,6 +743,9 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
     elevation: 1,
+  },
+  coachSection: {
+    marginBottom: 18,
   },
   goalsSheenWrap: {
     position: "absolute",

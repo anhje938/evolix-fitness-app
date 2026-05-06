@@ -1,60 +1,61 @@
 export const NORWEGIAN_LOCALE = "nb-NO";
-export const NORWEGIAN_TIME_ZONE = "Europe/Oslo";
+export const NORWEGIAN_TIME_ZONE =
+  Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 type DateInput = string | number | Date;
 
-const osloDatePartsFormatter = new Intl.DateTimeFormat("en-CA", {
-  timeZone: NORWEGIAN_TIME_ZONE,
+function withLocalTimeZone<T extends Intl.DateTimeFormatOptions>(options: T): T {
+  if (!NORWEGIAN_TIME_ZONE) return options;
+  return {
+    ...options,
+    timeZone: NORWEGIAN_TIME_ZONE,
+  };
+}
+
+const osloDatePartsFormatter = new Intl.DateTimeFormat("en-CA", withLocalTimeZone({
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
-});
+}));
 
-const osloDateFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, {
-  timeZone: NORWEGIAN_TIME_ZONE,
+const osloDateFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, withLocalTimeZone({
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
-});
+}));
 
-const osloDateLongFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, {
-  timeZone: NORWEGIAN_TIME_ZONE,
+const osloDateLongFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, withLocalTimeZone({
   day: "numeric",
   month: "long",
   year: "numeric",
-});
+}));
 
-const osloDateTimeFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, {
-  timeZone: NORWEGIAN_TIME_ZONE,
+const osloDateTimeFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, withLocalTimeZone({
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
-});
+}));
 
-const osloTimeFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, {
-  timeZone: NORWEGIAN_TIME_ZONE,
+const osloTimeFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, withLocalTimeZone({
   hour: "2-digit",
   minute: "2-digit",
-});
+}));
 
-const osloWeekdayFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, {
-  timeZone: NORWEGIAN_TIME_ZONE,
+const osloWeekdayFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, withLocalTimeZone({
   weekday: "long",
-});
+}));
 
-const osloShortDayMonthFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, {
-  timeZone: NORWEGIAN_TIME_ZONE,
+const osloShortDayMonthFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, withLocalTimeZone({
   day: "numeric",
   month: "short",
-});
+}));
 
-const osloMonthYearFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, {
-  timeZone: NORWEGIAN_TIME_ZONE,
+const osloMonthYearFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, withLocalTimeZone({
   month: "long",
   year: "numeric",
-});
+}));
 
 function toValidDate(input: DateInput): Date | null {
   const date = input instanceof Date ? new Date(input.getTime()) : new Date(input);
@@ -90,11 +91,15 @@ export function parseDateKey(dateKey: string) {
   return { year, month, day };
 }
 
+function createLocalNoonDate(year: number, month: number, day: number) {
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
+
 export function dateKeyToUtcDate(dateKey: string): Date | null {
   const parsed = parseDateKey(dateKey);
   if (!parsed) return null;
 
-  return new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day, 12, 0, 0));
+  return createLocalNoonDate(parsed.year, parsed.month, parsed.day);
 }
 
 export function toUtcNoonIsoDate(input: DateInput): string | null {
@@ -107,11 +112,9 @@ export function toUtcNoonIsoDate(input: DateInput): string | null {
 }
 
 export function getFutureUtcNoonIsoDate(daysFromNow: number): string {
-  const today = dateKeyToUtcDate(getOsloTodayDateKey()) ?? new Date();
-  const next = new Date(today.getTime());
-  next.setUTCDate(next.getUTCDate() + Math.round(daysFromNow));
-  next.setUTCHours(12, 0, 0, 0);
-  return next.toISOString();
+  const nextDateKey = shiftDateKey(getOsloTodayDateKey(), daysFromNow);
+  const next = nextDateKey ? (dateKeyToUtcDate(nextDateKey) ?? new Date()) : new Date();
+  return toUtcNoonIsoDate(next) ?? new Date().toISOString();
 }
 
 export function getOsloDateKey(input: DateInput): string {
@@ -122,6 +125,15 @@ export function getOsloDateKey(input: DateInput): string {
 
 export function getOsloTodayDateKey() {
   return getOsloDateKey(new Date());
+}
+
+export function shiftDateKey(dateKey: string, days: number): string {
+  const date = dateKeyToUtcDate(dateKey);
+  if (!date) return "";
+
+  const shifted = new Date(date.getTime());
+  shifted.setDate(shifted.getDate() + Math.round(days));
+  return getOsloDateKey(shifted);
 }
 
 export function formatTimeNO(input: DateInput): string {
@@ -192,12 +204,10 @@ export function getDateKeyEpochDay(dateKey: string): number | null {
 }
 
 export function getIsoWeekYearAndNumberFromDateKey(dateKey: string) {
-  const date = dateKeyToUtcDate(dateKey);
-  if (!date) return null;
+  const parsed = parseDateKey(dateKey);
+  if (!parsed) return null;
 
-  const utcDate = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-  );
+  const utcDate = new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day));
   const dayNumber = utcDate.getUTCDay() || 7;
 
   utcDate.setUTCDate(utcDate.getUTCDate() + 4 - dayNumber);

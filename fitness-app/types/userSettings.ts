@@ -11,6 +11,7 @@ export interface UserSettings {
   gender: UserGender | null;
   language: AppLanguage;
   hasCompletedRegistration: boolean;
+  hasDismissedRegistrationOnboarding: boolean;
   calorieGoal: number;
   proteinGoal: number;
   fatGoal: number;

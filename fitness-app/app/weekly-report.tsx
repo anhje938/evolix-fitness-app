@@ -1,5 +1,8 @@
 import { DarkOceanBackground } from "@/components/DarkOceanBackground";
 import { RecommendationCard } from "@/components/adaptive/RecommendationCard";
+import { LockedFeatureCard } from "@/components/subscription/LockedFeatureCard";
+import { Paywall } from "@/components/subscription/Paywall";
+import { useSubscription } from "@/context/SubscriptionProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import {
   useCurrentWeeklyReport,
@@ -21,7 +24,7 @@ import {
   Text,
   View,
 } from "react-native";
-import type { ComponentProps, ReactNode } from "react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function formatDate(value: string | null | undefined) {
@@ -285,7 +288,7 @@ function ReportContent({ report }: { report: WeeklyReport }) {
   );
 }
 
-export default function WeeklyReportScreen() {
+function WeeklyReportPremiumScreen() {
   const insets = useSafeAreaInsets();
   const reportQuery = useCurrentWeeklyReport();
   const regenerateReport = useRegenerateWeeklyReport();
@@ -365,6 +368,55 @@ export default function WeeklyReportScreen() {
   );
 }
 
+export default function WeeklyReportScreen() {
+  const insets = useSafeAreaInsets();
+  const { isPremium, isLoading } = useSubscription();
+  const [paywallVisible, setPaywallVisible] = useState(false);
+
+  if (isPremium) return <WeeklyReportPremiumScreen />;
+
+  return (
+    <DarkOceanBackground
+      style={[styles.screen, { paddingTop: insets.top + 10 }]}
+    >
+      <View style={styles.header}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.headerButton,
+            pressed && styles.headerButtonPressed,
+          ]}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="chevron-back" size={20} color="rgba(226,232,240,0.96)" />
+        </Pressable>
+        <Text style={styles.headerTitle}>Rapport</Text>
+        <View style={styles.headerButtonPlaceholder} />
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + 28 },
+        ]}
+      >
+        <LockedFeatureCard
+          title="Ukesrapport"
+          description="Premium gir deg ukesrapport, anbefalinger og neste steg basert på mat, vekt og trening."
+          isLoading={isLoading}
+          onPress={() => setPaywallVisible(true)}
+        />
+      </ScrollView>
+
+      <Paywall
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        source="weekly-report"
+      />
+    </DarkOceanBackground>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -393,6 +445,10 @@ const styles = StyleSheet.create({
   },
   headerButtonDisabled: {
     opacity: 0.58,
+  },
+  headerButtonPlaceholder: {
+    width: 38,
+    height: 38,
   },
   headerTitle: {
     color: "rgba(248,250,252,0.98)",

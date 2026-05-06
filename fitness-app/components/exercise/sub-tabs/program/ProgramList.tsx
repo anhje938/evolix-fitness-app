@@ -1,7 +1,9 @@
 // components/exercise/sub-tabs/program/ProgramList.tsx
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
+import { useSubscription } from "@/context/SubscriptionProvider";
 import { useWorkoutSession } from "@/context/workoutSessionContext";
+import { Paywall } from "@/components/subscription/Paywall";
 import type { Exercise, Program, Workout } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -133,8 +135,19 @@ const ProgramListItem = memo(function ProgramListItem({
   onEdit,
 }: ItemProps) {
   const { openProgramSession } = useWorkoutSession();
+  const { isPremium } = useSubscription();
+  const [paywallVisible, setPaywallVisible] = useState(false);
 
   const workoutCount = sessions.length;
+  const isProgramLocked = program.isPremium === true && !isPremium;
+  const handleToggle = () => {
+    if (isProgramLocked) {
+      setPaywallVisible(true);
+      return;
+    }
+
+    onToggle();
+  };
 
   return (
     <View style={[generalStyles.newCard, styles.cardOuter]}>
@@ -168,7 +181,7 @@ const ProgramListItem = memo(function ProgramListItem({
 
       <View style={styles.cardInner}>
         <Pressable
-          onPress={onToggle}
+          onPress={handleToggle}
           hitSlop={8}
           style={({ pressed }) => [
             styles.pressableRow,
@@ -184,6 +197,13 @@ const ProgramListItem = memo(function ProgramListItem({
               >
                 {program.name}
               </Text>
+
+              {program.isPremium ? (
+                <View style={styles.premiumBadge}>
+                  <Ionicons name="lock-closed" size={10} color="#FDE68A" />
+                  <Text style={styles.premiumBadgeText}>Premium</Text>
+                </View>
+              ) : null}
 
               <View
                 style={[
@@ -255,7 +275,14 @@ const ProgramListItem = memo(function ProgramListItem({
           {/* RIGHT */}
           <View style={styles.rightCol}>
             <Pressable
-              onPress={() => onEdit?.(program.id)}
+              onPress={() => {
+                if (isProgramLocked) {
+                  setPaywallVisible(true);
+                  return;
+                }
+
+                onEdit?.(program.id);
+              }}
               style={({ pressed }) => [
                 styles.iconBtn,
                 pressed && styles.iconPressed,
@@ -313,6 +340,16 @@ const ProgramListItem = memo(function ProgramListItem({
           </View>
         )}
       </View>
+
+      <Paywall
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        onUnlocked={() => {
+          setPaywallVisible(false);
+          if (!expanded) onToggle();
+        }}
+        source="premium-program"
+      />
     </View>
   );
 });
@@ -389,6 +426,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     letterSpacing: 0.15,
     fontWeight: "600",
+    flexShrink: 1,
+  },
+  premiumBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    backgroundColor: "rgba(251,191,36,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.2)",
+  },
+  premiumBadgeText: {
+    color: "#FDE68A",
+    fontSize: 10,
+    fontWeight: "900",
   },
   expandPip: {
     width: 10,

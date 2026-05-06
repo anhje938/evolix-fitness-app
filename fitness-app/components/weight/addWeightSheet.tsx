@@ -28,6 +28,7 @@ type AddWeightSheetProps = {
   onClose: () => void;
   postWeight: (weightKg: number, timestampUtc: string) => void | Promise<void>;
   initialEntry?: Weight | null;
+  onDelete?: () => void | Promise<void>;
 };
 
 const QUICK_ADJUSTS = [-0.5, -0.1, 0.1, 0.5, 1, 2];
@@ -51,6 +52,7 @@ export function AddWeightSheet({
   onClose,
   postWeight,
   initialEntry = null,
+  onDelete,
 }: AddWeightSheetProps) {
   const { lastWeight } = useWeightContext();
   const isClosingRef = useRef(false);
@@ -203,6 +205,19 @@ export function AddWeightSheet({
 
     try {
       await Promise.resolve(postWeight(value, combined.toISOString()));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!initialEntry || !onDelete || isSaving) return;
+
+    Keyboard.dismiss();
+    setIsSaving(true);
+
+    try {
+      await Promise.resolve(onDelete());
     } finally {
       setIsSaving(false);
     }
@@ -469,6 +484,25 @@ export function AddWeightSheet({
                         </Text>
                       </LinearGradient>
                     </TouchableOpacity>
+
+                    {initialEntry && onDelete ? (
+                      <TouchableOpacity
+                        onPress={() => {
+                          void handleDelete();
+                        }}
+                        style={styles.deleteButton}
+                        activeOpacity={0.88}
+                        disabled={isSaving}
+                      >
+                        <Ionicons
+                          name="trash-outline"
+                          size={17}
+                          color="rgba(254,202,202,0.98)"
+                          style={styles.deleteIcon}
+                        />
+                        <Text style={styles.deleteText}>Slett vekt</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 </View>
               </View>
@@ -751,5 +785,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#FFFFFF",
     fontWeight: "600",
+  },
+  deleteButton: {
+    marginTop: 10,
+    minHeight: 44,
+    borderRadius: 17,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(127,29,29,0.28)",
+    borderWidth: 1,
+    borderColor: "rgba(248,113,113,0.34)",
+  },
+  deleteIcon: {
+    marginRight: 8,
+  },
+  deleteText: {
+    ...typography.bodyBlack,
+    color: "rgba(254,202,202,0.98)",
+    fontSize: 13,
+    fontWeight: "700",
   },
 });

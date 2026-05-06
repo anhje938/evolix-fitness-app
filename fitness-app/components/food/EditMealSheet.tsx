@@ -1,10 +1,11 @@
-import { generalStyles } from "@/config/styles";
+﻿import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { Food, FoodDto } from "@/types/meal";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Dimensions,
   KeyboardAvoidingView,
   Platform,
@@ -28,6 +29,7 @@ type EditMealSheetProps = {
 
   // Submit updated values
   onSubmit: (mealId: string, values: FoodDto) => Promise<void> | void;
+  onDelete?: (mealId: string) => Promise<void> | void;
 };
 
 const SHEET_MAX_HEIGHT = Dimensions.get("window").height * 0.85;
@@ -51,6 +53,7 @@ export function EditMealSheet({
   onClose,
   meal,
   onSubmit,
+  onDelete,
 }: EditMealSheetProps) {
   const mealId = useMemo(() => (meal ? String(meal.id) : ""), [meal]);
 
@@ -135,6 +138,25 @@ export function EditMealSheet({
     setTimestampUtc(Number.isNaN(dt.getTime()) ? new Date() : dt);
 
     setErrors({});
+  };
+
+  const handleDelete = () => {
+    if (!onDelete) return;
+
+    Alert.alert(
+      "Slette m\u00E5ltid?",
+      `${meal.title?.trim() ? meal.title : "M\u00E5ltidet"} fjernes fra matloggen.`,
+      [
+        { text: "Avbryt", style: "cancel" },
+        {
+          text: "Slett",
+          style: "destructive",
+          onPress: () => {
+            void Promise.resolve(onDelete(mealId));
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -368,6 +390,20 @@ export function EditMealSheet({
                       <Text style={styles.saveText}>Oppdater måltid</Text>
                     </LinearGradient>
                   </TouchableOpacity>
+                  {onDelete ? (
+                    <TouchableOpacity
+                      onPress={handleDelete}
+                      style={styles.deleteButton}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={17}
+                        color="rgba(254,202,202,0.98)"
+                        style={styles.deleteIcon}
+                      />
+                      <Text style={styles.deleteText}>{"Slett m\u00E5ltid"}</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </ScrollView>
               </View>
             </TouchableWithoutFeedback>
@@ -584,6 +620,26 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "600",
   },
+  deleteButton: {
+    marginTop: 10,
+    minHeight: 44,
+    borderRadius: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(127,29,29,0.28)",
+    borderWidth: 1,
+    borderColor: "rgba(248,113,113,0.34)",
+  },
+  deleteIcon: {
+    marginRight: 8,
+  },
+  deleteText: {
+    ...typography.bodyBlack,
+    color: "rgba(254,202,202,0.98)",
+    fontSize: 13,
+    fontWeight: "700",
+  },
 
   errorText: {
     ...typography.bodyBlack,
@@ -599,3 +655,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+

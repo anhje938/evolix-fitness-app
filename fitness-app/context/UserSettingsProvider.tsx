@@ -33,6 +33,7 @@ const INITIAL_USER_SETTINGS: UserSettings = {
   gender: null,
   language: "nb",
   hasCompletedRegistration: false,
+  hasDismissedRegistrationOnboarding: false,
   calorieGoal: 2500,
   proteinGoal: 180,
   fatGoal: 70,
@@ -75,6 +76,10 @@ function mergeWithDefaults(raw: Partial<UserSettings>): UserSettings {
       typeof raw.hasCompletedRegistration === "boolean"
         ? raw.hasCompletedRegistration
         : INITIAL_USER_SETTINGS.hasCompletedRegistration,
+    hasDismissedRegistrationOnboarding:
+      typeof raw.hasDismissedRegistrationOnboarding === "boolean"
+        ? raw.hasDismissedRegistrationOnboarding
+        : INITIAL_USER_SETTINGS.hasDismissedRegistrationOnboarding,
   };
 }
 
@@ -93,6 +98,8 @@ function areSettingsEqual(a: UserSettings, b: UserSettings) {
     a.gender === b.gender &&
     a.language === b.language &&
     a.hasCompletedRegistration === b.hasCompletedRegistration &&
+    a.hasDismissedRegistrationOnboarding ===
+      b.hasDismissedRegistrationOnboarding &&
     a.proteinGoal === b.proteinGoal &&
     a.fatGoal === b.fatGoal &&
     a.carbGoal === b.carbGoal &&

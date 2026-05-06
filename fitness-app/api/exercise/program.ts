@@ -31,8 +31,12 @@ export async function GetProgramsForUser() {
   return data;
 }
 
-export async function PostProgramForUser(name: string) {
-  const body: CreateProgramRequest = { name };
+export async function PostProgramForUser(
+  input: string | CreateProgramRequest,
+  isPremium = false
+) {
+  const body: CreateProgramRequest =
+    typeof input === "string" ? { name: input, isPremium } : input;
   const res = await authedFetch(`${API_BASE_URL}/workoutprogram`, {
     method: "POST",
     body: JSON.stringify(body),
@@ -44,14 +48,40 @@ export async function PostProgramForUser(name: string) {
 
 export async function UpdateProgramForUser(
   id: string,
-  data: { name: string; workoutIds: string[] }
+  data: {
+    name: string;
+    workoutIds: string[];
+    goal?: string | null;
+    level?: string | null;
+    isPremium?: boolean;
+  }
 ) {
+  const body: {
+    name: string;
+    workoutIds: string[];
+    goal?: string | null;
+    level?: string | null;
+    isPremium?: boolean;
+  } = {
+    name: data.name,
+    workoutIds: Array.isArray(data.workoutIds) ? data.workoutIds : [],
+  };
+
+  if (data.goal !== undefined) {
+    body.goal = data.goal;
+  }
+
+  if (data.level !== undefined) {
+    body.level = data.level;
+  }
+
+  if (data.isPremium !== undefined) {
+    body.isPremium = data.isPremium;
+  }
+
   const res = await authedFetch(`${API_BASE_URL}/workoutprogram/${id}`, {
     method: "PUT",
-    body: JSON.stringify({
-      name: data.name,
-      workoutIds: Array.isArray(data.workoutIds) ? data.workoutIds : [],
-    }),
+    body: JSON.stringify(body),
   });
 
   return await res.json();

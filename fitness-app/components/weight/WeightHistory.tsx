@@ -2,18 +2,18 @@ import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { Weight } from "@/types/weight";
 import {
-  dateKeyToUtcDate,
   formatMonthYearNO,
   getOsloDateKey,
   getOsloTodayDateKey,
   parseISO,
+  shiftDateKey,
 } from "@/utils/date";
 import { getRelativeDateLabel } from "@/utils/pastWeek";
 import { weeklyAverageProgression } from "@/utils/weightProgression";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 type WeeklySummaryItem = {
   id: string;
@@ -26,7 +26,6 @@ type WeightHistoryProps = {
   weightList: Weight[];
   weeklySummary: WeeklySummaryItem[];
   onEditWeight?: (weight: Weight) => void;
-  onDeleteWeight?: (weight: Weight) => void;
 };
 
 const DAILY_PAGE_SIZE = 30;
@@ -35,7 +34,6 @@ export default function WeightHistory({
   weightList,
   weeklySummary,
   onEditWeight,
-  onDeleteWeight,
 }: WeightHistoryProps) {
   const [listMode, setListMode] = useState<"daily" | "weekly">("daily");
   const [visibleCount, setVisibleCount] = useState<number>(DAILY_PAGE_SIZE);
@@ -112,17 +110,11 @@ export default function WeightHistory({
   const currentStreak = useMemo(() => {
     if (uniqueDayKeys.size === 0) return 0;
 
-    const cursor = dateKeyToUtcDate(getOsloTodayDateKey());
-    if (!cursor) return 0;
-
     let streak = 0;
-    while (true) {
-      const key = getOsloDateKey(cursor);
-
-      if (!uniqueDayKeys.has(key)) break;
-
+    let currentDateKey = getOsloTodayDateKey();
+    while (currentDateKey && uniqueDayKeys.has(currentDateKey)) {
       streak += 1;
-      cursor.setUTCDate(cursor.getUTCDate() - 1);
+      currentDateKey = shiftDateKey(currentDateKey, -1);
     }
 
     return streak;
@@ -133,6 +125,11 @@ export default function WeightHistory({
       <View style={styles.headerRow}>
         <View style={styles.titleBlock}>
           <Text style={[typography.body, styles.title]}>Vektlogg</Text>
+          {onEditWeight ? (
+            <Text style={[typography.body, styles.titleHint]}>
+              {"Trykk p\u00E5 en rad for \u00E5 redigere"}
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.segment}>
@@ -314,7 +311,29 @@ export default function WeightHistory({
                   </View>
                 )}
 
-                <View style={[generalStyles.newCard, styles.rowCard]}>
+                <Pressable
+                  disabled={!onEditWeight}
+                  onPress={() => onEditWeight?.(weight)}
+                  style={({ pressed }) => [
+                    generalStyles.newCard,
+                    styles.rowCard,
+                    onEditWeight && styles.rowPressable,
+                    pressed && onEditWeight && styles.rowCardPressed,
+                  ]}
+                  accessibilityRole={onEditWeight ? "button" : undefined}
+                  accessibilityLabel="Rediger vekt"
+                >
+                  <LinearGradient
+                    pointerEvents="none"
+                    colors={[
+                      "rgba(255,255,255,0.12)",
+                      "rgba(125,211,252,0.10)",
+                      "rgba(2,6,23,0.02)",
+                    ]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                  />
                   <View style={styles.row}>
                     <View style={styles.iconWrap}>
                       <Ionicons
@@ -364,43 +383,17 @@ export default function WeightHistory({
                       </View>
                     </View>
 
-                    {(onEditWeight || onDeleteWeight) && (
-                      <View style={styles.rowActions}>
-                        {onEditWeight && (
-                          <TouchableOpacity
-                            activeOpacity={0.86}
-                            onPress={() => onEditWeight(weight)}
-                            style={styles.rowActionBtn}
-                            accessibilityRole="button"
-                            accessibilityLabel="Rediger vekt"
-                          >
-                            <Ionicons
-                              name="create-outline"
-                              size={14}
-                              color="rgba(226,232,240,0.9)"
-                            />
-                          </TouchableOpacity>
-                        )}
-
-                        {onDeleteWeight && (
-                          <TouchableOpacity
-                            activeOpacity={0.86}
-                            onPress={() => onDeleteWeight(weight)}
-                            style={[styles.rowActionBtn, styles.rowActionDanger]}
-                            accessibilityRole="button"
-                            accessibilityLabel="Slett vekt"
-                          >
-                            <Ionicons
-                              name="trash-outline"
-                              size={14}
-                              color="rgba(254,202,202,0.96)"
-                            />
-                          </TouchableOpacity>
-                        )}
+                    {onEditWeight ? (
+                      <View style={styles.rowChevronWrap}>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={15}
+                          color="rgba(148,163,184,0.74)"
+                        />
                       </View>
-                    )}
+                    ) : null}
                   </View>
-                </View>
+                </Pressable>
               </View>
             );
           })}
@@ -509,6 +502,12 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     letterSpacing: -0.12,
   },
+  titleHint: {
+    marginTop: 2,
+    color: "rgba(148,163,184,0.84)",
+    fontSize: 10,
+    fontWeight: "400",
+  },
   summaryRow: {
     width: "100%",
     flexDirection: "row",
@@ -526,7 +525,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "rgba(8,15,28,0.62)",
     borderWidth: 1,
-    borderColor: "rgba(56,189,248,0.14)",
+    borderColor: "rgba(125,211,252,0.18)",
   },
   summaryText: {
     ...typography.body,
@@ -575,9 +574,9 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     paddingHorizontal: 12,
     overflow: "hidden",
-    backgroundColor: "rgba(3,7,18,0.46)",
+    backgroundColor: "rgba(10,18,32,0.58)",
     borderWidth: 1,
-    borderColor: "rgba(103,232,249,0.12)",
+    borderColor: "rgba(125,211,252,0.18)",
     shadowColor: "#020617",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.18,
@@ -650,9 +649,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 18,
     marginBottom: 10,
-    backgroundColor: "rgba(3,7,18,0.4)",
+    backgroundColor: "rgba(10,18,32,0.52)",
     borderWidth: 1,
-    borderColor: "rgba(103,232,249,0.1)",
+    borderColor: "rgba(125,211,252,0.16)",
     shadowColor: "#020617",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.14,
@@ -719,14 +718,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     marginBottom: 6,
     borderRadius: 16,
-    backgroundColor: "rgba(3,7,18,0.38)",
+    backgroundColor: "rgba(18,30,52,0.62)",
     borderWidth: 1,
-    borderColor: "rgba(103,232,249,0.08)",
+    borderColor: "rgba(125,211,252,0.16)",
     shadowColor: "#020617",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 1,
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  rowPressable: {
+    overflow: "hidden",
+  },
+  rowCardPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.992 }],
   },
   weekRowCard: {
     marginBottom: 8,
@@ -739,9 +745,9 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 9,
-    backgroundColor: "rgba(8,47,73,0.26)",
+    backgroundColor: "rgba(15,23,42,0.56)",
     borderWidth: 1,
-    borderColor: "rgba(56,189,248,0.14)",
+    borderColor: "rgba(125,211,252,0.18)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 8,
@@ -757,13 +763,19 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     fontSize: 9.5,
-    color: "rgba(191,219,254,0.62)",
+    color: "rgba(224,242,254,0.74)",
     fontWeight: "400",
     marginTop: 1,
   },
   valueCol: {
     alignItems: "flex-end",
     marginLeft: 8,
+  },
+  rowChevronWrap: {
+    marginLeft: 8,
+    paddingLeft: 2,
+    alignItems: "center",
+    justifyContent: "center",
   },
   rowActions: {
     flexDirection: "row",
@@ -798,7 +810,7 @@ const styles = StyleSheet.create({
   },
   weightUnit: {
     fontSize: 9,
-    color: "rgba(191,219,254,0.7)",
+    color: "rgba(224,242,254,0.78)",
     fontWeight: "400",
   },
   diffPill: {

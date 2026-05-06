@@ -8,8 +8,9 @@ export function usePrograms() {
       queryFn: GetProgramsForUser,
       staleTime: 1000 * 60 * 10, // 10 min
       gcTime: 1000 * 60 * 30,
-      refetchOnMount: false,
+      refetchOnMount: true,
       refetchOnWindowFocus: false,
+      retry: 1,
     });
   }
   

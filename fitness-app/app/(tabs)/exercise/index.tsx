@@ -13,6 +13,7 @@ import OverviewTab from "@/components/exercise/sub-tabs/OverviewTab";
 import ProgramTab from "@/components/exercise/sub-tabs/ProgramTab";
 import ProgressTab from "@/components/exercise/sub-tabs/ProgressTab";
 import { WorkoutTab } from "@/components/exercise/sub-tabs/WorkoutTab";
+import { useAuth } from "@/context/AuthProvider";
 import { TrainingTabsProvider } from "@/context/trainingTabsContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
@@ -36,6 +37,7 @@ type PageKey =
 function ExerciseContent() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { authReady, token } = useAuth();
   const [page, setPage] = useState<PageKey>("overview");
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(
     null
@@ -90,6 +92,8 @@ function ExerciseContent() {
   }, [keepPageMounted]);
 
   useEffect(() => {
+    if (!authReady || !token) return;
+
     const task = InteractionManager.runAfterInteractions(() => {
       void Promise.allSettled([
         queryClient.prefetchQuery({
@@ -118,7 +122,7 @@ function ExerciseContent() {
     return () => {
       task.cancel();
     };
-  }, [queryClient]);
+  }, [authReady, queryClient, token]);
 
   const isPageMounted = useCallback(
     (pageKey: PageKey) => mountedPages.includes(pageKey),

@@ -31,6 +31,7 @@ const FALLBACK_SETTINGS: UserSettings = {
   gender: null,
   language: "nb",
   hasCompletedRegistration: false,
+  hasDismissedRegistrationOnboarding: false,
   calorieGoal: 2500,
   proteinGoal: 180,
   fatGoal: 70,
@@ -64,6 +65,7 @@ type BackendSettingsResponse = Partial<UserSettings> & {
   gender?: unknown;
   language?: unknown;
   hasCompletedRegistration?: unknown;
+  hasDismissedRegistrationOnboarding?: unknown;
 };
 
 type UpdateUserSettingsDto = {
@@ -71,6 +73,7 @@ type UpdateUserSettingsDto = {
   gender: UserGender | "";
   language: AppLanguage;
   hasCompletedRegistration: boolean;
+  hasDismissedRegistrationOnboarding: boolean;
   calorieGoal: number;
   proteinGoal: number;
   fatGoal: number;
@@ -317,6 +320,10 @@ function normalizeUserSettings(raw?: BackendSettingsResponse | null): UserSettin
       src.hasCompletedRegistration,
       FALLBACK_SETTINGS.hasCompletedRegistration
     ),
+    hasDismissedRegistrationOnboarding: normalizeBoolean(
+      src.hasDismissedRegistrationOnboarding,
+      FALLBACK_SETTINGS.hasDismissedRegistrationOnboarding
+    ),
     calorieGoal: toSafeInt(src.calorieGoal, FALLBACK_SETTINGS.calorieGoal),
     proteinGoal: toSafeInt(src.proteinGoal, FALLBACK_SETTINGS.proteinGoal),
     fatGoal: toSafeInt(src.fatGoal, FALLBACK_SETTINGS.fatGoal),
@@ -371,6 +378,10 @@ function toBackendDto(settings: UserSettings): UpdateUserSettingsDto {
     hasCompletedRegistration: normalizeBoolean(
       settings.hasCompletedRegistration,
       FALLBACK_SETTINGS.hasCompletedRegistration
+    ),
+    hasDismissedRegistrationOnboarding: normalizeBoolean(
+      settings.hasDismissedRegistrationOnboarding,
+      FALLBACK_SETTINGS.hasDismissedRegistrationOnboarding
     ),
     calorieGoal: toSafeInt(settings.calorieGoal, FALLBACK_SETTINGS.calorieGoal),
     proteinGoal: toSafeInt(settings.proteinGoal, FALLBACK_SETTINGS.proteinGoal),

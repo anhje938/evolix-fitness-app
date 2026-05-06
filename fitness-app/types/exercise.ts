@@ -45,6 +45,8 @@ export type Workout = {
   description: string;
   dayLabel: string;         
   workoutProgramId?: string | null;
+  isPremium?: boolean;
+  workoutProgramIsPremium?: boolean;
   exerciseIds: string[];    
   userId?: string | null;
   isCustom: boolean;
@@ -56,14 +58,26 @@ export type Program = {
   name: string;
   goal: string | null;
   level: string | null;
+  isPremium?: boolean;
   isCustom: boolean;
   userId?: string | null;
 };
 
 
+export type CreateWorkoutInProgramRequest = {
+  name: string;
+  dayLabel?: string;
+  description?: string;
+  isPremium?: boolean;
+  exerciseIds?: string[];
+};
+
 export type CreateProgramRequest = {
   name: string;
-
+  goal?: string;
+  level?: string;
+  isPremium?: boolean;
+  workouts?: CreateWorkoutInProgramRequest[];
 }
 
 

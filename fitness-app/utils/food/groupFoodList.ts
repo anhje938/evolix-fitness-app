@@ -5,7 +5,7 @@ import {
 } from "@/utils/date";
 import { calcTotalMacros } from "./calculateTotalMacros";
 
-// DAILY: grupperer etter Oslo-dato for korrekt "i dag"-visning
+// DAILY: grupperer etter lokal dato for korrekt "i dag"-visning
 export function groupMealsByDate(meals: Food[]) {
   return meals.reduce((acc, meal) => {
     const dateKey = getOsloDateKey(meal.timestampUtc);
@@ -19,7 +19,7 @@ export function groupMealsByDate(meals: Food[]) {
   }, {} as Record<string, Food[]>);
 }
 
-// Groups meals by ISO week based on Oslo date.
+// Groups meals by ISO week based on local date.
 export function groupMealsByWeek(meals: Food[]) {
   return meals.reduce((acc, meal) => {
     const dateKey = getOsloDateKey(meal.timestampUtc);

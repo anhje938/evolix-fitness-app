@@ -93,7 +93,10 @@ export function AddExerciseModal({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={{ maxHeight: 440 }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={{ maxHeight: "90%" }}
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={styles.label}>Navn</Text>
           <TextInput
             style={styles.input}
@@ -126,10 +129,7 @@ export function AddExerciseModal({
                     key={item.value}
                     disabled={isSubmitting}
                     onPress={() => toggleSpecific(item.value)}
-                    style={[
-                      styles.multiChip,
-                      active && styles.multiChipActive,
-                    ]}
+                    style={[styles.multiChip, active && styles.multiChipActive]}
                   >
                     <Text
                       style={[
@@ -217,9 +217,10 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: "#111827",
     width: "100%",
-    maxHeight: "88%",
+    height: "95%",
     borderRadius: 18,
     padding: 22,
+    paddingVertical: 40,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.05)",
   },
@@ -284,7 +285,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   buttonWrapper: {
-    marginTop: 14,
+    marginTop: 24,
   },
   buttonDisabled: {
     opacity: 0.72,

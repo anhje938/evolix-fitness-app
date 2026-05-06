@@ -1,5 +1,7 @@
 import type { CreateExercisePayload, WorkoutSession } from "@/types/exercise";
 import { typography } from "@/config/typography";
+import { Paywall } from "@/components/subscription/Paywall";
+import { useSubscription } from "@/context/SubscriptionProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useWorkoutSession } from "@/context/workoutSessionContext";
 import { type ExerciseSessionSetsDto } from "@/api/exercise/exerchiseHistory";
@@ -343,6 +345,7 @@ export function WorkoutSessionOverlay() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [isSaveSummaryOpen, setIsSaveSummaryOpen] = useState(false);
+  const [isCoachPaywallVisible, setIsCoachPaywallVisible] = useState(false);
   const [isExercisePickerOpen, setIsExercisePickerOpen] = useState(false);
   const [isCreateExerciseOpen, setIsCreateExerciseOpen] = useState(false);
   const [exerciseSearch, setExerciseSearch] = useState("");
@@ -367,6 +370,7 @@ export function WorkoutSessionOverlay() {
   const overlayReveal = useRef(new Animated.Value(0)).current;
   const minimizeInFlightRef = useRef(false);
   const { userSettings } = useUserSettings();
+  const { isPremium } = useSubscription();
   const { data: exerciseData = [], isLoading: isLoadingExercises } =
     useExercises();
   const createExerciseMutation = useCreateExercise();
@@ -1458,9 +1462,16 @@ export function WorkoutSessionOverlay() {
                     coachRecommendation={
                       coachRecommendationsByLocalExerciseId[ex.id] ?? null
                     }
+                    isCoachLocked={!isPremium}
                     previousSets={previousSetsByLocalExerciseId[ex.id] ?? []}
                     onAddSet={() => addSet(ex.id)}
+                    onLockedCoachPress={() => setIsCoachPaywallVisible(true)}
                     onApplyCoachRecommendation={() => {
+                      if (!isPremium) {
+                        setIsCoachPaywallVisible(true);
+                        return;
+                      }
+
                       const recommendation =
                         coachRecommendationsByLocalExerciseId[ex.id];
                       if (!recommendation) return;
@@ -2157,6 +2168,11 @@ export function WorkoutSessionOverlay() {
         useModal={false}
       />
       </Modal>
+      <Paywall
+        visible={isCoachPaywallVisible}
+        onClose={() => setIsCoachPaywallVisible(false)}
+        source="workout-coach"
+      />
     </>
   );
 }

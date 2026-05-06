@@ -179,8 +179,10 @@ type ExerciseBlockProps = {
     reps: number | null;
     weight: number | null;
   }[];
+  isCoachLocked?: boolean;
   onAddSet: () => void;
   onApplyCoachRecommendation?: () => void;
+  onLockedCoachPress?: () => void;
   onUpdateSet: (setId: string, partial: Partial<SessionSet>) => void;
   onRemoveSet: (setId: string) => void;
   onInputFocus?: (input: RNTextInput | null) => void;
@@ -212,10 +214,12 @@ const coachToneMap: Record<
 const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
   recommendation,
   isVisible,
+  isLocked = false,
   onPress,
 }: {
   recommendation: WorkoutCoachRecommendation;
   isVisible: boolean;
+  isLocked?: boolean;
   onPress: () => void;
 }) {
   const tone = coachToneMap[recommendation.status];
@@ -246,6 +250,12 @@ const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
         </View>
 
         <Text style={[typography.body, styles.coachToggleLabel]}>Coach</Text>
+        {isLocked ? (
+          <View style={styles.coachPremiumBadge}>
+            <Ionicons name="lock-closed" size={10} color="#FDE68A" />
+            <Text style={styles.coachPremiumBadgeText}>Premium</Text>
+          </View>
+        ) : null}
       </View>
 
       <View
@@ -258,10 +268,10 @@ const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
         ]}
       >
         <Text style={[styles.coachToggleAction, { color: tone.tint }]}>
-          {isVisible ? "Skjul" : "Vis"}
+          {isLocked ? "Lås opp" : isVisible ? "Skjul" : "Vis"}
         </Text>
         <Ionicons
-          name={isVisible ? "chevron-up" : "chevron-down"}
+          name={isLocked ? "lock-closed" : isVisible ? "chevron-up" : "chevron-down"}
           size={16}
           color={tone.tint}
         />
@@ -411,8 +421,10 @@ export const ExerciseBlock = memo(function ExerciseBlock({
   exercise,
   coachRecommendation,
   previousSets = [],
+  isCoachLocked = false,
   onAddSet,
   onApplyCoachRecommendation,
+  onLockedCoachPress,
   onUpdateSet,
   onRemoveSet,
   onInputFocus,
@@ -585,6 +597,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
 
   const canApplyCoachRecommendation =
     !!coachRecommendation &&
+    !isCoachLocked &&
     exercise.sets.every(
       (set) => !set.completed && set.reps == null && set.weight == null
     );
@@ -666,9 +679,17 @@ export const ExerciseBlock = memo(function ExerciseBlock({
           <WorkoutCoachToggle
             recommendation={coachRecommendation}
             isVisible={isCoachVisible}
-            onPress={() => setIsCoachVisible((current) => !current)}
+            isLocked={isCoachLocked}
+            onPress={() => {
+              if (isCoachLocked) {
+                onLockedCoachPress?.();
+                return;
+              }
+
+              setIsCoachVisible((current) => !current);
+            }}
           />
-          {isCoachVisible ? (
+          {isCoachVisible && !isCoachLocked ? (
             <WorkoutCoachCard
               recommendation={coachRecommendation}
               canApply={canApplyCoachRecommendation}
@@ -1182,6 +1203,24 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: "500",
     letterSpacing: 0.1,
+  },
+
+  coachPremiumBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    backgroundColor: "rgba(251,191,36,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.2)",
+  },
+
+  coachPremiumBadgeText: {
+    color: "#FDE68A",
+    fontSize: 10,
+    fontWeight: "900",
   },
 
   coachToggleStatusBadge: {

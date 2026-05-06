@@ -26,6 +26,9 @@ import {
 import { queryClient } from "@/config/queryClient";
 
 import { WorkoutList } from "@/components/exercise/sub-tabs/workout/WorkoutList";
+import { LockedFeatureCard } from "@/components/subscription/LockedFeatureCard";
+import { Paywall } from "@/components/subscription/Paywall";
+import { useSubscription } from "@/context/SubscriptionProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useWorkoutSession } from "@/context/workoutSessionContext";
 import {
@@ -35,7 +38,7 @@ import {
 import AddButton from "../AddButton";
 
 type StartWorkoutPayload = {
-  workoutProgramId: string; // "manual" fra WorkoutList
+  workoutProgramId: string | null;
   workoutId: string;
   name: string;
   exercises: { exerciseId: string; name: string; muscle?: string | null }[];
@@ -45,8 +48,10 @@ export function WorkoutTab() {
   // ---------- STATE ----------
   const [openCreate, setOpenCreate] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
+  const [paywallVisible, setPaywallVisible] = useState(false);
 
   const { userSettings } = useUserSettings();
+  const { isPremium, isLoading: isSubscriptionLoading } = useSubscription();
 
   // ---------- DATA ----------
   const {
@@ -71,6 +76,12 @@ export function WorkoutTab() {
     if (!userSettings.showOnlyCustomTrainingContent) return all;
     return all.filter(isUserCreatedExercise);
   }, [exerciseData, userSettings.showOnlyCustomTrainingContent]);
+  const shouldShowPremiumWorkoutTeaser =
+    !isPremium &&
+    !workouts.some(
+      (workout) =>
+        workout.isPremium === true || workout.workoutProgramIsPremium === true
+    );
 
   // ---------- WORKOUT SESSION (OVERLAY) ----------
   const { openProgramSession } = useWorkoutSession();
@@ -148,7 +159,7 @@ export function WorkoutTab() {
     openProgramSession({
       name: payload.name,
       workoutId: payload.workoutId,
-      workoutProgramId: null, // ✅ manual workouts are not tied to a program
+      workoutProgramId: payload.workoutProgramId,
       exercises: payload.exercises,
     });
   };
@@ -199,6 +210,18 @@ export function WorkoutTab() {
           <AddButton open={openCreate} setOpen={setOpenCreate} />
         </View>
 
+        {shouldShowPremiumWorkoutTeaser && (
+          <View style={styles.premiumTeaser}>
+            <LockedFeatureCard
+              title="Premiumøkter"
+              description="Lås opp ferdige premiumøkter når de slippes."
+              isLoading={isSubscriptionLoading}
+              compact
+              onPress={() => setPaywallVisible(true)}
+            />
+          </View>
+        )}
+
         {/* LISTE */}
         <WorkoutList
           workouts={workouts}
@@ -207,6 +230,13 @@ export function WorkoutTab() {
           onStart={handleStartWorkout} // ✅ payload signature
         />
       </ScrollView>
+
+      <Paywall
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        onUnlocked={() => setPaywallVisible(false)}
+        source="premium-workout-empty"
+      />
 
       {/* CREATE MODAL */}
       <AddWorkoutModal
@@ -250,4 +280,5 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   heading: { color: newColors.text.primary },
+  premiumTeaser: { marginBottom: 14 },
 });

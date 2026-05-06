@@ -17,6 +17,7 @@ import { PostWorkoutForUser } from "@/api/exercise/workout"; // ✅ NEW
 import { queryClient } from "@/config/queryClient";
 import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
+import { useSubscription } from "@/context/SubscriptionProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useExercises } from "@/hooks/useExercises";
 import { usePrograms } from "@/hooks/usePrograms";
@@ -28,6 +29,8 @@ import {
 } from "@/utils/exercise/isUserCreated";
 
 import AddButton from "../AddButton";
+import { LockedFeatureCard } from "@/components/subscription/LockedFeatureCard";
+import { Paywall } from "@/components/subscription/Paywall";
 import CreateProgramModal from "./program/CreateProgramModal";
 import EditProgramModal from "./program/EditProgramModal";
 import { ProgramList } from "./program/ProgramList";
@@ -35,7 +38,9 @@ import { ProgramList } from "./program/ProgramList";
 export default function ProgramTab() {
   const [openCreate, setOpenCreate] = useState(false);
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
+  const [paywallVisible, setPaywallVisible] = useState(false);
   const { userSettings } = useUserSettings();
+  const { isPremium, isLoading: isSubscriptionLoading } = useSubscription();
 
   // UI states for mutations (bug-proof)
   const [busy, setBusy] = useState<"create" | "edit" | "delete" | null>(null);
@@ -69,6 +74,8 @@ export default function ProgramTab() {
 
   const isLoading = loadingPrograms || loadingWorkouts;
   const hasError = !!programsError || !!workoutsError;
+  const shouldShowPremiumProgramTeaser =
+    !isPremium && !programs.some((program) => program.isPremium === true);
 
   const refreshAll = async () => {
     setUiError(null);
@@ -273,14 +280,32 @@ export default function ProgramTab() {
       )}
 
       {/* LISTE */}
+      {shouldShowPremiumProgramTeaser && (
+        <LockedFeatureCard
+          title="Premiumprogrammer"
+          description="Subscriber-programmer vises her når de er lagt inn. Lås opp Premium for å starte dem når de er tilgjengelige."
+          isLoading={isSubscriptionLoading}
+          compact
+          onPress={() => setPaywallVisible(true)}
+        />
+      )}
+
+      {/* LISTE */}
       <ProgramList
-        programs={programs}
-        workoutsByProgramId={workoutsByProgramId}
-        exerciseMap={exerciseMap}
-        onEdit={(programId) => {
-          const p = programs.find((x) => x.id === programId);
-          if (p) setEditingProgram(p);
-        }}
+          programs={programs}
+          workoutsByProgramId={workoutsByProgramId}
+          exerciseMap={exerciseMap}
+          onEdit={(programId) => {
+            const p = programs.find((x) => x.id === programId);
+            if (p) setEditingProgram(p);
+          }}
+        />
+
+      <Paywall
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        onUnlocked={() => setPaywallVisible(false)}
+        source="premium-program-empty"
       />
 
       {/* CREATE MODAL */}

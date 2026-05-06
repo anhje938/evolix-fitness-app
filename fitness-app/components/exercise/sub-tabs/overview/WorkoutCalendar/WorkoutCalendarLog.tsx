@@ -1,9 +1,9 @@
 import { CompletedWorkoutSummaryDto } from "@/api/exercise/completedWorkouts";
 import {
-  dateKeyToUtcDate,
   getDateKeyEpochDay,
   getOsloDateKey,
   getOsloTodayDateKey,
+  shiftDateKey,
 } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import React, { memo, useMemo, useState } from "react";
@@ -92,16 +92,15 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
 
     if (sortedDates.length > 0) {
       let streak = 0;
-      const checkDate = dateKeyToUtcDate(todayDateKey);
+      let checkDateKey = todayDateKey;
 
-      for (let i = 0; i < 365 && checkDate; i++) {
-        const dateKey = getOsloDateKey(checkDate);
-        if (byDate.has(dateKey)) {
+      for (let i = 0; i < 365 && checkDateKey; i++) {
+        if (byDate.has(checkDateKey)) {
           streak++;
         } else if (i > 0) {
           break;
         }
-        checkDate.setUTCDate(checkDate.getUTCDate() - 1);
+        checkDateKey = shiftDateKey(checkDateKey, -1);
       }
       currentStreak = streak;
 

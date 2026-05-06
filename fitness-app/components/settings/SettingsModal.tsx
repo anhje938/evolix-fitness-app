@@ -1,8 +1,12 @@
 import { clearStoredAuthSession } from "@/api/authSession";
 import CloseIcon from "@/assets/icons/white-x.svg";
-import { GLOBAL_IOS_KEYBOARD_ACCESSORY_ID } from "@/components/common/GlobalKeyboardAccessory";
+import {
+  GLOBAL_IOS_KEYBOARD_ACCESSORY_ID,
+  GlobalKeyboardAccessory,
+} from "@/components/common/GlobalKeyboardAccessory";
 import { AppDateTimePicker } from "@/components/date/AppDateTimePicker";
 import { typography } from "@/config/typography";
+import { useSubscription } from "@/context/SubscriptionProvider";
 import {
   ADVANCED_MUSCLE_FILTERS,
   type AdvancedMuscleFilterValue,
@@ -16,6 +20,7 @@ import {
   type UserGender,
 } from "@/types/userSettings";
 import { getFutureUtcNoonIsoDate, toUtcNoonIsoDate } from "@/utils/date";
+import Constants from "expo-constants";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -113,6 +118,7 @@ const INITIAL_SETTINGS: UserSettings = {
   gender: null,
   language: "nb",
   hasCompletedRegistration: false,
+  hasDismissedRegistrationOnboarding: false,
   calorieGoal: 2500,
   proteinGoal: 180,
   fatGoal: 70,
@@ -144,7 +150,10 @@ type Props = {
 
   onLogout?: () => Promise<void> | void;
   onDeleteAccount?: () => Promise<void> | void;
-  onSeedMockData?: () => Promise<MockDataSeedResult | void> | MockDataSeedResult | void;
+  onSeedMockData?: () =>
+    | Promise<MockDataSeedResult | void>
+    | MockDataSeedResult
+    | void;
 };
 
 type MockDataSeedResult = {
@@ -170,9 +179,10 @@ const ALL_HOME_SECTIONS: HomeSectionKey[] = [
   "weight",
   "recoveryMap",
 ];
-const ALL_RECOVERY_MUSCLES: RecoveryMapMuscleKey[] = ADVANCED_MUSCLE_FILTERS.filter(
-  (item) => item.value !== "ALL"
-).map((item) => item.value as RecoveryMapMuscleKey);
+const ALL_RECOVERY_MUSCLES: RecoveryMapMuscleKey[] =
+  ADVANCED_MUSCLE_FILTERS.filter((item) => item.value !== "ALL").map(
+    (item) => item.value as RecoveryMapMuscleKey
+  );
 const GENDER_OPTIONS: { value: UserGender; label: string }[] = [
   { value: "male", label: "Mann" },
   { value: "female", label: "Kvinne" },
@@ -242,7 +252,9 @@ function normalizeHomeSectionOrder(input: unknown): HomeSectionKey[] {
   return next;
 }
 
-function normalizeRecoveryMapHiddenMuscles(input: unknown): RecoveryMapMuscleKey[] {
+function normalizeRecoveryMapHiddenMuscles(
+  input: unknown
+): RecoveryMapMuscleKey[] {
   if (!Array.isArray(input)) return [];
 
   const next: RecoveryMapMuscleKey[] = [];
@@ -271,7 +283,9 @@ function toggleRecoveryMuscleVisibility(
 }
 
 function toRecoveryMuscleLabel(value: AdvancedMuscleFilterValue): string {
-  const fromConfig = ADVANCED_MUSCLE_FILTERS.find((item) => item.value === value);
+  const fromConfig = ADVANCED_MUSCLE_FILTERS.find(
+    (item) => item.value === value
+  );
   return fromConfig?.label ?? String(value);
 }
 
@@ -295,6 +309,10 @@ export default function SettingsModal({
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isSeedingMockData, setIsSeedingMockData] = useState(false);
+  const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
+  const [isRefreshingSubscription, setIsRefreshingSubscription] =
+    useState(false);
+  const subscription = useSubscription();
 
   const isControlled = !!userSettings && !!onChangeUserSettings;
 
@@ -349,7 +367,7 @@ export default function SettingsModal({
         goals: "Dagens mål",
         weight: "Vektoversikt",
         recoveryMap: "Restitusjonskart",
-      }) satisfies Record<HomeSectionKey, string>,
+      } satisfies Record<HomeSectionKey, string>),
     []
   );
 
@@ -362,9 +380,15 @@ export default function SettingsModal({
     [sectionLabels, settings.homeSectionOrder]
   );
 
+  const appVersion = Constants.expoConfig?.version ?? "1.0.0";
+  const subscriptionStatusText = subscription.isPremium
+    ? "Premium aktiv"
+    : subscription.isLoading
+    ? "Sjekker status"
+    : "Premium inaktiv";
+
   const hiddenRecoveryMuscles = useMemo(
-    () =>
-      normalizeRecoveryMapHiddenMuscles(settings.recoveryMapHiddenMuscles),
+    () => normalizeRecoveryMapHiddenMuscles(settings.recoveryMapHiddenMuscles),
     [settings.recoveryMapHiddenMuscles]
   );
 
@@ -558,6 +582,52 @@ export default function SettingsModal({
     );
   };
 
+  const handleRestorePurchases = async () => {
+    if (isRestoringPurchases) return;
+
+    try {
+      setIsRestoringPurchases(true);
+      const result = await subscription.restorePurchases();
+      Alert.alert(
+        result.status === "restored"
+          ? "Premium er aktiv"
+          : "Fant ingen aktive kjøp",
+        result.status === "restored"
+          ? "Kjøpene dine er gjenopprettet."
+          : "Vi fant ingen aktive kjøp på denne kontoen."
+      );
+    } catch {
+      Alert.alert("Kunne ikke gjenopprette kjøp", "Prøv igjen om litt.");
+    } finally {
+      setIsRestoringPurchases(false);
+    }
+  };
+
+  const handleRefreshSubscription = async () => {
+    if (isRefreshingSubscription) return;
+
+    try {
+      setIsRefreshingSubscription(true);
+      await subscription.refreshCustomerInfo();
+    } catch {
+      Alert.alert("Kunne ikke oppdatere status", "Prøv igjen om litt.");
+    } finally {
+      setIsRefreshingSubscription(false);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    if (!subscription.managementURL) {
+      Alert.alert(
+        "Ingen abonnementlenke",
+        "RevenueCat har ikke sendt en administrasjonslenke for denne brukeren."
+      );
+      return;
+    }
+
+    await subscription.openManageSubscription();
+  };
+
   return (
     <Modal visible={visible} animationType="fade" transparent>
       <View style={styles.overlay}>
@@ -653,6 +723,100 @@ export default function SettingsModal({
                     </TouchableOpacity>
                   </View>
 
+                  <View style={styles.section}>
+                    <Text style={[typography.bodyBold, styles.sectionTitle]}>
+                      Abonnement
+                    </Text>
+
+                    <View style={[styles.settingsItemBox, styles.stackItem]}>
+                      <View style={styles.subscriptionStatusRow}>
+                        <View style={styles.itemTextBox}>
+                          <Text style={[typography.body, styles.itemText]}>
+                            Premiumstatus
+                          </Text>
+                          <Text style={[typography.body, styles.itemSubtext]}>
+                            {subscriptionStatusText}
+                          </Text>
+                        </View>
+
+                        <View
+                          style={[
+                            styles.subscriptionBadge,
+                            subscription.isPremium &&
+                              styles.subscriptionBadgeActive,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.subscriptionBadgeText,
+                              subscription.isPremium &&
+                                styles.subscriptionBadgeTextActive,
+                            ]}
+                          >
+                            {subscription.isPremium ? "Aktiv" : "Inaktiv"}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.subscriptionActions}>
+                        <Pressable
+                          onPress={handleRestorePurchases}
+                          disabled={isRestoringPurchases}
+                          style={({ pressed }) => [
+                            styles.subscriptionActionBtn,
+                            pressed && styles.pressed,
+                            isRestoringPurchases && styles.disabledAction,
+                          ]}
+                        >
+                          <Text style={styles.subscriptionActionText}>
+                            {isRestoringPurchases
+                              ? "Gjenoppretter..."
+                              : "Gjenopprett kjøp"}
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          onPress={handleManageSubscription}
+                          disabled={!subscription.managementURL}
+                          style={({ pressed }) => [
+                            styles.subscriptionActionBtn,
+                            pressed && styles.pressed,
+                            !subscription.managementURL &&
+                              styles.disabledAction,
+                          ]}
+                        >
+                          <Text style={styles.subscriptionActionText}>
+                            Administrer
+                          </Text>
+                        </Pressable>
+                      </View>
+
+                      <Pressable
+                        onPress={handleRefreshSubscription}
+                        disabled={isRefreshingSubscription}
+                        style={({ pressed }) => [
+                          styles.subscriptionRefreshBtn,
+                          pressed && styles.pressed,
+                          isRefreshingSubscription && styles.disabledAction,
+                        ]}
+                      >
+                        <Text style={styles.subscriptionRefreshText}>
+                          {isRefreshingSubscription
+                            ? "Oppdaterer..."
+                            : "Oppdater abonnementsstatus"}
+                        </Text>
+                      </Pressable>
+
+                      <Text style={[typography.body, styles.supportInfoText]}>
+                        {`Support: userId ${
+                          subscription.appUserId ?? "ukjent"
+                        } | RevenueCat ${
+                          subscription.revenueCatAppUserId ?? "ikke klar"
+                        } | v${appVersion}`}
+                      </Text>
+                    </View>
+                  </View>
+
                   {/* OM APPEN */}
                   <View style={styles.section}>
                     <Text style={[typography.bodyBold, styles.sectionTitle]}>
@@ -680,7 +844,7 @@ export default function SettingsModal({
                         </Text>
                       </View>
                       <Text style={[typography.body, styles.valueText]}>
-                        v1.0.0
+                        v{appVersion}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -785,8 +949,7 @@ export default function SettingsModal({
                 </>
               ) : (
                 <>
-                  {(isLoadingUserSettings ||
-                    !!userSettingsError) && (
+                  {(isLoadingUserSettings || !!userSettingsError) && (
                     <View
                       style={[
                         styles.syncInfoBox,
@@ -830,6 +993,7 @@ export default function SettingsModal({
                         </Text>
                       </View>
 
+                      <GlobalKeyboardAccessory />
                       <TextInput
                         {...settingsInputProps}
                         value={settings.age ? String(settings.age) : ""}
@@ -838,11 +1002,14 @@ export default function SettingsModal({
                             age: clampOptionalAge(t),
                           })
                         }
-                        onEndEditing={() => saveSettingsNow({ age: settings.age })}
+                        onEndEditing={() =>
+                          saveSettingsNow({ age: settings.age })
+                        }
                         keyboardType="number-pad"
                         style={[typography.body, styles.inputValue]}
                         placeholder="0"
                         placeholderTextColor="rgba(148,163,184,0.6)"
+                        inputAccessoryViewID={GLOBAL_IOS_KEYBOARD_ACCESSORY_ID}
                       />
                     </View>
 
@@ -1058,7 +1225,9 @@ export default function SettingsModal({
                           {"Dato for vekt\u00e5l"}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          {"N\u00e5r vil du at m\u00e5lvekten skal v\u00e6re n\u00e5dd?"}
+                          {
+                            "N\u00e5r vil du at m\u00e5lvekten skal v\u00e6re n\u00e5dd?"
+                          }
                         </Text>
                       </View>
 
@@ -1143,7 +1312,8 @@ export default function SettingsModal({
                           Egne treningsdata
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Vis alle eller bare selvlagde øvelser, økter og program
+                          Vis alle eller bare selvlagde øvelser, økter og
+                          program
                         </Text>
                       </View>
 
@@ -1206,7 +1376,9 @@ export default function SettingsModal({
                           Matcoach
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          {"Bruk matcoach for kalorir\u00e5d mot vektm\u00e5let"}
+                          {
+                            "Bruk matcoach for kalorir\u00e5d mot vektm\u00e5let"
+                          }
                         </Text>
                       </View>
 
@@ -1231,7 +1403,9 @@ export default function SettingsModal({
                         </Pressable>
 
                         <Pressable
-                          onPress={() => updateSettings({ useFoodCoach: false })}
+                          onPress={() =>
+                            updateSettings({ useFoodCoach: false })
+                          }
                           style={({ pressed }) => [
                             styles.segmentBtn,
                             !settings.useFoodCoach && styles.segmentBtnActive,
@@ -1242,7 +1416,8 @@ export default function SettingsModal({
                             style={[
                               typography.bodyBold,
                               styles.segmentText,
-                              !settings.useFoodCoach && styles.segmentTextActive,
+                              !settings.useFoodCoach &&
+                                styles.segmentTextActive,
                             ]}
                           >
                             Nei
@@ -1257,7 +1432,9 @@ export default function SettingsModal({
                           Treningscoach
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          {"Vis coach i \u00f8ktloggingen med forslag per \u00f8velse"}
+                          {
+                            "Vis coach i \u00f8ktloggingen med forslag per \u00f8velse"
+                          }
                         </Text>
                       </View>
 
@@ -1268,8 +1445,7 @@ export default function SettingsModal({
                           }
                           style={({ pressed }) => [
                             styles.segmentBtn,
-                            settings.useWorkoutCoach &&
-                              styles.segmentBtnActive,
+                            settings.useWorkoutCoach && styles.segmentBtnActive,
                             pressed && styles.pressed,
                           ]}
                         >
@@ -1316,7 +1492,8 @@ export default function SettingsModal({
                           Muskler i restitusjonskart
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Standard er alle. Trykk for å skjule eller vise muskler.
+                          Standard er alle. Trykk for å skjule eller vise
+                          muskler.
                         </Text>
                       </View>
 
@@ -1330,7 +1507,12 @@ export default function SettingsModal({
                             pressed && styles.pressed,
                           ]}
                         >
-                          <Text style={[typography.bodyBold, styles.recoveryActionText]}>
+                          <Text
+                            style={[
+                              typography.bodyBold,
+                              styles.recoveryActionText,
+                            ]}
+                          >
                             Vis alle
                           </Text>
                         </Pressable>
@@ -1338,7 +1520,9 @@ export default function SettingsModal({
                         <Pressable
                           onPress={() =>
                             updateSettings({
-                              recoveryMapHiddenMuscles: [...ALL_RECOVERY_MUSCLES],
+                              recoveryMapHiddenMuscles: [
+                                ...ALL_RECOVERY_MUSCLES,
+                              ],
                             })
                           }
                           style={({ pressed }) => [
@@ -1346,7 +1530,12 @@ export default function SettingsModal({
                             pressed && styles.pressed,
                           ]}
                         >
-                          <Text style={[typography.bodyBold, styles.recoveryActionText]}>
+                          <Text
+                            style={[
+                              typography.bodyBold,
+                              styles.recoveryActionText,
+                            ]}
+                          >
                             Skjul alle
                           </Text>
                         </Pressable>
@@ -1354,7 +1543,8 @@ export default function SettingsModal({
 
                       <View style={styles.chipRow}>
                         {ALL_RECOVERY_MUSCLES.map((muscle) => {
-                          const isVisible = !hiddenRecoveryMuscles.includes(muscle);
+                          const isVisible =
+                            !hiddenRecoveryMuscles.includes(muscle);
 
                           return (
                             <Pressable
@@ -1853,6 +2043,74 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  subscriptionStatusRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  subscriptionBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.22)",
+    backgroundColor: "rgba(148,163,184,0.08)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  subscriptionBadgeActive: {
+    borderColor: "rgba(74,222,128,0.32)",
+    backgroundColor: "rgba(34,197,94,0.12)",
+  },
+  subscriptionBadgeText: {
+    color: "rgba(203,213,225,0.92)",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  subscriptionBadgeTextActive: {
+    color: "#BBF7D0",
+  },
+  subscriptionActions: {
+    width: "100%",
+    flexDirection: "row",
+    gap: 10,
+  },
+  subscriptionActionBtn: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(125,211,252,0.2)",
+    backgroundColor: "rgba(8,47,73,0.34)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  subscriptionActionText: {
+    color: "rgba(226,232,240,0.95)",
+    fontSize: 12.5,
+    fontWeight: "800",
+  },
+  subscriptionRefreshBtn: {
+    minHeight: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.18)",
+    backgroundColor: "rgba(255,255,255,0.035)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  subscriptionRefreshText: {
+    color: "rgba(203,213,225,0.92)",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  supportInfoText: {
+    color: "rgba(148,163,184,0.82)",
+    fontSize: 11,
+    lineHeight: 16,
   },
   stackItem: {
     flexDirection: "column",

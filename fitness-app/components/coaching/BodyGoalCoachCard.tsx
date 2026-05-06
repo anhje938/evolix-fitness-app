@@ -364,14 +364,11 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     paddingHorizontal: 18,
     paddingVertical: 18,
-    marginTop: 16,
   },
   cardCompact: {
     borderRadius: 22,
     paddingHorizontal: 14,
     paddingVertical: 14,
-    marginTop: 0,
-    marginBottom: 18,
   },
   cardCollapsed: {
     paddingBottom: 12,

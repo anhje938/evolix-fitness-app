@@ -6,6 +6,7 @@ import {
 import { queryClient } from "@/config/queryClient";
 import { RegistrationOnboardingModal } from "@/components/settings/RegistrationOnboardingModal";
 import { AuthProvider, useAuth } from "@/context/AuthProvider";
+import { SubscriptionProvider } from "@/context/SubscriptionProvider";
 import { UserSettingsProvider } from "@/context/UserSettingsProvider";
 import {
   WorkoutSessionProvider,
@@ -85,15 +86,17 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
-          <WorkoutSessionProvider>
-            <UserSettingsProvider>
-              <AuthStateCleanup />
-              <Stack screenOptions={{ headerShown: false }} />
-              <WorkoutSessionOverlay />
-              <RegistrationOnboardingModal />
-              <GlobalKeyboardAccessory />
-            </UserSettingsProvider>
-          </WorkoutSessionProvider>
+          <SubscriptionProvider>
+            <WorkoutSessionProvider>
+              <UserSettingsProvider>
+                <AuthStateCleanup />
+                <Stack screenOptions={{ headerShown: false }} />
+                <WorkoutSessionOverlay />
+                <RegistrationOnboardingModal />
+                <GlobalKeyboardAccessory />
+              </UserSettingsProvider>
+            </WorkoutSessionProvider>
+          </SubscriptionProvider>
         </AuthProvider>
       </GestureHandlerRootView>
     </QueryClientProvider>

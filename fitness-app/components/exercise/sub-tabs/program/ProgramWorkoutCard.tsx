@@ -1,9 +1,11 @@
 // components/exercise/sub-tabs/program/ProgramWorkoutCard.tsx
 import { typography } from "@/config/typography";
+import { Paywall } from "@/components/subscription/Paywall";
+import { useSubscription } from "@/context/SubscriptionProvider";
 import type { Exercise, Workout } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { memo, useMemo } from "react";
+import React, { memo, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 const colors = {
@@ -60,6 +62,8 @@ export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
   exerciseMap,
   onStart,
 }: Props) {
+  const { isPremium } = useSubscription();
+  const [paywallVisible, setPaywallVisible] = useState(false);
   const exercisesForWorkout = useMemo(() => {
     return (workout.exerciseIds ?? [])
       .map((id) => exerciseMap.get(id))
@@ -84,6 +88,9 @@ export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
   }, [workout.exerciseIds, exerciseMap]);
 
   const subtitle = workout.dayLabel || workout.description || "";
+  const requiresPremium =
+    workout.isPremium === true || workout.workoutProgramIsPremium === true;
+  const isWorkoutLocked = requiresPremium && !isPremium;
 
   return (
     <View style={styles.cardOuter}>
@@ -126,6 +133,13 @@ export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
               >
                 {workout.name}
               </Text>
+
+              {requiresPremium && (
+                <View style={styles.premiumBadge}>
+                  <Ionicons name="lock-closed" size={10} color="#FDE68A" />
+                  <Text style={styles.premiumBadgeText}>Premium</Text>
+                </View>
+              )}
 
               {chipExercises.total > 0 && (
                 <View style={styles.countPill}>
@@ -188,14 +202,19 @@ export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
           </View>
 
           <Pressable
-            onPress={() =>
+            onPress={() => {
+              if (isWorkoutLocked) {
+                setPaywallVisible(true);
+                return;
+              }
+
               onStart({
                 workoutProgramId: programId,
                 workoutId: workout.id,
                 name: workout.name,
                 exercises: exercisesForWorkout,
-              })
-            }
+              });
+            }}
             hitSlop={10}
             style={({ pressed }) => [
               styles.startBtn,
@@ -208,17 +227,28 @@ export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
               end={{ x: 1, y: 1 }}
               style={styles.startBtnInner}
             >
-              <Ionicons name="play" size={14} color="white" />
+              <Ionicons
+                name={isWorkoutLocked ? "lock-closed" : "play"}
+                size={14}
+                color="white"
+              />
               <Text
                 style={[typography.bodyBold, styles.startText]}
                 numberOfLines={1}
               >
-                Start
+                {isWorkoutLocked ? "Lås opp" : "Start"}
               </Text>
             </LinearGradient>
           </Pressable>
         </View>
       </View>
+
+      <Paywall
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        onUnlocked={() => setPaywallVisible(false)}
+        source="premium-workout"
+      />
     </View>
   );
 });
@@ -286,6 +316,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+  },
+  premiumBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    backgroundColor: "rgba(251,191,36,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.2)",
+  },
+  premiumBadgeText: {
+    color: "#FDE68A",
+    fontSize: 10,
+    fontWeight: "900",
   },
   title: {
     color: colors.text,

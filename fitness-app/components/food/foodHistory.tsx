@@ -1,12 +1,12 @@
-import { generalStyles } from "@/config/styles";
+﻿import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import type { Food } from "@/types/meal";
 import {
-  dateKeyToUtcDate,
   formatDateKeyNO,
   formatDateKeyWeekdayNO,
   formatTimeNO,
   getOsloTodayDateKey,
+  shiftDateKey,
 } from "@/utils/date";
 import { calcTotalMacros } from "@/utils/food/calculateTotalMacros";
 import {
@@ -15,7 +15,7 @@ import {
 } from "@/utils/food/groupFoodList";
 import { Fontisto, Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const PAGE_SIZE = 50;
 
@@ -24,7 +24,6 @@ type FoodHistoryProps = {
   excludedFoodCoachDateKeys: string[];
   onToggleFoodCoachDate: (dateKey: string) => void;
   onEditMeal?: (meal: Food) => void;
-  onDeleteMeal?: (mealId: string) => void;
 };
 
 export function FoodHistory({
@@ -32,7 +31,6 @@ export function FoodHistory({
   excludedFoodCoachDateKeys,
   onToggleFoodCoachDate,
   onEditMeal,
-  onDeleteMeal,
 }: FoodHistoryProps) {
   const [listMode, setListMode] = useState<"daily" | "weekly">("daily");
   const [dailyVisible, setDailyVisible] = useState(PAGE_SIZE);
@@ -59,13 +57,14 @@ export function FoodHistory({
   );
   const latestFiveCalendarDateSet = useMemo(() => {
     const set = new Set<string>();
-    const today = dateKeyToUtcDate(getOsloTodayDateKey());
+    const today = getOsloTodayDateKey();
     if (!today) return set;
 
     for (let i = 0; i < 5; i += 1) {
-      const d = new Date(today);
-      d.setUTCDate(today.getUTCDate() - i);
-      set.add(d.toISOString().slice(0, 10));
+      const dateKey = shiftDateKey(today, -i);
+      if (dateKey) {
+        set.add(dateKey);
+      }
     }
 
     return set;
@@ -273,9 +272,23 @@ export function FoodHistory({
 
             {mealsPerDate.map((meal, idx) => {
               const isLast = idx === mealsPerDate.length - 1;
+              const isClickable = !!onEditMeal;
 
               return (
-                <View key={meal.id} style={styles.mealRow}>
+                <Pressable
+                  key={meal.id}
+                  disabled={!isClickable}
+                  onPress={() => onEditMeal?.(meal)}
+                  style={({ pressed }) => [
+                    styles.mealRow,
+                    isClickable && styles.mealRowPressable,
+                    pressed && isClickable && styles.mealRowPressed,
+                  ]}
+                  accessibilityRole={isClickable ? "button" : undefined}
+                  accessibilityLabel={
+                    isClickable ? "Rediger m\u00E5ltid" : undefined
+                  }
+                >
                   <View style={styles.mealIconWrap}>
                     <Fontisto
                       name="shopping-basket"
@@ -314,44 +327,18 @@ export function FoodHistory({
                     </View>
                   </View>
 
-                  {(onEditMeal || onDeleteMeal) && (
-                    <View style={styles.mealActions}>
-                      {onEditMeal && (
-                        <TouchableOpacity
-                          activeOpacity={0.86}
-                          onPress={() => onEditMeal(meal)}
-                          style={styles.mealActionBtn}
-                          accessibilityRole="button"
-                          accessibilityLabel="Rediger måltid"
-                        >
-                          <Ionicons
-                            name="create-outline"
-                            size={13}
-                            color="rgba(226,232,240,0.9)"
-                          />
-                        </TouchableOpacity>
-                      )}
-
-                      {onDeleteMeal && (
-                        <TouchableOpacity
-                          activeOpacity={0.86}
-                          onPress={() => onDeleteMeal(String(meal.id))}
-                          style={[styles.mealActionBtn, styles.mealActionDanger]}
-                          accessibilityRole="button"
-                          accessibilityLabel="Slett måltid"
-                        >
-                          <Ionicons
-                            name="trash-outline"
-                            size={13}
-                            color="rgba(254,202,202,0.96)"
-                          />
-                        </TouchableOpacity>
-                      )}
+                  {isClickable ? (
+                    <View style={styles.mealChevronWrap}>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={15}
+                        color="rgba(148,163,184,0.72)"
+                      />
                     </View>
-                  )}
+                  ) : null}
 
                   {!isLast && <View style={styles.rowDivider} />}
-                </View>
+                </Pressable>
               );
             })}
           </View>
@@ -407,6 +394,11 @@ export function FoodHistory({
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
           <Text style={[typography.body, styles.headerTitle]}>Matlogg</Text>
+          {onEditMeal ? (
+            <Text style={[typography.body, styles.headerHint]}>
+              {"Trykk p\u00E5 et m\u00E5ltid for \u00E5 redigere"}
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.segment}>
@@ -621,6 +613,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "400",
     letterSpacing: 0.1,
+  },
+  headerHint: {
+    marginTop: 2,
+    color: "rgba(148,163,184,0.84)",
+    fontSize: 10,
+    fontWeight: "400",
   },
 
   segment: {
@@ -935,6 +933,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     position: "relative",
   },
+  mealRowPressable: {
+    borderRadius: 12,
+    paddingHorizontal: 4,
+    marginHorizontal: -4,
+  },
+  mealRowPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.995 }],
+  },
 
   mealIconWrap: {
     width: 26,
@@ -970,25 +977,10 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     marginLeft: 8,
   },
-  mealActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
+  mealChevronWrap: {
     marginLeft: 8,
-  },
-  mealActionBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(15,23,42,0.62)",
-    borderWidth: 0.8,
-    borderColor: "rgba(148,163,184,0.14)",
-  },
-  mealActionDanger: {
-    backgroundColor: "rgba(127,29,29,0.18)",
-    borderColor: "rgba(248,113,113,0.22)",
   },
 
   mealKcal: {
@@ -1157,3 +1149,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.05,
   },
 });
+

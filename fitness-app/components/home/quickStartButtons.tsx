@@ -1,82 +1,128 @@
 import { typography } from "@/config/typography";
+import { useWorkoutSession } from "@/context/workoutSessionContext";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import QuickStartWorkout from "../exercise/sub-tabs/overview/QuickStartWorkout";
+import React, { useCallback, type ReactNode } from "react";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 
-export default function QuickStartButtons() {
+type Props = {
+  style?: StyleProp<ViewStyle>;
+  onLogMealPress?: () => void;
+  onLogWeightPress?: () => void;
+};
+
+type ActionConfig = {
+  key: "meal" | "weight" | "workout";
+  title: string;
+  accent: [string, string];
+  glow: [string, string, string];
+  icon: ReactNode;
+};
+
+const ACTIONS: ActionConfig[] = [
+  {
+    key: "meal",
+    title: "Logg måltid",
+    accent: ["#2A2F3A", "#1B4DFF"],
+    glow: [
+      "rgba(59,130,246,0.22)",
+      "rgba(59,130,246,0.08)",
+      "rgba(59,130,246,0.00)",
+    ],
+    icon: <Ionicons name="restaurant-outline" size={16} color="#93C5FD" />,
+  },
+  {
+    key: "weight",
+    title: "Logg vekt",
+    accent: ["#22C55E", "#15803D"],
+    glow: [
+      "rgba(34,197,94,0.22)",
+      "rgba(34,197,94,0.08)",
+      "rgba(34,197,94,0.00)",
+    ],
+    icon: <Ionicons name="scale-outline" size={16} color="#86EFAC" />,
+  },
+  {
+    key: "workout",
+    title: "Hurtigstart økt",
+    accent: ["#F59E0B", "#D97706"],
+    glow: [
+      "rgba(245,158,11,0.22)",
+      "rgba(245,158,11,0.08)",
+      "rgba(245,158,11,0.00)",
+    ],
+    icon: <Ionicons name="flash-outline" size={16} color="#FCD34D" />,
+  },
+];
+
+export default function QuickStartButtons({
+  style,
+  onLogMealPress,
+  onLogWeightPress,
+}: Props) {
+  const { openQuickSession } = useWorkoutSession();
+
+  const runAction = useCallback(
+    (action: "meal" | "weight" | "workout") => {
+      if (action === "meal") {
+        onLogMealPress?.();
+        return;
+      }
+
+      if (action === "weight") {
+        onLogWeightPress?.();
+        return;
+      }
+
+      openQuickSession("Hurtigøkt");
+    },
+    [onLogMealPress, onLogWeightPress, openQuickSession]
+  );
+
   return (
-    <View>
-      <View style={{ marginBottom: 30 }}>
-        <QuickStartWorkout wrapperPaddingHorizontal={0} />
-      </View>
-
-      <View style={styles.container}>
-        {/* LOG MEAL */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.buttonHitbox}
-          onPress={() => router.push("/(tabs)/food")}
+    <View style={[styles.container, style]}>
+      {ACTIONS.map((action) => (
+        <Pressable
+          key={action.key}
+          onPress={() => runAction(action.key)}
+          style={({ pressed }) => [
+            styles.buttonHitbox,
+            pressed && styles.pressed,
+          ]}
         >
-          <View style={[styles.glassButton, styles.mealButton]}>
-            {/* inner glow */}
+          <View style={styles.glassButton}>
             <LinearGradient
-              colors={[
-                "rgba(59,130,246,0.25)", // blue signal
-                "rgba(59,130,246,0.08)",
-                "rgba(59,130,246,0.00)",
-              ]}
+              colors={action.glow}
               start={{ x: 0.2, y: 0 }}
               end={{ x: 0.8, y: 1 }}
               style={styles.innerGlow}
             />
 
-            {/* accent bar */}
             <LinearGradient
-              colors={["#2A2F3A", "#1B4DFF"]}
+              colors={action.accent}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.accentBar}
             />
 
-            <Text style={[typography.body, styles.buttonText]}>
-              Logg måltid
+            <View style={styles.iconWrap}>{action.icon}</View>
+
+            <Text
+              style={[typography.body, styles.buttonText]}
+              numberOfLines={2}
+            >
+              {action.title}
             </Text>
           </View>
-        </TouchableOpacity>
-
-        {/* LOG WEIGHT */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.buttonHitbox}
-          onPress={() => router.push("/(tabs)/weight")}
-        >
-          <View style={[styles.glassButton, styles.weightButton]}>
-            {/* inner glow */}
-            <LinearGradient
-              colors={[
-                "rgba(34,197,94,0.25)", // green signal
-                "rgba(34,197,94,0.08)",
-                "rgba(34,197,94,0.00)",
-              ]}
-              start={{ x: 0.2, y: 0 }}
-              end={{ x: 0.8, y: 1 }}
-              style={styles.innerGlow}
-            />
-
-            {/* accent bar */}
-            <LinearGradient
-              colors={["#22C55E", "#15803D"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.accentBar}
-            />
-
-            <Text style={[typography.body, styles.buttonText]}>Logg vekt</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -85,57 +131,54 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 10,
+    gap: 15,
   },
-
   buttonHitbox: {
-    width: "48%",
+    flex: 1,
   },
-
   glassButton: {
     position: "relative",
     overflow: "hidden",
-    paddingVertical: 19,
-    paddingHorizontal: 18,
-    borderRadius: 20,
+    minHeight: 74,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-
-    backgroundColor: "rgba(15, 23, 42, 0.32)",
+    backgroundColor: "rgba(15, 23, 42, 0.95)",
     borderWidth: 1,
-
+    borderColor: "rgba(255,255,255,0.08)",
     shadowColor: "#000",
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 2,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
   },
-
-  mealButton: {
-    borderColor: "rgba(59,130,246,0.45)", // blue signal
-  },
-
-  weightButton: {
-    borderColor: "rgba(34,197,94,0.45)", // green signal
-  },
-
   innerGlow: {
     position: "absolute",
     inset: 0,
   },
-
   accentBar: {
     position: "absolute",
-    top: 10,
-    height: 3,
-    width: "42%",
+    top: 8,
+    height: 2.5,
+    width: "38%",
     borderRadius: 999,
-    opacity: 0.9,
+    opacity: 0.92,
   },
-
+  iconWrap: {
+    marginTop: 2,
+    marginBottom: 7,
+  },
   buttonText: {
     color: "white",
-    fontSize: 15,
-    letterSpacing: 0.3,
+    fontSize: 11.5,
+    lineHeight: 15,
+    textAlign: "center",
+    letterSpacing: 0.05,
+  },
+  pressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.985 }],
   },
 });

@@ -95,7 +95,7 @@ export const PROGRESS_TIME_RANGE_OPTIONS: {
 
 function addDays(date: Date, days: number) {
   const d = new Date(date.getTime());
-  d.setUTCDate(d.getUTCDate() + days);
+  d.setDate(d.getDate() + days);
   return d;
 }
 
@@ -137,8 +137,8 @@ function getWeekStartDateKey(dateKey: string) {
   const date = dateKeyToUtcDate(dateKey);
   if (!date) return "";
 
-  const dayNumber = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 1 - dayNumber);
+  const dayNumber = date.getDay() || 7;
+  date.setDate(date.getDate() + 1 - dayNumber);
   return getOsloDateKey(date);
 }
 
