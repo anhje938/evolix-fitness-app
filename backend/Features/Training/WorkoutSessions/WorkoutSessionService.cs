@@ -73,6 +73,10 @@ namespace backend.Features.Training.WorkoutSessions
                         ? NormalizeUtc(req.StartedAtUtc.Value)
                         : DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc))
                     .ToString("O"),
+                FinishedAtUtc = (req.FinishedAtUtc.HasValue
+                        ? NormalizeUtc(req.FinishedAtUtc.Value)
+                        : DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc))
+                    .ToString("O"),
                 Title = req.Title?.Trim() ?? string.Empty,
                 Notes = req.Notes?.Trim() ?? string.Empty,
                 ExerciseLogs = (req.ExerciseLogs ?? new List<UpdateWorkoutSessionExerciseLogRequest>())
@@ -175,6 +179,11 @@ namespace backend.Features.Training.WorkoutSessions
             if (req.StartedAtUtc.HasValue)
             {
                 session.StartedAtUtc = NormalizeUtc(req.StartedAtUtc.Value);
+            }
+
+            if (req.FinishedAtUtc.HasValue)
+            {
+                session.FinishedAtUtc = NormalizeUtc(req.FinishedAtUtc.Value);
             }
 
             var requestedLogs = req.ExerciseLogs ?? new List<UpdateWorkoutSessionExerciseLogRequest>();
@@ -367,7 +376,7 @@ namespace backend.Features.Training.WorkoutSessions
                 WorkoutId = workout?.Id,
                 WorkoutProgramId = workoutProgramId,
                 StartedAtUtc = NormalizeOptionalUtc(req.StartedAtUtc, DateTime.UtcNow),
-                FinishedAtUtc = DateTime.UtcNow,
+                FinishedAtUtc = NormalizeOptionalUtc(req.FinishedAtUtc, DateTime.UtcNow),
                 Title = normalizedTitle,
                 Notes = req.Notes?.Trim(),
                 TotalSets = 0,
@@ -382,6 +391,7 @@ namespace backend.Features.Training.WorkoutSessions
                 new UpdateWorkoutSessionRequest
                 {
                     StartedAtUtc = session.StartedAtUtc,
+                    FinishedAtUtc = session.FinishedAtUtc,
                     Title = normalizedTitle,
                     Notes = req.Notes,
                     ExerciseLogs = req.ExerciseLogs ?? new List<UpdateWorkoutSessionExerciseLogRequest>()

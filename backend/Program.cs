@@ -6,11 +6,11 @@ using backend.Features.AdaptivePlanning;
 using backend.Features.Auth;
 using backend.Features.AuthAuth;
 using backend.Features.Food;
+using backend.Features.Subscriptions;
 using backend.Features.Training.Exercises;
 using backend.Features.Training.WorkoutPrograms;
-using backend.Features.Training.Workouts;
 using backend.Features.Training.WorkoutSessions;
-using backend.Features.Subscriptions;
+using backend.Features.Training.Workouts;
 using backend.Features.Users;
 using backend.Features.Weight;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -19,18 +19,14 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
-const string DeployMarker = "delete-logging-v1-2026-03-18";
-
 var builder = WebApplication.CreateBuilder(args);
 
-// DB
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
-// Services
 builder.Services.AddScoped<WeightService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<AuthService>();
@@ -52,7 +48,6 @@ builder.Services.AddHttpClient<RevenueCatSubscriptionService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<BarcodeLookupService>();
 
-// Forwarded headers
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders =
@@ -61,7 +56,6 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
-// Settings
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("Jwt"));
 
@@ -76,8 +70,6 @@ builder.Services.Configure<RevenueCatOptions>(
 
 builder.Services.AddSingleton<JwtService>();
 
-
-
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddSingleton<IAppleTokenService, MockAppleTokenService>();
@@ -87,7 +79,6 @@ else
     builder.Services.AddSingleton<IAppleTokenService, AppleTokenService>();
 }
 
-// CORS
 var corsOrigins = builder.Configuration
     .GetSection("Cors:Origins")
     .Get<string[]>();
@@ -131,12 +122,10 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Controllers / Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// JWT
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
           ?? throw new InvalidOperationException("Jwt settings missing.");
 
@@ -165,43 +154,12 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapGet("/debug/env", (IHostEnvironment env) =>
-    {
-        return new
-        {
-            EnvironmentName = env.EnvironmentName,
-            IsDevelopment = env.IsDevelopment()
-        };
-    });
-
-    app.MapGet("/debug/build", (IHostEnvironment env) =>
-    {
-        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-        return Results.Ok(new
-        {
-            deployMarker = DeployMarker,
-            environment = env.EnvironmentName,
-            assemblyVersion = assembly.GetName().Version?.ToString(),
-            imageRuntimeVersion = assembly.ImageRuntimeVersion,
-            utcNow = DateTime.UtcNow
-        });
-    });
-}
-
-app.MapGet("/", () => "OK");        // root-test
-app.MapGet("/health", () => "OK");  // health-test
+app.MapGet("/", () => "OK");
+app.MapGet("/health", () => "OK");
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var hasConnectionString =
-        !string.IsNullOrWhiteSpace(
-            builder.Configuration.GetConnectionString("DefaultConnection"));
-    Console.WriteLine("DEPLOY_MARKER=" + DeployMarker);
-    Console.WriteLine("ENV=" + builder.Environment.EnvironmentName);
-    Console.WriteLine("ConnStrConfigured=" + hasConnectionString);
     db.Database.Migrate();
 }
 
@@ -212,7 +170,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("EvolixCors");
-
 app.UseStaticFiles();
 
 app.UseExceptionHandler(errorApp =>
@@ -252,7 +209,6 @@ app.UseExceptionHandler(errorApp =>
 
 app.UseAuthentication();
 app.UseAuthorization();
-
 
 app.MapControllers();
 

@@ -1,4 +1,8 @@
-import { MODAL_MAX_HEIGHT, modalGradientColors, modalTheme } from "@/config/modalTheme";
+import {
+  MODAL_MAX_HEIGHT,
+  modalGradientColors,
+  modalTheme,
+} from "@/config/modalTheme";
 import React, { useState } from "react";
 import {
   View,
@@ -10,7 +14,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-
+import XIcon from "../../../../assets/icons/white-x.svg";
 type Props = {
   visible: boolean;
   onClose: () => void;
@@ -47,12 +51,8 @@ export default function CreateProgramModal({
           <View style={styles.header}>
             <Text style={styles.title}>Nytt program</Text>
 
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons
-                name="close"
-                size={20}
-                color={modalTheme.textStrong}
-              />
+            <TouchableOpacity onPress={onClose}>
+              <XIcon width={18} height={18} />
             </TouchableOpacity>
           </View>
 
@@ -135,16 +135,6 @@ const styles = StyleSheet.create({
     color: modalTheme.text,
     fontSize: 20,
     fontWeight: "600",
-  },
-  closeButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: modalTheme.surfaceSoft,
-    borderWidth: 1,
-    borderColor: modalTheme.borderSoft,
   },
   label: {
     color: modalTheme.label,

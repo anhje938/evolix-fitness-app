@@ -2,6 +2,8 @@
 
 public class AppleSettings
 {
-    // Din Apple "Client ID" / "Service ID" (f.eks. bundle id til appen)
     public string ClientId { get; set; } = "";
+    public string TeamId { get; set; } = "";
+    public string KeyId { get; set; } = "";
+    public string PrivateKey { get; set; } = "";
 }

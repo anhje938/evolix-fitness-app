@@ -13,6 +13,7 @@ import {
   DataQualityLevel,
   type WeeklyReport,
 } from "@/types/adaptive";
+import { getAdaptiveErrorCopy } from "@/utils/adaptiveErrorCopy";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -292,6 +293,7 @@ function WeeklyReportPremiumScreen() {
   const insets = useSafeAreaInsets();
   const reportQuery = useCurrentWeeklyReport();
   const regenerateReport = useRegenerateWeeklyReport();
+  const errorCopy = getAdaptiveErrorCopy(reportQuery.error, "report");
 
   const handleRefresh = async () => {
     await regenerateReport.mutateAsync();
@@ -349,7 +351,8 @@ function WeeklyReportPremiumScreen() {
               size={23}
               color="rgba(251,191,36,0.96)"
             />
-            <Text style={styles.errorTitle}>Rapporten kunne ikke hentes</Text>
+            <Text style={styles.errorTitle}>{errorCopy.title}</Text>
+            <Text style={styles.errorText}>{errorCopy.message}</Text>
             <Pressable
               style={({ pressed }) => [
                 styles.retryButton,
@@ -742,6 +745,13 @@ const styles = StyleSheet.create({
     color: "rgba(226,232,240,0.96)",
     fontSize: 14,
     fontWeight: "800",
+    textAlign: "center",
+  },
+  errorText: {
+    marginTop: 8,
+    color: "rgba(203,213,225,0.94)",
+    fontSize: 13,
+    lineHeight: 19,
     textAlign: "center",
   },
   retryButton: {

@@ -6,11 +6,11 @@ import React, { memo, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 const ui = {
-  surface: "rgba(15,23,42,0.42)",
-  surfaceStrong: "rgba(15,23,42,0.56)",
-  surfaceMuted: "rgba(255,255,255,0.03)",
-  border: "rgba(255,255,255,0.09)",
-  borderSoft: "rgba(255,255,255,0.06)",
+  surface: "rgba(8,47,73,0.56)",
+  surfaceStrong: "rgba(12,74,110,0.58)",
+  surfaceMuted: "rgba(34,211,238,0.08)",
+  border: "rgba(125,211,252,0.18)",
+  borderSoft: "rgba(125,211,252,0.12)",
   text: "rgba(241,245,249,0.96)",
   muted: "rgba(148,163,184,0.84)",
   muted2: "rgba(148,163,184,0.70)",
@@ -127,6 +127,7 @@ export const WorkoutHistoryList = memo(function WorkoutHistoryList({
                     onPress={() => onOpenSession(s.id)}
                     style={({ pressed }) => [
                       styles.row,
+                      isProgram ? styles.rowProgram : styles.rowQuick,
                       pressed && styles.rowPressed,
                     ]}
                   >
@@ -262,21 +263,31 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: ui.surface,
     borderWidth: 1,
-    borderColor: ui.borderSoft,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
+    borderColor: ui.border,
+    shadowColor: "#0891b2",
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4,
   },
 
   row: {
-    paddingVertical: 8,
+    paddingVertical: 9,
     paddingHorizontal: 13,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
+    borderLeftWidth: 2,
+    backgroundColor: "rgba(8,47,73,0.26)",
+  },
+
+  rowQuick: {
+    borderLeftColor: "rgba(34,211,238,0.62)",
+  },
+
+  rowProgram: {
+    borderLeftColor: "rgba(96,165,250,0.58)",
   },
 
   rowPressed: {
@@ -286,7 +297,7 @@ const styles = StyleSheet.create({
 
   divider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(125,211,252,0.10)",
     marginLeft: 54,
   },
 
@@ -375,9 +386,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 11,
-    backgroundColor: ui.surfaceStrong,
+    backgroundColor: "rgba(12,74,110,0.52)",
     borderWidth: 1,
-    borderColor: ui.borderSoft,
+    borderColor: "rgba(125,211,252,0.14)",
   },
 
   metricText: {
@@ -398,9 +409,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.035)",
+    backgroundColor: "rgba(14,116,144,0.18)",
     borderWidth: 1,
-    borderColor: ui.borderSoft,
+    borderColor: "rgba(125,211,252,0.12)",
   },
 
   empty: {

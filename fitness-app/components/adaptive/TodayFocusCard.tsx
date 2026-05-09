@@ -3,6 +3,7 @@ import { useTodayFocus } from "@/hooks/useAdaptive";
 import { useFoodContext } from "@/context/FoodProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useWeightContext } from "@/context/WeightProvider";
+import { getAdaptiveErrorCopy } from "@/utils/adaptiveErrorCopy";
 import {
   buildBodyGoalCoach,
   formatBodyGoalCoachCaloriesRange,
@@ -167,7 +168,7 @@ function MainContent({
 
 export function TodayFocusCard() {
   const [collapsed, setCollapsed] = useState(false);
-  const { data, isLoading, isError, refetch } = useTodayFocus();
+  const { data, error, isLoading, isError, refetch } = useTodayFocus();
   const { userSettings } = useUserSettings();
   const { foodList } = useFoodContext();
   const { weightList } = useWeightContext();
@@ -180,6 +181,7 @@ export function TodayFocusCard() {
       userSettings,
     });
   }, [foodList, userSettings, weightList]);
+  const errorCopy = getAdaptiveErrorCopy(error, "plan");
 
   return (
     <LinearGradient
@@ -216,10 +218,8 @@ export function TodayFocusCard() {
               <Text style={styles.badgeText}>EvoliX Plan</Text>
             </View>
           </View>
-          <Text style={styles.mainAction}>Planen er ikke tilgjengelig nå</Text>
-          <Text style={styles.why}>
-            Prøv igjen når backend er klar, så henter EvoliX rapporten din.
-          </Text>
+          <Text style={styles.mainAction}>{errorCopy.title}</Text>
+          <Text style={styles.why}>{errorCopy.message}</Text>
           <Pressable
             style={({ pressed }) => [
               styles.retryButton,

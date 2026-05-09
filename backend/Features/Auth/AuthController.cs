@@ -1,12 +1,8 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Cryptography;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text.Json;
-using backend.Auth;
 using backend.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace backend.Features.Auth
@@ -34,27 +30,6 @@ namespace backend.Features.Auth
             _env = env;
         }
 
-        [HttpGet("debug")]
-        public IActionResult DebugConfig()
-        {
-            if (!_env.IsDevelopment())
-                return NotFound();
-
-            // OBS: Ikke returner SecretKey. Kun "exists"-sjekk.
-            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-            var appleClientId = _config["AppleSettings:ClientId"];
-            var jwtIssuer = _config["Jwt:Issuer"];
-            var jwtAudience = _config["Jwt:Audience"];
-            var jwtSecretExists = !string.IsNullOrWhiteSpace(_config["Jwt:SecretKey"]);
-
-            return Ok(new
-            {
-                environment = env,
-                appleClientId,
-                jwt = new { jwtIssuer, jwtAudience, secretKeyExists = jwtSecretExists }
-            });
-        }
-
         [HttpPost("apple")]
         public async Task<ActionResult<AuthResponse>> LoginWithApple(
             [FromBody] AppleLoginRequest request,
@@ -68,8 +43,8 @@ namespace backend.Features.Auth
             if (string.IsNullOrWhiteSpace(request.IdToken))
                 return BadRequest("idToken is required");
 
-            // Logg request meta
-            _logger.LogInformation("Apple login start. traceId={traceId} contentLength={len} userAgent={ua} ip={ip}",
+            _logger.LogInformation(
+                "Apple login start. traceId={traceId} contentLength={len} userAgent={ua} ip={ip}",
                 reqId,
                 Request.ContentLength,
                 Request.Headers.UserAgent.ToString(),
@@ -84,7 +59,6 @@ namespace backend.Features.Auth
             }
             else
             {
-                // Parse JWT (uten å validere signatur) for å logge aud/iss/exp/kid
                 JwtSecurityToken? jwt = null;
                 try
                 {
@@ -92,30 +66,46 @@ namespace backend.Features.Auth
 
                     var aud = jwt.Audiences.FirstOrDefault();
                     var iss = jwt.Issuer;
-                    var expUtc = jwt.ValidTo;     // UTC
-                    var nbfUtc = jwt.ValidFrom;   // UTC
+                    var expUtc = jwt.ValidTo;
+                    var nbfUtc = jwt.ValidFrom;
                     var kid = jwt.Header.TryGetValue("kid", out var kidObj) ? kidObj?.ToString() : null;
 
-                    // AppleId tokens har ofte sub/email i payload; vi logger IKKE email/sub (persondata).
-                    _logger.LogInformation("Apple token parsed. traceId={traceId} aud={aud} iss={iss} expUtc={exp} nbfUtc={nbf} kid={kid}",
-                        reqId, aud, iss, expUtc, nbfUtc, kid);
+                    _logger.LogInformation(
+                        "Apple token parsed. traceId={traceId} aud={aud} iss={iss} expUtc={exp} nbfUtc={nbf} kid={kid}",
+                        reqId,
+                        aud,
+                        iss,
+                        expUtc,
+                        nbfUtc,
+                        kid);
 
                     var expectedClientId = _config["AppleSettings:ClientId"];
-                    _logger.LogInformation("Expected AppleSettings:ClientId = {clientId} traceId={traceId}",
-                        expectedClientId, reqId);
+                    _logger.LogInformation(
+                        "Expected AppleSettings:ClientId = {clientId} traceId={traceId}",
+                        expectedClientId,
+                        reqId);
 
-                    if (!string.IsNullOrWhiteSpace(expectedClientId) && !string.IsNullOrWhiteSpace(aud) && !string.Equals(expectedClientId, aud, StringComparison.Ordinal))
+                    if (!string.IsNullOrWhiteSpace(expectedClientId) &&
+                        !string.IsNullOrWhiteSpace(aud) &&
+                        !string.Equals(expectedClientId, aud, StringComparison.Ordinal))
                     {
-                        _logger.LogWarning("AUDIENCE MISMATCH! tokenAud={aud} expectedClientId={clientId} traceId={traceId}",
-                            aud, expectedClientId, reqId);
+                        _logger.LogWarning(
+                            "AUDIENCE MISMATCH! tokenAud={aud} expectedClientId={clientId} traceId={traceId}",
+                            aud,
+                            expectedClientId,
+                            reqId);
                     }
                 }
                 catch (Exception ex)
                 {
-                    // Hvis tokenet ikke engang kan parses (format feil)
-                    _logger.LogWarning(ex, "Failed to parse Apple idToken as JWT. traceId={traceId}", reqId);
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to parse Apple idToken as JWT. traceId={traceId}",
+                        reqId);
+
                     if (ReturnDebugDetails)
                         return BadRequest(new { error = "Invalid token format", detail = ex.Message, traceId = reqId });
+
                     return BadRequest(new { error = "Invalid token format", traceId = reqId });
                 }
             }
@@ -132,11 +122,20 @@ namespace backend.Features.Auth
             }
             catch (SecurityTokenException ex)
             {
-                // Her ligger fasiten ofte: audience/issuer/keys/expired/IDX20803 osv.
-                _logger.LogWarning(ex, "Apple token validation FAILED. traceId={traceId} message={msg}", reqId, ex.Message);
+                _logger.LogWarning(
+                    ex,
+                    "Apple token validation FAILED. traceId={traceId} message={msg}",
+                    reqId,
+                    ex.Message);
 
                 if (ex.InnerException != null)
-                    _logger.LogWarning(ex.InnerException, "Inner exception. traceId={traceId} message={msg}", reqId, ex.InnerException.Message);
+                {
+                    _logger.LogWarning(
+                        ex.InnerException,
+                        "Inner exception. traceId={traceId} message={msg}",
+                        reqId,
+                        ex.InnerException.Message);
+                }
 
                 if (ReturnDebugDetails)
                 {
@@ -188,7 +187,10 @@ namespace backend.Features.Auth
             }
             catch (SecurityTokenException ex)
             {
-                _logger.LogWarning(ex, "Refresh token validation failed. traceId={traceId}", HttpContext.TraceIdentifier);
+                _logger.LogWarning(
+                    ex,
+                    "Refresh token validation failed. traceId={traceId}",
+                    HttpContext.TraceIdentifier);
                 return Unauthorized(new { error = "Invalid refresh token", traceId = HttpContext.TraceIdentifier });
             }
         }

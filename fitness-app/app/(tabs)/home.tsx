@@ -1,5 +1,6 @@
 // app/(tabs)/home.tsx
 import { PostUserMeal } from "@/api/food";
+import { getAccessTokenUserId } from "@/api/authSession";
 import { deleteMyUser } from "@/api/user";
 import { PostWeight } from "@/api/weight";
 import SettingsLogo from "@/assets/icons/white-settings.svg";
@@ -53,6 +54,7 @@ import { getRelativeDateLabel } from "@/utils/pastWeek";
 import { muscleToSlug } from "@/utils/recovery/muscleToSlug";
 import { toBodyHighlighterData } from "@/utils/recovery/toBodyHighlighterData";
 import { Ionicons } from "@expo/vector-icons";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -60,6 +62,7 @@ import {
   Alert,
   Animated,
   Easing,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -596,7 +599,50 @@ export default function HomePage() {
       throw new Error("Du er ikke logget inn.");
     }
 
-    await deleteMyUser(token);
+    const appleUserId = getAccessTokenUserId(token);
+    const isMockAppleUser =
+      appleUserId === "mock-user" || appleUserId?.startsWith("mock-");
+
+    let authorizationCode: string | null = null;
+
+    if (!isMockAppleUser) {
+      if (Platform.OS !== "ios") {
+        throw new Error(
+          "Kontosletting med Apple må bekreftes på iPhone eller iPad."
+        );
+      }
+
+      if (!appleUserId) {
+        throw new Error("Fant ikke Apple-brukeren som skal slettes.");
+      }
+
+      const isAppleAuthAvailable =
+        await AppleAuthentication.isAvailableAsync();
+
+      if (!isAppleAuthAvailable) {
+        throw new Error("Apple Sign-In er ikke tilgjengelig på denne enheten.");
+      }
+
+      try {
+        const credential = await AppleAuthentication.refreshAsync({
+          user: appleUserId,
+        });
+
+        authorizationCode = credential.authorizationCode?.trim() || null;
+      } catch (error: any) {
+        if (error?.code === "ERR_REQUEST_CANCELED") {
+          throw new Error("Kontosletting ble avbrutt.");
+        }
+
+        throw error;
+      }
+
+      if (!authorizationCode) {
+        throw new Error("Apple Sign-In returnerte ikke authorization code.");
+      }
+    }
+
+    await deleteMyUser(token, { authorizationCode });
     await setToken(null);
     router.replace("/(auth)/sign-in");
   };

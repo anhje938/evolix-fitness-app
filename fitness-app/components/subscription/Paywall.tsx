@@ -13,12 +13,10 @@ import {
   Text,
   View,
 } from "react-native";
-import type { PurchasesPackage } from "react-native-purchases";
+import type { PurchasesOfferings, PurchasesPackage } from "react-native-purchases";
 
-const TERMS_URL =
-  process.env.EXPO_PUBLIC_TERMS_URL ?? "https://evolix.no/terms";
-const PRIVACY_URL =
-  process.env.EXPO_PUBLIC_PRIVACY_URL ?? "https://evolix.no/privacy";
+const TERMS_URL = "https://evolix.no/terms";
+const PRIVACY_URL = "https://evolix.no/privacy";
 
 type Props = {
   visible: boolean;
@@ -41,8 +39,22 @@ function packageSubtitle(packageToShow: PurchasesPackage) {
       : "Betales årlig";
   }
 
-  if (packageToShow.packageType === "MONTHLY") return "Fleksibelt abonnement";
+  if (packageToShow.packageType === "MONTHLY") return "Betales per måned";
   return packageToShow.product.description || "Lås opp Premium";
+}
+
+function billingPeriodLabel(packageToShow: PurchasesPackage) {
+  if (packageToShow.packageType === "ANNUAL") return "år";
+  if (packageToShow.packageType === "MONTHLY") return "måned";
+  return "periode";
+}
+
+function renewalDetails(packageToShow: PurchasesPackage | null) {
+  if (!packageToShow) return null;
+
+  return `${packageToShow.product.priceString} per ${billingPeriodLabel(
+    packageToShow
+  )}. Abonnementet fornyes automatisk til det avsluttes minst 24 timer før utløpet av gjeldende periode. Administrer eller avslutt abonnementet i Apple konto innstillingene dine.`;
 }
 
 function logOfferingsDebug(packagesToLog: PurchasesPackage[], offeringId?: string) {
@@ -61,6 +73,40 @@ function logOfferingsDebug(packagesToLog: PurchasesPackage[], offeringId?: strin
       pricePerMonthString: item.product.pricePerMonthString ?? null,
     })),
   });
+}
+
+function pickOffering(offerings: PurchasesOfferings) {
+  if (offerings.current) return offerings.current;
+  const first = Object.values(offerings.all ?? {})[0] ?? null;
+  return first;
+}
+
+function describePurchasesError(error: unknown) {
+  if (!error || typeof error !== "object") return null;
+
+  const candidate = error as {
+    message?: unknown;
+    code?: unknown;
+    underlyingErrorMessage?: unknown;
+    readableErrorCode?: unknown;
+  };
+
+  const message =
+    typeof candidate.message === "string" ? candidate.message.trim() : "";
+  const code =
+    typeof candidate.readableErrorCode === "string"
+      ? candidate.readableErrorCode.trim()
+      : typeof candidate.code === "string"
+        ? candidate.code.trim()
+        : "";
+  const underlying =
+    typeof candidate.underlyingErrorMessage === "string"
+      ? candidate.underlyingErrorMessage.trim()
+      : "";
+
+  const parts = [code, underlying, message].filter(Boolean);
+  if (parts.length === 0) return null;
+  return parts.join(" | ");
 }
 
 export function Paywall({
@@ -92,7 +138,7 @@ export function Paywall({
         const offerings = await subscription.getOfferings();
         if (cancelled) return;
 
-        const current = offerings.current;
+        const current = pickOffering(offerings);
         const selectable = [
           current?.monthly ?? null,
           current?.annual ?? null,
@@ -106,11 +152,19 @@ export function Paywall({
         setSelectedPackageId(nextPackages[0]?.identifier ?? null);
 
         if (!current || nextPackages.length === 0) {
-          setMessage("Fant ingen aktive produkter i RevenueCat.");
+          setMessage(
+            "Fant ingen aktive produkter. Sjekk at du har satt et current tilbud i RevenueCat og at produkt-idene finnes i App Store Connect."
+          );
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          setMessage("Kunne ikke hente pris. Prøv igjen om litt.");
+          const details = describePurchasesError(error);
+          console.warn("[Paywall] Kunne ikke hente pris", details ?? error);
+          setMessage(
+            details
+              ? `Kunne ikke hente pris. ${details}`
+              : "Kunne ikke hente pris. Prøv igjen om litt."
+          );
         }
       } finally {
         if (!cancelled) setIsLoadingOfferings(false);
@@ -215,7 +269,7 @@ export function Paywall({
 
           <Text style={[typography.h2, styles.title]}>EvoliX Premium</Text>
           <Text style={[typography.body, styles.body]}>
-            Lås opp alle coacher, ukesrapport og subscriber-programmer.
+            Lås opp alle coacher, ukesrapport og premiumprogrammer.
           </Text>
 
           <View style={styles.benefits}>
@@ -264,6 +318,17 @@ export function Paywall({
           ) : null}
 
           {message ? <Text style={styles.message}>{message}</Text> : null}
+
+          {selectedPackage ? (
+            <View style={styles.subscriptionInfoBox}>
+              <Text style={styles.subscriptionInfoText}>
+                {renewalDetails(selectedPackage)}
+              </Text>
+              <Text style={styles.subscriptionInfoText}>
+                Ved kjøp godtar du vilkårene våre og personvernerklæringen vår.
+              </Text>
+            </View>
+          ) : null}
 
           <Pressable
             disabled={!selectedPackage || isBusy}
@@ -432,6 +497,21 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: "rgba(254,243,199,0.95)",
     fontSize: 12,
+    lineHeight: 17,
+  },
+  subscriptionInfoBox: {
+    marginTop: 12,
+    gap: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.18)",
+    backgroundColor: "rgba(255,255,255,0.03)",
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  subscriptionInfoText: {
+    color: "rgba(203,213,225,0.92)",
+    fontSize: 11.5,
     lineHeight: 17,
   },
   purchaseBtn: {

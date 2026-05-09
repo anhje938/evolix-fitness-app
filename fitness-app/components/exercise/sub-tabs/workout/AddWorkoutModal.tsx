@@ -1,18 +1,25 @@
-import { MODAL_MAX_HEIGHT, modalTheme } from "@/config/modalTheme";
-import { typography } from "@/config/typography";
+import {
+  MODAL_MAX_HEIGHT,
+  modalConfirmButtonColors,
+  modalGradientColors,
+  modalTheme,
+} from "@/config/modalTheme";
+import { newColors } from "@/config/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
+import DumbbellIcon from "../../../../assets/icons/dumbbell-white.svg";
+import XIcon from "../../../../assets/icons/white-x.svg";
 
 type Props = {
   visible: boolean;
@@ -21,43 +28,7 @@ type Props = {
     name: string;
     description?: string;
     dayLabel?: string;
-  }) => void;
-};
-
-const colors = {
-  // Backdrop
-  backdrop: modalTheme.backdrop,
-
-  // Modal base
-  cardSolid: modalTheme.surface,
-  strokeOuter: modalTheme.border,
-  strokeInner: modalTheme.borderSoft,
-
-  // Text
-  text: modalTheme.text,
-  muted: "rgba(148,163,184,0.86)",
-  muted2: modalTheme.muted,
-
-  // Surfaces
-  surface: "rgba(255,255,255,0.05)",
-  surface2: "rgba(255,255,255,0.075)",
-
-  // Accent
-  accentA: "rgba(99,102,241,0.94)", // indigo
-  accentB: "rgba(34,211,238,0.78)", // cyan
-
-  // Inputs
-  inputBg: modalTheme.surfaceMuted,
-  inputStroke: modalTheme.inputBorder,
-  inputStrokeFocus: "rgba(34,211,238,0.26)",
-  inputGlow: "rgba(34,211,238,0.10)",
-
-  // Buttons
-  iconBg: "rgba(255,255,255,0.05)",
-  iconStroke: modalTheme.borderSoft,
-  ctaStroke: "rgba(255,255,255,0.18)",
-
-  danger: "rgba(248,113,113,0.95)",
+  }) => void | Promise<void>;
 };
 
 export function AddWorkoutModal({ visible, onClose, onSubmit }: Props) {
@@ -65,216 +36,127 @@ export function AddWorkoutModal({ visible, onClose, onSubmit }: Props) {
   const [description, setDescription] = useState("");
   const [dayLabel, setDayLabel] = useState("");
 
-  const [focusField, setFocusField] = useState<"name" | "day" | "desc" | null>(
-    null
-  );
-
   useEffect(() => {
-    if (visible) {
-      setName("");
-      setDescription("");
-      setDayLabel("");
-      setFocusField(null);
-    }
+    if (!visible) return;
+
+    setName("");
+    setDescription("");
+    setDayLabel("");
   }, [visible]);
 
-  const canSubmit = useMemo(() => !!name.trim(), [name]);
+  const canSubmit = !!name.trim();
 
-  const handleSubmit = () => {
-    if (!name.trim()) return;
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
 
-    onSubmit({
+    await onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
       dayLabel: dayLabel.trim() || undefined,
     });
   };
 
+  if (!visible) {
+    return null;
+  }
+
   return (
-    <Modal visible={visible} animationType="fade" transparent>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        {/* Backdrop */}
-        <Pressable style={styles.overlay} onPress={onClose}>
-          {/* Stop propagation */}
-          <Pressable style={styles.cardOuter} onPress={() => {}}>
-            {/* Base */}
-            <View pointerEvents="none" style={styles.base} />
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable style={styles.container} onPress={() => {}}>
+          <LinearGradient
+            pointerEvents="none"
+            colors={modalGradientColors}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 0.95, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View pointerEvents="none" style={styles.orbTop} />
+          <View pointerEvents="none" style={styles.orbBottom} />
 
-            {/* Glass overlay */}
-            <LinearGradient
-              colors={[
-                "rgba(255,255,255,0.055)",
-                "rgba(255,255,255,0.020)",
-                "rgba(255,255,255,0.00)",
-              ]}
-              start={{ x: 0.05, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-
-            {/* Accent sheen */}
-            <LinearGradient
-              colors={[
-                "rgba(99,102,241,0.14)",
-                "rgba(34,211,238,0.10)",
-                "rgba(255,255,255,0.00)",
-              ]}
-              start={{ x: 1, y: 0 }}
-              end={{ x: 0.25, y: 1 }}
-              style={styles.accentSheen}
-              pointerEvents="none"
-            />
-
-            {/* Strokes */}
-            <View pointerEvents="none" style={styles.outerStroke} />
-            <View pointerEvents="none" style={styles.innerStroke} />
-
-            <View style={styles.content}>
-              {/* Header */}
-              <View style={styles.header}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[typography.h2, styles.title]}>Ny økt</Text>
-                  <Text style={[typography.body, styles.subtitle]}>
-                    Lag en økt du kan starte når som helst.
-                  </Text>
-                </View>
-
-                <Pressable
-                  onPress={onClose}
-                  hitSlop={12}
-                  style={({ pressed }) => [
-                    styles.iconBtn,
-                    pressed && styles.iconPressed,
-                  ]}
-                >
-                  <View style={styles.iconBtnInner}>
-                    <Ionicons name="close" size={18} color={colors.text} />
-                  </View>
-                </Pressable>
-              </View>
-
-              {/* Field: Name */}
-              <View style={styles.field}>
-                <Text style={[typography.body, styles.label]}>Navn</Text>
-                <View
-                  style={[
-                    styles.inputWrap,
-                    focusField === "name" && styles.inputWrapFocus,
-                  ]}
-                >
-                  {focusField === "name" && (
-                    <View pointerEvents="none" style={styles.focusGlow} />
-                  )}
-                  <TextInput
-                    style={styles.input}
-                    placeholder="F.eks. Push A"
-                    placeholderTextColor={colors.muted2}
-                    value={name}
-                    onChangeText={setName}
-                    returnKeyType="next"
-                    onFocus={() => setFocusField("name")}
-                    onBlur={() =>
-                      setFocusField((f) => (f === "name" ? null : f))
-                    }
-                  />
-                </View>
-              </View>
-
-              {/* Field: Day/Label */}
-              <View style={styles.field}>
-                <Text style={[typography.body, styles.label]}>Dag / label</Text>
-                <View
-                  style={[
-                    styles.inputWrap,
-                    focusField === "day" && styles.inputWrapFocus,
-                  ]}
-                >
-                  {focusField === "day" && (
-                    <View pointerEvents="none" style={styles.focusGlow} />
-                  )}
-                  <TextInput
-                    style={styles.input}
-                    placeholder="F.eks. Mandag, Pull B..."
-                    placeholderTextColor={colors.muted2}
-                    value={dayLabel}
-                    onChangeText={setDayLabel}
-                    returnKeyType="next"
-                    onFocus={() => setFocusField("day")}
-                    onBlur={() =>
-                      setFocusField((f) => (f === "day" ? null : f))
-                    }
-                  />
-                </View>
-              </View>
-
-              {/* Field: Description */}
-              <View style={styles.field}>
-                <Text style={[typography.body, styles.label]}>Beskrivelse</Text>
-                <View
-                  style={[
-                    styles.inputWrap,
-                    styles.textareaWrap,
-                    focusField === "desc" && styles.inputWrapFocus,
-                  ]}
-                >
-                  {focusField === "desc" && (
-                    <View pointerEvents="none" style={styles.focusGlow} />
-                  )}
-                  <TextInput
-                    style={[styles.input, styles.textarea]}
-                    placeholder="Kort beskrivelse av økten..."
-                    placeholderTextColor={colors.muted2}
-                    value={description}
-                    onChangeText={setDescription}
-                    returnKeyType="done"
-                    onFocus={() => setFocusField("desc")}
-                    onBlur={() =>
-                      setFocusField((f) => (f === "desc" ? null : f))
-                    }
-                    multiline
-                    textAlignVertical="top"
-                  />
-                </View>
-              </View>
-
-              {/* CTA */}
-              <View style={styles.footer}>
-                <Pressable
-                  onPress={handleSubmit}
-                  disabled={!canSubmit}
-                  style={({ pressed }) => [
-                    styles.ctaWrap,
-                    !canSubmit && styles.ctaDisabled,
-                    pressed && canSubmit && styles.ctaPressed,
-                  ]}
-                >
-                  <LinearGradient
-                    colors={[colors.accentA, colors.accentB]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.cta}
-                  >
-                    <Ionicons name="sparkles-outline" size={16} color="white" />
-                    <Text style={[typography.bodyBold, styles.ctaText]}>
-                      Opprett økt
-                    </Text>
-                  </LinearGradient>
-                </Pressable>
-
-                {!canSubmit && (
-                  <Text style={[typography.body, styles.helper]}>
-                    Skriv inn et navn for å opprette.
-                  </Text>
-                )}
-              </View>
+          <View style={styles.header}>
+            <View style={styles.headerTitleWrap}>
+              <DumbbellIcon
+                height={25}
+                width={25}
+                stroke={newColors.primary.light}
+                fill={newColors.primary.light}
+              />
+              <Text style={styles.title}>Ny økt</Text>
             </View>
-          </Pressable>
+
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <XIcon height={18} width={18} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={styles.label}>Navn</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="F.eks. Push A"
+              placeholderTextColor="rgba(148,163,184,0.8)"
+              value={name}
+              onChangeText={setName}
+              returnKeyType="next"
+            />
+
+            <Text style={styles.label}>Dag / etikett</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="F.eks. Mandag, Pull B..."
+              placeholderTextColor="rgba(148,163,184,0.8)"
+              value={dayLabel}
+              onChangeText={setDayLabel}
+              returnKeyType="next"
+            />
+
+            <Text style={styles.label}>Beskrivelse</Text>
+            <TextInput
+              style={[styles.input, styles.textarea]}
+              placeholder="Kort beskrivelse av økten..."
+              placeholderTextColor="rgba(148,163,184,0.8)"
+              value={description}
+              onChangeText={setDescription}
+              returnKeyType="done"
+              multiline
+              textAlignVertical="top"
+            />
+          </ScrollView>
+
+          <TouchableOpacity
+            style={[styles.buttonWrapper, !canSubmit && styles.buttonDisabled]}
+            onPress={() => {
+              void handleSubmit();
+            }}
+            disabled={!canSubmit}
+          >
+            <LinearGradient
+              colors={modalConfirmButtonColors}
+              style={styles.button}
+            >
+              <Ionicons name="save-outline" size={18} color="white" />
+              <Text style={styles.buttonText}>Opprett økt</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {!canSubmit && (
+            <Text style={styles.helperText}>
+              Skriv inn et navn for å opprette.
+            </Text>
+          )}
         </Pressable>
-      </KeyboardAvoidingView>
+      </Pressable>
     </Modal>
   );
 }
@@ -282,179 +164,121 @@ export function AddWorkoutModal({ visible, onClose, onSubmit }: Props) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: colors.backdrop,
+    backgroundColor: modalTheme.backdrop,
     justifyContent: "center",
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     paddingVertical: 24,
   },
-
-  cardOuter: {
+  container: {
+    backgroundColor: modalTheme.surface,
     width: "100%",
     maxWidth: 560,
+    height: MODAL_MAX_HEIGHT,
     maxHeight: MODAL_MAX_HEIGHT,
     borderRadius: 28,
-    overflow: "hidden",
-    alignSelf: "center",
+    padding: 12,
+    paddingVertical: 18,
+    borderWidth: 1,
+    borderColor: modalTheme.border,
     shadowColor: modalTheme.shadow,
     shadowOpacity: 0.28,
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 10 },
     elevation: 6,
+    overflow: "hidden",
+    alignSelf: "center",
   },
-
-  base: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.cardSolid,
-  },
-
-  accentSheen: {
+  orbTop: {
     position: "absolute",
-    top: -44,
-    right: -72,
-    width: 240,
-    height: 190,
+    top: -56,
+    right: -30,
+    width: 160,
+    height: 160,
     borderRadius: 999,
-    opacity: 0.95,
+    backgroundColor: modalTheme.orbTop,
   },
-
-  outerStroke: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: colors.strokeOuter,
-  },
-  innerStroke: {
+  orbBottom: {
     position: "absolute",
-    top: 1,
-    left: 1,
-    right: 1,
-    bottom: 1,
-    borderRadius: 27,
-    borderWidth: 1,
-    borderColor: colors.strokeInner,
+    left: -36,
+    bottom: -72,
+    width: 146,
+    height: 146,
+    borderRadius: 999,
+    backgroundColor: modalTheme.orbBottom,
   },
-
-  content: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 14,
-  },
-
   header: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
   },
-
+  headerTitleWrap: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "40%",
+  },
   title: {
-    color: colors.text,
-    fontSize: 18,
-    letterSpacing: 0.12,
-  },
-  subtitle: {
-    color: colors.muted2,
-    marginTop: 4,
-    fontSize: 12.5,
-    lineHeight: 16,
+    color: modalTheme.text,
+    fontSize: 25,
     fontWeight: "500",
   },
-
-  iconBtn: {
-    alignSelf: "flex-start",
-  },
-  iconBtnInner: {
-    width: 34,
-    height: 34,
-    borderRadius: 13,
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: modalTheme.surfaceSoft,
-    borderWidth: 1,
-    borderColor: colors.iconStroke,
   },
-  iconPressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.985 }],
+  scroll: {
+    flex: 1,
+    minHeight: 0,
   },
-
-  field: {
-    gap: 8,
+  scrollContent: {
+    paddingBottom: 8,
+    flexGrow: 1,
   },
   label: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.18,
-    textTransform: "uppercase",
+    color: modalTheme.label,
+    marginBottom: 6,
+    marginTop: 15,
+    fontSize: 14,
   },
-
-  inputWrap: {
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: colors.inputBg,
-    borderWidth: 1,
-    borderColor: colors.inputStroke,
-  },
-  inputWrapFocus: {
-    borderColor: colors.inputStrokeFocus,
-  },
-  focusGlow: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.inputGlow,
-    opacity: 0.55,
-  },
-
   input: {
-    color: colors.text,
-    fontSize: 15,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-
-  textareaWrap: {
-    minHeight: 104,
+    backgroundColor: modalTheme.surfaceMuted,
+    borderRadius: 12,
+    padding: 12,
+    color: modalTheme.textStrong,
+    fontSize: 13,
+    borderWidth: 1,
+    borderColor: modalTheme.inputBorder,
   },
   textarea: {
-    minHeight: 104,
-    paddingTop: 12,
+    height: 90,
+    textAlignVertical: "top",
   },
-
-  footer: {
-    marginTop: 4,
-    gap: 10,
+  buttonWrapper: {
+    marginTop: 12,
   },
-
-  ctaWrap: {
-    borderRadius: 999,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.ctaStroke,
+  buttonDisabled: {
+    opacity: 0.72,
   },
-  cta: {
-    paddingVertical: 13,
+  button: {
+    paddingVertical: 14,
+    borderRadius: 14,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
-  ctaText: {
+  buttonText: {
     color: "white",
-    fontSize: 14,
-    fontWeight: "800",
-    letterSpacing: 0.12,
+    fontSize: 16,
+    fontWeight: "500",
   },
-
-  ctaPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.99 }],
-  },
-  ctaDisabled: {
-    opacity: 0.45,
-  },
-
-  helper: {
-    color: colors.muted2,
-    fontSize: 12.5,
+  helperText: {
+    marginTop: 10,
+    color: modalTheme.muted,
+    fontSize: 12,
     textAlign: "center",
   },
 });

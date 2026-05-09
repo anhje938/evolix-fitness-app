@@ -6,6 +6,67 @@ import type {
   WeeklyReport,
 } from "@/types/adaptive";
 
+export class AdaptiveApiError extends Error {
+  status: number;
+  code: string | null;
+  detail: string | null;
+
+  constructor(
+    message: string,
+    status: number,
+    code: string | null = null,
+    detail: string | null = null
+  ) {
+    super(message);
+    this.name = "AdaptiveApiError";
+    this.status = status;
+    this.code = code;
+    this.detail = detail;
+  }
+}
+
+export function isAdaptiveApiError(
+  error: unknown
+): error is AdaptiveApiError {
+  return error instanceof AdaptiveApiError;
+}
+
+function parseAdaptiveErrorPayload(text: string) {
+  if (!text.trim()) {
+    return {
+      message: null as string | null,
+      code: null as string | null,
+      detail: null as string | null,
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(text) as {
+      error?: unknown;
+      message?: unknown;
+      detail?: unknown;
+      title?: unknown;
+    };
+
+    return {
+      message:
+        typeof parsed.message === "string"
+          ? parsed.message
+          : typeof parsed.title === "string"
+            ? parsed.title
+            : null,
+      code: typeof parsed.error === "string" ? parsed.error : null,
+      detail: typeof parsed.detail === "string" ? parsed.detail : null,
+    };
+  } catch {
+    return {
+      message: text.trim(),
+      code: null as string | null,
+      detail: null as string | null,
+    };
+  }
+}
+
 async function adaptiveFetch<T>(
   path: string,
   init: RequestInit = {}
@@ -27,7 +88,13 @@ async function adaptiveFetch<T>(
 
   const text = await res.text().catch(() => "");
   if (!res.ok) {
-    throw new Error(text || `Adaptive request failed with status ${res.status}`);
+    const parsedError = parseAdaptiveErrorPayload(text);
+    throw new AdaptiveApiError(
+      parsedError.message ?? `Adaptive request failed with status ${res.status}`,
+      res.status,
+      parsedError.code,
+      parsedError.detail
+    );
   }
 
   if (!text.trim()) return null as T;

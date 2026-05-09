@@ -1,9 +1,7 @@
-// components/exercise/sub-tabs/program/ProgramList.tsx
-import { generalStyles } from "@/config/styles";
+import { Paywall } from "@/components/subscription/Paywall";
 import { typography } from "@/config/typography";
 import { useSubscription } from "@/context/SubscriptionProvider";
 import { useWorkoutSession } from "@/context/workoutSessionContext";
-import { Paywall } from "@/components/subscription/Paywall";
 import type { Exercise, Program, Workout } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,55 +9,26 @@ import React, { memo, useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ProgramWorkoutCard } from "./ProgramWorkoutCard";
 
-/**
- * Premium style aligned with the rest of your app:
- * - calmer glass surface (readable in large quantities)
- * - clearer hierarchy + thinner typography
- * - subtle blue/purple accent (not neon)
- * - more “list-like” with compact rows + dividers
- */
 const colors = {
-  // Surfaces
-  card: "rgba(2,6,23,0.18)", // app-like glass
-  cardSolid: "#0B1220",
-  surface: "rgba(255,255,255,0.035)",
-  surface2: "rgba(255,255,255,0.060)",
-
-  // Strokes
-  border: "rgba(255,255,255,0.08)",
-  borderSoft: "rgba(255,255,255,0.06)",
-  divider: "rgba(255,255,255,0.07)",
-
-  // Text
-  text: "rgba(255,255,255,0.92)",
-  muted: "rgba(148,163,184,0.92)",
-  muted2: "rgba(148,163,184,0.72)",
-
-  // Accent (blue/purple hint)
-  accent: "rgba(99,102,241,0.95)",
-  accent2: "rgba(34,211,238,0.90)",
-
-  // Pills (more premium contrast)
-  pillBg: "rgba(255,255,255,0.050)",
-  pillBgStrong: "rgba(255,255,255,0.082)",
-  pillStroke: "rgba(255,255,255,0.09)",
-  pillStrokeStrong: "rgba(255,255,255,0.14)",
-
-  // Chips (with subtle neon tints)
-  chipBg: "rgba(255,255,255,0.040)",
-  chipStroke: "rgba(255,255,255,0.10)",
-
-  chipIndigoBg: "rgba(99,102,241,0.090)",
-  chipIndigoStroke: "rgba(99,102,241,0.22)",
-
-  chipCyanBg: "rgba(34,211,238,0.075)",
-  chipCyanStroke: "rgba(34,211,238,0.20)",
-
-  chipEmeraldBg: "rgba(16,185,129,0.070)",
-  chipEmeraldStroke: "rgba(16,185,129,0.18)",
-
-  moreBg: "rgba(34,211,238,0.14)",
-  moreStroke: "rgba(34,211,238,0.26)",
+  cardSolid: "rgba(18, 20, 128, 0.18)",
+  glassTop: "rgba(255, 255, 255, 0.1)",
+  glassMid: "rgba(0, 12, 112, 0)",
+  glassNone: "rgba(255,255,255,0)",
+  borderSoft: "rgba(96,165,250,0.16)",
+  borderExpanded: "rgba(34,211,238,0.44)",
+  insetStroke: "rgba(255,255,255,0.04)",
+  glow: "rgba(34,211,238,0.18)",
+  text: "rgba(248,250,252,0.96)",
+  muted: "rgba(191,219,254,0.74)",
+  muted2: "rgba(148,163,184,0.76)",
+  cyan: "#22d3ee",
+  emerald: "#2dd4bf",
+  premiumBg: "rgba(251,191,36,0.12)",
+  premiumBorder: "rgba(251,191,36,0.22)",
+  premiumText: "#FDE68A",
+  iconBg: "rgba(8,24,54,0.98)",
+  iconBorder: "rgba(96,165,250,0.18)",
+  actionBorder: "rgba(96,165,250,0.16)",
 };
 
 type Props = {
@@ -140,6 +109,7 @@ const ProgramListItem = memo(function ProgramListItem({
 
   const workoutCount = sessions.length;
   const isProgramLocked = program.isPremium === true && !isPremium;
+
   const handleToggle = () => {
     if (isProgramLocked) {
       setPaywallVisible(true);
@@ -150,182 +120,156 @@ const ProgramListItem = memo(function ProgramListItem({
   };
 
   return (
-    <View style={[generalStyles.newCard, styles.cardOuter]}>
-      {/* Glass base */}
+    <View style={[styles.cardOuter, expanded && styles.cardOuterExpanded]}>
+      <View pointerEvents="none" style={styles.base} />
+
       <LinearGradient
-        colors={[
-          "rgba(255,255,255,0.06)",
-          "rgba(255,255,255,0.025)",
-          "rgba(255,255,255,0.00)",
-        ]}
-        start={{ x: 0.05, y: 0.0 }}
+        colors={[colors.glassTop, colors.glassMid, colors.glassNone]}
+        start={{ x: 0.05, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
 
-      {/* Accent sheen */}
       <LinearGradient
         colors={[
-          "rgba(99,102,241,0.16)",
-          "rgba(34,211,238,0.12)",
-          "rgba(255,255,255,0.00)",
+          "rgba(59,130,246,0.18)",
+          "rgba(34,211,238,0.10)",
+          "rgba(255,255,255,0)",
         ]}
         start={{ x: 1, y: 0 }}
-        end={{ x: 0.25, y: 0.85 }}
-        style={styles.accentGlow}
+        end={{ x: 0.2, y: 1 }}
+        style={styles.accentSheen}
         pointerEvents="none"
       />
 
-      <View pointerEvents="none" style={styles.innerStroke} />
+      <View
+        pointerEvents="none"
+        style={[styles.outerStroke, expanded && styles.outerStrokeExpanded]}
+      />
+      <View
+        pointerEvents="none"
+        style={[styles.innerInset, expanded && styles.innerInsetExpanded]}
+      />
 
       <View style={styles.cardInner}>
-        <Pressable
-          onPress={handleToggle}
-          hitSlop={8}
-          style={({ pressed }) => [
-            styles.pressableRow,
-            pressed && styles.pressedRow,
-          ]}
-        >
-          {/* LEFT */}
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <View style={styles.titleRow}>
-              <Text
-                style={[typography.bodyBold, styles.title]}
-                numberOfLines={1}
-              >
-                {program.name}
-              </Text>
-
-              {program.isPremium ? (
-                <View style={styles.premiumBadge}>
-                  <Ionicons name="lock-closed" size={10} color="#FDE68A" />
-                  <Text style={styles.premiumBadgeText}>Premium</Text>
-                </View>
-              ) : null}
-
-              <View
-                style={[
-                  styles.expandPip,
-                  expanded ? styles.expandPipOn : styles.expandPipOff,
-                ]}
-              />
-            </View>
-
-            {!!program.goal && (
-              <Text
-                style={[typography.body, styles.description]}
-                numberOfLines={2}
-              >
-                {program.goal}
-              </Text>
-            )}
-
-            {/* META */}
-            <View style={styles.metaRow}>
-              <View style={styles.metaPill}>
-                <Ionicons
-                  name="fitness-outline"
-                  size={12}
-                  color="rgba(226,232,240,0.78)"
-                />
-                <Text style={[typography.bodyBlack, styles.metaText]}>
-                  {workoutCount} økt{workoutCount === 1 ? "" : "er"}
-                </Text>
+        <View style={styles.topRow}>
+          <Pressable
+            onPress={handleToggle}
+            style={({ pressed }) => [
+              styles.headerPress,
+              pressed && styles.headerPressed,
+            ]}
+            hitSlop={8}
+          >
+            <View style={styles.headerMainRow}>
+              <View style={styles.iconCircle}>
+                <Ionicons name="albums-outline" size={15} color={colors.cyan} />
               </View>
-            </View>
 
-            {/* CHIPS */}
-            {sessions.length > 0 && (
-              <View style={styles.chips}>
-                {sessions.slice(0, 6).map((w, idx) => {
-                  // Premium: subtle neon rotation (indigo/cyan/emerald)
-                  const mod = idx % 3;
-                  const chipStyle =
-                    mod === 0
-                      ? styles.chipIndigo
-                      : mod === 1
-                      ? styles.chipCyan
-                      : styles.chipEmerald;
+              <View style={styles.headerTextWrap}>
+                <View style={styles.titleRow}>
+                  <Text
+                    style={[typography.bodyBold, styles.title]}
+                    numberOfLines={1}
+                  >
+                    {program.name}
+                  </Text>
 
-                  return (
-                    <View key={w.id} style={[styles.chip, chipStyle]}>
-                      <Text
-                        style={[typography.bodyBlack, styles.chipText]}
-                        numberOfLines={1}
-                      >
-                        {w.name}
-                      </Text>
+                  {program.isPremium ? (
+                    <View style={styles.premiumBadge}>
+                      <Ionicons
+                        name="lock-closed"
+                        size={10}
+                        color={colors.premiumText}
+                      />
+                      <Text style={styles.premiumBadgeText}>Premium</Text>
                     </View>
-                  );
-                })}
+                  ) : null}
+                </View>
 
-                {sessions.length > 6 && (
-                  <View style={[styles.chip, styles.moreChip]}>
-                    <Text style={[typography.bodyBlack, styles.moreChipText]}>
-                      +{sessions.length - 6}
+                <View style={styles.metaRow}>
+                  <View style={styles.metaInline}>
+                    <Ionicons
+                      name="barbell-outline"
+                      size={12}
+                      color={colors.muted2}
+                    />
+                    <Text style={styles.metaInlineText}>
+                      {workoutCount} økt{workoutCount === 1 ? "" : "er"}
                     </Text>
                   </View>
-                )}
-              </View>
-            )}
-          </View>
 
-          {/* RIGHT */}
+                  <View style={styles.metaDivider} />
+
+                  <View style={styles.metaInline}>
+                    <Ionicons
+                      name="grid-outline"
+                      size={12}
+                      color={colors.muted2}
+                    />
+                    <Text style={styles.metaInlineText}>Program</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </Pressable>
+
           <View style={styles.rightCol}>
-            <Pressable
-              onPress={() => {
-                if (isProgramLocked) {
-                  setPaywallVisible(true);
-                  return;
-                }
-
-                onEdit?.(program.id);
-              }}
-              style={({ pressed }) => [
-                styles.iconBtn,
-                pressed && styles.iconPressed,
+            <View
+              style={[
+                styles.statusDot,
+                isProgramLocked && styles.statusDotLocked,
               ]}
-              hitSlop={10}
-            >
-              <View style={styles.iconBtnInner}>
-                <Ionicons
-                  name="pencil-outline"
-                  size={16}
-                  color="rgba(255,255,255,0.90)"
-                />
-              </View>
-            </Pressable>
+            />
 
-            <View style={styles.chevBtn}>
-              <View style={styles.iconBtnInner}>
+            <View style={styles.actionButtonsRow}>
+              <Pressable
+                onPress={() => {
+                  if (isProgramLocked) {
+                    setPaywallVisible(true);
+                    return;
+                  }
+
+                  onEdit?.(program.id);
+                }}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  pressed && styles.iconPressed,
+                ]}
+                hitSlop={8}
+              >
+                <Ionicons name="pencil-outline" size={15} color={colors.text} />
+              </Pressable>
+
+              <Pressable
+                onPress={handleToggle}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  pressed && styles.iconPressed,
+                ]}
+                hitSlop={10}
+              >
                 <Ionicons
                   name={
                     expanded ? "chevron-up-outline" : "chevron-down-outline"
                   }
-                  size={18}
-                  color="rgba(255,255,255,0.88)"
+                  size={17}
+                  color={colors.text}
                 />
-              </View>
+              </Pressable>
             </View>
           </View>
-        </Pressable>
+        </View>
 
-        {/* EXPANDED */}
-        {expanded && (
-          <View style={styles.dropdown}>
-            <View style={styles.dropdownHeader}>
-              <Text style={[typography.body, styles.sectionTitle]}>Økter</Text>
-              <View style={styles.dropdownDivider} />
-            </View>
-
+        {expanded ? (
+          <View style={styles.expandedContent}>
             {sessions.length === 0 ? (
               <Text style={[typography.body, styles.emptyText]}>
                 Ingen økter koblet til dette programmet ennå.
               </Text>
             ) : (
-              <View style={{ gap: 10 }}>
+              <View style={styles.workoutList}>
                 {sessions.map((session) => (
                   <ProgramWorkoutCard
                     key={session.id}
@@ -338,7 +282,7 @@ const ProgramListItem = memo(function ProgramListItem({
               </View>
             )}
           </View>
-        )}
+        ) : null}
       </View>
 
       <Paywall
@@ -355,8 +299,9 @@ const ProgramListItem = memo(function ProgramListItem({
 });
 
 const styles = StyleSheet.create({
-  list: { gap: 12 },
-
+  list: {
+    gap: 14,
+  },
   emptyWrap: {
     paddingTop: 18,
     paddingHorizontal: 6,
@@ -368,64 +313,114 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: "rgba(255,255,255,0.05)",
     borderWidth: 1,
     borderColor: colors.borderSoft,
   },
-  emptyTitle: { color: colors.text },
-  emptySub: { color: colors.muted2, fontSize: 13 },
-  inlinePlus: { color: colors.text },
-
+  emptyTitle: {
+    color: colors.text,
+  },
+  emptySub: {
+    color: colors.muted2,
+    fontSize: 13,
+  },
+  inlinePlus: {
+    color: colors.text,
+  },
   cardOuter: {
     borderRadius: 22,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.card,
   },
-  innerStroke: {
+  cardOuterExpanded: {
+    shadowColor: colors.glow,
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  base: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    backgroundColor: colors.cardSolid,
   },
-  accentGlow: {
+  accentSheen: {
     position: "absolute",
     top: -44,
     right: -70,
-    width: 220,
-    height: 180,
+    width: 240,
+    height: 200,
     borderRadius: 999,
-    opacity: 0.9,
+    opacity: 0.88,
   },
-
+  outerStroke: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  outerStrokeExpanded: {
+    borderColor: colors.borderExpanded,
+  },
+  innerInset: {
+    position: "absolute",
+    top: 1,
+    left: 1,
+    right: 1,
+    bottom: 1,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: colors.insetStroke,
+  },
+  innerInsetExpanded: {
+    borderColor: "rgba(255,255,255,0.05)",
+  },
   cardInner: {
+    paddingHorizontal: 12,
     paddingVertical: 12,
-    paddingHorizontal: 14,
-    gap: 10,
+    gap: 12,
   },
-
-  pressableRow: {
+  topRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
-    paddingVertical: 2,
+    gap: 10,
+  },
+  headerPress: {
+    flex: 1,
+    minWidth: 0,
     borderRadius: 16,
   },
-  pressedRow: {
-    backgroundColor: "rgba(255,255,255,0.028)",
+  headerPressed: {
+    opacity: 0.96,
   },
-
+  headerMainRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.iconBg,
+    borderWidth: 1,
+    borderColor: colors.iconBorder,
+  },
+  headerTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    paddingTop: 1,
+  },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    flexWrap: "wrap",
+    gap: 8,
   },
   title: {
     color: colors.text,
-    fontSize: 16,
-    letterSpacing: 0.15,
-    fontWeight: "600",
+    fontSize: 18,
+    letterSpacing: 0.08,
     flexShrink: 1,
   },
   premiumBadge: {
@@ -435,163 +430,81 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 7,
     paddingVertical: 3,
-    backgroundColor: "rgba(251,191,36,0.12)",
+    backgroundColor: colors.premiumBg,
     borderWidth: 1,
-    borderColor: "rgba(251,191,36,0.2)",
+    borderColor: colors.premiumBorder,
   },
   premiumBadgeText: {
-    color: "#FDE68A",
+    color: colors.premiumText,
     fontSize: 10,
     fontWeight: "900",
   },
-  expandPip: {
-    width: 10,
-    height: 6,
-    borderRadius: 99,
-    marginTop: 2,
-  },
-  expandPipOn: {
-    backgroundColor: "rgba(34,211,238,0.90)",
-    opacity: 0.95,
-  },
-  expandPipOff: {
-    backgroundColor: "rgba(255,255,255,0.14)",
-  },
-
-  description: {
-    color: colors.muted2,
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 4,
-    fontWeight: "500",
-  },
-
   metaRow: {
-    marginTop: 10,
+    marginTop: 6,
     flexDirection: "row",
+    alignItems: "center",
     flexWrap: "wrap",
     gap: 8,
-    alignItems: "center",
   },
-  metaPill: {
+  metaInline: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: 5,
+  },
+  metaInlineText: {
+    color: colors.muted2,
+    fontSize: 12.5,
+    fontWeight: "600",
+  },
+  metaDivider: {
+    width: 3,
+    height: 3,
     borderRadius: 999,
-    backgroundColor: colors.pillBgStrong,
-    borderWidth: 1,
-    borderColor: colors.pillStrokeStrong,
+    backgroundColor: "rgba(148,163,184,0.40)",
   },
-  metaText: {
-    color: "rgba(226,232,240,0.80)",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.12,
-  },
-
   rightCol: {
     alignItems: "flex-end",
-    alignSelf: "stretch",
-    justifyContent: "flex-start",
-    paddingLeft: 4,
+    gap: 10,
+    paddingTop: 4,
   },
-
-  iconBtn: { alignSelf: "flex-start" },
-  iconBtnInner: {
-    width: 34,
-    height: 34,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+  statusDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    backgroundColor: colors.cyan,
   },
-  iconPressed: {
-    opacity: 0.86,
-    transform: [{ scale: 0.985 }],
+  statusDotLocked: {
+    backgroundColor: colors.emerald,
   },
-  chevBtn: {
-    marginTop: "auto",
-    alignSelf: "flex-start",
-  },
-
-  chips: {
-    marginTop: 10,
+  actionButtonsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
     gap: 8,
   },
-  chip: {
-    maxWidth: "100%",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-
-  chipIndigo: {
-    backgroundColor: colors.chipIndigoBg,
-    borderColor: colors.chipIndigoStroke,
-  },
-  chipCyan: {
-    backgroundColor: colors.chipCyanBg,
-    borderColor: colors.chipCyanStroke,
-  },
-  chipEmerald: {
-    backgroundColor: colors.chipEmeraldBg,
-    borderColor: colors.chipEmeraldStroke,
-  },
-
-  moreChip: {
-    backgroundColor: colors.moreBg,
-    borderColor: colors.moreStroke,
-  },
-  chipText: {
-    color: "rgba(226,232,240,0.84)",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.12,
-  },
-  moreChipText: {
-    color: "rgba(226,232,240,0.92)",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.12,
-  },
-
-  dropdown: {
-    marginTop: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-    gap: 12,
-  },
-  dropdownHeader: {
-    flexDirection: "row",
+  actionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
-    gap: 10,
+    justifyContent: "center",
+    backgroundColor: colors.iconBg,
+    borderWidth: 1,
+    borderColor: colors.actionBorder,
   },
-  dropdownDivider: {
-    height: 1,
-    flex: 1,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    marginTop: 2,
+  iconPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
   },
-
-  sectionTitle: {
-    color: colors.muted2,
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-    textTransform: "uppercase",
+  expandedContent: {
+    marginTop: 16,
+  },
+  workoutList: {
+    gap: 12,
   },
   emptyText: {
     color: colors.muted2,
     fontSize: 13,
     fontStyle: "italic",
-    paddingVertical: 4,
+    paddingBottom: 4,
   },
 });

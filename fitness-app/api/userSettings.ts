@@ -114,7 +114,7 @@ function normalizeAge(value: unknown): number | null {
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
   const rounded = Math.round(n);
-  if (rounded < 10 || rounded > 120) return null;
+  if (rounded < 18 || rounded > 120) return null;
   return rounded;
 }
 

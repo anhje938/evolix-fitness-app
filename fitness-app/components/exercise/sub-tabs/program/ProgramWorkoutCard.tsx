@@ -1,6 +1,5 @@
-// components/exercise/sub-tabs/program/ProgramWorkoutCard.tsx
-import { typography } from "@/config/typography";
 import { Paywall } from "@/components/subscription/Paywall";
+import { typography } from "@/config/typography";
 import { useSubscription } from "@/context/SubscriptionProvider";
 import type { Exercise, Workout } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,39 +8,26 @@ import React, { memo, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 const colors = {
-  // Card base (higher contrast than ProgramList card)
-  cardSolid: "rgba(10,16,30,0.92)",
+  cardSolid: "rgba(6,20,46,0.97)",
   glassTop: "rgba(255,255,255,0.055)",
-  glassMid: "rgba(255,255,255,0.020)",
-  glassNone: "rgba(255,255,255,0.00)",
-
-  // Strokes
-  borderSoft: "rgba(255,255,255,0.08)",
-  insetStroke: "rgba(255,255,255,0.05)",
-
-  // Text
-  text: "rgba(255,255,255,0.94)",
-  muted: "rgba(148,163,184,0.92)",
-  muted2: "rgba(148,163,184,0.74)",
-
-  // Subtle neon tints
-  indigoBg: "rgba(99,102,241,0.10)",
-  indigoStroke: "rgba(99,102,241,0.22)",
-  cyanBg: "rgba(34,211,238,0.085)",
-  cyanStroke: "rgba(34,211,238,0.20)",
-  emeraldBg: "rgba(16,185,129,0.080)",
-  emeraldStroke: "rgba(16,185,129,0.18)",
-
-  // Chips (base)
-  chipBg: "rgba(255,255,255,0.042)",
-  chipStroke: "rgba(255,255,255,0.10)",
-
-  // Count pill
-  countBg: "rgba(255,255,255,0.060)",
-  countStroke: "rgba(255,255,255,0.12)",
-
-  // Button
-  btnStroke: "rgba(255,255,255,0.18)",
+  glassMid: "rgba(255,255,255,0.02)",
+  glassNone: "rgba(255,255,255,0)",
+  borderSoft: "rgba(96,165,250,0.18)",
+  insetStroke: "rgba(255,255,255,0.045)",
+  divider: "rgba(148,163,184,0.12)",
+  text: "rgba(248,250,252,0.96)",
+  muted: "rgba(191,219,254,0.78)",
+  muted2: "rgba(148,163,184,0.76)",
+  iconBg: "rgba(10,30,66,0.98)",
+  iconStroke: "rgba(96,165,250,0.2)",
+  pillBg: "rgba(255,255,255,0.055)",
+  pillStroke: "rgba(255,255,255,0.09)",
+  pillText: "rgba(226,232,240,0.82)",
+  cyan: "#22d3ee",
+  premiumBg: "rgba(251,191,36,0.12)",
+  premiumBorder: "rgba(251,191,36,0.2)",
+  premiumText: "#FDE68A",
+  startStroke: "rgba(255,255,255,0.16)",
 };
 
 type Props = {
@@ -56,6 +42,11 @@ type Props = {
   }) => void;
 };
 
+function estimateWorkoutMinutes(exerciseCount: number) {
+  if (exerciseCount <= 0) return 20;
+  return Math.max(20, Math.min(90, exerciseCount * 10));
+}
+
 export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
   workout,
   programId,
@@ -64,30 +55,35 @@ export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
 }: Props) {
   const { isPremium } = useSubscription();
   const [paywallVisible, setPaywallVisible] = useState(false);
+
   const exercisesForWorkout = useMemo(() => {
     return (workout.exerciseIds ?? [])
       .map((id) => exerciseMap.get(id))
-      .filter((ex): ex is Exercise => !!ex)
-      .map((ex) => ({
-        exerciseId: ex.id,
-        name: ex.name,
-        muscle: ex.muscle,
+      .filter((exercise): exercise is Exercise => !!exercise)
+      .map((exercise) => ({
+        exerciseId: exercise.id,
+        name: exercise.name,
+        muscle: exercise.muscle,
       }));
   }, [workout.exerciseIds, exerciseMap]);
 
-  const chipExercises = useMemo(() => {
-    const names = (workout.exerciseIds ?? [])
-      .map((id) => exerciseMap.get(id))
-      .filter((ex): ex is Exercise => !!ex)
-      .map((ex) => ex.name);
+  const subtitle = useMemo(() => {
+    const muscleNames = (workout.exerciseIds ?? [])
+      .map((id) => exerciseMap.get(id)?.muscle)
+      .filter((value): value is string => !!value)
+      .map((value) => value.trim())
+      .filter(Boolean);
 
-    const visible = names.slice(0, 5);
-    const remaining = Math.max(0, names.length - visible.length);
+    const uniqueMuscles = [...new Set(muscleNames)];
+    if (uniqueMuscles.length > 0) {
+      return uniqueMuscles.slice(0, 3).join(", ");
+    }
 
-    return { visible, remaining, total: names.length };
-  }, [workout.exerciseIds, exerciseMap]);
+    return workout.dayLabel || workout.description || "";
+  }, [workout.dayLabel, workout.description, workout.exerciseIds, exerciseMap]);
 
-  const subtitle = workout.dayLabel || workout.description || "";
+  const exerciseCount = exercisesForWorkout.length;
+  const estimatedMinutes = estimateWorkoutMinutes(exerciseCount);
   const requiresPremium =
     workout.isPremium === true || workout.workoutProgramIsPremium === true;
   const isWorkoutLocked = requiresPremium && !isPremium;
@@ -106,12 +102,12 @@ export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
 
       <LinearGradient
         colors={[
-          "rgba(99,102,241,0.12)",
-          "rgba(34,211,238,0.08)",
-          "rgba(255,255,255,0.00)",
+          "rgba(59,130,246,0.18)",
+          "rgba(34,211,238,0.1)",
+          "rgba(255,255,255,0)",
         ]}
         start={{ x: 1, y: 0 }}
-        end={{ x: 0.25, y: 1 }}
+        end={{ x: 0.2, y: 1 }}
         style={styles.accentSheen}
         pointerEvents="none"
       />
@@ -119,88 +115,68 @@ export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
       <View pointerEvents="none" style={styles.outerStroke} />
       <View pointerEvents="none" style={styles.innerInset} />
 
-      <View style={styles.inner}>
-        <View style={styles.topRow}>
+      <View style={styles.cardInner}>
+        <View style={styles.headerMainRow}>
           <View style={styles.iconCircle}>
-            <Ionicons name="barbell-outline" size={14} color={colors.muted} />
+            <Ionicons name="barbell-outline" size={15} color={colors.cyan} />
           </View>
 
-          <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={styles.headerTextWrap}>
             <View style={styles.titleRow}>
-              <Text
-                style={[typography.bodyBold, styles.title]}
-                numberOfLines={1}
-              >
+              <Text style={[typography.bodyBold, styles.title]} numberOfLines={1}>
                 {workout.name}
               </Text>
 
-              {requiresPremium && (
+              {requiresPremium ? (
                 <View style={styles.premiumBadge}>
-                  <Ionicons name="lock-closed" size={10} color="#FDE68A" />
+                  <Ionicons
+                    name="lock-closed"
+                    size={10}
+                    color={colors.premiumText}
+                  />
                   <Text style={styles.premiumBadgeText}>Premium</Text>
                 </View>
-              )}
-
-              {chipExercises.total > 0 && (
-                <View style={styles.countPill}>
-                  <Text style={[typography.bodyBlack, styles.countText]}>
-                    {chipExercises.total}
-                  </Text>
-                  <Text style={[typography.bodyBlack, styles.countTextMuted]}>
-                    {" "}
-                    øv
-                  </Text>
-                </View>
-              )}
+              ) : null}
             </View>
 
-            {!!subtitle && (
-              <Text
-                style={[typography.body, styles.subtitle]}
-                numberOfLines={1}
-              >
-                {subtitle}
-              </Text>
-            )}
-
-            {chipExercises.total > 0 && (
-              <View style={styles.chipsRow}>
-                {chipExercises.visible.map((name, idx) => {
-                  // Rotate gentle neon accents; keep readable
-                  const mod = idx % 3;
-                  const tintStyle =
-                    mod === 0
-                      ? styles.chipIndigo
-                      : mod === 1
-                      ? styles.chipCyan
-                      : styles.chipEmerald;
-
-                  return (
-                    <View
-                      key={`${workout.id}-${name}`}
-                      style={[styles.chip, tintStyle]}
-                    >
-                      <Text
-                        style={[typography.bodyBlack, styles.chipText]}
-                        numberOfLines={1}
-                      >
-                        {name}
-                      </Text>
-                    </View>
-                  );
-                })}
-
-                {chipExercises.remaining > 0 && (
-                  <View style={[styles.chip, styles.moreChip]}>
-                    <Text style={[typography.bodyBlack, styles.moreChipText]}>
-                      +{chipExercises.remaining}
-                    </Text>
-                  </View>
-                )}
+            <View style={styles.metaRow}>
+              <View style={styles.metaInline}>
+                <Ionicons
+                  name="heart-outline"
+                  size={12}
+                  color={colors.muted2}
+                />
+                <Text style={styles.metaInlineText}>
+                  {exerciseCount} øvelse{exerciseCount === 1 ? "" : "r"}
+                </Text>
               </View>
-            )}
-          </View>
 
+              <View style={styles.metaDivider} />
+
+              <View style={styles.metaInline}>
+                <Ionicons
+                  name="time-outline"
+                  size={12}
+                  color={colors.muted2}
+                />
+                <Text style={styles.metaInlineText}>{estimatedMinutes} min</Text>
+              </View>
+            </View>
+
+            {!!subtitle ? (
+              <View style={styles.subtitlePill}>
+                <Text
+                  style={[typography.bodyBlack, styles.subtitleText]}
+                  numberOfLines={1}
+                >
+                  {subtitle}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        <View style={styles.actions}>
           <Pressable
             onPress={() => {
               if (isWorkoutLocked) {
@@ -217,26 +193,23 @@ export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
             }}
             hitSlop={10}
             style={({ pressed }) => [
-              styles.startBtn,
-              pressed && styles.startBtnPressed,
+              styles.primaryWrap,
+              pressed && styles.startPressed,
             ]}
           >
             <LinearGradient
-              colors={["rgba(99,102,241,0.94)", "rgba(34,211,238,0.78)"]}
-              start={{ x: 0, y: 0 }}
+              colors={["rgba(99,102,241,0.96)", "rgba(6,182,212,0.92)"]}
+              start={{ x: 0, y: 0.1 }}
               end={{ x: 1, y: 1 }}
-              style={styles.startBtnInner}
+              style={styles.primary}
             >
               <Ionicons
                 name={isWorkoutLocked ? "lock-closed" : "play"}
-                size={14}
+                size={15}
                 color="white"
               />
-              <Text
-                style={[typography.bodyBold, styles.startText]}
-                numberOfLines={1}
-              >
-                {isWorkoutLocked ? "Lås opp" : "Start"}
+              <Text style={[typography.bodyBold, styles.primaryText]}>
+                {isWorkoutLocked ? "Lås opp" : "Start økt"}
               </Text>
             </LinearGradient>
           </Pressable>
@@ -255,27 +228,25 @@ export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
 
 const styles = StyleSheet.create({
   cardOuter: {
-    borderRadius: 18,
+    borderRadius: 22,
     overflow: "hidden",
   },
   base: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.cardSolid,
   },
-
   accentSheen: {
     position: "absolute",
-    top: -30,
-    right: -55,
-    width: 200,
-    height: 160,
+    top: -44,
+    right: -70,
+    width: 220,
+    height: 180,
     borderRadius: 999,
     opacity: 0.9,
   },
-
   outerStroke: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 18,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.borderSoft,
   },
@@ -285,37 +256,46 @@ const styles = StyleSheet.create({
     left: 1,
     right: 1,
     bottom: 1,
-    borderRadius: 17,
+    borderRadius: 21,
     borderWidth: 1,
     borderColor: colors.insetStroke,
   },
-
-  inner: {
+  cardInner: {
     paddingHorizontal: 12,
     paddingVertical: 12,
+    gap: 12,
   },
-
-  topRow: {
+  headerMainRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
   },
-
   iconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: colors.iconBg,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.11)",
+    borderColor: colors.iconStroke,
   },
-
+  headerTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    paddingTop: 1,
+  },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  title: {
+    color: colors.text,
+    fontSize: 17,
+    letterSpacing: 0.08,
+    flexShrink: 1,
   },
   premiumBadge: {
     flexDirection: "row",
@@ -324,122 +304,78 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 7,
     paddingVertical: 3,
-    backgroundColor: "rgba(251,191,36,0.12)",
+    backgroundColor: colors.premiumBg,
     borderWidth: 1,
-    borderColor: "rgba(251,191,36,0.2)",
+    borderColor: colors.premiumBorder,
   },
   premiumBadgeText: {
-    color: "#FDE68A",
+    color: colors.premiumText,
     fontSize: 10,
     fontWeight: "900",
   },
-  title: {
-    color: colors.text,
-    fontSize: 14.5,
-    fontWeight: "600",
-    letterSpacing: 0.1,
-    flexShrink: 1,
-  },
-  subtitle: {
-    color: colors.muted2,
-    fontSize: 12,
-    lineHeight: 16,
-    marginTop: 2,
-    fontWeight: "500",
-  },
-
-  countPill: {
+  metaRow: {
+    marginTop: 6,
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  metaInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  metaInlineText: {
+    color: colors.muted2,
+    fontSize: 12.5,
+    fontWeight: "600",
+  },
+  metaDivider: {
+    width: 3,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: "rgba(148,163,184,0.4)",
+  },
+  subtitlePill: {
+    marginTop: 9,
+    alignSelf: "flex-start",
+    maxWidth: "100%",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: colors.countBg,
+    backgroundColor: colors.pillBg,
     borderWidth: 1,
-    borderColor: colors.countStroke,
+    borderColor: colors.pillStroke,
   },
-  countText: {
-    color: "rgba(226,232,240,0.90)",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.12,
-  },
-  countTextMuted: {
-    color: "rgba(226,232,240,0.76)",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.12,
-  },
-
-  chipsRow: {
-    marginTop: 8,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-
-  chip: {
-    maxWidth: "100%",
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-
-  // Base + neon tint variants (premium contrast)
-  chipIndigo: {
-    backgroundColor: colors.indigoBg,
-    borderColor: colors.indigoStroke,
-  },
-  chipCyan: {
-    backgroundColor: colors.cyanBg,
-    borderColor: colors.cyanStroke,
-  },
-  chipEmerald: {
-    backgroundColor: colors.emeraldBg,
-    borderColor: colors.emeraldStroke,
-  },
-
-  chipText: {
-    color: "rgba(226,232,240,0.86)",
-    fontSize: 11,
+  subtitleText: {
+    color: colors.pillText,
+    fontSize: 10.5,
     fontWeight: "800",
-    letterSpacing: 0.1,
   },
-
-  moreChip: {
-    backgroundColor: "rgba(34,211,238,0.16)",
-    borderColor: "rgba(34,211,238,0.28)",
+  actions: {
+    marginTop: 2,
   },
-  moreChipText: {
-    color: "rgba(226,232,240,0.94)",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.12,
+  primaryWrap: {
+    width: "100%",
   },
-
-  startBtn: {
-    alignSelf: "flex-start",
-    marginLeft: 6,
-  },
-  startBtnInner: {
-    height: 32,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    borderWidth: 1,
-    borderColor: colors.btnStroke,
-  },
-  startBtnPressed: {
+  startPressed: {
     opacity: 0.92,
     transform: [{ scale: 0.99 }],
   },
-  startText: {
+  primary: {
+    minHeight: 50,
+    borderRadius: 999,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 9,
+    borderWidth: 1,
+    borderColor: colors.startStroke,
+  },
+  primaryText: {
     color: "white",
-    fontSize: 12.5,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "800",
     letterSpacing: 0.12,
   },
 });

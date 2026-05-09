@@ -1,5 +1,11 @@
 // components/exercise/sub-tabs/workout/EditWorkoutModal.tsx
-import { MODAL_MAX_HEIGHT, modalTheme } from "@/config/modalTheme";
+import {
+  MODAL_MAX_HEIGHT,
+  modalConfirmButtonColors,
+  modalGradientColors,
+  modalTheme,
+} from "@/config/modalTheme";
+import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
 import type { Exercise } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,15 +13,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  ListRenderItemInfo,
   Modal,
-  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
 import DraggableFlatList, {
@@ -23,77 +27,51 @@ import DraggableFlatList, {
   RenderItemParams,
 } from "react-native-draggable-flatlist";
 import { SafeAreaView } from "react-native-safe-area-context";
+import DumbbellIcon from "../../../../assets/icons/dumbbell-white.svg";
+import XIcon from "../../../../assets/icons/white-x.svg";
 
 type Props = {
   visible: boolean;
   onClose: () => void;
-
   initialName: string;
   initialDayLabel?: string;
   initialDescription?: string;
   initialExerciseIds: string[];
-
   availableExercises: Exercise[];
-
-  onSubmit: (data: {
-    name: string;
-    dayLabel?: string;
-    description?: string;
-    exerciseIds: string[];
-  }, options?: { closeModal?: boolean }) => void | Promise<void>;
-
+  onSubmit: (
+    data: {
+      name: string;
+      dayLabel?: string;
+      description?: string;
+      exerciseIds: string[];
+    },
+    options?: { closeModal?: boolean }
+  ) => void | Promise<void>;
   onDelete: () => void;
 };
 
 const colors = {
-  // Backdrop
-  backdrop: modalTheme.backdrop,
-
-  // Sheet base
-  cardSolid: modalTheme.surface,
-  strokeOuter: modalTheme.border,
-  strokeInner: modalTheme.borderSoft,
-  divider: "rgba(255,255,255,0.08)",
-
-  // Text
-  text: modalTheme.text,
-  muted: "rgba(148,163,184,0.86)",
-  muted2: modalTheme.muted,
-
-  // Accent
-  accentA: "rgba(99,102,241,0.94)", // indigo
-  accentB: "rgba(34,211,238,0.78)", // cyan
-
-  // Inputs
-  inputBg: modalTheme.surfaceMuted,
-  inputStroke: modalTheme.inputBorder,
-  inputStrokeFocus: "rgba(34,211,238,0.26)",
-
-  // Neon tints
-  indigoBg: "rgba(99,102,241,0.10)",
-  indigoStroke: "rgba(99,102,241,0.22)",
-  cyanBg: "rgba(34,211,238,0.085)",
-  cyanStroke: "rgba(34,211,238,0.20)",
-  emeraldBg: "rgba(16,185,129,0.080)",
-  emeraldStroke: "rgba(16,185,129,0.18)",
-
-  // Items
-  itemBg: "rgba(255,255,255,0.035)",
-  itemStroke: "rgba(255,255,255,0.09)",
-  itemSelectedBg: "rgba(34,211,238,0.075)",
-  itemSelectedStroke: "rgba(34,211,238,0.24)",
-
-  // Buttons
-  iconBg: "rgba(255,255,255,0.05)",
-  iconStroke: "rgba(255,255,255,0.10)",
-
-  // CTA
-  ctaStroke: "rgba(255,255,255,0.18)",
-
-  // Danger
-  dangerBg: "rgba(127,29,29,0.35)",
-  dangerStroke: "rgba(248,113,113,0.60)",
+  textStrong: modalTheme.textStrong,
+  muted: modalTheme.muted,
+  label: modalTheme.label,
+  surface: modalTheme.surface,
+  surfaceMuted: modalTheme.surfaceMuted,
+  inputBorder: modalTheme.inputBorder,
+  inputFocus: "rgba(59,130,246,0.45)",
+  cardBg: "rgba(14,30,50,0.9)",
+  cardStroke: "rgba(255,255,255,0.06)",
+  cardSelectedBg: "rgba(59,130,246,0.18)",
+  cardSelectedStroke: "rgba(59,130,246,0.34)",
+  chipBg: "rgba(255,255,255,0.055)",
+  chipSoftBg: "rgba(255,255,255,0.045)",
+  chipStroke: "rgba(255,255,255,0.10)",
+  chipSoftStroke: "rgba(255,255,255,0.08)",
+  chipText: "rgba(255,255,255,0.72)",
+  dangerBg: "rgba(127,29,29,0.32)",
+  dangerStroke: "rgba(248,113,113,0.55)",
   dangerText: "rgba(254,202,202,0.98)",
+  sectionBg: "rgba(5,10,22,0.22)",
+  sectionStroke: "rgba(255,255,255,0.05)",
 };
 
 type WorkoutDraftSnapshot = {
@@ -147,14 +125,11 @@ export function EditWorkoutModal({
   const [description, setDescription] = useState(initialDescription ?? "");
   const [selectedExerciseIds, setSelectedExerciseIds] =
     useState<string[]>(initialExerciseIds);
-
   const [search, setSearch] = useState("");
-
   const [focusField, setFocusField] = useState<
     "name" | "day" | "desc" | "search" | null
   >(null);
 
-  // --- Autosave (debounced) ---
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedSnapshotRef = useRef<WorkoutDraftSnapshot | null>(null);
   const autosaveReadyRef = useRef(false);
@@ -244,35 +219,44 @@ export function EditWorkoutModal({
     [selectedExerciseIds]
   );
 
-  const exById = useMemo(() => {
-    const m = new Map<string, Exercise>();
-    availableExercises.forEach((e) => m.set(e.id, e));
-    return m;
+  const exerciseById = useMemo(() => {
+    const map = new Map<string, Exercise>();
+    availableExercises.forEach((exercise) => map.set(exercise.id, exercise));
+    return map;
   }, [availableExercises]);
 
-  // Selected in current order
   const selectedExercises = useMemo(() => {
     return selectedExerciseIds
-      .map((id) => exById.get(id))
-      .filter((x): x is Exercise => !!x);
-  }, [selectedExerciseIds, exById]);
+      .map((id) => exerciseById.get(id))
+      .filter((item): item is Exercise => !!item);
+  }, [selectedExerciseIds, exerciseById]);
 
   const filteredExercises = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return availableExercises;
+    const query = search.trim().toLowerCase();
+    if (!query) return availableExercises;
 
-    return availableExercises.filter((ex) => {
-      const n = (ex.name ?? "").toLowerCase();
-      const m = (ex.muscle ?? "").toLowerCase();
-      const eq = (ex.equipment ?? "").toLowerCase();
-      return n.includes(q) || m.includes(q) || eq.includes(q);
+    return availableExercises.filter((exercise) => {
+      const exerciseName = (exercise.name ?? "").toLowerCase();
+      const muscle = (exercise.muscle ?? "").toLowerCase();
+      const equipment = (exercise.equipment ?? "").toLowerCase();
+      return (
+        exerciseName.includes(query) ||
+        muscle.includes(query) ||
+        equipment.includes(query)
+      );
     });
   }, [availableExercises, search]);
 
+  const availableVisibleExercises = useMemo(() => {
+    return filteredExercises.filter(
+      (exercise) => !selectedSet.has(exercise.id)
+    );
+  }, [filteredExercises, selectedSet]);
+
   const toggleExercise = (id: string) => {
-    setSelectedExerciseIds((prev) => {
-      return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-    });
+    setSelectedExerciseIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
   };
 
   const getCurrentSnapshot = () =>
@@ -358,63 +342,48 @@ export function EditWorkoutModal({
   };
 
   const renderSelectedItem = ({
-    item: ex,
+    item: exercise,
     drag,
     isActive,
-    getIndex,
   }: RenderItemParams<Exercise>) => {
-    const idx = getIndex?.() ?? 0;
-
-    const tint =
-      idx % 3 === 0
-        ? styles.tintIndigo
-        : idx % 3 === 1
-        ? styles.tintCyan
-        : styles.tintEmerald;
-
     return (
       <Pressable
+        onPress={() => toggleExercise(exercise.id)}
         onLongPress={drag}
         delayLongPress={120}
-        onPress={() => toggleExercise(ex.id)} // tap to remove
         style={({ pressed }) => [
           styles.selectedRow,
-          tint,
           isActive && styles.selectedRowActive,
-          pressed && !isActive && { opacity: 0.92 },
+          pressed && !isActive && styles.pressed,
         ]}
       >
-        <View style={styles.dragHandle}>
-          <Ionicons name="reorder-two" size={18} color={colors.muted2} />
-        </View>
-
-        <View style={{ flex: 1, minWidth: 0 }}>
+        <View style={styles.rowTextWrap}>
           <Text
             style={[typography.bodyBold, styles.selectedName]}
             numberOfLines={1}
           >
-            {ex.name}
+            {exercise.name}
           </Text>
 
-          {(ex.muscle || ex.equipment) && (
+          {(exercise.muscle || exercise.equipment) && (
             <View style={styles.selectedMetaRow}>
-              {!!ex.muscle && (
+              {!!exercise.muscle && (
                 <View style={styles.metaChip}>
                   <Text
                     style={[typography.bodyBlack, styles.metaChipText]}
                     numberOfLines={1}
                   >
-                    {ex.muscle}
+                    {exercise.muscle}
                   </Text>
                 </View>
               )}
-              {!!ex.equipment && (
+              {!!exercise.equipment && (
                 <View style={styles.metaChipSoft}>
                   <Text
                     style={[typography.bodyBlack, styles.metaChipText]}
                     numberOfLines={1}
                   >
-                    {ex.equipment}
+                    {exercise.equipment}
                   </Text>
                 </View>
               )}
@@ -422,733 +391,659 @@ export function EditWorkoutModal({
           )}
         </View>
 
-        <View style={styles.removeIcon}>
+        <View style={styles.addIconWrap}>
           <Ionicons
-            name="close-circle"
-            size={20}
-            color="rgba(226,232,240,0.80)"
+            name="remove-circle"
+            size={22}
+            color={newColors.primary.light}
           />
         </View>
       </Pressable>
     );
   };
 
-  const renderExerciseItem = ({ item: ex }: ListRenderItemInfo<Exercise>) => {
-    const isSelected = selectedSet.has(ex.id);
-
-    return (
-      <Pressable
-        onPress={() => toggleExercise(ex.id)}
-        style={({ pressed }) => [
-          styles.exerciseItem,
-          isSelected && styles.exerciseItemSelected,
-          pressed && { opacity: 0.92 },
-        ]}
-      >
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text
-            style={[typography.body, styles.exerciseName]}
-            numberOfLines={1}
-          >
-            {ex.name}
-          </Text>
-
-          {(ex.muscle || ex.equipment) && (
-            <View style={styles.exerciseMetaRow}>
-              {!!ex.muscle && (
-                <View style={styles.chip}>
-                  <Text
-                    style={[typography.bodyBlack, styles.chipText]}
-                    numberOfLines={1}
-                  >
-                    {ex.muscle}
-                  </Text>
-                </View>
-              )}
-              {!!ex.equipment && (
-                <View style={styles.chipSoft}>
-                  <Text
-                    style={[typography.bodyBlack, styles.chipText]}
-                    numberOfLines={1}
-                  >
-                    {ex.equipment}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-
-        <Ionicons
-          name={isSelected ? "checkmark-circle" : "ellipse-outline"}
-          size={22}
-          color={
-            isSelected ? "rgba(34,211,238,0.90)" : "rgba(100,116,139,0.90)"
-          }
-        />
-      </Pressable>
-    );
-  };
+  if (!visible) return null;
 
   return (
-    <Modal visible={visible} animationType="fade" transparent>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <SafeAreaView style={styles.overlay}>
-          {/* Backdrop click closes */}
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent
+      onRequestClose={() => {
+        void handleCloseRequest();
+      }}
+    >
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.overlay}>
           <Pressable
             style={styles.backdrop}
             onPress={() => {
               void handleCloseRequest();
             }}
           />
-
-          {/* Sheet */}
           <View style={styles.sheet}>
-            {/* Base */}
-            <View pointerEvents="none" style={styles.base} />
-
-            {/* Glass overlay */}
             <LinearGradient
-              colors={[
-                "rgba(255,255,255,0.055)",
-                "rgba(255,255,255,0.020)",
-                "rgba(255,255,255,0.00)",
-              ]}
-              start={{ x: 0.05, y: 0 }}
-              end={{ x: 1, y: 1 }}
+              pointerEvents="none"
+              colors={modalGradientColors}
+              start={{ x: 0.1, y: 0 }}
+              end={{ x: 0.95, y: 1 }}
               style={StyleSheet.absoluteFill}
-              pointerEvents="none"
             />
+            <View pointerEvents="none" style={styles.orbTop} />
+            <View pointerEvents="none" style={styles.orbBottom} />
 
-            {/* Accent sheen */}
-            <LinearGradient
-              colors={[
-                "rgba(99,102,241,0.14)",
-                "rgba(34,211,238,0.10)",
-                "rgba(255,255,255,0.00)",
-              ]}
-              start={{ x: 1, y: 0 }}
-              end={{ x: 0.25, y: 1 }}
-              style={styles.accentSheen}
-              pointerEvents="none"
-            />
-
-            {/* Strokes */}
-            <View pointerEvents="none" style={styles.outerStroke} />
-            <View pointerEvents="none" style={styles.innerStroke} />
-
-            {/* HEADER */}
             <View style={styles.header}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[typography.h2, styles.title]}>Rediger økt</Text>
-                <Text style={[typography.body, styles.subtitle]}>
-                  Dra øvelser for å endre rekkefølge. Endringer lagres
-                  automatisk.
-                </Text>
+              <View style={styles.headerTitleWrap}>
+                <DumbbellIcon
+                  height={25}
+                  width={25}
+                  stroke={newColors.primary.light}
+                  fill={newColors.primary.light}
+                />
+                <Text style={styles.title}>Rediger økt</Text>
               </View>
 
-              <View style={styles.headerActions}>
-                <Pressable
-                  onPress={confirmDelete}
-                  style={({ pressed }) => [
-                    styles.deleteBtn,
-                    pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
-                  ]}
-                  hitSlop={10}
-                >
-                  <Ionicons
-                    name="trash-outline"
-                    size={16}
-                    color={colors.dangerText}
-                  />
-                  <Text style={[typography.bodyBlack, styles.deleteText]}>
-                    Slett
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => {
-                    void handleCloseRequest();
-                  }}
-                  hitSlop={12}
-                  style={({ pressed }) => [
-                    styles.iconBtn,
-                    pressed && styles.iconPressed,
-                  ]}
-                >
-                  <View style={styles.iconBtnInner}>
-                    <Ionicons name="close" size={18} color={colors.text} />
-                  </View>
-                </Pressable>
-              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  void handleCloseRequest();
+                }}
+                style={styles.closeButton}
+              >
+                <XIcon height={18} width={18} />
+              </TouchableOpacity>
             </View>
 
-            {/* MAIN LIST */}
-            <FlatList
-              data={filteredExercises}
-              keyExtractor={(x) => x.id}
-              renderItem={renderExerciseItem}
+            <Text style={[typography.body, styles.subtitle]}>
+              Dra øvelser for å endre rekkefølge. Endringer lagres automatisk.
+            </Text>
+
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              nestedScrollEnabled
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
-              ListHeaderComponent={
-                <View>
-                  {/* INPUTS */}
-                  <Text style={[typography.body, styles.label]}>Navn</Text>
-                  <View
-                    style={[
-                      styles.inputWrap,
-                      focusField === "name" && styles.inputWrapFocus,
-                    ]}
-                  >
-                    <TextInput
-                      style={styles.input}
-                      placeholder="F.eks. Push A"
-                      placeholderTextColor={colors.muted2}
-                      value={name}
-                      onChangeText={setName}
-                      returnKeyType="next"
-                      onFocus={() => setFocusField("name")}
-                      onBlur={() =>
-                        setFocusField((f) => (f === "name" ? null : f))
-                      }
-                    />
-                  </View>
+            >
+              <Text style={[typography.body, styles.label]}>Navn</Text>
+              <View
+                style={[
+                  styles.inputWrap,
+                  focusField === "name" && styles.inputWrapFocus,
+                ]}
+              >
+                <TextInput
+                  style={styles.input}
+                  placeholder="F.eks. Push A"
+                  placeholderTextColor="rgba(148,163,184,0.8)"
+                  value={name}
+                  onChangeText={setName}
+                  returnKeyType="next"
+                  onFocus={() => setFocusField("name")}
+                  onBlur={() =>
+                    setFocusField((field) => (field === "name" ? null : field))
+                  }
+                />
+              </View>
 
-                  <Text style={[typography.body, styles.label]}>
-                    Dag / label
+              <Text style={[typography.body, styles.label]}>Dag / etikett</Text>
+              <View
+                style={[
+                  styles.inputWrap,
+                  focusField === "day" && styles.inputWrapFocus,
+                ]}
+              >
+                <TextInput
+                  style={styles.input}
+                  placeholder="F.eks. Mandag, Push A..."
+                  placeholderTextColor="rgba(148,163,184,0.8)"
+                  value={dayLabel}
+                  onChangeText={setDayLabel}
+                  returnKeyType="next"
+                  onFocus={() => setFocusField("day")}
+                  onBlur={() =>
+                    setFocusField((field) => (field === "day" ? null : field))
+                  }
+                />
+              </View>
+
+              <Text style={[typography.body, styles.label]}>Beskrivelse</Text>
+              <View
+                style={[
+                  styles.inputWrap,
+                  styles.textareaWrap,
+                  focusField === "desc" && styles.inputWrapFocus,
+                ]}
+              >
+                <TextInput
+                  style={[styles.input, styles.textarea]}
+                  placeholder="Kort beskrivelse av økten..."
+                  placeholderTextColor="rgba(148,163,184,0.8)"
+                  value={description}
+                  onChangeText={setDescription}
+                  multiline
+                  returnKeyType="done"
+                  onFocus={() => setFocusField("desc")}
+                  onBlur={() =>
+                    setFocusField((field) => (field === "desc" ? null : field))
+                  }
+                  textAlignVertical="top"
+                />
+              </View>
+
+              <View style={styles.sectionCard}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={[typography.body, styles.sectionTitle]}>
+                    Øvelser i denne økten
                   </Text>
-                  <View
-                    style={[
-                      styles.inputWrap,
-                      focusField === "day" && styles.inputWrapFocus,
-                    ]}
-                  >
-                    <TextInput
-                      style={styles.input}
-                      placeholder="F.eks. Mandag · Push A"
-                      placeholderTextColor={colors.muted2}
-                      value={dayLabel}
-                      onChangeText={setDayLabel}
-                      returnKeyType="next"
-                      onFocus={() => setFocusField("day")}
-                      onBlur={() =>
-                        setFocusField((f) => (f === "day" ? null : f))
-                      }
-                    />
-                  </View>
-
-                  <Text style={[typography.body, styles.label]}>
-                    Beskrivelse
+                  <Text style={styles.sectionCount}>
+                    {selectedExercises.length}
                   </Text>
-                  <View
-                    style={[
-                      styles.inputWrap,
-                      styles.textareaWrap,
-                      focusField === "desc" && styles.inputWrapFocus,
-                    ]}
-                  >
-                    <TextInput
-                      style={[styles.input, styles.textarea]}
-                      placeholder="Kort beskrivelse av økten..."
-                      placeholderTextColor={colors.muted2}
-                      value={description}
-                      onChangeText={setDescription}
-                      multiline
-                      returnKeyType="done"
-                      onFocus={() => setFocusField("desc")}
-                      onBlur={() =>
-                        setFocusField((f) => (f === "desc" ? null : f))
-                      }
-                      textAlignVertical="top"
-                    />
-                  </View>
+                </View>
 
-                  {/* SELECTED (DRAGGABLE) */}
-                  <View style={styles.sectionHeaderRow}>
-                    <Text style={[typography.body, styles.sectionTitle]}>
-                      Øvelser i denne økten
-                    </Text>
-                    <View style={styles.sectionDivider} />
-                  </View>
-
-                  {selectedExercises.length === 0 ? (
-                    <Text style={[typography.body, styles.emptySelectedText]}>
-                      Ingen øvelser valgt enda. Trykk på øvelsene under for å
-                      legge til.
-                    </Text>
-                  ) : (
-                      <DraggableFlatList
-                        data={selectedExercises}
-                        keyExtractor={(item) => item.id}
-                        onDragEnd={({ data }: DragEndParams<Exercise>) => {
-                          setSelectedExerciseIds(data.map((x) => x.id));
-                        }}
-                        renderItem={renderSelectedItem}
-                        scrollEnabled={false}
-                        activationDistance={10}
+                {selectedExercises.length === 0 ? (
+                  <Text style={[typography.body, styles.emptySelectedText]}>
+                    Ingen øvelser valgt enda. Trykk på øvelsene under for å
+                    legge til.
+                  </Text>
+                ) : (
+                  <View style={styles.selectedListShell}>
+                    <DraggableFlatList
+                      data={selectedExercises}
+                      keyExtractor={(item) => item.id}
+                      onDragEnd={({ data }: DragEndParams<Exercise>) => {
+                        setSelectedExerciseIds(data.map((item) => item.id));
+                      }}
+                      renderItem={renderSelectedItem}
+                      scrollEnabled={selectedExercises.length > 3}
+                      nestedScrollEnabled
+                      activationDistance={16}
                       containerStyle={styles.selectedList}
                     />
-                  )}
-
-                  {/* SEARCH */}
-                  <View style={styles.sectionHeaderRow}>
-                    <Text style={[typography.body, styles.sectionTitle]}>
-                      Tilgjengelige øvelser
-                    </Text>
-                    <View style={styles.sectionDivider} />
                   </View>
+                )}
+              </View>
 
-                  <View
-                    style={[
-                      styles.searchWrap,
-                      focusField === "search" && styles.inputWrapFocus,
-                    ]}
-                  >
-                    <Ionicons
-                      name="search-outline"
-                      size={16}
-                      color={colors.muted}
-                    />
-                    <TextInput
-                      style={styles.searchInput}
-                      placeholder="Søk etter navn, muskel eller utstyr..."
-                      placeholderTextColor={colors.muted2}
-                      value={search}
-                      onChangeText={setSearch}
-                      returnKeyType="search"
-                      autoCorrect={false}
-                      autoCapitalize="none"
-                      onFocus={() => setFocusField("search")}
-                      onBlur={() =>
-                        setFocusField((f) => (f === "search" ? null : f))
-                      }
-                      clearButtonMode="while-editing"
-                    />
-                  </View>
-
-                  {availableExercises.length === 0 && (
-                    <Text style={[typography.body, styles.emptyText]}>
-                      Du har ingen øvelser enda. Opprett dem under Øvelser-fanen.
-                    </Text>
-                  )}
+              <View style={styles.sectionCard}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={[typography.body, styles.sectionTitle]}>
+                    Tilgjengelige øvelser
+                  </Text>
+                  <Text style={styles.sectionCount}>
+                    {availableVisibleExercises.length}
+                  </Text>
                 </View>
-              }
-              ListFooterComponent={<View style={{ height: 112 }} />}
-            />
 
-            {/* STICKY CTA */}
+                <View
+                  style={[
+                    styles.searchWrap,
+                    focusField === "search" && styles.inputWrapFocus,
+                  ]}
+                >
+                  <Ionicons
+                    name="search-outline"
+                    size={16}
+                    color="rgba(148,163,184,0.8)"
+                  />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Søk etter navn, muskel eller utstyr..."
+                    placeholderTextColor="rgba(148,163,184,0.8)"
+                    value={search}
+                    onChangeText={setSearch}
+                    returnKeyType="search"
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    onFocus={() => setFocusField("search")}
+                    onBlur={() =>
+                      setFocusField((field) =>
+                        field === "search" ? null : field
+                      )
+                    }
+                    clearButtonMode="while-editing"
+                  />
+                </View>
+
+                {availableExercises.length === 0 ? (
+                  <Text style={[typography.body, styles.emptyText]}>
+                    Du har ingen øvelser enda. Opprett dem under Øvelser-fanen.
+                  </Text>
+                ) : availableVisibleExercises.length === 0 ? (
+                  <Text style={[typography.body, styles.emptyText]}>
+                    Ingen flere øvelser matcher søket akkurat nå.
+                  </Text>
+                ) : (
+                  <View style={styles.availableList}>
+                    {availableVisibleExercises.map((exercise) => (
+                      <Pressable
+                        key={exercise.id}
+                        onPress={() => toggleExercise(exercise.id)}
+                        style={({ pressed }) => [
+                          styles.exerciseItem,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <View style={styles.rowTextWrap}>
+                          <Text
+                            style={[typography.body, styles.exerciseName]}
+                            numberOfLines={1}
+                          >
+                            {exercise.name}
+                          </Text>
+
+                          {(exercise.muscle || exercise.equipment) && (
+                            <View style={styles.exerciseMetaRow}>
+                              {!!exercise.muscle && (
+                                <View style={styles.chip}>
+                                  <Text
+                                    style={[
+                                      typography.bodyBlack,
+                                      styles.chipText,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {exercise.muscle}
+                                  </Text>
+                                </View>
+                              )}
+                              {!!exercise.equipment && (
+                                <View style={styles.chipSoft}>
+                                  <Text
+                                    style={[
+                                      typography.bodyBlack,
+                                      styles.chipText,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {exercise.equipment}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          )}
+                        </View>
+
+                        <View style={styles.addIconWrap}>
+                          <Ionicons
+                            name="add-circle"
+                            size={22}
+                            color={newColors.primary.light}
+                          />
+                        </View>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+
             <View style={styles.footer}>
-              <Pressable
+              <TouchableOpacity
+                style={styles.buttonWrapper}
                 onPress={() => {
                   void handleSubmit();
                 }}
-                style={({ pressed }) => [
-                  styles.ctaWrap,
-                  pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
-                ]}
               >
                 <LinearGradient
-                  colors={[colors.accentA, colors.accentB]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.cta}
+                  colors={modalConfirmButtonColors}
+                  style={styles.button}
                 >
                   <Ionicons name="save-outline" size={18} color="white" />
-                  <Text style={[typography.bodyBold, styles.ctaText]}>
-                    Lagre endringer
-                  </Text>
+                  <Text style={styles.buttonText}>Lagre endringer</Text>
                 </LinearGradient>
-              </Pressable>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={confirmDelete}
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={18}
+                  color={colors.dangerText}
+                />
+                <Text style={styles.deleteButtonText}>Slett økt</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
+        </View>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
-    backgroundColor: "transparent",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 24,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.backdrop,
+    backgroundColor: modalTheme.backdrop,
   },
-
   sheet: {
+    backgroundColor: colors.surface,
     width: "100%",
     maxWidth: 560,
     height: MODAL_MAX_HEIGHT,
     maxHeight: MODAL_MAX_HEIGHT,
     alignSelf: "center",
-    marginTop: 24,
-    marginBottom: 24,
     borderRadius: 28,
-    overflow: "hidden",
+    padding: 12,
+    paddingTop: 18,
+    borderWidth: 1,
+    borderColor: modalTheme.border,
     shadowColor: modalTheme.shadow,
     shadowOpacity: 0.28,
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 10 },
     elevation: 6,
+    overflow: "hidden",
   },
-
-  base: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.cardSolid,
-  },
-  accentSheen: {
+  orbTop: {
     position: "absolute",
-    top: -48,
-    right: -78,
-    width: 260,
-    height: 200,
+    top: -56,
+    right: -30,
+    width: 160,
+    height: 160,
     borderRadius: 999,
-    opacity: 0.95,
+    backgroundColor: modalTheme.orbTop,
   },
-  outerStroke: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: colors.strokeOuter,
-  },
-  innerStroke: {
+  orbBottom: {
     position: "absolute",
-    top: 1,
-    left: 1,
-    right: 1,
-    bottom: 0,
-    borderRadius: 27,
-    borderWidth: 1,
-    borderColor: colors.strokeInner,
+    left: -36,
+    bottom: -72,
+    width: 146,
+    height: 146,
+    borderRadius: 999,
+    backgroundColor: modalTheme.orbBottom,
   },
-
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 12,
     flexDirection: "row",
-    alignItems: "flex-start",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
     gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
   },
-  headerActions: {
+  headerTitleWrap: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingTop: 2,
+    flex: 1,
   },
   title: {
-    color: colors.text,
-    fontSize: 18,
-    letterSpacing: 0.12,
-    fontWeight: "600",
+    color: modalTheme.text,
+    fontSize: 25,
+    fontWeight: "500",
+    flexShrink: 1,
   },
   subtitle: {
-    marginTop: 4,
-    color: colors.muted2,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: "500",
-  },
-
-  deleteBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.dangerStroke,
-    backgroundColor: colors.dangerBg,
-  },
-  deleteText: {
-    color: colors.dangerText,
+    color: modalTheme.muted,
     fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.12,
+    lineHeight: 18,
+    marginBottom: 8,
   },
-
-  iconBtn: { alignSelf: "flex-start" },
-  iconBtnInner: {
-    width: 34,
-    height: 34,
-    borderRadius: 13,
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: modalTheme.surfaceSoft,
-    borderWidth: 1,
-    borderColor: colors.iconStroke,
   },
-  iconPressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.985 }],
+  scroll: {
+    flex: 1,
+    minHeight: 0,
   },
-
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 10,
+  scrollContent: {
+    paddingBottom: 150,
   },
-
   label: {
-    color: colors.muted,
-    marginBottom: 8,
-    marginTop: 14,
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.18,
-    textTransform: "uppercase",
+    color: colors.label,
+    marginBottom: 6,
+    marginTop: 15,
+    fontSize: 14,
   },
-
   inputWrap: {
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: colors.inputBg,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: colors.inputStroke,
+    borderColor: colors.inputBorder,
   },
   inputWrapFocus: {
-    borderColor: colors.inputStrokeFocus,
+    borderColor: colors.inputFocus,
   },
   input: {
-    color: colors.text,
-    fontSize: 15,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    backgroundColor: "transparent",
+    borderRadius: 12,
+    padding: 12,
+    color: colors.textStrong,
+    fontSize: 13,
   },
   textareaWrap: {
-    minHeight: 104,
+    minHeight: 90,
   },
   textarea: {
-    minHeight: 104,
-    paddingTop: 12,
+    height: 90,
     textAlignVertical: "top",
   },
-
+  sectionCard: {
+    marginTop: 14,
+    padding: 8,
+    borderRadius: 16,
+    backgroundColor: colors.sectionBg,
+    borderWidth: 1,
+    borderColor: colors.sectionStroke,
+  },
   sectionHeaderRow: {
-    marginTop: 16,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    justifyContent: "space-between",
+    marginBottom: 8,
+    gap: 12,
   },
   sectionTitle: {
-    color: colors.muted2,
-    fontSize: 12,
+    color: colors.label,
+    fontSize: 14,
+  },
+  sectionCount: {
+    minWidth: 28,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: "rgba(59,130,246,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(59,130,246,0.32)",
+    color: newColors.primary.light,
+    fontSize: 11,
     fontWeight: "700",
-    letterSpacing: 0.2,
-    textTransform: "uppercase",
+    textAlign: "center",
   },
-  sectionDivider: {
-    height: 1,
-    flex: 1,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    marginTop: 2,
+  selectedListShell: {
+    minHeight: 56,
+    maxHeight: 188,
   },
-
-  emptySelectedText: {
-    marginTop: 10,
-    color: colors.muted2,
-    fontSize: 13,
-    fontStyle: "italic",
-  },
-
   selectedList: {
-    marginTop: 10,
-    gap: 8,
+    gap: 6,
   },
-
   selectedRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    gap: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 9,
     borderRadius: 14,
     borderWidth: 1,
-    backgroundColor: colors.itemBg,
-    borderColor: colors.itemStroke,
+    backgroundColor: colors.cardBg,
+    borderColor: colors.cardStroke,
   },
   selectedRowActive: {
     opacity: 0.95,
     transform: [{ scale: 1.01 }],
   },
-
-  tintIndigo: {
-    backgroundColor: colors.indigoBg,
-    borderColor: colors.indigoStroke,
+  rowTextWrap: {
+    flex: 1,
+    minWidth: 0,
   },
-  tintCyan: {
-    backgroundColor: colors.cyanBg,
-    borderColor: colors.cyanStroke,
-  },
-  tintEmerald: {
-    backgroundColor: colors.emeraldBg,
-    borderColor: colors.emeraldStroke,
-  },
-
-  dragHandle: {
-    width: 28,
-    height: 28,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-  },
-
   selectedName: {
-    color: colors.text,
-    fontSize: 13.5,
+    color: colors.textStrong,
+    fontSize: 13,
   },
   selectedMetaRow: {
-    marginTop: 6,
+    marginTop: 4,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    gap: 4,
   },
   metaChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: colors.chipBg,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: colors.chipStroke,
   },
   metaChipSoft: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.045)",
+    backgroundColor: colors.chipSoftBg,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: colors.chipSoftStroke,
   },
   metaChipText: {
-    color: "rgba(226,232,240,0.82)",
-    fontSize: 10.5,
-    fontWeight: "800",
-    letterSpacing: 0.1,
-    maxWidth: 180,
+    color: colors.chipText,
+    fontSize: 9,
+    fontWeight: "500",
+    maxWidth: 160,
   },
-
-  removeIcon: {
-    paddingLeft: 6,
+  emptySelectedText: {
+    color: modalTheme.muted,
+    fontSize: 13,
+    fontStyle: "italic",
+    paddingVertical: 6,
   },
-
   searchWrap: {
-    marginTop: 10,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: colors.inputBg,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: colors.inputStroke,
+    borderColor: colors.inputBorder,
   },
   searchInput: {
     flex: 1,
-    color: colors.text,
-    fontSize: 14,
+    color: colors.textStrong,
+    fontSize: 13,
     paddingVertical: 0,
   },
-
-  // Available list items
+  availableList: {
+    marginTop: 10,
+    gap: 6,
+  },
   exerciseItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: colors.itemBg,
+    gap: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 9,
+    borderRadius: 14,
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
-    borderColor: colors.itemStroke,
-    marginTop: 10,
-  },
-  exerciseItemSelected: {
-    backgroundColor: colors.itemSelectedBg,
-    borderColor: colors.itemSelectedStroke,
+    borderColor: colors.cardStroke,
   },
   exerciseName: {
-    color: colors.text,
-    fontSize: 14.5,
+    color: colors.textStrong,
+    fontSize: 13,
   },
   exerciseMetaRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginTop: 7,
-    gap: 6,
+    marginTop: 4,
+    gap: 4,
   },
   chip: {
-    backgroundColor: "rgba(255,255,255,0.055)",
+    backgroundColor: colors.chipBg,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderColor: colors.chipStroke,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 999,
   },
   chipSoft: {
-    backgroundColor: "rgba(255,255,255,0.045)",
+    backgroundColor: colors.chipSoftBg,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderColor: colors.chipSoftStroke,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 999,
   },
   chipText: {
-    fontSize: 10.5,
-    color: "rgba(226,232,240,0.80)",
-    fontWeight: "800",
-    letterSpacing: 0.1,
-    maxWidth: 160,
+    fontSize: 9,
+    color: colors.chipText,
+    fontWeight: "500",
+    maxWidth: 150,
   },
-
+  addIconWrap: {
+    width: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   emptyText: {
-    color: colors.muted2,
+    color: modalTheme.muted,
     fontSize: 13,
     fontStyle: "italic",
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 4,
   },
-
   footer: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
-    backgroundColor: "rgba(10,16,30,0.92)",
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    left: 12,
+    right: 12,
+    bottom: 14,
   },
-  ctaWrap: {
-    borderRadius: 999,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.ctaStroke,
+  buttonWrapper: {
+    marginTop: 12,
   },
-  cta: {
-    paddingVertical: 13,
-    borderRadius: 999,
+  button: {
+    paddingVertical: 14,
+    borderRadius: 14,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 10,
   },
-  ctaText: {
+  buttonText: {
     color: "white",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  deleteButton: {
+    marginTop: 8,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: colors.dangerBg,
+    borderWidth: 1,
+    borderColor: colors.dangerStroke,
+  },
+  deleteButtonText: {
+    color: colors.dangerText,
     fontSize: 14,
-    fontWeight: "800",
-    letterSpacing: 0.12,
+    fontWeight: "500",
+  },
+  pressed: {
+    opacity: 0.9,
   },
 });

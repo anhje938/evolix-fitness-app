@@ -4,7 +4,7 @@
     "slug": "fitness-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/evolix_app_icon.png",
+    "icon": "./assets/images/evolix_app_icon_widget.png",
     "scheme": "evolix",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -37,8 +37,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/evolix_app_icon.png",
-          "imageWidth": 220,
+          "image": "./assets/images/evolix_logo.png",
+          "imageWidth": 300,
           "resizeMode": "contain",
           "backgroundColor": "#081E36",
           "dark": {
@@ -53,7 +53,8 @@
         {
           "cameraPermission": "Appen trenger kameratilgang for å skanne strekkoder."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

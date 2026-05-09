@@ -4,6 +4,7 @@
     public class AppleLoginRequest
     {
         public string IdToken { get; set; } = "";
+        public string? AuthorizationCode { get; set; }
     }
 
     public class RefreshTokenRequest

@@ -2,6 +2,7 @@ import { AuthRequestError, loginWithApple } from "@/api/auth";
 import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
+import * as AppleAuthentication from "expo-apple-authentication";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -10,21 +11,22 @@ import {
   Alert,
   Animated,
   Image,
+  Linking,
   Platform,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import Apple from "../../assets/icons/apple.svg";
 import Bicep from "../../assets/icons/bicep.svg";
 import Fire from "../../assets/icons/fire.svg";
 import Graph from "../../assets/icons/graph.svg";
-import IphoneLogo from "../../assets/icons/iphone-logo.svg";
 import Scale from "../../assets/icons/scale.svg";
 
 const LOGO_IMAGE_WIDTH = 350;
 const LOGO_IMAGE_HEIGHT = 250;
+const TERMS_URL = "https://evolix.no/terms";
+const PRIVACY_URL = "https://evolix.no/privacy";
 
 function decodeAppleJwtPayload(token: string): Record<string, unknown> | null {
   try {
@@ -43,7 +45,6 @@ export default function SignIn() {
   const { setAuthSession } = useAuth();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
@@ -100,13 +101,19 @@ export default function SignIn() {
         return;
       }
 
+      const isAppleAuthAvailable =
+        await AppleAuthentication.isAvailableAsync();
+
+      if (!isAppleAuthAvailable) {
+        throw new Error("Apple Sign-In er ikke tilgjengelig på denne enheten.");
+      }
+
       let identityToken: string | null | undefined;
-      let appleUserId: string | null | undefined;
+      let authorizationCode: string | null | undefined;
       let tokenAudience: string | null = null;
       let usesExpoGoDevMock = false;
 
       try {
-        const AppleAuthentication = await import("expo-apple-authentication");
         const credential = await AppleAuthentication.signInAsync({
           requestedScopes: [
             AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
@@ -114,8 +121,8 @@ export default function SignIn() {
           ],
         });
 
-        identityToken = credential?.identityToken;
-        appleUserId = credential?.user;
+        identityToken = credential.identityToken;
+        authorizationCode = credential.authorizationCode;
 
         const payload = identityToken
           ? decodeAppleJwtPayload(identityToken)
@@ -125,8 +132,9 @@ export default function SignIn() {
         if (__DEV__ && identityToken) {
           console.log("Apple credential debug:", {
             hasIdentityToken: Boolean(identityToken),
+            hasAuthorizationCode: Boolean(authorizationCode),
             tokenSegmentCount: identityToken.split(".").length,
-            credentialUser: appleUserId,
+            credentialUser: credential.user,
             tokenSub: payload?.sub ?? null,
             tokenAud: payload?.aud ?? null,
             tokenIss: payload?.iss ?? null,
@@ -146,6 +154,10 @@ export default function SignIn() {
         throw new Error("Apple Sign-In returnerte ikke identity token.");
       }
 
+      if (!authorizationCode) {
+        throw new Error("Apple Sign-In returnerte ikke authorization code.");
+      }
+
       if (__DEV__ && tokenAudience === "host.exp.Exponent") {
         usesExpoGoDevMock = true;
         console.log(
@@ -154,7 +166,8 @@ export default function SignIn() {
       }
 
       const session = await loginWithApple(
-        usesExpoGoDevMock ? "mock-user" : identityToken
+        usesExpoGoDevMock ? "mock-user" : identityToken,
+        usesExpoGoDevMock ? null : authorizationCode
       );
       await setAuthSession(session);
       router.replace("/(tabs)/home");
@@ -163,8 +176,8 @@ export default function SignIn() {
         error instanceof AuthRequestError
           ? `API ${error.status}: ${error.message}`
           : error instanceof Error
-          ? error.message
-          : "Ukjent feil";
+            ? error.message
+            : "Ukjent feil";
 
       console.log("Login error:", detail, error);
       Alert.alert(
@@ -197,11 +210,9 @@ export default function SignIn() {
       style={{ flex: 1 }}
     >
       <View style={styles.container}>
-        {/* Decorative background elements */}
         <View style={styles.bgCircle1} />
         <View style={styles.bgCircle2} />
 
-        {/* Logo */}
         <Animated.View
           style={[
             styles.logoContainer,
@@ -223,7 +234,6 @@ export default function SignIn() {
           <Text style={styles.logoTitle}>EvoliX</Text>
         </Animated.View>
 
-        {/* Title Section */}
         <Animated.View
           style={[
             styles.titleSection,
@@ -241,7 +251,6 @@ export default function SignIn() {
           </View>
         </Animated.View>
 
-        {/* Features Card */}
         <Animated.View
           style={[
             styles.featuresWrapper,
@@ -254,7 +263,6 @@ export default function SignIn() {
           <View style={styles.featuresCard}>
             <View style={styles.cardGlass} />
 
-            {/* Feature List */}
             <View style={styles.featuresList}>
               {features.map((feature, index) => (
                 <Animated.View
@@ -302,10 +310,8 @@ export default function SignIn() {
           </View>
         </Animated.View>
 
-        {/* Spacer */}
         <View style={{ flex: 1 }} />
 
-        {/* Apple Login Button */}
         <Animated.View
           style={[
             styles.buttonWrapper,
@@ -315,25 +321,32 @@ export default function SignIn() {
             },
           ]}
         >
-          <TouchableOpacity
-            style={styles.appleButton}
-            onPress={handleLogin}
-            disabled={isLoggingIn}
-            activeOpacity={0.9}
+          <View
+            style={[
+              styles.appleButtonFrame,
+              isLoggingIn && styles.appleButtonFrameBusy,
+            ]}
           >
-            <View style={styles.buttonGlow} />
-            <View style={styles.buttonContent}>
-              <View style={styles.appleIconWrap}>
-                <IphoneLogo height={28} width={28} />
-              </View>
-              <Text style={[typography.bodyBlack, styles.buttonText]}>
-                {isLoggingIn ? "Logger inn..." : "Logg inn med Apple"}
-              </Text>
-            </View>
-          </TouchableOpacity>
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={
+                AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+              }
+              buttonStyle={
+                AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+              }
+              cornerRadius={16}
+              style={styles.appleButton}
+              onPress={() => {
+                void handleLogin();
+              }}
+            />
+          </View>
+
+          {isLoggingIn ? (
+            <Text style={styles.loginStatus}>Logger inn...</Text>
+          ) : null}
         </Animated.View>
 
-        {/* Terms Text */}
         <Animated.View
           style={[
             styles.termsWrapper,
@@ -347,8 +360,23 @@ export default function SignIn() {
         >
           <Text style={[typography.body, styles.termsText]}>
             Ved å fortsette godtar du våre{" "}
-            <Text style={styles.termsLink}>vilkår for bruk</Text> og{" "}
-            <Text style={styles.termsLink}>personvernregler</Text>
+            <Text
+              style={styles.termsLink}
+              onPress={() => {
+                void Linking.openURL(TERMS_URL);
+              }}
+            >
+              vilkår for bruk
+            </Text>{" "}
+            og{" "}
+            <Text
+              style={styles.termsLink}
+              onPress={() => {
+                void Linking.openURL(PRIVACY_URL);
+              }}
+            >
+              personvernregler
+            </Text>
           </Text>
         </Animated.View>
       </View>
@@ -364,8 +392,6 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     alignItems: "center",
   },
-
-  // Background decorations
   bgCircle1: {
     position: "absolute",
     top: -100,
@@ -379,7 +405,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 60,
   },
-
   bgCircle2: {
     position: "absolute",
     bottom: -80,
@@ -393,14 +418,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 60,
   },
-
-  // Logo
   logoContainer: {
     marginBottom: 15,
     alignItems: "center",
     justifyContent: "center",
   },
-
   logoBox: {
     backgroundColor: "rgba(63, 207, 255, 0)",
     alignItems: "center",
@@ -413,17 +435,14 @@ const styles = StyleSheet.create({
     position: "relative",
     overflow: "hidden",
   },
-
   logoGlow: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(120, 207, 223, 0)",
   },
-
   logoImage: {
     width: LOGO_IMAGE_WIDTH,
     height: LOGO_IMAGE_HEIGHT,
   },
-
   logoTitle: {
     marginTop: -10,
     color: "#F8FAFC",
@@ -431,13 +450,10 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     letterSpacing: 0,
   },
-
-  // Title Section
   titleSection: {
     alignItems: "center",
     marginBottom: 16,
   },
-
   subtitleBadge: {
     paddingVertical: 8,
     paddingHorizontal: 18,
@@ -448,24 +464,19 @@ const styles = StyleSheet.create({
     position: "relative",
     overflow: "hidden",
   },
-
   badgeGlow: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(6,182,212,0.10)",
   },
-
   subtitle: {
     color: "rgba(255,255,255,0.90)",
     fontSize: 14,
     fontWeight: "600",
     letterSpacing: 0.3,
   },
-
-  // Features Card
   featuresWrapper: {
     width: "100%",
   },
-
   featuresCard: {
     borderRadius: 20,
     backgroundColor: "rgba(2,6,23,0.35)",
@@ -479,16 +490,13 @@ const styles = StyleSheet.create({
     position: "relative",
     overflow: "hidden",
   },
-
   cardGlass: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255,255,255,0.02)",
   },
-
   featuresList: {
     gap: 10,
   },
-
   featureItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -496,7 +504,6 @@ const styles = StyleSheet.create({
     minHeight: 58,
     paddingVertical: 7,
   },
-
   featureIconWrap: {
     width: 44,
     height: 44,
@@ -508,11 +515,9 @@ const styles = StyleSheet.create({
     position: "relative",
     overflow: "hidden",
   },
-
   featureIconGlow: {
     ...StyleSheet.absoluteFillObject,
   },
-
   featureText: {
     flex: 1,
     color: "#FFFFFF",
@@ -520,78 +525,49 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.2,
   },
-
   featureArrow: {
     width: 20,
     height: 20,
     alignItems: "center",
     justifyContent: "center",
   },
-
   arrowLine: {
     width: 12,
     height: 2,
     backgroundColor: "rgba(148,163,184,0.40)",
     borderRadius: 1,
   },
-
-  // Apple Button
   buttonWrapper: {
     width: "100%",
     marginBottom: 12,
   },
-
-  appleButton: {
-    height: 58,
-    width: "100%",
+  appleButtonFrame: {
     borderRadius: 16,
-    backgroundColor: "#000000",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 12,
-    position: "relative",
     overflow: "hidden",
   },
-
-  buttonGlow: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.05)",
+  appleButtonFrameBusy: {
+    opacity: 0.7,
   },
-
-  buttonContent: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
+  appleButton: {
+    width: "100%",
+    height: 58,
   },
-
-  appleIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.10)",
-    alignItems: "center",
-    justifyContent: "center",
+  loginStatus: {
+    marginTop: 10,
+    color: "rgba(226,232,240,0.84)",
+    fontSize: 12,
+    textAlign: "center",
+    fontWeight: "600",
   },
-
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "800",
-    letterSpacing: 0.3,
-  },
-
-  // Terms
   termsWrapper: {
     width: "100%",
     paddingHorizontal: 10,
   },
-
   termsText: {
     fontSize: 12,
     textAlign: "center",
@@ -599,7 +575,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: "500",
   },
-
   termsLink: {
     color: "#06b6d4",
     fontWeight: "700",

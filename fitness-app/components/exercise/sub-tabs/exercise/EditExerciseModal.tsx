@@ -4,7 +4,7 @@ import {
   modalGradientColors,
   modalTheme,
 } from "@/config/modalTheme";
-import { ADVANCED_MUSCLE_FILTERS, MUSCLE_FILTERS } from "@/types/muscles";
+import { ADVANCED_MUSCLE_FILTERS } from "@/types/muscles";
 import type { Exercise } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";

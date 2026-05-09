@@ -27,6 +27,7 @@ import {
   Alert,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -42,77 +43,10 @@ import DraggableFlatList, {
 } from "react-native-draggable-flatlist";
 
 type TabKey = "general" | "user";
-type LegalSection = {
-  title: string;
-  paragraphs: string[];
-};
-
-const PRIVACY_POLICY_LAST_UPDATED = "24. februar 2026";
-
-const PRIVACY_POLICY_SECTIONS: LegalSection[] = [
-  {
-    title: "1. Hvem vi er",
-    paragraphs: [
-      "EvoliX er en trenings- og progresjonsapp.",
-      "Nettside: https://evolix.no",
-      "Vi er behandlingsansvarlig for personopplysningene som behandles i appen.",
-    ],
-  },
-  {
-    title: "2. Hvilke opplysninger vi samler inn",
-    paragraphs: [
-      "Kontoopplysninger: Apple-brukeridentifikator ved innlogging med Sign in with Apple, og eventuell e-postadresse hvis den er tilgjengelig via Apple.",
-      "Trenings- og helsedata: treningsøkter, øvelser, vekt og kroppsdata, kostholdsdata (kalorier og makronæringsstoffer), samt brukerinnstillinger og mål.",
-      "Vi samler ikke inn sensitive helseopplysninger utover det du selv registrerer i appen.",
-    ],
-  },
-  {
-    title: "3. Hvordan vi bruker opplysningene",
-    paragraphs: [
-      "Opplysningene brukes for å gi deg tilgang til kontoen din, lagre og vise trenings- og progresjonsdata, forbedre funksjonalitet og brukeropplevelse, og sikre stabil og trygg drift av appen.",
-      "Vi bruker ikke opplysningene dine til reklame eller videresalg.",
-    ],
-  },
-  {
-    title: "4. Lagring og sikkerhet",
-    paragraphs: [
-      "Opplysningene lagres på sikre servere med tilgangskontroll.",
-      "Vi bruker kryptert kommunikasjon (HTTPS), autentisering via Apple Sign-In og tiltak for å beskytte mot uautorisert tilgang.",
-    ],
-  },
-  {
-    title: "5. Deling av informasjon",
-    paragraphs: [
-      "Vi deler ikke personopplysninger med tredjeparter, med mindre det er nødvendig for teknisk drift av tjenesten eller vi er lovpålagt å gjøre det.",
-      "Vi selger aldri dine data.",
-    ],
-  },
-  {
-    title: "6. Dine rettigheter",
-    paragraphs: [
-      "Du har rett til å få innsyn i hvilke opplysninger vi lagrer, be om retting av feilaktige opplysninger og be om sletting av kontoen din og tilhørende data.",
-      "Du kan slette kontoen din direkte i appen, eller via en senere kontaktkanal når den er publisert.",
-    ],
-  },
-  {
-    title: "7. Sletting av konto",
-    paragraphs: [
-      "Når du sletter kontoen din, vil lagrede treningsdata, kontoopplysninger og personlige innstillinger bli permanent slettet fra våre systemer innen rimelig tid.",
-    ],
-  },
-  {
-    title: "8. Endringer i personvernerklæringen",
-    paragraphs: [
-      "Vi kan oppdatere denne personvernerklæringen ved behov. Vesentlige endringer vil bli informert om i appen eller på nettsiden.",
-    ],
-  },
-  {
-    title: "9. Kontakt",
-    paragraphs: [
-      "Har du spørsmål om personvern, vil kontaktinformasjon publiseres i appen eller på nettsiden senere.",
-    ],
-  },
-];
+const WEBSITE_URL = "https://evolix.no";
+const TERMS_URL = "https://evolix.no/terms";
+const PRIVACY_URL = "https://evolix.no/privacy";
+const SUPPORT_EMAIL = "evolixfitness@hotmail.com";
 
 const INITIAL_SETTINGS: UserSettings = {
   age: null,
@@ -192,7 +126,9 @@ function clampOptionalAge(value: string) {
   if (!cleaned) return null;
   const n = Number(cleaned);
   if (!Number.isFinite(n)) return null;
-  return Math.min(120, Math.max(0, Math.round(n)));
+  const rounded = Math.round(n);
+  if (rounded < 18) return null;
+  return Math.min(120, rounded);
 }
 
 function toSafeDate(value: string | null | undefined) {
@@ -284,7 +220,6 @@ export default function SettingsModal({
   onDeleteAccount,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("general");
-  const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -560,6 +495,16 @@ export default function SettingsModal({
     await subscription.openManageSubscription();
   };
 
+  const openExternalUrl = async (url: string) => {
+    await Linking.openURL(url);
+  };
+
+  const openSupportEmail = async () => {
+    await Linking.openURL(
+      `mailto:${SUPPORT_EMAIL}?subject=EvoliX%20support`
+    );
+  };
+
   return (
     <Modal visible={visible} animationType="fade" transparent>
       <View style={styles.overlay}>
@@ -640,7 +585,9 @@ export default function SettingsModal({
 
                     <TouchableOpacity
                       style={styles.settingsItemBox}
-                      onPress={() => setPrivacyModalVisible(true)}
+                      onPress={() => {
+                        void openExternalUrl(PRIVACY_URL);
+                      }}
                       accessibilityRole="button"
                       accessibilityLabel="Åpne personvernerklæring"
                     >
@@ -650,6 +597,24 @@ export default function SettingsModal({
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
                           Les hvordan dataene dine behandles
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.settingsItemBox}
+                      onPress={() => {
+                        void openExternalUrl(TERMS_URL);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Åpne vilkår for bruk"
+                    >
+                      <View style={styles.itemTextBox}>
+                        <Text style={[typography.body, styles.itemText]}>
+                          Vilkår for bruk
+                        </Text>
+                        <Text style={[typography.body, styles.itemSubtext]}>
+                          Les de offisielle vilkårene på evolix.no
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -742,9 +707,7 @@ export default function SettingsModal({
                       <Text style={[typography.body, styles.supportInfoText]}>
                         {`Support: userId ${
                           subscription.appUserId ?? "ukjent"
-                        } | RevenueCat ${
-                          subscription.revenueCatAppUserId ?? "ikke klar"
-                        } | v${appVersion}`}
+                        }  `}
                       </Text>
                     </View>
                   </View>
@@ -787,29 +750,38 @@ export default function SettingsModal({
                       Hjelp og support
                     </Text>
 
-                    <TouchableOpacity style={styles.settingsItemBox}>
+                    <TouchableOpacity
+                      style={styles.settingsItemBox}
+                      onPress={() => {
+                        void openExternalUrl(WEBSITE_URL);
+                      }}
+                    >
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Hjelpesenter / FAQ
+                          Nettside
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Vanlige spørsmål og svar
+                          Åpne evolix.no
                         </Text>
                       </View>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.settingsItemBox}>
+                    <TouchableOpacity
+                      style={styles.settingsItemBox}
+                      onPress={() => {
+                        void openSupportEmail();
+                      }}
+                    >
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
                           Kontakt support
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Send inn feil, idéer og tilbakemeldinger
+                          Send e-post til evolixfitness@hotmail.com
                         </Text>
                       </View>
                     </TouchableOpacity>
                   </View>
-
 
                   {/* LOGG UT */}
                   <View style={styles.section}>
@@ -886,7 +858,7 @@ export default function SettingsModal({
                           Alder
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Brukes til mer presis tilpasning
+                          Brukes til mer presis tilpasning. Minst 18 år.
                         </Text>
                       </View>
 
@@ -904,7 +876,7 @@ export default function SettingsModal({
                         }
                         keyboardType="number-pad"
                         style={[typography.body, styles.inputValue]}
-                        placeholder="0"
+                        placeholder="18"
                         placeholderTextColor="rgba(148,163,184,0.6)"
                         inputAccessoryViewID={GLOBAL_IOS_KEYBOARD_ACCESSORY_ID}
                       />
@@ -1586,61 +1558,6 @@ export default function SettingsModal({
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
-
-        <Modal
-          visible={privacyModalVisible}
-          animationType="slide"
-          transparent
-          onRequestClose={() => setPrivacyModalVisible(false)}
-        >
-          <View style={styles.overlay}>
-            <View style={[styles.container, styles.legalContainer]}>
-              <View style={styles.headerRow}>
-                <Text style={[typography.h2, styles.title]}>
-                  Personvernerklæring for EvoliX
-                </Text>
-
-                <TouchableOpacity
-                  onPress={() => setPrivacyModalVisible(false)}
-                  style={styles.closeButton}
-                  accessibilityRole="button"
-                  accessibilityLabel="Lukk personvernerklæring"
-                >
-                  <CloseIcon height={20} width={20} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                style={styles.scroll}
-                contentContainerStyle={styles.legalScrollContent}
-                showsVerticalScrollIndicator={false}
-              >
-                <Text style={[typography.body, styles.legalMeta]}>
-                  Sist oppdatert: {PRIVACY_POLICY_LAST_UPDATED}
-                </Text>
-
-                {PRIVACY_POLICY_SECTIONS.map((section) => (
-                  <View key={section.title} style={styles.legalSection}>
-                    <Text
-                      style={[typography.bodyBold, styles.legalSectionTitle]}
-                    >
-                      {section.title}
-                    </Text>
-
-                    {section.paragraphs.map((paragraph, index) => (
-                      <Text
-                        key={`${section.title}-${index}`}
-                        style={[typography.body, styles.legalParagraph]}
-                      >
-                        {paragraph}
-                      </Text>
-                    ))}
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
 
         <Modal
           visible={deleteConfirmVisible}

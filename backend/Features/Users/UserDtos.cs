@@ -1,29 +1,25 @@
-﻿namespace backend.Features.Users
+namespace backend.Features.Users
 {
+    public class DeleteUserRequest
+    {
+        public string? AuthorizationCode { get; set; }
+    }
+
     public class UpdateUserSettingsDto
     {
-        // Profile
         public int? Age { get; set; }
         public string? Gender { get; set; }
         public string? Language { get; set; }
         public bool? HasCompletedRegistration { get; set; }
         public bool? HasDismissedRegistrationOnboarding { get; set; }
-
-        // Goals
         public int? CalorieGoal { get; set; }
         public int? ProteinGoal { get; set; }
         public int? FatGoal { get; set; }
         public int? CarbGoal { get; set; }
-
-        // Weight
         public decimal? WeightGoalKg { get; set; }
         public DateTime? WeightGoalTimeUtc { get; set; }
         public WeightDirection? WeightDirection { get; set; }
-
-        // UI / filters
         public MuscleFilter? MuscleFilter { get; set; }
-
-        // Home UI
         public string[]? HomeProgressCircles { get; set; }
         public string[]? HomeSectionOrder { get; set; }
         public string[]? RecoveryMapHiddenMuscles { get; set; }

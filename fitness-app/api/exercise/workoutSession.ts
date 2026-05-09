@@ -6,6 +6,7 @@ type CompleteWorkoutSessionRequest = {
   clientRequestId: string;
   workoutId?: string | null;
   startedAtUtc?: string | null;
+  finishedAtUtc?: string | null;
   title?: string | null;
   notes?: string | null;
   exerciseLogs: UpdateWorkoutSessionExerciseLogRequest[];
@@ -45,6 +46,7 @@ type UpdateWorkoutSessionExerciseLogRequest = {
 
 type UpdateWorkoutSessionRequest = {
   startedAtUtc?: string | null;
+  finishedAtUtc?: string | null;
   title?: string | null;
   notes?: string | null;
   exerciseLogs: UpdateWorkoutSessionExerciseLogRequest[];
@@ -62,6 +64,7 @@ export async function postWorkoutSession(
     clientRequestId: session.clientRequestId.trim(),
     workoutId: session.workoutId ?? null,
     startedAtUtc: session.startedAtUtc,
+    finishedAtUtc: session.finishedAtUtc ?? null,
     title: session.name,
     notes: null,
     exerciseLogs: session.exercises.map((exercise, exerciseIndex) => ({
@@ -109,6 +112,7 @@ export async function putWorkoutSession(
 ) {
   const payload: UpdateWorkoutSessionRequest = {
     startedAtUtc: session.startedAtUtc ?? null,
+    finishedAtUtc: session.finishedAtUtc ?? null,
     title: session.name ?? null,
     notes: null,
     exerciseLogs: session.exercises.map((ex, exIndex) => ({

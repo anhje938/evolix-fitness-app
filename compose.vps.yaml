@@ -31,6 +31,9 @@ services:
       Jwt__SecretKey: ${JWT_SECRET_KEY}
       RefreshToken__LifetimeDays: ${REFRESH_TOKEN_LIFETIME_DAYS:-250}
       AppleSettings__ClientId: ${APPLE_CLIENT_ID}
+      AppleSettings__TeamId: ${APPLE_TEAM_ID}
+      AppleSettings__KeyId: ${APPLE_KEY_ID}
+      AppleSettings__PrivateKey: ${APPLE_PRIVATE_KEY}
       RevenueCat__SecretApiKey: ${REVENUECAT_SECRET_API_KEY}
       RevenueCat__PremiumEntitlementId: ${REVENUECAT_PREMIUM_ENTITLEMENT_ID:-premium}
       Cors__Origins__0: ${CORS_ORIGIN_0}

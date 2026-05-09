@@ -1,4 +1,4 @@
-﻿import { generalStyles } from "@/config/styles";
+import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { MODAL_MAX_HEIGHT, modalTheme } from "@/config/modalTheme";
 import { Food, FoodDto } from "@/types/meal";

@@ -78,14 +78,17 @@ async function parseAuthResponse(res: Response): Promise<AuthSessionPayload> {
 }
 
 export async function loginWithApple(
-  idToken: string
+  idToken: string,
+  authorizationCode?: string | null
 ): Promise<AuthSessionPayload> {
   const normalizedToken = idToken.trim();
+  const normalizedAuthorizationCode = authorizationCode?.trim() || null;
   const res = await fetch(`${API_BASE_URL}/auth/apple`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       idToken: normalizedToken,
+      authorizationCode: normalizedAuthorizationCode,
       identityToken: normalizedToken,
       token: normalizedToken,
     }),

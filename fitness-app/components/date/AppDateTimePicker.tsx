@@ -156,8 +156,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   labelCompact: {
-    fontSize: 12,
-    marginBottom: 5,
+    fontSize: 11,
+    marginBottom: 3,
+    color: "rgba(148,163,184,0.88)",
   },
   displayButton: {
     width: "100%",
@@ -171,9 +172,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   displayButtonCompact: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 11,
+    backgroundColor: "rgba(255,255,255,0.045)",
+    borderColor: "rgba(255,255,255,0.08)",
   },
   displayText: {
     fontSize: 14,
@@ -181,7 +184,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   displayTextCompact: {
-    fontSize: 13,
+    fontSize: 12.5,
   },
 
   // iOS modal styling

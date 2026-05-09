@@ -12,7 +12,14 @@ function isAlreadyDeletedStatus(status: number) {
   return status === 404 || status === 410;
 }
 
-export async function deleteMyUser(token: string): Promise<void> {
+type DeleteMyUserOptions = {
+  authorizationCode?: string | null;
+};
+
+export async function deleteMyUser(
+  token: string,
+  options?: DeleteMyUserOptions
+): Promise<void> {
   if (!token) throw new Error("Missing token");
 
   const controller = new AbortController();
@@ -24,7 +31,10 @@ export async function deleteMyUser(token: string): Promise<void> {
       `${API_BASE_URL}/${USER_ME_PATH}`,
       {
         method: "DELETE",
-        headers: {},
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          authorizationCode: options?.authorizationCode?.trim() || null,
+        }),
         signal: controller.signal,
       },
       { token }

@@ -21,7 +21,6 @@ import {
 } from "react-native";
 import { MuscleFilterBar } from "../../MuscleFilterBar";
 import XIcon from "../../../../assets/icons/white-x.svg";
-import { colors, newColors } from "@/config/theme";
 import DumbbellIcon from "../../../../assets/icons/dumbbell-white.svg";
 
 type Props = {
@@ -31,6 +30,22 @@ type Props = {
   initialName?: string;
   isSubmitting?: boolean;
   useModal?: boolean;
+};
+
+const exerciseModalColors = {
+  backdrop: modalTheme.backdrop,
+  container: modalTheme.surface,
+  surface: modalTheme.surfaceMuted,
+  input: modalTheme.surfaceMuted,
+  text: modalTheme.text,
+  textStrong: modalTheme.textStrong,
+  muted: modalTheme.label,
+  muted2: modalTheme.muted,
+  border: modalTheme.border,
+  borderSoft: modalTheme.borderSoft,
+  accent: "#38bdf8",
+  accentDim: "rgba(56,189,248,0.24)",
+  accentBg: "rgba(56,189,248,0.12)",
 };
 
 export function AddExerciseModal({
@@ -115,8 +130,8 @@ export function AddExerciseModal({
             <DumbbellIcon
               height={25}
               width={25}
-              stroke={newColors.primary.light}
-              fill={newColors.primary.light}
+              stroke={exerciseModalColors.accent}
+              fill={exerciseModalColors.accent}
             />
             <Text style={styles.title}>Ny øvelse</Text>
           </View>
@@ -140,7 +155,7 @@ export function AddExerciseModal({
           <TextInput
             style={styles.input}
             placeholder="F.eks. Skrå benkpress"
-            placeholderTextColor="rgba(148,163,184,0.8)"
+            placeholderTextColor={exerciseModalColors.muted2}
             value={name}
             onChangeText={setName}
             editable={!isSubmitting}
@@ -153,6 +168,14 @@ export function AddExerciseModal({
               value={selectedMuscle}
               onChange={setSelectedMuscle}
               preset="basic"
+              chipColors={{
+                background: exerciseModalColors.surface,
+                border: exerciseModalColors.borderSoft,
+                activeBackground: exerciseModalColors.accentBg,
+                activeBorder: exerciseModalColors.accentDim,
+                text: exerciseModalColors.muted2,
+                activeText: exerciseModalColors.text,
+              }}
             />
           </View>
 
@@ -195,7 +218,7 @@ export function AddExerciseModal({
           <TextInput
             style={styles.input}
             placeholder="F.eks. Stang, manualer, maskin..."
-            placeholderTextColor="rgba(148,163,184,0.8)"
+            placeholderTextColor={exerciseModalColors.muted2}
             value={equipment}
             onChangeText={setEquipment}
             editable={!isSubmitting}
@@ -206,7 +229,7 @@ export function AddExerciseModal({
           <TextInput
             style={[styles.input, styles.textarea]}
             placeholder="Kort beskrivelse av øvelsen, teknikk eller fokus..."
-            placeholderTextColor="rgba(148,163,184,0.8)"
+            placeholderTextColor={exerciseModalColors.muted2}
             value={description}
             onChangeText={setDescription}
             editable={!isSubmitting}
@@ -247,7 +270,7 @@ export function AddExerciseModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: modalTheme.backdrop,
+    backgroundColor: exerciseModalColors.backdrop,
     justifyContent: "center",
     paddingHorizontal: 10,
     paddingVertical: 24,
@@ -258,7 +281,7 @@ const styles = StyleSheet.create({
     elevation: 40,
   },
   container: {
-    backgroundColor: modalTheme.surface,
+    backgroundColor: exerciseModalColors.container,
     width: "100%",
     maxWidth: 560,
     height: MODAL_MAX_HEIGHT,
@@ -267,7 +290,7 @@ const styles = StyleSheet.create({
     padding: 12,
     paddingVertical: 18,
     borderWidth: 1,
-    borderColor: modalTheme.border,
+    borderColor: exerciseModalColors.border,
     shadowColor: modalTheme.shadow,
     shadowOpacity: 0.28,
     shadowRadius: 22,
@@ -300,7 +323,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   title: {
-    color: modalTheme.text,
+    color: exerciseModalColors.text,
     fontSize: 25,
     fontWeight: "500",
   },
@@ -320,19 +343,19 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   label: {
-    color: modalTheme.label,
+    color: exerciseModalColors.muted,
     marginBottom: 6,
     marginTop: 15,
     fontSize: 14,
   },
   input: {
-    backgroundColor: modalTheme.surfaceMuted,
+    backgroundColor: exerciseModalColors.input,
     borderRadius: 12,
     padding: 12,
-    color: modalTheme.textStrong,
+    color: exerciseModalColors.textStrong,
     fontSize: 13,
     borderWidth: 1,
-    borderColor: modalTheme.inputBorder,
+    borderColor: exerciseModalColors.border,
   },
   textarea: {
     height: 90,
@@ -347,27 +370,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: "rgba(14, 30, 50, 0.9)",
+    backgroundColor: exerciseModalColors.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: exerciseModalColors.borderSoft,
     marginRight: 8,
     marginBottom: 8,
   },
   multiChipActive: {
-    backgroundColor: "rgba(59, 130, 246, 0.28)",
-    borderColor: "rgba(59, 130, 246, 0.45)",
+    backgroundColor: exerciseModalColors.accentBg,
+    borderColor: exerciseModalColors.accentDim,
   },
   multiChipText: {
-    color: "rgba(255,255,255,0.7)",
+    color: exerciseModalColors.muted2,
     fontSize: 12,
     fontWeight: "500",
   },
   multiChipTextActive: {
-    color: "white",
+    color: exerciseModalColors.text,
   },
   selectedHint: {
     marginTop: 4,
-    color: newColors.primary.light,
+    color: exerciseModalColors.accent,
     fontSize: 12,
   },
   buttonWrapper: {

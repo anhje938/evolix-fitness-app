@@ -1,6 +1,7 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Text.Json;
 using backend.Common;
+using backend.Features.AuthAuth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,15 +11,17 @@ namespace backend.Features.Users
     [ApiController]
     public class UserController : BaseApiController
     {
-
         private readonly UserService _userService;
+        private readonly IAppleTokenService _appleTokenService;
         private readonly ILogger<UserController> _logger;
 
         public UserController(
             UserService userService,
+            IAppleTokenService appleTokenService,
             ILogger<UserController> logger)
         {
             _userService = userService;
+            _appleTokenService = appleTokenService;
             _logger = logger;
         }
 
@@ -44,11 +47,11 @@ namespace backend.Features.Users
             });
         }
 
-
-        //Delete user
         [Authorize]
         [HttpDelete("me")]
-        public async Task<IActionResult> DeleteMe(CancellationToken ct)
+        public async Task<IActionResult> DeleteMe(
+            [FromBody] DeleteUserRequest? request,
+            CancellationToken ct)
         {
             var traceId = HttpContext.TraceIdentifier;
             var nameIdentifier = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -70,6 +73,10 @@ namespace backend.Features.Users
                 return Unauthorized();
             }
 
+            await _appleTokenService.RevokeAuthorizationAsync(
+                request?.AuthorizationCode,
+                ct);
+
             var deleted = await _userService.DeleteUserAsync(userId, traceId, ct);
 
             _logger.LogInformation(
@@ -80,7 +87,6 @@ namespace backend.Features.Users
 
             return deleted ? NoContent() : NotFound();
         }
-
 
         [Authorize]
         [HttpGet("me/settings")]
@@ -129,7 +135,6 @@ namespace backend.Features.Users
             });
         }
 
-        // PATCH: api/user/me/settings
         [Authorize]
         [HttpPatch("me/settings")]
         public async Task<IActionResult> UpdateMySettings(

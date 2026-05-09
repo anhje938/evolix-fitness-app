@@ -220,6 +220,196 @@ namespace backend.Features.Users
                     _db.RefreshTokens.RemoveRange(refreshTokens);
                 }
 
+                var coachSettings = await _db.CoachSettings
+                    .Where(x => x.UserId == userId)
+                    .ToListAsync(ct);
+                var coachSettingsCount = coachSettings.Count;
+                if (coachSettingsCount > 0)
+                {
+                    _db.CoachSettings.RemoveRange(coachSettings);
+                }
+
+                var exerciseTargets = await _db.ExerciseTargets
+                    .Where(x => x.UserId == userId)
+                    .ToListAsync(ct);
+                var exerciseTargetsCount = exerciseTargets.Count;
+                if (exerciseTargetsCount > 0)
+                {
+                    _db.ExerciseTargets.RemoveRange(exerciseTargets);
+                }
+
+                var nutritionTargetsHistory = await _db.NutritionTargetsHistory
+                    .Where(x => x.UserId == userId)
+                    .ToListAsync(ct);
+                var nutritionTargetsHistoryCount = nutritionTargetsHistory.Count;
+                if (nutritionTargetsHistoryCount > 0)
+                {
+                    _db.NutritionTargetsHistory.RemoveRange(nutritionTargetsHistory);
+                }
+
+                var recommendationIds = await _db.AdaptiveRecommendations
+                    .Where(x => x.UserId == userId)
+                    .Select(x => x.Id)
+                    .ToListAsync(ct);
+                var recommendationNutritionChangesCount = 0;
+                var recommendationExerciseTargetChangesCount = 0;
+                var recommendationRecoveryActionsCount = 0;
+                var recommendationTargetDateChangesCount = 0;
+                var recommendationsCount = 0;
+                if (recommendationIds.Count > 0)
+                {
+                    var recommendationNutritionChanges =
+                        await _db.RecommendationNutritionChanges
+                            .Where(x => recommendationIds.Contains(x.RecommendationId))
+                            .ToListAsync(ct);
+                    recommendationNutritionChangesCount =
+                        recommendationNutritionChanges.Count;
+                    if (recommendationNutritionChangesCount > 0)
+                    {
+                        _db.RecommendationNutritionChanges.RemoveRange(
+                            recommendationNutritionChanges);
+                    }
+
+                    var recommendationExerciseTargetChanges =
+                        await _db.RecommendationExerciseTargetChanges
+                            .Where(x => recommendationIds.Contains(x.RecommendationId))
+                            .ToListAsync(ct);
+                    recommendationExerciseTargetChangesCount =
+                        recommendationExerciseTargetChanges.Count;
+                    if (recommendationExerciseTargetChangesCount > 0)
+                    {
+                        _db.RecommendationExerciseTargetChanges.RemoveRange(
+                            recommendationExerciseTargetChanges);
+                    }
+
+                    var recommendationRecoveryActions =
+                        await _db.RecommendationRecoveryActions
+                            .Where(x => recommendationIds.Contains(x.RecommendationId))
+                            .ToListAsync(ct);
+                    recommendationRecoveryActionsCount =
+                        recommendationRecoveryActions.Count;
+                    if (recommendationRecoveryActionsCount > 0)
+                    {
+                        _db.RecommendationRecoveryActions.RemoveRange(
+                            recommendationRecoveryActions);
+                    }
+
+                    var recommendationTargetDateChanges =
+                        await _db.RecommendationTargetDateChanges
+                            .Where(x => recommendationIds.Contains(x.RecommendationId))
+                            .ToListAsync(ct);
+                    recommendationTargetDateChangesCount =
+                        recommendationTargetDateChanges.Count;
+                    if (recommendationTargetDateChangesCount > 0)
+                    {
+                        _db.RecommendationTargetDateChanges.RemoveRange(
+                            recommendationTargetDateChanges);
+                    }
+
+                    var recommendations = await _db.AdaptiveRecommendations
+                        .Where(x => recommendationIds.Contains(x.Id))
+                        .ToListAsync(ct);
+                    recommendationsCount = recommendations.Count;
+                    if (recommendationsCount > 0)
+                    {
+                        _db.AdaptiveRecommendations.RemoveRange(recommendations);
+                    }
+                }
+
+                var weeklyReportIds = await _db.WeeklyReports
+                    .Where(x => x.UserId == userId)
+                    .Select(x => x.Id)
+                    .ToListAsync(ct);
+                var weeklyReportWeightSummariesCount = 0;
+                var weeklyReportNutritionSummariesCount = 0;
+                var weeklyReportTrainingSummariesCount = 0;
+                var weeklyReportRecoverySummariesCount = 0;
+                var weeklyReportMuscleBalanceCount = 0;
+                var weeklyReportNextWeekActionsCount = 0;
+                var weeklyReportsCount = 0;
+                if (weeklyReportIds.Count > 0)
+                {
+                    var weeklyReportWeightSummaries =
+                        await _db.WeeklyReportWeightSummaries
+                            .Where(x => weeklyReportIds.Contains(x.WeeklyReportId))
+                            .ToListAsync(ct);
+                    weeklyReportWeightSummariesCount =
+                        weeklyReportWeightSummaries.Count;
+                    if (weeklyReportWeightSummariesCount > 0)
+                    {
+                        _db.WeeklyReportWeightSummaries.RemoveRange(
+                            weeklyReportWeightSummaries);
+                    }
+
+                    var weeklyReportNutritionSummaries =
+                        await _db.WeeklyReportNutritionSummaries
+                            .Where(x => weeklyReportIds.Contains(x.WeeklyReportId))
+                            .ToListAsync(ct);
+                    weeklyReportNutritionSummariesCount =
+                        weeklyReportNutritionSummaries.Count;
+                    if (weeklyReportNutritionSummariesCount > 0)
+                    {
+                        _db.WeeklyReportNutritionSummaries.RemoveRange(
+                            weeklyReportNutritionSummaries);
+                    }
+
+                    var weeklyReportTrainingSummaries =
+                        await _db.WeeklyReportTrainingSummaries
+                            .Where(x => weeklyReportIds.Contains(x.WeeklyReportId))
+                            .ToListAsync(ct);
+                    weeklyReportTrainingSummariesCount =
+                        weeklyReportTrainingSummaries.Count;
+                    if (weeklyReportTrainingSummariesCount > 0)
+                    {
+                        _db.WeeklyReportTrainingSummaries.RemoveRange(
+                            weeklyReportTrainingSummaries);
+                    }
+
+                    var weeklyReportRecoverySummaries =
+                        await _db.WeeklyReportRecoverySummaries
+                            .Where(x => weeklyReportIds.Contains(x.WeeklyReportId))
+                            .ToListAsync(ct);
+                    weeklyReportRecoverySummariesCount =
+                        weeklyReportRecoverySummaries.Count;
+                    if (weeklyReportRecoverySummariesCount > 0)
+                    {
+                        _db.WeeklyReportRecoverySummaries.RemoveRange(
+                            weeklyReportRecoverySummaries);
+                    }
+
+                    var weeklyReportMuscleBalance =
+                        await _db.WeeklyReportMuscleBalanceSummaries
+                            .Where(x => weeklyReportIds.Contains(x.WeeklyReportId))
+                            .ToListAsync(ct);
+                    weeklyReportMuscleBalanceCount = weeklyReportMuscleBalance.Count;
+                    if (weeklyReportMuscleBalanceCount > 0)
+                    {
+                        _db.WeeklyReportMuscleBalanceSummaries.RemoveRange(
+                            weeklyReportMuscleBalance);
+                    }
+
+                    var weeklyReportNextWeekActions =
+                        await _db.WeeklyReportNextWeekActions
+                            .Where(x => weeklyReportIds.Contains(x.WeeklyReportId))
+                            .ToListAsync(ct);
+                    weeklyReportNextWeekActionsCount =
+                        weeklyReportNextWeekActions.Count;
+                    if (weeklyReportNextWeekActionsCount > 0)
+                    {
+                        _db.WeeklyReportNextWeekActions.RemoveRange(
+                            weeklyReportNextWeekActions);
+                    }
+
+                    var weeklyReports = await _db.WeeklyReports
+                        .Where(x => weeklyReportIds.Contains(x.Id))
+                        .ToListAsync(ct);
+                    weeklyReportsCount = weeklyReports.Count;
+                    if (weeklyReportsCount > 0)
+                    {
+                        _db.WeeklyReports.RemoveRange(weeklyReports);
+                    }
+                }
+
                 var composedMealIds = await _db.ComposedMeals
                     .Where(x => x.UserId == userId)
                     .Select(x => x.Id)
@@ -316,7 +506,7 @@ namespace backend.Features.Users
                 }
 
                 _logger.LogInformation(
-                    "DeleteUserAsync loaded related data. traceId={TraceId} userId={UserId} workoutSessions={WorkoutSessions} workoutExerciseLogs={WorkoutExerciseLogs} setLogs={SetLogs} weightLogs={WeightLogs} foodLogs={FoodLogs} refreshTokens={RefreshTokens} composedMeals={ComposedMeals} composedMealIngredients={ComposedMealIngredients} workouts={Workouts} workoutExercises={WorkoutExercises} workoutPrograms={WorkoutPrograms} exercises={Exercises} settings={Settings} elapsedMs={ElapsedMs}",
+                    "DeleteUserAsync loaded related data. traceId={TraceId} userId={UserId} workoutSessions={WorkoutSessions} workoutExerciseLogs={WorkoutExerciseLogs} setLogs={SetLogs} weightLogs={WeightLogs} foodLogs={FoodLogs} refreshTokens={RefreshTokens} coachSettings={CoachSettings} exerciseTargets={ExerciseTargets} nutritionTargetsHistory={NutritionTargetsHistory} recommendations={Recommendations} recommendationNutritionChanges={RecommendationNutritionChanges} recommendationExerciseTargetChanges={RecommendationExerciseTargetChanges} recommendationRecoveryActions={RecommendationRecoveryActions} recommendationTargetDateChanges={RecommendationTargetDateChanges} weeklyReports={WeeklyReports} weeklyReportWeightSummaries={WeeklyReportWeightSummaries} weeklyReportNutritionSummaries={WeeklyReportNutritionSummaries} weeklyReportTrainingSummaries={WeeklyReportTrainingSummaries} weeklyReportRecoverySummaries={WeeklyReportRecoverySummaries} weeklyReportMuscleBalance={WeeklyReportMuscleBalance} weeklyReportNextWeekActions={WeeklyReportNextWeekActions} composedMeals={ComposedMeals} composedMealIngredients={ComposedMealIngredients} workouts={Workouts} workoutExercises={WorkoutExercises} workoutPrograms={WorkoutPrograms} exercises={Exercises} settings={Settings} elapsedMs={ElapsedMs}",
                     traceId,
                     userId,
                     workoutSessionsCount,
@@ -325,6 +515,21 @@ namespace backend.Features.Users
                     weightLogsCount,
                     foodLogsCount,
                     refreshTokensCount,
+                    coachSettingsCount,
+                    exerciseTargetsCount,
+                    nutritionTargetsHistoryCount,
+                    recommendationsCount,
+                    recommendationNutritionChangesCount,
+                    recommendationExerciseTargetChangesCount,
+                    recommendationRecoveryActionsCount,
+                    recommendationTargetDateChangesCount,
+                    weeklyReportsCount,
+                    weeklyReportWeightSummariesCount,
+                    weeklyReportNutritionSummariesCount,
+                    weeklyReportTrainingSummariesCount,
+                    weeklyReportRecoverySummariesCount,
+                    weeklyReportMuscleBalanceCount,
+                    weeklyReportNextWeekActionsCount,
                     composedMealsCount,
                     composedMealIngredientsCount,
                     workoutsCount,
@@ -345,6 +550,8 @@ namespace backend.Features.Users
                     userId,
                     workoutSessionIds,
                     workoutExerciseLogIds,
+                    weeklyReportIds,
+                    recommendationIds,
                     composedMealIds,
                     workoutIds,
                     exerciseIds,
@@ -413,6 +620,8 @@ namespace backend.Features.Users
             string userId,
             IReadOnlyCollection<Guid> workoutSessionIds,
             IReadOnlyCollection<Guid> workoutExerciseLogIds,
+            IReadOnlyCollection<Guid> weeklyReportIds,
+            IReadOnlyCollection<Guid> recommendationIds,
             IReadOnlyCollection<Guid> composedMealIds,
             IReadOnlyCollection<Guid> workoutIds,
             IReadOnlyCollection<Guid> exerciseIds,
@@ -422,11 +631,18 @@ namespace backend.Features.Users
             var hasWeightLogs = await _db.WeightLogs.AnyAsync(x => x.UserId == userId, ct);
             var hasFoodLogs = await _db.FoodLogs.AnyAsync(x => x.UserId == userId, ct);
             var hasRefreshTokens = await _db.RefreshTokens.AnyAsync(x => x.UserId == userId, ct);
+            var hasCoachSettings = await _db.CoachSettings.AnyAsync(x => x.UserId == userId, ct);
+            var hasExerciseTargets = await _db.ExerciseTargets.AnyAsync(x => x.UserId == userId, ct);
+            var hasNutritionTargetsHistory =
+                await _db.NutritionTargetsHistory.AnyAsync(x => x.UserId == userId, ct);
             var hasComposedMeals = await _db.ComposedMeals.AnyAsync(x => x.UserId == userId, ct);
             var hasWorkoutSessions = await _db.WorkoutSessions.AnyAsync(x => x.UserId == userId, ct);
             var hasWorkouts = await _db.Workouts.AnyAsync(x => x.UserId == userId, ct);
             var hasWorkoutPrograms = await _db.WorkoutPrograms.AnyAsync(x => x.UserId == userId, ct);
             var hasExercises = await _db.Exercises.AnyAsync(x => x.UserId == userId, ct);
+            var hasWeeklyReports = await _db.WeeklyReports.AnyAsync(x => x.UserId == userId, ct);
+            var hasRecommendations =
+                await _db.AdaptiveRecommendations.AnyAsync(x => x.UserId == userId, ct);
 
             var hasComposedMealIngredients =
                 composedMealIds.Count > 0 &&
@@ -452,9 +668,72 @@ namespace backend.Features.Users
                     x => workoutIds.Contains(x.WorkoutId) || exerciseIds.Contains(x.ExerciseId),
                     ct);
 
+            var hasWeeklyReportWeightSummaries =
+                weeklyReportIds.Count > 0 &&
+                await _db.WeeklyReportWeightSummaries.AnyAsync(
+                    x => weeklyReportIds.Contains(x.WeeklyReportId),
+                    ct);
+
+            var hasWeeklyReportNutritionSummaries =
+                weeklyReportIds.Count > 0 &&
+                await _db.WeeklyReportNutritionSummaries.AnyAsync(
+                    x => weeklyReportIds.Contains(x.WeeklyReportId),
+                    ct);
+
+            var hasWeeklyReportTrainingSummaries =
+                weeklyReportIds.Count > 0 &&
+                await _db.WeeklyReportTrainingSummaries.AnyAsync(
+                    x => weeklyReportIds.Contains(x.WeeklyReportId),
+                    ct);
+
+            var hasWeeklyReportRecoverySummaries =
+                weeklyReportIds.Count > 0 &&
+                await _db.WeeklyReportRecoverySummaries.AnyAsync(
+                    x => weeklyReportIds.Contains(x.WeeklyReportId),
+                    ct);
+
+            var hasWeeklyReportMuscleBalance =
+                weeklyReportIds.Count > 0 &&
+                await _db.WeeklyReportMuscleBalanceSummaries.AnyAsync(
+                    x => weeklyReportIds.Contains(x.WeeklyReportId),
+                    ct);
+
+            var hasWeeklyReportNextWeekActions =
+                weeklyReportIds.Count > 0 &&
+                await _db.WeeklyReportNextWeekActions.AnyAsync(
+                    x => weeklyReportIds.Contains(x.WeeklyReportId),
+                    ct);
+
+            var hasRecommendationNutritionChanges =
+                recommendationIds.Count > 0 &&
+                await _db.RecommendationNutritionChanges.AnyAsync(
+                    x => recommendationIds.Contains(x.RecommendationId),
+                    ct);
+
+            var hasRecommendationExerciseTargetChanges =
+                recommendationIds.Count > 0 &&
+                await _db.RecommendationExerciseTargetChanges.AnyAsync(
+                    x => recommendationIds.Contains(x.RecommendationId),
+                    ct);
+
+            var hasRecommendationRecoveryActions =
+                recommendationIds.Count > 0 &&
+                await _db.RecommendationRecoveryActions.AnyAsync(
+                    x => recommendationIds.Contains(x.RecommendationId),
+                    ct);
+
+            var hasRecommendationTargetDateChanges =
+                recommendationIds.Count > 0 &&
+                await _db.RecommendationTargetDateChanges.AnyAsync(
+                    x => recommendationIds.Contains(x.RecommendationId),
+                    ct);
+
             if (hasWeightLogs ||
                 hasFoodLogs ||
                 hasRefreshTokens ||
+                hasCoachSettings ||
+                hasExerciseTargets ||
+                hasNutritionTargetsHistory ||
                 hasComposedMeals ||
                 hasComposedMealIngredients ||
                 hasWorkoutSessions ||
@@ -463,15 +742,30 @@ namespace backend.Features.Users
                 hasWorkouts ||
                 hasWorkoutExercises ||
                 hasWorkoutPrograms ||
-                hasExercises)
+                hasExercises ||
+                hasWeeklyReports ||
+                hasWeeklyReportWeightSummaries ||
+                hasWeeklyReportNutritionSummaries ||
+                hasWeeklyReportTrainingSummaries ||
+                hasWeeklyReportRecoverySummaries ||
+                hasWeeklyReportMuscleBalance ||
+                hasWeeklyReportNextWeekActions ||
+                hasRecommendations ||
+                hasRecommendationNutritionChanges ||
+                hasRecommendationExerciseTargetChanges ||
+                hasRecommendationRecoveryActions ||
+                hasRecommendationTargetDateChanges)
             {
                 _logger.LogError(
-                    "DeleteUserAsync residual domain records detected. traceId={TraceId} userId={UserId} hasWeightLogs={HasWeightLogs} hasFoodLogs={HasFoodLogs} hasRefreshTokens={HasRefreshTokens} hasComposedMeals={HasComposedMeals} hasComposedMealIngredients={HasComposedMealIngredients} hasWorkoutSessions={HasWorkoutSessions} hasWorkoutExerciseLogs={HasWorkoutExerciseLogs} hasSetLogs={HasSetLogs} hasWorkouts={HasWorkouts} hasWorkoutExercises={HasWorkoutExercises} hasWorkoutPrograms={HasWorkoutPrograms} hasExercises={HasExercises}",
+                    "DeleteUserAsync residual domain records detected. traceId={TraceId} userId={UserId} hasWeightLogs={HasWeightLogs} hasFoodLogs={HasFoodLogs} hasRefreshTokens={HasRefreshTokens} hasCoachSettings={HasCoachSettings} hasExerciseTargets={HasExerciseTargets} hasNutritionTargetsHistory={HasNutritionTargetsHistory} hasComposedMeals={HasComposedMeals} hasComposedMealIngredients={HasComposedMealIngredients} hasWorkoutSessions={HasWorkoutSessions} hasWorkoutExerciseLogs={HasWorkoutExerciseLogs} hasSetLogs={HasSetLogs} hasWorkouts={HasWorkouts} hasWorkoutExercises={HasWorkoutExercises} hasWorkoutPrograms={HasWorkoutPrograms} hasExercises={HasExercises} hasWeeklyReports={HasWeeklyReports} hasWeeklyReportWeightSummaries={HasWeeklyReportWeightSummaries} hasWeeklyReportNutritionSummaries={HasWeeklyReportNutritionSummaries} hasWeeklyReportTrainingSummaries={HasWeeklyReportTrainingSummaries} hasWeeklyReportRecoverySummaries={HasWeeklyReportRecoverySummaries} hasWeeklyReportMuscleBalance={HasWeeklyReportMuscleBalance} hasWeeklyReportNextWeekActions={HasWeeklyReportNextWeekActions} hasRecommendations={HasRecommendations} hasRecommendationNutritionChanges={HasRecommendationNutritionChanges} hasRecommendationExerciseTargetChanges={HasRecommendationExerciseTargetChanges} hasRecommendationRecoveryActions={HasRecommendationRecoveryActions} hasRecommendationTargetDateChanges={HasRecommendationTargetDateChanges}",
                     traceId,
                     userId,
                     hasWeightLogs,
                     hasFoodLogs,
                     hasRefreshTokens,
+                    hasCoachSettings,
+                    hasExerciseTargets,
+                    hasNutritionTargetsHistory,
                     hasComposedMeals,
                     hasComposedMealIngredients,
                     hasWorkoutSessions,
@@ -480,7 +774,19 @@ namespace backend.Features.Users
                     hasWorkouts,
                     hasWorkoutExercises,
                     hasWorkoutPrograms,
-                    hasExercises);
+                    hasExercises,
+                    hasWeeklyReports,
+                    hasWeeklyReportWeightSummaries,
+                    hasWeeklyReportNutritionSummaries,
+                    hasWeeklyReportTrainingSummaries,
+                    hasWeeklyReportRecoverySummaries,
+                    hasWeeklyReportMuscleBalance,
+                    hasWeeklyReportNextWeekActions,
+                    hasRecommendations,
+                    hasRecommendationNutritionChanges,
+                    hasRecommendationExerciseTargetChanges,
+                    hasRecommendationRecoveryActions,
+                    hasRecommendationTargetDateChanges);
                 throw new InvalidOperationException(
                     "User deletion verification failed. Residual domain records remain."
                 );
@@ -823,7 +1129,7 @@ namespace backend.Features.Users
 
         private static int? NormalizeAge(int age)
         {
-            return age is >= 10 and <= 120 ? age : null;
+            return age is >= 18 and <= 120 ? age : null;
         }
 
         private static string? NormalizeGender(string? gender)

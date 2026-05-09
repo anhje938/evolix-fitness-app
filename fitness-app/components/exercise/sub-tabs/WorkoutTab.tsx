@@ -107,12 +107,15 @@ export function WorkoutTab() {
     }
   };
 
-  const handleEditSave = async (data: {
-    name: string;
-    dayLabel?: string;
-    description?: string;
-    exerciseIds: string[];
-  }, options?: { closeModal?: boolean }) => {
+  const handleEditSave = async (
+    data: {
+      name: string;
+      dayLabel?: string;
+      description?: string;
+      exerciseIds: string[];
+    },
+    options?: { closeModal?: boolean }
+  ) => {
     if (!editingWorkout) return;
 
     try {
@@ -145,16 +148,6 @@ export function WorkoutTab() {
     }
   };
 
-  /**
-   * ✅ Start workout and open WorkoutSessionOverlay.
-   * We reuse the existing openProgramSession() API because it supports:
-   * - name
-   * - workoutId
-   * - workoutProgramId (nullable)
-   * - prefilled exercise list
-   *
-   * For "Mine økter" (manual workouts), we pass workoutProgramId = null.
-   */
   const handleStartWorkout = (payload: StartWorkoutPayload) => {
     openProgramSession({
       name: payload.name,

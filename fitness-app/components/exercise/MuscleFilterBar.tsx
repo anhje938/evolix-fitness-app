@@ -17,20 +17,28 @@ type Props = {
   value: string;
   onChange: (value: string) => void;
   preset: Preset;
+  chipColors?: {
+    background: string;
+    border: string;
+    activeBackground: string;
+    activeBorder: string;
+    text: string;
+    activeText: string;
+  };
 };
 
 const ROWS_VISIBLE_ADVANCED = 3;
-// Juster denne hvis du endrer chip-padding/font/margins
+// Adjust if chip padding, font, or margins change.
 const ESTIMATED_ROW_HEIGHT = 42; // ~chip height + margin
 const ADVANCED_MAX_HEIGHT = ROWS_VISIBLE_ADVANCED * ESTIMATED_ROW_HEIGHT + 8;
 
-export function MuscleFilterBar({ value, onChange, preset }: Props) {
+export function MuscleFilterBar({ value, onChange, preset, chipColors }: Props) {
   const list = useMemo(
     () => (preset === "advanced" ? ADVANCED_MUSCLE_FILTERS : MUSCLE_FILTERS),
     [preset]
   );
 
-  // BASIC: horisontal scroll
+  // Basic horizontal scroll.
   if (preset === "basic") {
     return (
       <ScrollView
@@ -44,7 +52,19 @@ export function MuscleFilterBar({ value, onChange, preset }: Props) {
           return (
             <TouchableOpacity
               key={`${item.label}-${item.value}`}
-              style={[styles.chip, isActive && styles.chipActive]}
+              style={[
+                styles.chip,
+                chipColors && {
+                  backgroundColor: chipColors.background,
+                  borderColor: chipColors.border,
+                },
+                isActive && styles.chipActive,
+                isActive &&
+                  chipColors && {
+                    backgroundColor: chipColors.activeBackground,
+                    borderColor: chipColors.activeBorder,
+                  },
+              ]}
               onPress={() => onChange(item.value)}
               activeOpacity={0.8}
             >
@@ -52,7 +72,9 @@ export function MuscleFilterBar({ value, onChange, preset }: Props) {
                 style={[
                   typography.body,
                   styles.chipText,
+                  chipColors && { color: chipColors.text },
                   isActive && styles.chipTextActive,
+                  isActive && chipColors && { color: chipColors.activeText },
                 ]}
               >
                 {item.label}
@@ -64,7 +86,7 @@ export function MuscleFilterBar({ value, onChange, preset }: Props) {
     );
   }
 
-  // ADVANCED: 3 rader høyde + vertikal scrolling + wrap
+  // Advanced vertical wrapped list.
   return (
     <View style={[styles.advancedBox, { maxHeight: ADVANCED_MAX_HEIGHT }]}>
       <ScrollView
@@ -80,7 +102,16 @@ export function MuscleFilterBar({ value, onChange, preset }: Props) {
               style={[
                 styles.chip,
                 styles.chipWrapped,
+                chipColors && {
+                  backgroundColor: chipColors.background,
+                  borderColor: chipColors.border,
+                },
                 isActive && styles.chipActive,
+                isActive &&
+                  chipColors && {
+                    backgroundColor: chipColors.activeBackground,
+                    borderColor: chipColors.activeBorder,
+                  },
               ]}
               onPress={() => onChange(item.value)}
               activeOpacity={0.8}
@@ -89,7 +120,9 @@ export function MuscleFilterBar({ value, onChange, preset }: Props) {
                 style={[
                   typography.body,
                   styles.chipText,
+                  chipColors && { color: chipColors.text },
                   isActive && styles.chipTextActive,
+                  isActive && chipColors && { color: chipColors.activeText },
                 ]}
                 numberOfLines={1}
               >
@@ -133,7 +166,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
   chipWrapped: {
-    marginBottom: 8, // viktig for grid-look + row height
+    marginBottom: 8,
   },
   chipActive: {
     backgroundColor: newColors.primary.light,

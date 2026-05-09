@@ -23,7 +23,7 @@
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://evolix.no/api",
-        "EXPO_PUBLIC_REVENUECAT_ENV": "test"
+        "EXPO_PUBLIC_REVENUECAT_ENV": "production"
       }
     },
     "production": {

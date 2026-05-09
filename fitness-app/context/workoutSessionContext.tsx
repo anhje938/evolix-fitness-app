@@ -95,6 +95,7 @@ type WorkoutSessionContextValue = {
 
   finishAndSave: (options?: {
     nameOverride?: string;
+    startedAtUtcOverride?: string;
     onSuccess?: () => void | Promise<void>;
   }) => Promise<void>;
 };
@@ -154,7 +155,7 @@ function toOptimisticCompletedWorkout(
   sessionId: string,
   session: WorkoutSession
 ): CompletedWorkoutSummaryDto {
-  const finishedAtUtc = new Date().toISOString();
+  const finishedAtUtc = session.finishedAtUtc ?? new Date().toISOString();
 
   let setsCount = 0;
   let totalVolumeKg = 0;
@@ -188,6 +189,44 @@ function toOptimisticCompletedWorkout(
     completedSetsCount: setsCount,
     totalVolumeKg: totalVolumeKg > 0 ? totalVolumeKg : null,
     muscleGroups: Array.from(muscles),
+  };
+}
+
+function moveSessionToStartedAt(
+  session: WorkoutSession,
+  startedAtUtcOverride?: string
+): WorkoutSession {
+  if (!startedAtUtcOverride) return session;
+
+  const nextStartedAt = new Date(startedAtUtcOverride);
+  if (Number.isNaN(nextStartedAt.getTime())) return session;
+
+  const currentStartedAt = new Date(session.startedAtUtc);
+  const currentFinishedAt = session.finishedAtUtc
+    ? new Date(session.finishedAtUtc)
+    : new Date();
+
+  if (
+    Number.isNaN(currentStartedAt.getTime()) ||
+    Number.isNaN(currentFinishedAt.getTime())
+  ) {
+    return {
+      ...session,
+      startedAtUtc: nextStartedAt.toISOString(),
+      finishedAtUtc: nextStartedAt.toISOString(),
+    };
+  }
+
+  const durationMs = Math.max(
+    0,
+    currentFinishedAt.getTime() - currentStartedAt.getTime()
+  );
+  const nextFinishedAt = new Date(nextStartedAt.getTime() + durationMs);
+
+  return {
+    ...session,
+    startedAtUtc: nextStartedAt.toISOString(),
+    finishedAtUtc: nextFinishedAt.toISOString(),
   };
 }
 
@@ -942,6 +981,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
   const finishAndSave = useCallback(
     async (options?: {
       nameOverride?: string;
+      startedAtUtcOverride?: string;
       onSuccess?: () => void | Promise<void>;
     }) => {
       if (!sessionRef.current) return;
@@ -1005,8 +1045,13 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
           );
         }
 
+        const timedSession = moveSessionToStartedAt(
+          currentSession,
+          options?.startedAtUtcOverride
+        );
+
         const payload: WorkoutSession = {
-          ...currentSession,
+          ...timedSession,
           clientRequestId,
           name: nextName,
           exercises: sanitizedExercises,
@@ -1080,7 +1125,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
           }
         }
 
-        await Promise.all([
+        const refetchAfterSave = Promise.all([
           queryClient.invalidateQueries({
             queryKey: ["completedWorkouts"],
             refetchType: "all",
@@ -1108,6 +1153,10 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
               ]
             : []),
         ]);
+
+        void refetchAfterSave.catch((error) => {
+          console.log("Failed to refetch workout data after save", error);
+        });
 
         await options?.onSuccess?.();
 

@@ -1,4 +1,4 @@
-﻿import { generalStyles } from "@/config/styles";
+import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import type { Food } from "@/types/meal";
 import {

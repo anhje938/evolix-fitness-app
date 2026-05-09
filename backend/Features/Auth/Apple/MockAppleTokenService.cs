@@ -30,4 +30,11 @@ public class MockAppleTokenService : IAppleTokenService
             IsAdmin = false
         });
     }
+
+    public Task RevokeAuthorizationAsync(
+        string? authorizationCode,
+        CancellationToken ct = default)
+    {
+        return Task.CompletedTask;
+    }
 }

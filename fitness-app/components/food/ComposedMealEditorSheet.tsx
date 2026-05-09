@@ -22,7 +22,6 @@ import React, {
 import type { TextInput as RNTextInput } from "react-native";
 import {
   Alert,
-  Dimensions,
   Keyboard,
   Modal,
   Platform,

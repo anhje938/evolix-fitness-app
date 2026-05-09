@@ -23,6 +23,7 @@ namespace backend.Features.Training.WorkoutSessions
 
         public Guid? WorkoutId { get; set; }
         public DateTime? StartedAtUtc { get; set; }
+        public DateTime? FinishedAtUtc { get; set; }
         public string? Title { get; set; }
         public string? Notes { get; set; }
 
@@ -33,6 +34,7 @@ namespace backend.Features.Training.WorkoutSessions
     public class UpdateWorkoutSessionRequest
     {
         public DateTime? StartedAtUtc { get; set; }
+        public DateTime? FinishedAtUtc { get; set; }
         public string? Title { get; set; }
         public string? Notes { get; set; }
 

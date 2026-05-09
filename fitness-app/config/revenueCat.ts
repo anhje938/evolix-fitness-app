@@ -5,7 +5,7 @@ import type { CustomerInfo } from "react-native-purchases";
 export const REVENUECAT_PREMIUM_ENTITLEMENT_ID =
   process.env.EXPO_PUBLIC_REVENUECAT_PREMIUM_ENTITLEMENT_ID ?? "premium";
 
-function getRevenueCatEnvironment() {
+export function getRevenueCatEnvironment() {
   const value = process.env.EXPO_PUBLIC_REVENUECAT_ENV?.trim().toLowerCase();
   return value === "production" ? "production" : "test";
 }
@@ -46,8 +46,8 @@ async function configureRevenueCatSdk() {
   if (!apiKey) {
     throw new Error(
       getRevenueCatEnvironment() === "test"
-        ? "Missing RevenueCat Test Store API key. Set EXPO_PUBLIC_REVENUECAT_TEST_API_KEY."
-        : `Missing RevenueCat API key for ${Platform.OS}. Set EXPO_PUBLIC_REVENUECAT_${Platform.OS.toUpperCase()}_API_KEY.`
+        ? "Mangler RevenueCat test API key. Sett EXPO_PUBLIC_REVENUECAT_TEST_API_KEY."
+        : `Mangler RevenueCat API key for ${Platform.OS}. Sett EXPO_PUBLIC_REVENUECAT_${Platform.OS.toUpperCase()}_API_KEY.`
     );
   }
 

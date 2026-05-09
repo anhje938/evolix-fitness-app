@@ -48,7 +48,7 @@ function parseAge(value: string) {
   const n = Number(value.replace(",", ".").trim());
   if (!Number.isFinite(n)) return null;
   const rounded = Math.round(n);
-  return rounded >= 10 && rounded <= 120 ? rounded : null;
+  return rounded >= 18 && rounded <= 120 ? rounded : null;
 }
 
 export function RegistrationOnboardingModal() {
@@ -205,7 +205,7 @@ export function RegistrationOnboardingModal() {
 
             <Text style={styles.subtitle}>
               {step === "age" &&
-                "Dette hjelper oss med å tilpasse mål og anbefalinger."}
+                "Dette hjelper oss med å tilpasse mål og anbefalinger. Du må være minst 18 år."}
               {step === "gender" &&
                 "Valget brukes kun for å gjøre anbefalingene mer relevante."}
               {step === "language" &&
@@ -318,7 +318,7 @@ export function RegistrationOnboardingModal() {
 
             {showValidation && !canContinue ? (
               <Text style={styles.errorText}>
-                {step === "age" && "Legg inn en gyldig alder for å fortsette."}
+                {step === "age" && "Du må være minst 18 år for å fortsette."}
                 {step === "gender" && "Velg kjønn for å fortsette."}
                 {step === "language" && "Velg språk for å fortsette."}
               </Text>

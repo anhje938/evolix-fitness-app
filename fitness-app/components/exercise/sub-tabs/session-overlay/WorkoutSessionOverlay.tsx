@@ -1,6 +1,12 @@
 import type { CreateExercisePayload, WorkoutSession } from "@/types/exercise";
-import { MODAL_MAX_HEIGHT, modalTheme } from "@/config/modalTheme";
+import {
+  MODAL_MAX_HEIGHT,
+  modalConfirmButtonColors,
+  modalGradientColors,
+  modalTheme,
+} from "@/config/modalTheme";
 import { typography } from "@/config/typography";
+import { AppDateTimePicker } from "@/components/date/AppDateTimePicker";
 import { Paywall } from "@/components/subscription/Paywall";
 import { useSubscription } from "@/context/SubscriptionProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
@@ -39,7 +45,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Divider, ExerciseBlock, IconBtn, Stat } from "./ExerciseBlocks";
+import { Divider, ExerciseBlock, Stat } from "./ExerciseBlocks";
 import { DraggableMinimizedBar } from "./MinimizedWorkoutBar";
 import {
   findInvalidCompletedSets,
@@ -48,6 +54,9 @@ import {
   validateSessionForSave,
 } from "./overlayGuards";
 import { AddExerciseModal } from "../exercise/AddExerciseModal";
+import { EditWorkoutSession } from "./EditWorkoutSession";
+import DumbbellIcon from "../../../../assets/icons/dumbbell-white.svg";
+import XIcon from "../../../../assets/icons/white-x.svg";
 
 const SUSPICIOUS_WEIGHT_THRESHOLD_KG = 500;
 
@@ -57,16 +66,16 @@ const SUSPICIOUS_WEIGHT_THRESHOLD_KG = 500;
 const overlayColors = {
   backdrop: modalTheme.backdrop,
   container: modalTheme.surface,
-  surface: "rgba(30,58,138,0.24)",
-  input: "rgba(15,23,42,0.82)",
-  text: "#E5ECFF",
-  muted: "rgba(148,163,184,0.9)",
-  muted2: "rgba(148,163,184,0.7)",
+  surface: modalTheme.surfaceMuted,
+  input: modalTheme.surfaceMuted,
+  text: modalTheme.text,
+  muted: modalTheme.label,
+  muted2: modalTheme.muted,
   border: modalTheme.border,
   borderSoft: modalTheme.borderSoft,
-  accent: "#06b6d4",
-  accentDim: "rgba(6,182,212,0.34)",
-  accentBg: "rgba(6,182,212,0.12)",
+  accent: "#38bdf8",
+  accentDim: "rgba(56,189,248,0.24)",
+  accentBg: "rgba(56,189,248,0.12)",
   danger: "#ef4444",
   dangerBg: "rgba(239,68,68,0.12)",
   dangerBorder: "rgba(239,68,68,0.25)",
@@ -160,7 +169,7 @@ function formatEstimatedOneRmValue(value: number | null) {
 
 function formatSetSummary(reps: number, weightKg: number | null) {
   if (weightKg == null) return `${reps} reps`;
-  return `${reps} reps • ${formatKg(weightKg)}`;
+  return `${reps} reps · ${formatKg(weightKg)}`;
 }
 
 function estimateSetOneRm(weightKg: number | null, reps: number | null) {
@@ -324,6 +333,66 @@ const LiveDurationStat = React.memo(function LiveDurationStat({
   return <Stat icon="time-outline" label="Varighet" value={durationLabel} />;
 });
 
+function validDateOrNow(value?: string | null) {
+  if (!value) return new Date();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+function mergeDatePart(base: Date, nextDate: Date) {
+  const merged = new Date(base);
+  merged.setFullYear(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate());
+  return merged;
+}
+
+function mergeTimePart(base: Date, nextTime: Date) {
+  const merged = new Date(base);
+  merged.setHours(nextTime.getHours(), nextTime.getMinutes(), 0, 0);
+  return merged;
+}
+
+function SessionDateTimeControls({
+  value,
+  onChangeDate,
+  onChangeTime,
+}: {
+  value: Date;
+  onChangeDate: (date: Date | null) => void;
+  onChangeTime: (date: Date | null) => void;
+}) {
+  return (
+    <View style={styles.sessionDateCard}>
+      <View style={styles.sessionDateHeader}>
+        <Ionicons name="calendar-outline" size={15} color={overlayColors.muted2} />
+        <Text style={[typography.bodyBold, styles.sessionDateTitle]}>
+          Starttidspunkt
+        </Text>
+      </View>
+
+      <View style={styles.sessionDatePickerRow}>
+        <View style={styles.sessionDatePickerCol}>
+          <AppDateTimePicker
+            label="Dato"
+            mode="date"
+            value={value}
+            onChange={onChangeDate}
+            compact
+          />
+        </View>
+        <View style={styles.sessionDatePickerCol}>
+          <AppDateTimePicker
+            label="Tid"
+            mode="time"
+            value={value}
+            onChange={onChangeTime}
+            compact
+          />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export function WorkoutSessionOverlay() {
   const insets = useSafeAreaInsets();
   const {
@@ -353,6 +422,10 @@ export function WorkoutSessionOverlay() {
   const [pickerToastMessage, setPickerToastMessage] = useState("");
   const [saveSuccessMessage, setSaveSuccessMessage] = useState("");
   const [keyboardInsetHeight, setKeyboardInsetHeight] = useState(0);
+  const [sessionStartedAtDraft, setSessionStartedAtDraft] = useState(
+    () => new Date()
+  );
+  const [isSessionDateTouched, setIsSessionDateTouched] = useState(false);
   const titleInputRef = useRef<RNTextInput | null>(null);
   const contentScrollRef = useRef<ScrollView | null>(null);
   const pendingConfirmSaveActionRef = useRef<(() => Promise<void>) | null>(
@@ -376,6 +449,7 @@ export function WorkoutSessionOverlay() {
     useExercises();
   const createExerciseMutation = useCreateExercise();
   const sessionId = session?.id;
+  const sessionScopeId = session?.id ?? session?.clientRequestId ?? null;
   const sessionName = session?.name ?? "";
   const sessionStartedAtUtc = session?.startedAtUtc;
   const sessionFinishedAtUtc = session?.finishedAtUtc ?? null;
@@ -399,6 +473,12 @@ export function WorkoutSessionOverlay() {
     saveSuccessAnim.stopAnimation();
     saveSuccessAnim.setValue(0);
   }, [isOpen, saveSuccessAnim, sessionId, sessionName]);
+
+  useEffect(() => {
+    if (!isOpen || !sessionStartedAtUtc) return;
+    setSessionStartedAtDraft(validDateOrNow(sessionStartedAtUtc));
+    setIsSessionDateTouched(false);
+  }, [isOpen, sessionStartedAtUtc, sessionScopeId]);
 
   useEffect(() => {
     if (isExercisePickerOpen || isCreateExerciseOpen) return;
@@ -888,7 +968,7 @@ export function WorkoutSessionOverlay() {
     }
     Alert.alert(
       "Avbryt økt?",
-      `Du har fullført ${totals.completed} sett. Vil du avbryte økten?`,
+      `Du har ${totals.completed} sett. Vil du avbryte økten?`,
       [
         { text: "Fortsett", style: "cancel" },
         { text: "Avbryt", style: "destructive", onPress: closeSession },
@@ -911,7 +991,7 @@ export function WorkoutSessionOverlay() {
 
     const message =
       totals.completed > 0
-        ? `Du har fullført ${totals.completed} sett. Vil du avbryte økten?`
+        ? `Du har ${totals.completed} sett. Vil du avbryte økten?`
         : totals.sets > 0
         ? "Du har lagt til øvelser eller sett som ikke er lagret. Vil du avbryte økten?"
         : "Vil du avbryte økten?";
@@ -938,8 +1018,17 @@ export function WorkoutSessionOverlay() {
       Alert.alert(
         "Ugyldige sett",
         issues.length > 1
-          ? `Du har ${issues.length} ferdig-markerte sett med ugyldige verdier.\n\nEksempel:\n${first.exerciseName} - sett ${first.setIndex}: ${first.reason}\n\nRett opp før du ${beforeSaveAction}.`
-          : `Du har et ferdig-markert sett med ugyldige verdier:\n\n${first.exerciseName} - sett ${first.setIndex}: ${first.reason}\n\nRett opp før du ${beforeSaveAction}.`,
+          ? `Du har ${issues.length} ferdig-markerte sett med ugyldige verdier.
+
+Eksempel:
+${first.exerciseName} - sett ${first.setIndex}: ${first.reason}
+
+Rett opp før du ${beforeSaveAction}.`
+          : `Du har et ferdig-markert sett med ugyldige verdier:
+
+${first.exerciseName} - sett ${first.setIndex}: ${first.reason}
+
+Rett opp før du ${beforeSaveAction}.`,
         [{ text: "OK" }]
       );
       return;
@@ -966,8 +1055,17 @@ export function WorkoutSessionOverlay() {
         Alert.alert(
           "Uvanlig høy vekt",
           suspiciousWeights.length > 1
-            ? `Vi fant ${suspiciousWeights.length} sett med minst ${SUSPICIOUS_WEIGHT_THRESHOLD_KG} kg.\n\nEksempel:\n${first.exerciseName} - sett ${first.setIndex}: ${first.weight} kg\n\nEr du sikker på at dette stemmer?`
-            : `Dette settet er registrert med ${first.weight} kg:\n\n${first.exerciseName} - sett ${first.setIndex}\n\nEr du sikker på at dette stemmer?`,
+            ? `Vi fant ${suspiciousWeights.length} sett med minst ${SUSPICIOUS_WEIGHT_THRESHOLD_KG} kg.
+
+Eksempel:
+${first.exerciseName} - sett ${first.setIndex}: ${first.weight} kg
+
+Er du sikker på at dette stemmer?`
+            : `Dette settet er registrert med ${first.weight} kg:
+
+${first.exerciseName} - sett ${first.setIndex}
+
+Er du sikker på at dette stemmer?`,
           [
             {
               text: "Gå tilbake",
@@ -988,6 +1086,9 @@ export function WorkoutSessionOverlay() {
       Keyboard.dismiss();
       await finishAndSave({
         nameOverride,
+        startedAtUtcOverride: isSessionDateTouched
+          ? sessionStartedAtDraft.toISOString()
+          : undefined,
         onSuccess: showSaveSuccessToast,
       });
     };
@@ -996,6 +1097,18 @@ export function WorkoutSessionOverlay() {
     pendingConfirmSaveActionRef.current = saveAction;
     setIsSaveSummaryOpen(true);
   };
+
+  const handleSessionDateChange = useCallback((date: Date | null) => {
+    if (!date) return;
+    setSessionStartedAtDraft((current) => mergeDatePart(current, date));
+    setIsSessionDateTouched(true);
+  }, []);
+
+  const handleSessionTimeChange = useCallback((date: Date | null) => {
+    if (!date) return;
+    setSessionStartedAtDraft((current) => mergeTimePart(current, date));
+    setIsSessionDateTouched(true);
+  }, []);
 
   const handleCloseSaveSummary = () => {
     if (isSaving) return;
@@ -1095,7 +1208,6 @@ export function WorkoutSessionOverlay() {
   }
 
   const modeLabel = session.mode === "quick" ? "Fri økt" : "Planlagt økt";
-  const closeButtonLabel = isEditingCompletedSession ? "Lukk" : "Avbryt økt";
   const finishButtonLabel = isEditingCompletedSession
     ? "Lagre endringer"
     : "Fullfør økt";
@@ -1114,6 +1226,13 @@ export function WorkoutSessionOverlay() {
         ? `${savePreview.skippedSetsCount} uferdige sett og ${savePreview.skippedExercisesCount} øvelser uten ferdige sett blir ikke lagret.`
         : `${savePreview.skippedSetsCount} uferdige sett blir ikke lagret.`
       : "Kun ferdig-markerte sett blir lagret.";
+  const sessionDateTimeControls = (
+    <SessionDateTimeControls
+      value={sessionStartedAtDraft}
+      onChangeDate={handleSessionDateChange}
+      onChangeTime={handleSessionTimeChange}
+    />
+  );
 
   const sheetTranslateY = overlayReveal.interpolate({
     inputRange: [0, 1],
@@ -1124,8 +1243,698 @@ export function WorkoutSessionOverlay() {
     outputRange: [0.975, 1],
   });
 
+  const editSessionContent =
+    sortedExercises.length === 0 ? (
+      <View style={styles.emptyState}>
+        <View style={styles.emptyIcon}>
+          <Ionicons
+            name="barbell-outline"
+            size={32}
+            color={overlayColors.muted2}
+          />
+        </View>
+        <Text style={[typography.body, styles.emptyTitle]}>
+          Ingen øvelser lagt til
+        </Text>
+        <Text style={[typography.body, styles.emptySubtitle]}>
+          Legg til øvelse for å starte økten.
+        </Text>
+        <Pressable
+          onPress={handleOpenExercisePicker}
+          style={({ pressed }) => [
+            styles.emptyActionBtn,
+            pressed && { opacity: 0.92 },
+          ]}
+        >
+          <Ionicons
+            name="add-outline"
+            size={16}
+            color={overlayColors.accent}
+          />
+          <Text style={[typography.body, styles.emptyActionText]}>
+            Velg første øvelse
+          </Text>
+        </Pressable>
+      </View>
+    ) : (
+      sortedExercises.map((ex) => (
+        <ExerciseBlock
+          key={ex.id}
+          exercise={ex}
+          coachRecommendation={
+            coachRecommendationsByLocalExerciseId[ex.id] ?? null
+          }
+          isCoachLocked={!isPremium}
+          previousSets={previousSetsByLocalExerciseId[ex.id] ?? []}
+          onAddSet={() => addSet(ex.id)}
+          onLockedCoachPress={() => setIsCoachPaywallVisible(true)}
+          onApplyCoachRecommendation={() => {
+            if (!isPremium) {
+              setIsCoachPaywallVisible(true);
+              return;
+            }
+
+            const recommendation = coachRecommendationsByLocalExerciseId[ex.id];
+            if (!recommendation) return;
+            handleApplyCoachRecommendation(ex.id, recommendation);
+          }}
+          onInputFocus={handleSessionInputFocus}
+          onUpdateSet={(setId, partial) => updateSet(ex.id, setId, partial)}
+          onRemoveSet={(setId) => removeSet(ex.id, setId)}
+        />
+      ))
+    );
+
+  const editSaveSummaryOverlay =
+    isSaveSummaryOpen && savePreviewWithPr ? (
+      <View style={styles.saveSummaryOverlay}>
+        <Pressable
+          style={styles.saveSummaryBackdrop}
+          onPress={handleCloseSaveSummary}
+        />
+
+        <View style={styles.saveSummaryWrap} pointerEvents="box-none">
+          <View style={styles.saveSummaryCard}>
+            <LinearGradient
+              colors={[
+                "rgba(255,255,255,0.06)",
+                "rgba(255,255,255,0.02)",
+                "rgba(255,255,255,0.00)",
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+              pointerEvents="none"
+            />
+
+            <View style={styles.saveSummaryHeader}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text
+                  style={[typography.bodyBold, styles.saveSummaryDisplayTitle]}
+                >
+                  Lagre trening
+                </Text>
+                <Text style={[typography.bodyBold, styles.saveSummaryTitle]}>
+                  Sammendrag av økt
+                </Text>
+                <Text style={[typography.body, styles.saveSummarySubtitle]}>
+                  Se over dette før du lagrer.
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={handleCloseSaveSummary}
+                hitSlop={10}
+                style={styles.saveSummaryCloseBtn}
+              >
+                <Ionicons name="close" size={18} color={overlayColors.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              style={styles.saveSummaryContent}
+              contentContainerStyle={styles.saveSummaryContentContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.saveSummarySection}>
+                {savePreviewWithPr.exercises.map((exercise) => (
+                  <View key={exercise.id} style={styles.saveSummaryExerciseCard}>
+                    <View style={styles.saveSummaryExerciseHeader}>
+                      <Text
+                        style={[
+                          typography.bodyBold,
+                          styles.saveSummaryExerciseName,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {exercise.name}
+                      </Text>
+                    </View>
+
+                    <View style={styles.saveSummarySetList}>
+                      {exercise.sets.map((set) => (
+                        <View key={set.id} style={styles.saveSummarySetRow}>
+                          <Text
+                            style={[
+                              typography.bodyBold,
+                              styles.saveSummarySetNumber,
+                            ]}
+                          >
+                            {set.setNumber}
+                          </Text>
+
+                          <Text
+                            style={[
+                              typography.body,
+                              styles.saveSummarySetDetails,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {formatSetSummary(set.reps, set.weightKg)}
+                          </Text>
+
+                          {set.isPr ? (
+                            <View
+                              style={[
+                                styles.saveSummaryPrWrap,
+                                styles.saveSummarySetPrWrap,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  typography.body,
+                                  styles.saveSummaryPrLabel,
+                                ]}
+                              >
+                                PR
+                              </Text>
+                              <Ionicons
+                                name="trophy"
+                                size={13}
+                                color="#facc15"
+                              />
+                            </View>
+                          ) : null}
+
+                          <View style={styles.saveSummarySetMeta}>
+                            {set.estimatedOneRmKg == null ? (
+                              <Text
+                                style={[
+                                  typography.body,
+                                  styles.saveSummarySetOneRmEmpty,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                Ingen 1RM
+                              </Text>
+                            ) : (
+                              <Text
+                                style={[
+                                  typography.body,
+                                  styles.saveSummarySetOneRm,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                <Text style={styles.saveSummarySetOneRmValue}>
+                                  {formatEstimatedOneRmValue(
+                                    set.estimatedOneRmKg
+                                  )}
+                                </Text>
+                                <Text style={styles.saveSummarySetOneRmUnit}>
+                                  {" "}
+                                  kg
+                                </Text>
+                                <Text style={styles.saveSummarySetOneRmLabel}>
+                                  {" "}
+                                  1RM
+                                </Text>
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
+              <View style={{ display: "none" }}>
+                <View style={styles.saveSummaryHero}>
+                  <Text
+                    style={[typography.bodyBold, styles.saveSummaryHeroTitle]}
+                    numberOfLines={2}
+                  >
+                    {savePreviewWithPr.title}
+                  </Text>
+
+                  <View style={styles.saveSummaryStatsGrid}>
+                    <View style={styles.saveSummaryStatCard}>
+                      <Text
+                        style={[
+                          typography.body,
+                          styles.saveSummaryStatLabel,
+                        ]}
+                      >
+                        Varighet
+                      </Text>
+                      <Text
+                        style={[
+                          typography.bodyBold,
+                          styles.saveSummaryStatValue,
+                        ]}
+                      >
+                        {savePreviewWithPr.durationLabel}
+                      </Text>
+                    </View>
+
+                    <View style={styles.saveSummaryStatCard}>
+                      <Text
+                        style={[
+                          typography.body,
+                          styles.saveSummaryStatLabel,
+                        ]}
+                      >
+                        Øvelser
+                      </Text>
+                      <Text
+                        style={[
+                          typography.bodyBold,
+                          styles.saveSummaryStatValue,
+                        ]}
+                      >
+                        {savePreviewWithPr.exercisesCount}
+                      </Text>
+                    </View>
+
+                    <View style={styles.saveSummaryStatCard}>
+                      <Text
+                        style={[
+                          typography.body,
+                          styles.saveSummaryStatLabel,
+                        ]}
+                      >
+                        Ferdige sett
+                      </Text>
+                      <Text
+                        style={[
+                          typography.bodyBold,
+                          styles.saveSummaryStatValue,
+                        ]}
+                      >
+                        {savePreviewWithPr.completedSetsCount}
+                      </Text>
+                    </View>
+
+                    <View style={styles.saveSummaryStatCard}>
+                      <Text
+                        style={[
+                          typography.body,
+                          styles.saveSummaryStatLabel,
+                        ]}
+                      >
+                        {summaryPrimaryMetricLabel}
+                      </Text>
+                      <Text
+                        style={[
+                          typography.bodyBold,
+                          styles.saveSummaryStatValue,
+                        ]}
+                      >
+                        {summaryPrimaryMetricValue}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {!!savePreviewWithPr.bestWeightKg ? (
+                    <View style={styles.saveSummaryHighlight}>
+                      <Ionicons
+                        name="trophy-outline"
+                        size={16}
+                        color={overlayColors.accent}
+                      />
+                      <Text
+                        style={[
+                          typography.body,
+                          styles.saveSummaryHighlightText,
+                        ]}
+                      >
+                        Toppvekt denne økten:{" "}
+                        {formatKg(savePreviewWithPr.bestWeightKg)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <View style={styles.saveSummaryNotice}>
+                  <Ionicons
+                    name="information-circle-outline"
+                    size={16}
+                    color={overlayColors.muted2}
+                  />
+                  <Text
+                    style={[typography.body, styles.saveSummaryNoticeText]}
+                  >
+                    {skippedSetsMessage}
+                  </Text>
+                </View>
+
+                <View style={styles.saveSummarySection}>
+                  <Text
+                    style={[
+                      typography.bodyBold,
+                      styles.saveSummarySectionTitle,
+                    ]}
+                  >
+                    Øvelser som lagres
+                  </Text>
+
+                  {savePreviewWithPr.exercises.map((exercise) => (
+                    <View
+                      key={`summary-${exercise.id}`}
+                      style={styles.saveSummaryExerciseRow}
+                    >
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text
+                          style={[
+                            typography.bodyBold,
+                            styles.saveSummaryExerciseName,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {exercise.name}
+                        </Text>
+                        <Text
+                          style={[
+                            typography.body,
+                            styles.saveSummaryExerciseMeta,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {`${exercise.setsCount} sett · ${exercise.totalReps} reps`}
+                          {exercise.bestWeightKg != null
+                            ? ` · Toppvekt ${formatKg(exercise.bestWeightKg)}`
+                            : ""}
+                        </Text>
+                      </View>
+
+                      {exercise.totalVolumeKg ? (
+                        <Text
+                          style={[
+                            typography.bodyBold,
+                            styles.saveSummaryExerciseVolume,
+                          ]}
+                        >
+                          {formatKg(exercise.totalVolumeKg)}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.saveSummaryFooter}>
+              <Pressable
+                onPress={handleCloseSaveSummary}
+                disabled={isSaving}
+                style={({ pressed }) => [
+                  styles.saveSummarySecondaryBtn,
+                  isSaving && styles.saveSummaryBtnDisabled,
+                  pressed && { opacity: 0.92 },
+                ]}
+              >
+                <Text
+                  style={[
+                    typography.bodyBold,
+                    styles.saveSummarySecondaryBtnText,
+                  ]}
+                >
+                  Tilbake
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleConfirmSave}
+                disabled={isSaving}
+                style={({ pressed }) => [
+                  styles.saveSummaryPrimaryBtn,
+                  isSaving && styles.saveSummaryBtnDisabled,
+                  pressed && { opacity: 0.92 },
+                ]}
+              >
+                <Ionicons name="save-outline" size={16} color="white" />
+                <Text
+                  style={[
+                    typography.bodyBold,
+                    styles.saveSummaryPrimaryBtnText,
+                  ]}
+                >
+                  {isSaving ? "Lagrer..." : saveSummaryConfirmLabel}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </View>
+    ) : null;
+
+  const exercisePickerOverlay = isExercisePickerOpen ? (
+    <View
+      style={[
+        styles.pickerOverlayRoot,
+        {
+          paddingTop: Math.max(insets.top + 12, 24),
+          paddingBottom: Math.max(insets.bottom + 14, 16),
+        },
+      ]}
+    >
+      <Pressable
+        style={StyleSheet.absoluteFill}
+        onPress={() => setIsExercisePickerOpen(false)}
+      />
+
+      <View style={styles.pickerCard}>
+        <LinearGradient
+          pointerEvents="none"
+          colors={modalGradientColors}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.95, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View pointerEvents="none" style={styles.orbTop} />
+        <View pointerEvents="none" style={styles.orbBottom} />
+
+        <View style={styles.pickerHeader}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[typography.bodyBold, styles.pickerTitle]}>
+              Legg til øvelse
+            </Text>
+            <Text style={[typography.body, styles.pickerSubtitle]}>
+              Velg fra øvelsesbiblioteket ditt
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={() => setIsExercisePickerOpen(false)}
+            hitSlop={10}
+            style={styles.pickerCloseBtn}
+          >
+            <Ionicons name="close" size={18} color={overlayColors.text} />
+          </Pressable>
+        </View>
+
+        {!!pickerToastMessage && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.pickerToast,
+              {
+                opacity: pickerToastAnim,
+                transform: [
+                  {
+                    translateY: pickerToastAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [8, 0],
+                    }),
+                  },
+                  {
+                    scale: pickerToastAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.98, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={["#0f172a", "#132b24", "#14253d"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+            <Ionicons
+              name="checkmark-circle"
+              size={15}
+              color={overlayColors.success}
+            />
+            <Text
+              style={[typography.body, styles.pickerToastText]}
+              numberOfLines={1}
+            >
+              {pickerToastMessage}
+            </Text>
+          </Animated.View>
+        )}
+
+        <View style={styles.pickerSearchWrap}>
+          <Ionicons
+            name="search-outline"
+            size={16}
+            color={overlayColors.muted2}
+          />
+          <TextInput
+            value={exerciseSearch}
+            onChangeText={setExerciseSearch}
+            placeholder="Søk etter øvelse..."
+            placeholderTextColor={overlayColors.muted2}
+            style={styles.pickerSearchInput}
+            autoCorrect={false}
+            autoCapitalize="none"
+            returnKeyType="search"
+          />
+        </View>
+
+        <ScrollView
+          style={styles.pickerList}
+          contentContainerStyle={{ paddingBottom: 10 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <TouchableOpacity
+            onPress={() => handleOpenCreateExerciseModal()}
+            activeOpacity={0.84}
+            accessibilityRole="button"
+            style={styles.pickerCreateRow}
+          >
+            <View style={styles.pickerCreateIcon}>
+              <Ionicons
+                name="add-circle-outline"
+                size={18}
+                color={overlayColors.accent}
+              />
+            </View>
+
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text
+                style={[typography.bodyBold, styles.pickerCreateTitle]}
+                numberOfLines={1}
+              >
+                Opprett ny øvelse
+              </Text>
+              <Text
+                style={[typography.body, styles.pickerCreateSubtitle]}
+                numberOfLines={1}
+              >
+                Lag en ny øvelse og legg den til i økten
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {isLoadingExercises ? (
+            <Text style={[typography.body, styles.pickerEmptyText]}>
+              Laster øvelser...
+            </Text>
+          ) : filteredPickerExercises.length === 0 ? (
+            <Text style={[typography.body, styles.pickerEmptyText]}>
+              Ingen flere øvelser tilgjengelig for denne økten.
+            </Text>
+          ) : (
+            filteredPickerExercises.map((exercise) => (
+              <Pressable
+                key={exercise.id}
+                onPress={() => {
+                  handleAddExerciseToSession({
+                    id: exercise.id,
+                    name: exercise.name,
+                    muscle: exercise.muscle ?? null,
+                  });
+                }}
+                style={({ pressed }) => [
+                  styles.pickerRow,
+                  pressed && { opacity: 0.92 },
+                ]}
+              >
+                <View style={styles.pickerRowIcon}>
+                  <Ionicons
+                    name="barbell-outline"
+                    size={18}
+                    color={overlayColors.accent}
+                  />
+                </View>
+
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text
+                    style={[typography.bodyBold, styles.pickerRowTitle]}
+                    numberOfLines={1}
+                  >
+                    {exercise.name}
+                  </Text>
+                  <Text
+                    style={[typography.body, styles.pickerRowSubtitle]}
+                    numberOfLines={1}
+                  >
+                    {exercise.muscle || "Egendefinert øvelse"}
+                  </Text>
+                </View>
+
+                <Ionicons
+                  name="add-circle-outline"
+                  size={18}
+                  color={overlayColors.accent}
+                />
+              </Pressable>
+            ))
+          )}
+        </ScrollView>
+      </View>
+    </View>
+  ) : null;
+
+  const createExerciseOverlay = (
+    <AddExerciseModal
+      visible={isCreateExerciseOpen}
+      onClose={handleCloseCreateExerciseModal}
+      onSubmit={handleCreateExerciseFromPicker}
+      initialName={exerciseSearch.trim() || undefined}
+      isSubmitting={createExerciseMutation.isPending}
+      useModal={false}
+    />
+  );
+
+  const sessionModalOverlays = (
+    <>
+      {exercisePickerOverlay}
+      {createExerciseOverlay}
+    </>
+  );
+
   return (
     <>
+      {isEditingCompletedSession ? (
+        <EditWorkoutSession
+          visible={isOpen}
+          isSaving={isSaving}
+          sessionName={session.name}
+          titleDraft={titleDraft}
+          isQuick={isQuick}
+          isEditingTitle={isEditingTitle}
+          durationLabel={durationLabel}
+          totals={totals}
+          keyboardInsetHeight={keyboardInsetHeight}
+          footerInsetBottom={insets.bottom}
+          canDelete={canDeleteCompleted}
+          finishButtonLabel={finishButtonLabel}
+          titleInputRef={titleInputRef}
+          contentScrollRef={contentScrollRef}
+          onChangeTitle={setTitleDraft}
+          onCommitTitle={commitTitle}
+          onSetEditingTitle={setIsEditingTitle}
+          onStartEditingTitle={startEditingTitle}
+          onClose={handleAbortClose}
+          onOpenExercisePicker={handleOpenExercisePicker}
+          onSave={() => {
+            void handleFinish();
+          }}
+          onDelete={handleDeleteSession}
+          onContentScroll={(offsetY) => {
+            contentScrollOffsetYRef.current = offsetY;
+          }}
+          content={editSessionContent}
+          sessionDateTimeControls={sessionDateTimeControls}
+          saveSummaryOverlay={editSaveSummaryOverlay}
+          exercisePickerOverlay={sessionModalOverlays}
+        />
+      ) : (
       <Modal visible={isOpen} animationType="none" transparent>
         <View style={styles.modalRoot}>
         <Animated.View
@@ -1152,50 +1961,20 @@ export function WorkoutSessionOverlay() {
               ]}
             >
             <LinearGradient
-              colors={[
-                "rgba(15,23,42,0.98)",
-                "rgba(23,37,84,0.96)",
-                "rgba(2,6,23,0.99)",
-              ]}
-              locations={[0, 0.48, 1]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
               pointerEvents="none"
-            />
-
-            {/* Glass overlay */}
-            <LinearGradient
-              colors={[
-                "rgba(34,211,238,0.10)",
-                "rgba(59,130,246,0.04)",
-                "rgba(255,255,255,0.00)",
-              ]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+              colors={modalGradientColors}
+              start={{ x: 0.1, y: 0 }}
+              end={{ x: 0.95, y: 1 }}
               style={StyleSheet.absoluteFill}
-              pointerEvents="none"
             />
+            <View pointerEvents="none" style={styles.orbTop} />
+            <View pointerEvents="none" style={styles.orbBottom} />
 
-            {/* HEADER */}
             <View style={styles.headerRow}>
-              <IconBtn
-                icon="close-outline"
-                onPress={handleAbortClose}
-                label={closeButtonLabel}
-                tone="danger"
-              />
+              <View style={styles.headerTitleWrap}>
+                <DumbbellIcon height={25} width={25} />
 
-              <View style={styles.headerCenter}>
-                <View style={styles.headerIcon}>
-                  <Ionicons
-                    name="barbell"
-                    size={18}
-                    color={overlayColors.accent}
-                  />
-                </View>
-
-                <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={styles.headerTextWrap}>
                   {isQuick ? (
                     isEditingTitle ? (
                       <View style={styles.titleEditWrap}>
@@ -1233,7 +2012,7 @@ export function WorkoutSessionOverlay() {
                           <Ionicons
                             name="checkmark"
                             size={16}
-                            color={overlayColors.accent}
+                            color={overlayColors.text}
                           />
                         </Pressable>
                       </View>
@@ -1261,23 +2040,42 @@ export function WorkoutSessionOverlay() {
                   )}
 
                   <Text style={[typography.body, styles.headerSubtitle]}>
-                    {modeLabel}
+                    {isEditingCompletedSession ? "Rediger økt" : modeLabel}
                   </Text>
                 </View>
               </View>
 
-              {!isEditingCompletedSession ? (
-                <IconBtn
-                  icon="remove-outline"
-                  onPress={handleMinimize}
-                  label="Minimer"
-                />
-              ) : (
-                <View style={styles.headerActionSpacer} />
-              )}
+              <View style={styles.headerActions}>
+                {!isEditingCompletedSession ? (
+                  <Pressable
+                    onPress={handleMinimize}
+                    style={({ pressed }) => [
+                      styles.minimizeButton,
+                      pressed && styles.headerActionPressed,
+                    ]}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name="remove-outline"
+                      size={16}
+                      color={overlayColors.text}
+                    />
+                    <Text style={[typography.body, styles.minimizeButtonText]}>
+                      Minimer
+                    </Text>
+                  </Pressable>
+                ) : null}
+
+                <TouchableOpacity
+                  onPress={handleAbortClose}
+                  style={styles.closeButton}
+                  hitSlop={10}
+                >
+                  <XIcon height={18} width={18} />
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {/* STATS */}
             <View style={styles.statsRow}>
               <LiveDurationStat
                 startedAtUtc={sessionStartedAtUtc}
@@ -1293,13 +2091,12 @@ export function WorkoutSessionOverlay() {
               <Stat icon="list-outline" label="Sett" value={`${totals.sets}`} />
             </View>
 
-            {/* TOP ACTIONS (kun for utførte økter) */}
             <View style={styles.topActions}>
               <Pressable
                 onPress={handleOpenExercisePicker}
                 style={({ pressed }) => [
                   styles.addExerciseTopBtn,
-                  pressed && { opacity: 0.92 },
+                  pressed && styles.headerActionPressed,
                 ]}
               >
                 <View style={styles.addExerciseTopInner}>
@@ -1313,27 +2110,6 @@ export function WorkoutSessionOverlay() {
                   </Text>
                 </View>
               </Pressable>
-
-              {canDeleteCompleted && (
-                <Pressable
-                  onPress={handleDeleteSession}
-                  style={({ pressed }) => [
-                    styles.deleteTopBtn,
-                    pressed && { opacity: 0.92 },
-                  ]}
-                >
-                  <View style={styles.deleteTopInner}>
-                    <Ionicons
-                      name="trash-outline"
-                      size={16}
-                      color={overlayColors.danger}
-                    />
-                    <Text style={[typography.body, styles.deleteTopText]}>
-                      Slett økt
-                    </Text>
-                  </View>
-                </Pressable>
-              )}
             </View>
 
             {/* CONTENT */}
@@ -1487,7 +2263,6 @@ export function WorkoutSessionOverlay() {
                 ))
               )}
             </ScrollView>
-
             {/* FOOTER */}
             <View
               style={[
@@ -1501,16 +2276,38 @@ export function WorkoutSessionOverlay() {
                 style={({ pressed }) => [
                   styles.finishWrap,
                   isSaving && styles.finishWrapDisabled,
-                  pressed && { opacity: 0.96 },
+                  pressed && styles.headerActionPressed,
                 ]}
               >
-                <View style={styles.finishButton}>
+                <LinearGradient
+                  colors={modalConfirmButtonColors}
+                  style={styles.finishButton}
+                >
                   <Ionicons name="checkmark-done" size={18} color="white" />
                   <Text style={[typography.body, styles.finishText]}>
                     {isSaving ? "Lagrer..." : finishButtonLabel}
                   </Text>
-                </View>
+                </LinearGradient>
               </Pressable>
+
+              {canDeleteCompleted ? (
+                <Pressable
+                  onPress={handleDeleteSession}
+                  style={({ pressed }) => [
+                    styles.deleteBottomBtn,
+                    pressed && styles.headerActionPressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={16}
+                    color={overlayColors.danger}
+                  />
+                  <Text style={[typography.body, styles.deleteBottomText]}>
+                    Slett økt
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
             </Animated.View>
           </TouchableWithoutFeedback>
@@ -1536,9 +2333,9 @@ export function WorkoutSessionOverlay() {
                   pointerEvents="none"
                 />
 
-                <View style={styles.saveSummaryHeader}>
-
-                  <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={[styles.saveSummaryHeader, styles.saveSummaryHeaderStack]}>
+                  <View style={styles.saveSummaryHeaderTop}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
                     <Text
                       style={[
                         typography.bodyBold,
@@ -1555,19 +2352,22 @@ export function WorkoutSessionOverlay() {
                     <Text style={[typography.body, styles.saveSummarySubtitle]}>
                       Se over dette før du lagrer.
                     </Text>
+                    </View>
+
+                    <Pressable
+                      onPress={handleCloseSaveSummary}
+                      hitSlop={10}
+                      style={styles.saveSummaryCloseBtn}
+                    >
+                      <Ionicons
+                        name="close"
+                        size={18}
+                        color={overlayColors.text}
+                      />
+                    </Pressable>
                   </View>
 
-                  <Pressable
-                    onPress={handleCloseSaveSummary}
-                    hitSlop={10}
-                    style={styles.saveSummaryCloseBtn}
-                  >
-                    <Ionicons
-                      name="close"
-                      size={18}
-                      color={overlayColors.text}
-                    />
-                  </Pressable>
+                  {sessionDateTimeControls}
                 </View>
 
                 <ScrollView
@@ -1827,9 +2627,9 @@ export function WorkoutSessionOverlay() {
                             ]}
                             numberOfLines={2}
                           >
-                            {`${exercise.setsCount} sett • ${exercise.totalReps} reps`}
+                          {`${exercise.setsCount} sett · ${exercise.totalReps} reps`}
                             {exercise.bestWeightKg != null
-                              ? ` • Toppvekt ${formatKg(exercise.bestWeightKg)}`
+                            ? ` · Toppvekt ${formatKg(exercise.bestWeightKg)}`
                               : ""}
                           </Text>
                         </View>
@@ -1894,281 +2694,12 @@ export function WorkoutSessionOverlay() {
             </View>
           </View>
         )}
+        {sessionModalOverlays}
       </View>
-
-      <Modal
-        visible={isExercisePickerOpen}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setIsExercisePickerOpen(false)}
-      >
-        <View
-          style={[
-            styles.pickerRoot,
-            {
-              paddingTop: Math.max(insets.top + 12, 24),
-              paddingBottom: Math.max(insets.bottom + 14, 16),
-            },
-          ]}
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setIsExercisePickerOpen(false)}
-          />
-
-          <View style={styles.pickerCard}>
-            <View style={styles.pickerHeader}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[typography.bodyBold, styles.pickerTitle]}>
-                  Legg til øvelse
-                </Text>
-                <Text style={[typography.body, styles.pickerSubtitle]}>
-                  Velg fra øvelsesbiblioteket ditt
-                </Text>
-              </View>
-
-              <Pressable
-                onPress={() => setIsExercisePickerOpen(false)}
-                hitSlop={10}
-                style={styles.pickerCloseBtn}
-              >
-                <Ionicons name="close" size={18} color={overlayColors.text} />
-              </Pressable>
-            </View>
-
-            {!!pickerToastMessage && (
-              <Animated.View
-                pointerEvents="none"
-                style={[
-                  styles.pickerToast,
-                  {
-                    opacity: pickerToastAnim,
-                    transform: [
-                      {
-                        translateY: pickerToastAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [8, 0],
-                        }),
-                      },
-                      {
-                        scale: pickerToastAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.98, 1],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              >
-                <LinearGradient
-                  colors={["#0f172a", "#132b24", "#14253d"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={StyleSheet.absoluteFillObject}
-                />
-                <Ionicons
-                  name="checkmark-circle"
-                  size={15}
-                  color={overlayColors.success}
-                />
-                <Text style={[typography.body, styles.pickerToastText]}>
-                  {pickerToastMessage}
-                </Text>
-              </Animated.View>
-            )}
-
-            <View style={styles.pickerSearchWrap}>
-              <Ionicons
-                name="search-outline"
-                size={16}
-                color={overlayColors.muted2}
-              />
-              <TextInput
-                value={exerciseSearch}
-                onChangeText={setExerciseSearch}
-                placeholder="Søk etter øvelse..."
-                placeholderTextColor={overlayColors.muted2}
-                style={styles.pickerSearchInput}
-                autoCorrect={false}
-                autoCapitalize="none"
-                returnKeyType="search"
-              />
-            </View>
-
-            <View style={styles.pickerQuickActions}>
-              <TouchableOpacity
-                onPress={() => handleOpenCreateExerciseModal()}
-                activeOpacity={0.84}
-                accessibilityRole="button"
-                style={styles.pickerCreateRow}
-              >
-                <View style={styles.pickerCreateIcon}>
-                  <Ionicons
-                    name="add-circle-outline"
-                    size={18}
-                    color={overlayColors.accent}
-                  />
-                </View>
-
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text
-                    style={[typography.bodyBold, styles.pickerCreateTitle]}
-                    numberOfLines={1}
-                  >
-                    Opprett ny øvelse
-                  </Text>
-                  <Text
-                    style={[typography.body, styles.pickerCreateSubtitle]}
-                    numberOfLines={1}
-                  >
-                    Lag en ny øvelse og legg den til i økten
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {false && canCreateExerciseFromSearch && (
-                <TouchableOpacity
-                  onPress={() =>
-                    handleOpenCreateExerciseModal(trimmedExerciseSearch)
-                  }
-                  activeOpacity={0.84}
-                  accessibilityRole="button"
-                  style={styles.pickerCreateRow}
-                >
-                  <View style={styles.pickerCreateIcon}>
-                    <Ionicons
-                      name="sparkles-outline"
-                      size={18}
-                      color={overlayColors.accent}
-                    />
-                  </View>
-
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text
-                      style={[typography.bodyBold, styles.pickerCreateTitle]}
-                      numberOfLines={1}
-                    >
-                      {`Opprett "${trimmedExerciseSearch}"`}
-                    </Text>
-                    <Text
-                      style={[typography.body, styles.pickerCreateSubtitle]}
-                      numberOfLines={1}
-                    >
-                      Bruk søket ditt som navn på øvelsen
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <ScrollView
-              style={styles.pickerList}
-              keyboardShouldPersistTaps="always"
-              showsVerticalScrollIndicator={false}
-            >
-              {false && canCreateExerciseFromSearch && (
-                <Pressable
-                  onPress={() => setIsCreateExerciseOpen(true)}
-                  style={({ pressed }) => [
-                    styles.pickerCreateRow,
-                    pressed && { opacity: 0.94 },
-                  ]}
-                >
-                  <View style={styles.pickerCreateIcon}>
-                    <Ionicons
-                      name="add-circle-outline"
-                      size={18}
-                      color={overlayColors.accent}
-                    />
-                  </View>
-
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text
-                      style={[typography.bodyBold, styles.pickerCreateTitle]}
-                      numberOfLines={1}
-                    >
-                      {`Opprett "${trimmedExerciseSearch}"`}
-                    </Text>
-                    <Text
-                      style={[typography.body, styles.pickerCreateSubtitle]}
-                      numberOfLines={1}
-                    >
-                      Ny øvelse legges rett inn i økten
-                    </Text>
-                  </View>
-                </Pressable>
-              )}
-              {isLoadingExercises ? (
-                <Text style={[typography.body, styles.pickerEmptyText]}>
-                  Laster øvelser...
-                </Text>
-              ) : filteredPickerExercises.length === 0 ? (
-                <Text style={[typography.body, styles.pickerEmptyText]}>
-                  Ingen flere øvelser tilgjengelig for denne økten.
-                </Text>
-              ) : (
-                filteredPickerExercises.map((exercise) => (
-                  <Pressable
-                    key={exercise.id}
-                    onPress={() =>
-                      handleAddExerciseToSession({
-                        id: exercise.id,
-                        name: exercise.name,
-                        muscle: exercise.muscle ?? null,
-                      })
-                    }
-                    style={({ pressed }) => [
-                      styles.pickerRow,
-                      pressed && { opacity: 0.92 },
-                    ]}
-                  >
-                    <View style={styles.pickerRowIcon}>
-                      <Ionicons
-                        name="barbell-outline"
-                        size={14}
-                        color={overlayColors.text}
-                      />
-                    </View>
-
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text
-                        style={[typography.bodyBold, styles.pickerRowTitle]}
-                        numberOfLines={1}
-                      >
-                        {exercise.name}
-                      </Text>
-                      {!!exercise.muscle && (
-                        <Text
-                          style={[typography.body, styles.pickerRowSubtitle]}
-                          numberOfLines={1}
-                        >
-                          {exercise.muscle}
-                        </Text>
-                      )}
-                    </View>
-
-                    <Ionicons
-                      name="add-circle-outline"
-                      size={18}
-                      color={overlayColors.accent}
-                    />
-                  </Pressable>
-                ))
-              )}
-            </ScrollView>
-          </View>
-        </View>
       </Modal>
+      )}
+
       {saveSuccessToastOverlay}
-      <AddExerciseModal
-        visible={isCreateExerciseOpen}
-        onClose={handleCloseCreateExerciseModal}
-        onSubmit={handleCreateExerciseFromPicker}
-        initialName={exerciseSearch.trim() || undefined}
-        isSubmitting={createExerciseMutation.isPending}
-        useModal={false}
-      />
-      </Modal>
       <Paywall
         visible={isCoachPaywallVisible}
         onClose={() => setIsCoachPaywallVisible(false)}
@@ -2207,9 +2738,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 14,
     paddingVertical: 24,
-  },
-
-  sheet: {
+  },  sheet: {
     width: "100%",
     maxWidth: 640,
     height: MODAL_MAX_HEIGHT,
@@ -2220,10 +2749,30 @@ const styles = StyleSheet.create({
     borderColor: overlayColors.border,
     overflow: "hidden",
     shadowColor: modalTheme.shadow,
-    shadowOpacity: 0.22,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
+  },
+
+  orbTop: {
+    position: "absolute",
+    top: -56,
+    right: -30,
+    width: 160,
+    height: 160,
+    borderRadius: 999,
+    backgroundColor: modalTheme.orbTop,
+  },
+
+  orbBottom: {
+    position: "absolute",
+    left: -36,
+    bottom: -72,
+    width: 146,
+    height: 146,
+    borderRadius: 999,
+    backgroundColor: modalTheme.orbBottom,
   },
 
   saveSuccessToast: {
@@ -2254,53 +2803,78 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: "700",
   },
-
   // Header
   headerRow: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 10,
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 12,
     gap: 12,
   },
 
-  headerCenter: {
+  headerTitleWrap: {
     flex: 1,
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
+    gap: 12,
+  },
+
+  headerTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
 
-  headerActionSpacer: {
-    width: 38,
-    height: 38,
-    flexShrink: 0,
+  headerActionPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.99 }],
   },
 
-  headerIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+  minimizeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: overlayColors.borderSoft,
+    backgroundColor: overlayColors.surface,
+  },
+
+  minimizeButtonText: {
+    color: overlayColors.text,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: overlayColors.accentBg,
-    borderWidth: 1,
-    borderColor: overlayColors.accentDim,
   },
 
   headerTitle: {
     color: overlayColors.text,
-    fontSize: 16,
-    letterSpacing: 0.1,
+    fontSize: 25,
+    fontWeight: "500",
   },
 
   headerSubtitle: {
     color: overlayColors.muted2,
-    marginTop: 2,
-    fontSize: 11,
-    letterSpacing: 0.1,
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 18,
   },
 
   titleEditWrap: {
@@ -2312,21 +2886,22 @@ const styles = StyleSheet.create({
 
   headerTitleInput: {
     color: overlayColors.text,
-    fontSize: 16,
+    fontSize: 25,
+    fontWeight: "500",
     paddingVertical: 0,
     paddingHorizontal: 0,
     maxWidth: 240,
   },
 
   editPencil: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: overlayColors.accentBg,
+    backgroundColor: overlayColors.surface,
     borderWidth: 1,
-    borderColor: overlayColors.accentDim,
+    borderColor: overlayColors.borderSoft,
   },
 
   // Stats
@@ -2340,7 +2915,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingVertical: 5,
   },
-
   // Top actions
   topActions: {
     paddingHorizontal: 16,
@@ -2352,12 +2926,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: overlayColors.accentDim,
-    backgroundColor: overlayColors.accentBg,
+    borderColor: overlayColors.borderSoft,
+    backgroundColor: overlayColors.surface,
   },
 
   addExerciseTopInner: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
@@ -2366,30 +2940,7 @@ const styles = StyleSheet.create({
   },
 
   addExerciseTopText: {
-    color: overlayColors.accent,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-
-  deleteTopBtn: {
-    borderRadius: 14,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: overlayColors.dangerBorder,
-    backgroundColor: overlayColors.dangerBg,
-  },
-
-  deleteTopInner: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-
-  deleteTopText: {
-    color: overlayColors.danger,
+    color: overlayColors.text,
     fontSize: 13,
     fontWeight: "700",
   },
@@ -2451,15 +3002,47 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-
   // Footer
   footer: {
     paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingTop: 10,
     paddingBottom: 16,
+    gap: 10,
     borderTopWidth: 1,
     borderTopColor: overlayColors.border,
     backgroundColor: "rgba(2,6,23,0.72)",
+  },
+
+  sessionDateCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.075)",
+    backgroundColor: "rgba(255,255,255,0.035)",
+    paddingVertical: 7,
+    paddingHorizontal: 9,
+    gap: 6,
+  },
+
+  sessionDateHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  sessionDateTitle: {
+    color: overlayColors.muted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  sessionDatePickerRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  sessionDatePickerCol: {
+    flex: 1,
+    minWidth: 0,
   },
 
   finishWrap: {
@@ -2472,22 +3055,36 @@ const styles = StyleSheet.create({
   },
 
   finishButton: {
-    borderRadius: 14,
     paddingVertical: 14,
+    borderRadius: 14,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: "#0891b2",
-    borderWidth: 1,
-    borderColor: "rgba(103,232,249,0.42)",
   },
 
   finishText: {
     color: "white",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+
+  deleteBottomBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    minHeight: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: overlayColors.dangerBorder,
+    backgroundColor: overlayColors.dangerBg,
+  },
+
+  deleteBottomText: {
+    color: overlayColors.danger,
     fontSize: 14,
     fontWeight: "700",
-    letterSpacing: 0.2,
   },
 
   saveSummaryOverlay: {
@@ -2529,6 +3126,18 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: overlayColors.borderSoft,
+  },
+
+  saveSummaryHeaderStack: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 10,
+  },
+
+  saveSummaryHeaderTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
 
   saveSummaryHeaderIcon: {
@@ -2848,45 +3457,54 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
 
-  pickerRoot: {
+  pickerOverlayRoot: {
+    ...StyleSheet.absoluteFillObject,
     flex: 1,
-    justifyContent: "flex-start",
-    paddingHorizontal: 14,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    backgroundColor: overlayColors.backdrop,
+    zIndex: 50,
   },
 
   pickerCard: {
-    flex: 1,
-    borderRadius: 22,
+    width: "100%",
+    maxWidth: 560,
+    height: MODAL_MAX_HEIGHT,
+    maxHeight: MODAL_MAX_HEIGHT,
+    alignSelf: "center",
+    borderRadius: 28,
     backgroundColor: overlayColors.container,
     borderWidth: 1,
     borderColor: overlayColors.border,
     overflow: "hidden",
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: 12,
+    paddingTop: 18,
     paddingBottom: 14,
-    shadowColor: "#000",
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
+    shadowColor: modalTheme.shadow,
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
     shadowOffset: { width: 0, height: 10 },
-    elevation: 4,
+    elevation: 6,
   },
 
   pickerHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
+    paddingHorizontal: 4,
   },
 
   pickerTitle: {
     color: overlayColors.text,
-    fontSize: 16,
+    fontSize: 25,
+    fontWeight: "500",
   },
 
   pickerSubtitle: {
     marginTop: 4,
     color: overlayColors.muted2,
     fontSize: 12,
+    lineHeight: 18,
   },
 
   pickerCloseBtn: {
