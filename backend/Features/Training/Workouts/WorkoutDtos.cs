@@ -1,19 +1,19 @@
-﻿using System.ComponentModel.DataAnnotations;
-using backend.Features.Training.WorkoutPrograms;
+using System.ComponentModel.DataAnnotations;
 
 namespace backend.Features.Training.Workouts
 {
     public class CreateWorkoutRequest
     {
+        [Required]
+        [MaxLength(120)]
         public string Name { get; set; } = null!;
-        public string? DayLabel { get; set; } = null!;
+        [MaxLength(80)]
+        public string? DayLabel { get; set; }
+        [MaxLength(1000)]
         public string? Description { get; set; }
-
-        // Denne trenger WorkoutService når du lager én økt
         public Guid? WorkoutProgramId { get; set; }
         public bool IsPremium { get; set; }
-
-        // Hvilke øvelser som skal inn i økta
+        [MaxLength(120)]
         public List<Guid> ExerciseIds { get; set; } = [];
     }
 
@@ -33,11 +33,16 @@ namespace backend.Features.Training.Workouts
 
     public class UpdateWorkoutRequest
     {
+        [Required]
+        [MaxLength(120)]
         public string Name { get; set; } = null!;
-        public string? DayLabel { get; set; } = null!;
+        [MaxLength(80)]
+        public string? DayLabel { get; set; }
+        [MaxLength(1000)]
         public string? Description { get; set; }
         public Guid? WorkoutProgramId { get; set; }
         public bool? IsPremium { get; set; }
+        [MaxLength(120)]
         public List<Guid>? ExerciseIds { get; set; }
     }
 }

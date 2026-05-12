@@ -59,11 +59,8 @@ namespace backend.Features.Users
             var userId = nameIdentifier ?? sub;
 
             _logger.LogInformation(
-                "DeleteMe requested. traceId={TraceId} userId={UserId} nameIdentifier={NameIdentifier} sub={Sub}",
-                traceId,
-                userId,
-                nameIdentifier,
-                sub);
+                "DeleteMe requested. traceId={TraceId}",
+                traceId);
 
             if (string.IsNullOrWhiteSpace(userId))
             {
@@ -80,9 +77,8 @@ namespace backend.Features.Users
             var deleted = await _userService.DeleteUserAsync(userId, traceId, ct);
 
             _logger.LogInformation(
-                "DeleteMe completed. traceId={TraceId} userId={UserId} deleted={Deleted}",
+                "DeleteMe completed. traceId={TraceId} deleted={Deleted}",
                 traceId,
-                userId,
                 deleted);
 
             return deleted ? NoContent() : NotFound();

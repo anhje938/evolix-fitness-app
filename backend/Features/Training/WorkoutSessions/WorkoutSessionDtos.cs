@@ -5,13 +5,9 @@ namespace backend.Features.Training.WorkoutSessions
     // Request DTO for starting a workout session
     public class StartWorkoutSessionRequest
     {
-        // Optional. If null, this is a quick/custom session.
         public Guid? WorkoutId { get; set; }
-
-        // Optional. If null, backend will use DateTime.UtcNow.
         public DateTime? StartedAtUtc { get; set; }
-
-        // Optional. If null, backend may use workout name or keep it null.
+        [MaxLength(160)]
         public string? Title { get; set; }
     }
 
@@ -24,20 +20,25 @@ namespace backend.Features.Training.WorkoutSessions
         public Guid? WorkoutId { get; set; }
         public DateTime? StartedAtUtc { get; set; }
         public DateTime? FinishedAtUtc { get; set; }
+        [MaxLength(160)]
         public string? Title { get; set; }
+        [MaxLength(2000)]
         public string? Notes { get; set; }
 
+        [MaxLength(120)]
         public List<UpdateWorkoutSessionExerciseLogRequest> ExerciseLogs { get; set; } = new();
     }
 
-    // Request DTO for replacing an existing workout session
     public class UpdateWorkoutSessionRequest
     {
         public DateTime? StartedAtUtc { get; set; }
         public DateTime? FinishedAtUtc { get; set; }
+        [MaxLength(160)]
         public string? Title { get; set; }
+        [MaxLength(2000)]
         public string? Notes { get; set; }
 
+        [MaxLength(120)]
         public List<UpdateWorkoutSessionExerciseLogRequest> ExerciseLogs { get; set; } = new();
     }
 
@@ -47,45 +48,55 @@ namespace backend.Features.Training.WorkoutSessions
         public Guid ExerciseId { get; set; }
 
         public int? Order { get; set; }
+        [MaxLength(1000)]
         public string? Notes { get; set; }
+        [MaxLength(80)]
         public List<UpdateWorkoutSessionSetRequest> Sets { get; set; } = new();
     }
 
     public class UpdateWorkoutSessionSetRequest
     {
+        [Range(1, 500)]
         public int? SetNumber { get; set; }
+        [Range(0, 2000)]
         public double? WeightKg { get; set; }
+        [Range(0, 10000)]
         public int? Reps { get; set; }
+        [Range(0, 10)]
         public double? Rir { get; set; }
+        [Range(0, 1000000)]
         public double? DistanceMeters { get; set; }
         public TimeSpan? Duration { get; set; }
+        [MaxLength(40)]
         public string? SetType { get; set; }
+        [MaxLength(1000)]
         public string? Notes { get; set; }
     }
 
     // Request DTO for adding a set to a session
     public class AddSetRequest
     {
-        // Exercise to log this set for
         [Required]
         public Guid ExerciseId { get; set; }
 
-        // Optional set number. If null, backend will calculate next number.
+        [Range(1, 500)]
         public int? SetNumber { get; set; }
 
-        // Strength metrics
+        [Range(0, 2000)]
         public double? WeightKg { get; set; }
+        [Range(0, 10000)]
         public int? Reps { get; set; }
+        [Range(0, 10)]
         public double? Rir { get; set; }
 
-        // Endurance metrics
+        [Range(0, 1000000)]
         public double? DistanceMeters { get; set; }
         public TimeSpan? Duration { get; set; }
 
-        // Optional descriptor, for example "warmup", "top", "backoff"
+        [MaxLength(40)]
         public string? SetType { get; set; }
 
-        // Optional notes for this set
+        [MaxLength(1000)]
         public string? Notes { get; set; }
     }
 

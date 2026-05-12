@@ -27,8 +27,6 @@ namespace backend.Features.Training.Exercises
             var userId = GetUserId();
             var isAdmin = User.IsAdmin();
 
-            Console.WriteLine($"userId: {userId}, isAdmin: {isAdmin}");
-
             if (userId == null)
             {
                 return BadRequest("Missing userId");

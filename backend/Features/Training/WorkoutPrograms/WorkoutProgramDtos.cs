@@ -1,26 +1,31 @@
-﻿using backend.Features.Training.Workouts;
+using System.ComponentModel.DataAnnotations;
 
 namespace backend.Features.Training.WorkoutPrograms
 {
     public class CreateWorkoutProgramRequest
     {
+        [Required]
+        [MaxLength(120)]
         public string Name { get; set; } = null!;
+        [MaxLength(200)]
         public string? Goal { get; set; }
+        [MaxLength(80)]
         public string? Level { get; set; }
         public bool IsPremium { get; set; }
-
-        // Øktene i dette programmet
+        [MaxLength(60)]
         public List<CreateWorkoutInProgramRequest> Workouts { get; set; } = [];
     }
 
-    // NB: Heter IKKE CreateWorkoutRequest, men CreateWorkoutInProgramRequest
     public class CreateWorkoutInProgramRequest
     {
+        [Required]
+        [MaxLength(120)]
         public string Name { get; set; } = null!;
+        [MaxLength(80)]
         public string DayLabel { get; set; } = null!;
+        [MaxLength(1000)]
         public string? Description { get; set; }
-
-        // hvilke øvelser som skal være med i økta
+        [MaxLength(120)]
         public List<Guid> ExerciseIds { get; set; } = [];
     }
 
@@ -33,8 +38,7 @@ namespace backend.Features.Training.WorkoutPrograms
         public bool IsPremium { get; set; }
         public bool IsCustom { get; set; }
         public string? UserId { get; set; }
-
-        public List<WorkoutInProgramResponse> Workouts { get; set; } = new();
+        public List<WorkoutInProgramResponse> Workouts { get; set; } = [];
     }
 
     public class WorkoutInProgramResponse
@@ -44,15 +48,16 @@ namespace backend.Features.Training.WorkoutPrograms
         public string? Description { get; set; }
     }
 
-
     public class UpdateWorkoutProgramRequest
     {
+        [MaxLength(120)]
         public string? Name { get; set; }
+        [MaxLength(200)]
         public string? Goal { get; set; }
+        [MaxLength(80)]
         public string? Level { get; set; }
         public bool? IsPremium { get; set; }
-
-        // De øktene som skal være i programmet etter oppdatering
-        public List<Guid> WorkoutIds { get; set; } = new();
+        [MaxLength(120)]
+        public List<Guid> WorkoutIds { get; set; } = [];
     }
 }

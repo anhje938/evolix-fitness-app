@@ -28,7 +28,7 @@ import React, {
 import { AppState, Linking, Platform, type AppStateStatus } from "react-native";
 
 const PREMIUM_CACHE_KEY = "subscription_premium_cache_v1";
-const PREMIUM_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 72;
+const PREMIUM_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 6;
 
 type PremiumCache = {
   isPremium: boolean;
@@ -80,8 +80,12 @@ function parsePremiumCache(value: string | null): PremiumCache | null {
   }
 }
 
-function canUseCachedPremium(cache: PremiumCache | null) {
+function canUseCachedPremium(
+  cache: PremiumCache | null,
+  appUserId: string | null
+) {
   if (!cache?.isPremium) return false;
+  if (cache.appUserId !== appUserId) return false;
   return Date.now() - cache.checkedAt <= PREMIUM_CACHE_MAX_AGE_MS;
 }
 
@@ -173,14 +177,17 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
       if (!alive) return;
 
-      setCachedPremium(canUseCachedPremium(stored));
-      setCachedManagementURL(stored?.managementURL ?? null);
+      const canUseCache = canUseCachedPremium(stored, appUserId);
+      setCachedPremium(canUseCache);
+      setCachedManagementURL(
+        stored?.appUserId === appUserId ? stored.managementURL ?? null : null
+      );
     })();
 
     return () => {
       alive = false;
     };
-  }, []);
+  }, [appUserId]);
 
   useEffect(() => {
     if (!authReady) return;

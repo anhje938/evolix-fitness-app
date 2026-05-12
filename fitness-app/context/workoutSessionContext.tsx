@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   SessionExercise,
   SessionMode,
   SessionSet,
@@ -532,7 +532,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
     autosaveTimerRef.current = setTimeout(() => {
       autosaveTimerRef.current = null;
       void persistActiveSessionNow().catch((error) => {
-        console.log("Failed to persist workout session", error);
+        if (__DEV__) console.log("Failed to persist workout session", error);
       });
     }, AUTOSAVE_DELAY_MS);
 
@@ -554,7 +554,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
         (nextState === "inactive" || nextState === "background")
       ) {
         void persistActiveSessionNow().catch((error) => {
-          console.log("Failed to flush workout session", error);
+          if (__DEV__) console.log("Failed to flush workout session", error);
         });
       }
     });
@@ -738,7 +738,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
         setIsOpenState(true);
         setIsMinimizedState(false);
       } catch (err) {
-        console.log("openCompletedSession error", err);
+        if (__DEV__) console.log("openCompletedSession error", err);
         Alert.alert(
           "Kunne ikke åpne økten",
           "Prøv igjen. Hvis feilen fortsetter, åpne appen på nytt."
@@ -759,7 +759,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
 
     if (draftScopeKey) {
       void clearStoredActiveWorkoutSession(draftScopeKey).catch((error) => {
-        console.log("Failed to clear stored workout session", error);
+        if (__DEV__) console.log("Failed to clear stored workout session", error);
       });
     }
 
@@ -810,7 +810,7 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
       await deleteWorkoutSession(sessionId, accessToken);
       await queryClient.invalidateQueries({ queryKey: ["completedWorkouts"] });
     } catch (err) {
-      console.log("deleteSession error", err);
+      if (__DEV__) console.log("deleteSession error", err);
       queryClient.setQueryData<CompletedWorkoutSummaryDto[]>(
         ["completedWorkouts"],
         previousCompleted
@@ -1155,14 +1155,14 @@ export function WorkoutSessionProvider({ children }: ProviderProps) {
         ]);
 
         void refetchAfterSave.catch((error) => {
-          console.log("Failed to refetch workout data after save", error);
+          if (__DEV__) console.log("Failed to refetch workout data after save", error);
         });
 
         await options?.onSuccess?.();
 
         closeSession();
       } catch (err) {
-        console.log("finishAndSave error", err);
+        if (__DEV__) console.log("finishAndSave error", err);
         Alert.alert(
           "Kunne ikke lagre",
           "Sjekk nettverk og prøv igjen. Økten er fortsatt åpen slik at du ikke mister data."

@@ -125,9 +125,8 @@ namespace backend.Features.Users
         {
             var stopwatch = Stopwatch.StartNew();
             _logger.LogInformation(
-                "DeleteUserAsync started. traceId={TraceId} userId={UserId}",
-                traceId,
-                userId);
+                "DeleteUserAsync started. traceId={TraceId}",
+                traceId);
 
             var user = await _db.Users
                 .FirstOrDefaultAsync(u => u.Id == userId, ct);
@@ -135,9 +134,8 @@ namespace backend.Features.Users
             if (user == null)
             {
                 _logger.LogWarning(
-                    "DeleteUserAsync skipped because user was not found. traceId={TraceId} userId={UserId} elapsedMs={ElapsedMs}",
+                    "DeleteUserAsync skipped because user was not found. traceId={TraceId} elapsedMs={ElapsedMs}",
                     traceId,
-                    userId,
                     stopwatch.ElapsedMilliseconds);
                 return false;
             }
@@ -506,9 +504,8 @@ namespace backend.Features.Users
                 }
 
                 _logger.LogInformation(
-                    "DeleteUserAsync loaded related data. traceId={TraceId} userId={UserId} workoutSessions={WorkoutSessions} workoutExerciseLogs={WorkoutExerciseLogs} setLogs={SetLogs} weightLogs={WeightLogs} foodLogs={FoodLogs} refreshTokens={RefreshTokens} coachSettings={CoachSettings} exerciseTargets={ExerciseTargets} nutritionTargetsHistory={NutritionTargetsHistory} recommendations={Recommendations} recommendationNutritionChanges={RecommendationNutritionChanges} recommendationExerciseTargetChanges={RecommendationExerciseTargetChanges} recommendationRecoveryActions={RecommendationRecoveryActions} recommendationTargetDateChanges={RecommendationTargetDateChanges} weeklyReports={WeeklyReports} weeklyReportWeightSummaries={WeeklyReportWeightSummaries} weeklyReportNutritionSummaries={WeeklyReportNutritionSummaries} weeklyReportTrainingSummaries={WeeklyReportTrainingSummaries} weeklyReportRecoverySummaries={WeeklyReportRecoverySummaries} weeklyReportMuscleBalance={WeeklyReportMuscleBalance} weeklyReportNextWeekActions={WeeklyReportNextWeekActions} composedMeals={ComposedMeals} composedMealIngredients={ComposedMealIngredients} workouts={Workouts} workoutExercises={WorkoutExercises} workoutPrograms={WorkoutPrograms} exercises={Exercises} settings={Settings} elapsedMs={ElapsedMs}",
+                    "DeleteUserAsync loaded related data. traceId={TraceId} workoutSessions={WorkoutSessions} workoutExerciseLogs={WorkoutExerciseLogs} setLogs={SetLogs} weightLogs={WeightLogs} foodLogs={FoodLogs} refreshTokens={RefreshTokens} coachSettings={CoachSettings} exerciseTargets={ExerciseTargets} nutritionTargetsHistory={NutritionTargetsHistory} recommendations={Recommendations} recommendationNutritionChanges={RecommendationNutritionChanges} recommendationExerciseTargetChanges={RecommendationExerciseTargetChanges} recommendationRecoveryActions={RecommendationRecoveryActions} recommendationTargetDateChanges={RecommendationTargetDateChanges} weeklyReports={WeeklyReports} weeklyReportWeightSummaries={WeeklyReportWeightSummaries} weeklyReportNutritionSummaries={WeeklyReportNutritionSummaries} weeklyReportTrainingSummaries={WeeklyReportTrainingSummaries} weeklyReportRecoverySummaries={WeeklyReportRecoverySummaries} weeklyReportMuscleBalance={WeeklyReportMuscleBalance} weeklyReportNextWeekActions={WeeklyReportNextWeekActions} composedMeals={ComposedMeals} composedMealIngredients={ComposedMealIngredients} workouts={Workouts} workoutExercises={WorkoutExercises} workoutPrograms={WorkoutPrograms} exercises={Exercises} settings={Settings} elapsedMs={ElapsedMs}",
                     traceId,
-                    userId,
                     workoutSessionsCount,
                     workoutExerciseLogsCount,
                     setLogsCount,
@@ -541,9 +538,8 @@ namespace backend.Features.Users
 
                 await _db.SaveChangesAsync(ct);
                 _logger.LogInformation(
-                    "DeleteUserAsync saved domain deletions. traceId={TraceId} userId={UserId} elapsedMs={ElapsedMs}",
+                    "DeleteUserAsync saved domain deletions. traceId={TraceId} elapsedMs={ElapsedMs}",
                     traceId,
-                    userId,
                     stopwatch.ElapsedMilliseconds);
 
                 await AssertUserDataDeletedAsync(
@@ -566,9 +562,8 @@ namespace backend.Features.Users
                 if (hasUserRow || hasSettingsRow)
                 {
                     _logger.LogError(
-                        "DeleteUserAsync residual user rows detected after final save. traceId={TraceId} userId={UserId} hasUserRow={HasUserRow} hasSettingsRow={HasSettingsRow} elapsedMs={ElapsedMs}",
+                        "DeleteUserAsync residual user rows detected after final save. traceId={TraceId} hasUserRow={HasUserRow} hasSettingsRow={HasSettingsRow} elapsedMs={ElapsedMs}",
                         traceId,
-                        userId,
                         hasUserRow,
                         hasSettingsRow,
                         stopwatch.ElapsedMilliseconds);
@@ -579,9 +574,8 @@ namespace backend.Features.Users
 
                 await tx.CommitAsync(ct);
                 _logger.LogInformation(
-                    "DeleteUserAsync committed successfully. traceId={TraceId} userId={UserId} elapsedMs={ElapsedMs}",
+                    "DeleteUserAsync committed successfully. traceId={TraceId} elapsedMs={ElapsedMs}",
                     traceId,
-                    userId,
                     stopwatch.ElapsedMilliseconds);
 
                 return true;
@@ -590,26 +584,23 @@ namespace backend.Features.Users
             {
                 _logger.LogError(
                     ex,
-                    "DeleteUserAsync failed. traceId={TraceId} userId={UserId} elapsedMs={ElapsedMs}",
+                    "DeleteUserAsync failed. traceId={TraceId} elapsedMs={ElapsedMs}",
                     traceId,
-                    userId,
                     stopwatch.ElapsedMilliseconds);
 
                 try
                 {
                     await tx.RollbackAsync(ct);
                     _logger.LogInformation(
-                        "DeleteUserAsync transaction rolled back. traceId={TraceId} userId={UserId}",
-                        traceId,
-                        userId);
+                        "DeleteUserAsync transaction rolled back. traceId={TraceId}",
+                        traceId);
                 }
                 catch (Exception rollbackEx)
                 {
                     _logger.LogError(
                         rollbackEx,
-                        "DeleteUserAsync rollback failed. traceId={TraceId} userId={UserId}",
-                        traceId,
-                        userId);
+                        "DeleteUserAsync rollback failed. traceId={TraceId}",
+                        traceId);
                 }
 
                 throw;
@@ -757,9 +748,8 @@ namespace backend.Features.Users
                 hasRecommendationTargetDateChanges)
             {
                 _logger.LogError(
-                    "DeleteUserAsync residual domain records detected. traceId={TraceId} userId={UserId} hasWeightLogs={HasWeightLogs} hasFoodLogs={HasFoodLogs} hasRefreshTokens={HasRefreshTokens} hasCoachSettings={HasCoachSettings} hasExerciseTargets={HasExerciseTargets} hasNutritionTargetsHistory={HasNutritionTargetsHistory} hasComposedMeals={HasComposedMeals} hasComposedMealIngredients={HasComposedMealIngredients} hasWorkoutSessions={HasWorkoutSessions} hasWorkoutExerciseLogs={HasWorkoutExerciseLogs} hasSetLogs={HasSetLogs} hasWorkouts={HasWorkouts} hasWorkoutExercises={HasWorkoutExercises} hasWorkoutPrograms={HasWorkoutPrograms} hasExercises={HasExercises} hasWeeklyReports={HasWeeklyReports} hasWeeklyReportWeightSummaries={HasWeeklyReportWeightSummaries} hasWeeklyReportNutritionSummaries={HasWeeklyReportNutritionSummaries} hasWeeklyReportTrainingSummaries={HasWeeklyReportTrainingSummaries} hasWeeklyReportRecoverySummaries={HasWeeklyReportRecoverySummaries} hasWeeklyReportMuscleBalance={HasWeeklyReportMuscleBalance} hasWeeklyReportNextWeekActions={HasWeeklyReportNextWeekActions} hasRecommendations={HasRecommendations} hasRecommendationNutritionChanges={HasRecommendationNutritionChanges} hasRecommendationExerciseTargetChanges={HasRecommendationExerciseTargetChanges} hasRecommendationRecoveryActions={HasRecommendationRecoveryActions} hasRecommendationTargetDateChanges={HasRecommendationTargetDateChanges}",
+                    "DeleteUserAsync residual domain records detected. traceId={TraceId} hasWeightLogs={HasWeightLogs} hasFoodLogs={HasFoodLogs} hasRefreshTokens={HasRefreshTokens} hasCoachSettings={HasCoachSettings} hasExerciseTargets={HasExerciseTargets} hasNutritionTargetsHistory={HasNutritionTargetsHistory} hasComposedMeals={HasComposedMeals} hasComposedMealIngredients={HasComposedMealIngredients} hasWorkoutSessions={HasWorkoutSessions} hasWorkoutExerciseLogs={HasWorkoutExerciseLogs} hasSetLogs={HasSetLogs} hasWorkouts={HasWorkouts} hasWorkoutExercises={HasWorkoutExercises} hasWorkoutPrograms={HasWorkoutPrograms} hasExercises={HasExercises} hasWeeklyReports={HasWeeklyReports} hasWeeklyReportWeightSummaries={HasWeeklyReportWeightSummaries} hasWeeklyReportNutritionSummaries={HasWeeklyReportNutritionSummaries} hasWeeklyReportTrainingSummaries={HasWeeklyReportTrainingSummaries} hasWeeklyReportRecoverySummaries={HasWeeklyReportRecoverySummaries} hasWeeklyReportMuscleBalance={HasWeeklyReportMuscleBalance} hasWeeklyReportNextWeekActions={HasWeeklyReportNextWeekActions} hasRecommendations={HasRecommendations} hasRecommendationNutritionChanges={HasRecommendationNutritionChanges} hasRecommendationExerciseTargetChanges={HasRecommendationExerciseTargetChanges} hasRecommendationRecoveryActions={HasRecommendationRecoveryActions} hasRecommendationTargetDateChanges={HasRecommendationTargetDateChanges}",
                     traceId,
-                    userId,
                     hasWeightLogs,
                     hasFoodLogs,
                     hasRefreshTokens,
@@ -793,9 +783,8 @@ namespace backend.Features.Users
             }
 
             _logger.LogInformation(
-                "DeleteUserAsync domain verification passed. traceId={TraceId} userId={UserId}",
-                traceId,
-                userId);
+                "DeleteUserAsync domain verification passed. traceId={TraceId}",
+                traceId);
         }
 
         public async Task<User?> GetUserAsync(
@@ -839,6 +828,9 @@ namespace backend.Features.Users
 
             if (dto.HasCompletedRegistration.HasValue)
                 settings.HasCompletedRegistration = dto.HasCompletedRegistration.Value;
+
+            if (settings.HasCompletedRegistration && settings.Age is null)
+                throw new ArgumentException("Du må være minst 18 år for å fullføre registreringen.");
 
             if (dto.HasDismissedRegistrationOnboarding.HasValue)
                 settings.HasDismissedRegistrationOnboarding =

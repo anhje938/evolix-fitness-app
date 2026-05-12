@@ -131,7 +131,7 @@ export default function QRScanner({
     hasScannedRef.current = true;
 
     Promise.resolve(onScanned(nextValue)).catch((error) => {
-      console.log("QRScanner onScanned failed", error);
+      if (__DEV__) console.log("QRScanner onScanned failed", error);
       hasScannedRef.current = false;
     });
   };

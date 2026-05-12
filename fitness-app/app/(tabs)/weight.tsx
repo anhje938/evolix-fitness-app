@@ -57,7 +57,7 @@ export default function WeightPage() {
       setEditingWeight(null);
       setIsOpen(false);
     } catch (error) {
-      console.log(error);
+      if (__DEV__) console.log(error);
       Alert.alert("Kunne ikke lagre vekt", "Prøv igjen om et øyeblikk.");
     }
   };
@@ -89,7 +89,7 @@ export default function WeightPage() {
                 setEditingWeight(null);
               }
             } catch (error) {
-              console.log(error);
+              if (__DEV__) console.log(error);
               Alert.alert("Kunne ikke slette vekt", "Prøv igjen om et øyeblikk.");
             }
           },

@@ -1,18 +1,23 @@
-﻿namespace backend.Features.Auth
+using System.ComponentModel.DataAnnotations;
+
+namespace backend.Features.Auth
 {
-    // APPLE ID TOKEN 
     public class AppleLoginRequest
     {
+        [Required]
+        [MaxLength(8192)]
         public string IdToken { get; set; } = "";
+        [MaxLength(4096)]
         public string? AuthorizationCode { get; set; }
     }
 
     public class RefreshTokenRequest
     {
+        [Required]
+        [MaxLength(512)]
         public string RefreshToken { get; set; } = "";
     }
 
-    // APP RETURN
     public class AuthResponse
     {
         public string UserId { get; set; } = "";

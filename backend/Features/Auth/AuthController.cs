@@ -1,4 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using backend.Common;
 using Microsoft.AspNetCore.Authorization;
@@ -13,7 +12,6 @@ namespace backend.Features.Auth
     {
         private readonly AuthService _auth;
         private readonly ILogger<AuthController> _logger;
-        private readonly IConfiguration _config;
         private readonly IHostEnvironment _env;
 
         private bool ReturnDebugDetails => _env.IsDevelopment();
@@ -21,12 +19,10 @@ namespace backend.Features.Auth
         public AuthController(
             AuthService auth,
             ILogger<AuthController> logger,
-            IConfiguration config,
             IHostEnvironment env)
         {
             _auth = auth;
             _logger = logger;
-            _config = config;
             _env = env;
         }
 
@@ -43,13 +39,6 @@ namespace backend.Features.Auth
             if (string.IsNullOrWhiteSpace(request.IdToken))
                 return BadRequest("idToken is required");
 
-            _logger.LogInformation(
-                "Apple login start. traceId={traceId} contentLength={len} userAgent={ua} ip={ip}",
-                reqId,
-                Request.ContentLength,
-                Request.Headers.UserAgent.ToString(),
-                HttpContext.Connection.RemoteIpAddress?.ToString());
-
             var looksLikeJwt = request.IdToken.Split('.').Length == 3;
             if (_env.IsDevelopment() && !looksLikeJwt)
             {
@@ -57,57 +46,9 @@ namespace backend.Features.Auth
                     "Development mock Apple login detected. Skipping JWT parse. traceId={traceId}",
                     reqId);
             }
-            else
+            else if (!looksLikeJwt)
             {
-                JwtSecurityToken? jwt = null;
-                try
-                {
-                    jwt = new JwtSecurityTokenHandler().ReadJwtToken(request.IdToken);
-
-                    var aud = jwt.Audiences.FirstOrDefault();
-                    var iss = jwt.Issuer;
-                    var expUtc = jwt.ValidTo;
-                    var nbfUtc = jwt.ValidFrom;
-                    var kid = jwt.Header.TryGetValue("kid", out var kidObj) ? kidObj?.ToString() : null;
-
-                    _logger.LogInformation(
-                        "Apple token parsed. traceId={traceId} aud={aud} iss={iss} expUtc={exp} nbfUtc={nbf} kid={kid}",
-                        reqId,
-                        aud,
-                        iss,
-                        expUtc,
-                        nbfUtc,
-                        kid);
-
-                    var expectedClientId = _config["AppleSettings:ClientId"];
-                    _logger.LogInformation(
-                        "Expected AppleSettings:ClientId = {clientId} traceId={traceId}",
-                        expectedClientId,
-                        reqId);
-
-                    if (!string.IsNullOrWhiteSpace(expectedClientId) &&
-                        !string.IsNullOrWhiteSpace(aud) &&
-                        !string.Equals(expectedClientId, aud, StringComparison.Ordinal))
-                    {
-                        _logger.LogWarning(
-                            "AUDIENCE MISMATCH! tokenAud={aud} expectedClientId={clientId} traceId={traceId}",
-                            aud,
-                            expectedClientId,
-                            reqId);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(
-                        ex,
-                        "Failed to parse Apple idToken as JWT. traceId={traceId}",
-                        reqId);
-
-                    if (ReturnDebugDetails)
-                        return BadRequest(new { error = "Invalid token format", detail = ex.Message, traceId = reqId });
-
-                    return BadRequest(new { error = "Invalid token format", traceId = reqId });
-                }
+                return BadRequest(new { error = "Invalid token format", traceId = reqId });
             }
 
             try
@@ -123,19 +64,8 @@ namespace backend.Features.Auth
             catch (SecurityTokenException ex)
             {
                 _logger.LogWarning(
-                    ex,
-                    "Apple token validation FAILED. traceId={traceId} message={msg}",
-                    reqId,
-                    ex.Message);
-
-                if (ex.InnerException != null)
-                {
-                    _logger.LogWarning(
-                        ex.InnerException,
-                        "Inner exception. traceId={traceId} message={msg}",
-                        reqId,
-                        ex.InnerException.Message);
-                }
+                    "Apple token validation failed. traceId={traceId}",
+                    reqId);
 
                 if (ReturnDebugDetails)
                 {

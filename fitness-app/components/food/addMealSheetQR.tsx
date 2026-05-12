@@ -222,7 +222,7 @@ export function AddMealSheetQR({
   const handleScannerResult = async (value: string) => {
     const normalizedValue = value.trim();
     if (!normalizedValue) {
-      console.log("No barcode value received");
+      if (__DEV__) console.log("No barcode value received");
       return;
     }
 
@@ -251,7 +251,7 @@ export function AddMealSheetQR({
     try {
       onScanned(normalizedValue);
     } catch (error) {
-      console.log("onScanned callback failed", error);
+      if (__DEV__) console.log("onScanned callback failed", error);
     }
 
     try {
@@ -281,7 +281,7 @@ export function AddMealSheetQR({
         return;
       }
 
-      console.log("Lookup failed for barcode:", normalizedValue, error);
+      if (__DEV__) console.log("Lookup failed for barcode:", normalizedValue, error);
       resetScanState();
       Alert.alert(
         "Fant ikke produkt",
@@ -338,7 +338,7 @@ export function AddMealSheetQR({
       await onSubmit(payload);
       onClose();
     } catch (error) {
-      console.log("Could not submit scanned meal", error);
+      if (__DEV__) console.log("Could not submit scanned meal", error);
       Alert.alert("Kunne ikke lagre måltid", "Prøv igjen om et øyeblikk.");
     }
   };

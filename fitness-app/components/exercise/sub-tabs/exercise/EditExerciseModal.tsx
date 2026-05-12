@@ -110,7 +110,7 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
 
       onClose();
     } catch (err) {
-      console.log("Feil ved oppdatering av øvelse", err);
+      if (__DEV__) console.log("Feil ved oppdatering av øvelse", err);
       Alert.alert("Noe gikk galt", "Kunne ikke lagre endringene.");
     } finally {
       setSaving(false);
@@ -130,7 +130,7 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
 
       onClose();
     } catch (err) {
-      console.log("Feil ved sletting av øvelse", err);
+      if (__DEV__) console.log("Feil ved sletting av øvelse", err);
       Alert.alert("Noe gikk galt", "Kunne ikke slette øvelsen.");
     } finally {
       setDeleting(false);

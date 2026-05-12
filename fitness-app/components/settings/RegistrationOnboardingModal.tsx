@@ -5,7 +5,6 @@ import { useUserSettings } from "@/context/UserSettingsProvider";
 import type { AppLanguage, UserGender } from "@/types/userSettings";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -65,26 +64,13 @@ export function RegistrationOnboardingModal() {
     authReady &&
     !!token &&
     hasLoadedUserSettings &&
-    !userSettingsError &&
-    !userSettings.hasCompletedRegistration &&
-    !userSettings.hasDismissedRegistrationOnboarding;
+    !userSettings.hasCompletedRegistration;
 
   const [ageText, setAgeText] = useState("");
   const [gender, setGender] = useState<UserGender | null>(null);
   const [language, setLanguage] = useState<AppLanguage>("nb");
   const [stepIndex, setStepIndex] = useState(0);
   const [showValidation, setShowValidation] = useState(false);
-
-  console.log({
-    authReady,
-    token: !!token,
-    hasLoadedUserSettings,
-    userSettingsError,
-    hasCompletedRegistration: userSettings.hasCompletedRegistration,
-    hasDismissedRegistrationOnboarding:
-      userSettings.hasDismissedRegistrationOnboarding,
-    visible,
-  });
 
   useEffect(() => {
     if (!visible) return;
@@ -105,13 +91,13 @@ export function RegistrationOnboardingModal() {
     (step === "gender" && !!gender) ||
     (step === "language" && !!language);
 
-  const submitSettings = async (markCompleted: boolean) => {
+  const submitSettings = async () => {
     await saveUserSettingsNow({
       ...userSettings,
       age,
       gender,
       language,
-      hasCompletedRegistration: markCompleted,
+      hasCompletedRegistration: true,
       hasDismissedRegistrationOnboarding: true,
     });
   };
@@ -122,7 +108,7 @@ export function RegistrationOnboardingModal() {
     if (!canContinue) return;
 
     if (isLastStep) {
-      void submitSettings(true);
+      void submitSettings();
       return;
     }
 
@@ -130,31 +116,12 @@ export function RegistrationOnboardingModal() {
     setShowValidation(false);
   };
 
-  const handleCancel = () => {
-    if (isSavingUserSettings) return;
-
-    Alert.alert(
-      "Avbryt registre ring",
-      "Du kan fylle inn dette senere i innstillinger.",
-      [
-        { text: "Fortsett registrering", style: "cancel" },
-        {
-          text: "Avbryt",
-          style: "destructive",
-          onPress: () => {
-            void submitSettings(false);
-          },
-        },
-      ]
-    );
-  };
-
   return (
     <Modal
       visible={visible}
       animationType="slide"
       presentationStyle="fullScreen"
-      onRequestClose={handleCancel}
+      onRequestClose={() => {}}
     >
       <SafeAreaView style={styles.screen}>
         <View style={styles.bgOrbTop} />
@@ -174,17 +141,7 @@ export function RegistrationOnboardingModal() {
               </Text>
             </View>
 
-            <Pressable
-              onPress={handleCancel}
-              disabled={isSavingUserSettings}
-              style={({ pressed }) => [
-                styles.cancelButton,
-                isSavingUserSettings && styles.disabled,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.cancelButtonText}>Avbryt</Text>
-            </Pressable>
+            <Text style={styles.requiredLabel}>18+</Text>
           </View>
 
           <View style={styles.progressTrack}>
@@ -421,20 +378,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
-  cancelButton: {
+  requiredLabel: {
     minHeight: 40,
     borderRadius: 999,
     paddingHorizontal: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(15,23,42,0.72)",
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.22)",
-  },
-  cancelButtonText: {
-    color: "rgba(226,232,240,0.9)",
+    textAlignVertical: "center",
+    color: "#FEF3C7",
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "800",
+    backgroundColor: "rgba(146,64,14,0.34)",
+    borderWidth: 1,
+    borderColor: "rgba(234,179,8,0.44)",
   },
   progressTrack: {
     height: 8,

@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   SessionExercise,
   SessionMode,
   SessionSet,
@@ -310,7 +310,7 @@ export async function loadStoredActiveWorkoutSession(
     await deleteLegacyRawStoredSession();
     return legacyParsed;
   } catch (error) {
-    console.log("Failed to load stored workout session", error);
+    if (__DEV__) console.log("Failed to load stored workout session", error);
     await clearStoredActiveWorkoutSession(scopeKey).catch(() => {});
     await deleteLegacyRawStoredSession().catch(() => {});
     return null;

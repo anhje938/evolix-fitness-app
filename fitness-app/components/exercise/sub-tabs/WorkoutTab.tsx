@@ -103,7 +103,7 @@ export function WorkoutTab() {
       queryClient.invalidateQueries({ queryKey: ["workouts"] });
       setOpenCreate(false);
     } catch (err) {
-      console.log("Feil ved oppretting av økt", err);
+      if (__DEV__) console.log("Feil ved oppretting av økt", err);
     }
   };
 
@@ -132,7 +132,7 @@ export function WorkoutTab() {
         setEditingWorkout(null);
       }
     } catch (err) {
-      console.log("Feil ved oppdatering av økt", err);
+      if (__DEV__) console.log("Feil ved oppdatering av økt", err);
     }
   };
 
@@ -144,7 +144,7 @@ export function WorkoutTab() {
       queryClient.invalidateQueries({ queryKey: ["workouts"] });
       setEditingWorkout(null);
     } catch (err) {
-      console.log("Feil ved sletting av økt", err);
+      if (__DEV__) console.log("Feil ved sletting av økt", err);
     }
   };
 

@@ -89,7 +89,7 @@ export const MealCard = memo(function MealCard({
         style: "destructive",
         onPress: () => {
           Promise.resolve(onDeleteMeal(String(meal.id))).catch((e) => {
-            console.log("onDeleteMeal failed:", e);
+            if (__DEV__) console.log("onDeleteMeal failed:", e);
           });
         },
       });

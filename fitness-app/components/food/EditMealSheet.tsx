@@ -122,7 +122,7 @@ export function EditMealSheet({
     try {
       onSubmit(mealId, payload);
     } catch (error) {
-      console.log("Couldnt update meal", error);
+      if (__DEV__) console.log("Couldnt update meal", error);
     }
   };
 

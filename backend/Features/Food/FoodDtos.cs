@@ -1,19 +1,29 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace backend.Features.Food
 {
     public class FoodDto
     {
         public Guid Id { get; set; } = Guid.NewGuid();
 
+        [Required]
+        [MaxLength(120)]
         public string Title { get; set; } = "";
+        [Range(0, 20000)]
         public int Calories { get; set; }
+        [Range(0, 20000)]
         public int Proteins { get; set; }
+        [Range(0, 20000)]
         public int Carbs { get; set; }
+        [Range(0, 20000)]
         public int Fats { get; set; }
 
         public DateTime TimestampUtc { get; set; }
 
         public Guid? SourceComposedMealId { get; set; }
+        [MaxLength(50)]
         public string? SourceType { get; set; }
+        [Range(typeof(decimal), "0.01", "100")]
         public decimal? SourceServings { get; set; }
     }
 
@@ -40,12 +50,20 @@ namespace backend.Features.Food
 
     public class UpsertComposedMealIngredientDto
     {
+        [Required]
+        [MaxLength(120)]
         public string Name { get; set; } = "";
+        [Range(typeof(decimal), "0", "99999")]
         public decimal AmountGrams { get; set; }
+        [Range(typeof(decimal), "0", "20000")]
         public decimal Calories { get; set; }
+        [Range(typeof(decimal), "0", "20000")]
         public decimal Proteins { get; set; }
+        [Range(typeof(decimal), "0", "20000")]
         public decimal Carbs { get; set; }
+        [Range(typeof(decimal), "0", "20000")]
         public decimal Fats { get; set; }
+        [Range(0, 500)]
         public int SortOrder { get; set; }
     }
 
@@ -69,8 +87,12 @@ namespace backend.Features.Food
 
     public class UpsertComposedMealDto
     {
+        [Required]
+        [MaxLength(120)]
         public string Name { get; set; } = "";
         public bool IsFavorite { get; set; }
+        [MinLength(1)]
+        [MaxLength(100)]
         public List<UpsertComposedMealIngredientDto> Ingredients { get; set; } = [];
     }
 
@@ -81,6 +103,7 @@ namespace backend.Features.Food
 
     public class LogComposedMealDto
     {
+        [Range(typeof(decimal), "0.01", "100")]
         public decimal? Servings { get; set; }
         public DateTime? TimestampUtc { get; set; }
     }
@@ -101,6 +124,7 @@ namespace backend.Features.Food
 
     public class RelogComposedMealHistoryDto
     {
+        [Range(typeof(decimal), "0.01", "100")]
         public decimal? Servings { get; set; }
         public DateTime? TimestampUtc { get; set; }
     }

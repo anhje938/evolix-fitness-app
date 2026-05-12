@@ -36,6 +36,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  type AlertButton,
   View,
 } from "react-native";
 import DraggableFlatList, {
@@ -47,6 +48,7 @@ const WEBSITE_URL = "https://evolix.no";
 const TERMS_URL = "https://evolix.no/terms";
 const PRIVACY_URL = "https://evolix.no/privacy";
 const SUPPORT_EMAIL = "evolixfitness@hotmail.com";
+const APPLE_SUBSCRIPTIONS_URL = "https://apps.apple.com/account/subscriptions";
 
 const INITIAL_SETTINGS: UserSettings = {
   age: null,
@@ -300,6 +302,7 @@ export default function SettingsModal({
     : subscription.isLoading
     ? "Sjekker status"
     : "Premium inaktiv";
+  const showDeleteSubscriptionWarning = subscription.isPremium;
 
   const hiddenRecoveryMuscles = useMemo(
     () => normalizeRecoveryMapHiddenMuscles(settings.recoveryMapHiddenMuscles),
@@ -398,20 +401,32 @@ export default function SettingsModal({
   const handleDeleteAccountWithText = () => {
     if (isDeletingAccount) return;
 
+    const buttons: AlertButton[] = [{ text: "Avbryt", style: "cancel" }];
+
+    if (showDeleteSubscriptionWarning) {
+      buttons.push({
+        text: "Administrer abonnement",
+        onPress: () => {
+          void handleManageSubscription();
+        },
+      });
+    }
+
+    buttons.push({
+      text: "Fortsett",
+      style: "destructive",
+      onPress: () => {
+        setDeleteConfirmInput("");
+        setDeleteConfirmVisible(true);
+      },
+    });
+
     Alert.alert(
       "Slett konto",
-      "Er du sikker?",
-      [
-        { text: "Avbryt", style: "cancel" },
-        {
-          text: "Fortsett",
-          style: "destructive",
-          onPress: () => {
-            setDeleteConfirmInput("");
-            setDeleteConfirmVisible(true);
-          },
-        },
-      ],
+      showDeleteSubscriptionWarning
+        ? "Du har et aktivt Premium-abonnement. Sletting av konto stopper ikke nødvendigvis Apple-fakturering. Administrer eller avslutt abonnementet hos Apple før du fortsetter hvis du vil stoppe fornyelse."
+        : "Er du sikker?",
+      buttons,
       { cancelable: true }
     );
   };
@@ -484,15 +499,12 @@ export default function SettingsModal({
   };
 
   const handleManageSubscription = async () => {
-    if (!subscription.managementURL) {
-      Alert.alert(
-        "Ingen abonnementlenke",
-        "RevenueCat har ikke sendt en administrasjonslenke for denne brukeren."
-      );
+    if (subscription.managementURL) {
+      await subscription.openManageSubscription();
       return;
     }
 
-    await subscription.openManageSubscription();
+    await Linking.openURL(APPLE_SUBSCRIPTIONS_URL);
   };
 
   const openExternalUrl = async (url: string) => {
@@ -674,12 +686,9 @@ export default function SettingsModal({
 
                         <Pressable
                           onPress={handleManageSubscription}
-                          disabled={!subscription.managementURL}
                           style={({ pressed }) => [
                             styles.subscriptionActionBtn,
                             pressed && styles.pressed,
-                            !subscription.managementURL &&
-                              styles.disabledAction,
                           ]}
                         >
                           <Text style={styles.subscriptionActionText}>
@@ -1578,6 +1587,48 @@ export default function SettingsModal({
                 Skriv {DELETE_CONFIRM_WORD} for å slette kontoen permanent.
               </Text>
 
+              {showDeleteSubscriptionWarning && (
+                <View style={styles.deleteSubscriptionWarning}>
+                  <Text
+                    style={[
+                      typography.bodyBold,
+                      styles.deleteSubscriptionWarningTitle,
+                    ]}
+                  >
+                    Premium-abonnement
+                  </Text>
+                  <Text
+                    style={[
+                      typography.body,
+                      styles.deleteSubscriptionWarningText,
+                    ]}
+                  >
+                    Sletting av konto avslutter ikke automatisk abonnementet hos
+                    Apple. Apple-fakturering kan fortsette til du administrerer
+                    og avslutter abonnementet i Apple-kontoen din.
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.deleteSubscriptionManageBtn,
+                      isDeletingAccount && styles.disabledAction,
+                    ]}
+                    onPress={() => {
+                      void handleManageSubscription();
+                    }}
+                    disabled={isDeletingAccount}
+                  >
+                    <Text
+                      style={[
+                        typography.bodyBold,
+                        styles.deleteSubscriptionManageText,
+                      ]}
+                    >
+                      Administrer eller avslutt abonnement
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               <TextInput
                 {...settingsInputProps}
                 value={deleteConfirmInput}
@@ -1772,6 +1823,39 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 20,
     opacity: 0.9,
+  },
+  deleteSubscriptionWarning: {
+    marginBottom: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.32)",
+    backgroundColor: "rgba(120,53,15,0.18)",
+    padding: 12,
+    gap: 8,
+  },
+  deleteSubscriptionWarningTitle: {
+    color: "#FDE68A",
+    fontSize: 14,
+  },
+  deleteSubscriptionWarningText: {
+    color: "rgba(254,243,199,0.92)",
+    fontSize: 12.5,
+    lineHeight: 18,
+  },
+  deleteSubscriptionManageBtn: {
+    minHeight: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.35)",
+    backgroundColor: "rgba(251,191,36,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  deleteSubscriptionManageText: {
+    color: "#FEF3C7",
+    fontSize: 12.5,
+    textAlign: "center",
   },
   deleteConfirmInput: {
     borderRadius: 12,

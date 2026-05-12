@@ -168,7 +168,7 @@ export function AddMealSheet({
     try {
       void Promise.resolve(onSubmit(payload));
     } catch (error) {
-      console.log("Could not save meal", error);
+      if (__DEV__) console.log("Could not save meal", error);
     }
   };
 

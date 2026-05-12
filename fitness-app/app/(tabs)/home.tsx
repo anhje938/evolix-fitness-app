@@ -678,7 +678,7 @@ export default function HomePage() {
         await refreshMeals({ force: true });
         setIsMealSheetOpen(false);
       } catch (error) {
-        console.log("Could not save meal from home", error);
+        if (__DEV__) console.log("Could not save meal from home", error);
         Alert.alert("Kunne ikke lagre måltid", "Prøv igjen om et øyeblikk.");
       }
     },
@@ -694,7 +694,7 @@ export default function HomePage() {
         await refreshWeights();
         setIsWeightSheetOpen(false);
       } catch (error) {
-        console.log("Could not save weight from home", error);
+        if (__DEV__) console.log("Could not save weight from home", error);
         Alert.alert("Kunne ikke lagre vekt", "Prøv igjen om et øyeblikk.");
       }
     },

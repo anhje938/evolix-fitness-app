@@ -1,4 +1,4 @@
-import { FetchUserMeals } from "@/api/food";
+﻿import { FetchUserMeals } from "@/api/food";
 import { Food } from "@/types/meal";
 import { isUnauthorizedError } from "@/utils/isUnauthorizedError";
 import { useTodayMacros } from "@/utils/food/useTodayMacros";
@@ -76,7 +76,7 @@ export function FoodProvider({ children }: { children: ReactNode }) {
         void setToken(null);
         return [];
       }
-      console.log("Feil ved henting av meals:", error);
+      if (__DEV__) console.log("Feil ved henting av meals:", error);
       return [];
     } finally {
       if (mountedRef.current) setIsLoadingMeals(false);

@@ -146,7 +146,7 @@ export default function ExerciseTab({ onPressExercise }: Props) {
       await createExerciseMutation.mutateAsync(payload);
       setOpenAdd(false);
     } catch (err) {
-      console.log("Feil ved oppretting av øvelse", err);
+      if (__DEV__) console.log("Feil ved oppretting av øvelse", err);
     }
   };
 

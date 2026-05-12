@@ -60,7 +60,7 @@ function renewalDetails(packageToShow: PurchasesPackage | null) {
 function logOfferingsDebug(packagesToLog: PurchasesPackage[], offeringId?: string) {
   if (!__DEV__) return;
 
-  console.log("[Paywall] RevenueCat offering", {
+  if (__DEV__) console.log("[Paywall] RevenueCat offering", {
     offeringId: offeringId ?? null,
     packages: packagesToLog.map((item) => ({
       identifier: item.identifier,
@@ -159,7 +159,7 @@ export function Paywall({
       } catch (error) {
         if (!cancelled) {
           const details = describePurchasesError(error);
-          console.warn("[Paywall] Kunne ikke hente pris", details ?? error);
+          if (__DEV__) console.warn("[Paywall] Kunne ikke hente pris", details ?? error);
           setMessage(
             details
               ? `Kunne ikke hente pris. ${details}`

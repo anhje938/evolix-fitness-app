@@ -454,7 +454,7 @@ export function ComposedMealEditorSheet({
         return;
       }
 
-      console.log("Could not scan ingredient barcode", error);
+      if (__DEV__) console.log("Could not scan ingredient barcode", error);
       closeIngredientScanner();
       Alert.alert(
         "Fant ikke produkt",

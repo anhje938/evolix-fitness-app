@@ -92,7 +92,7 @@ export default function SignIn() {
       setIsLoggingIn(true);
 
       if (__DEV__ && Constants.appOwnership === "expo") {
-        console.log(
+        if (__DEV__) console.log(
           "Expo Go detected. Using mock dev login against configured local API."
         );
         const session = await loginWithApple("mock-user");
@@ -130,7 +130,7 @@ export default function SignIn() {
         tokenAudience = typeof payload?.aud === "string" ? payload.aud : null;
 
         if (__DEV__ && identityToken) {
-          console.log("Apple credential debug:", {
+          if (__DEV__) console.log("Apple credential debug:", {
             hasIdentityToken: Boolean(identityToken),
             hasAuthorizationCode: Boolean(authorizationCode),
             tokenSegmentCount: identityToken.split(".").length,
@@ -143,7 +143,7 @@ export default function SignIn() {
         }
       } catch (error: any) {
         if (error?.code === "ERR_REQUEST_CANCELED") return;
-        console.log("Apple native sign-in error:", {
+        if (__DEV__) console.log("Apple native sign-in error:", {
           code: error?.code ?? null,
           message: error?.message ?? null,
         });
@@ -160,7 +160,7 @@ export default function SignIn() {
 
       if (__DEV__ && tokenAudience === "host.exp.Exponent") {
         usesExpoGoDevMock = true;
-        console.log(
+        if (__DEV__) console.log(
           "Expo Go detected. Using mock dev login against configured local API."
         );
       }
@@ -179,7 +179,7 @@ export default function SignIn() {
             ? error.message
             : "Ukjent feil";
 
-      console.log("Login error:", detail, error);
+      if (__DEV__) console.log("Login error:", detail, error);
       Alert.alert(
         "Innlogging feilet",
         __DEV__ ? detail : "Kunne ikke logge inn med Apple. Prøv igjen."

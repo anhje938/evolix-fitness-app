@@ -1,4 +1,5 @@
 import { typography } from "@/config/typography";
+import { NonMedicalDisclaimer } from "@/components/common/NonMedicalDisclaimer";
 import type { SessionExercise, SessionSet } from "@/types/exercise";
 import {
   getWorkoutCoachPlanSummaryParts,
@@ -413,6 +414,7 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
           </Text>
         </Pressable>
       ) : null}
+      <NonMedicalDisclaimer compact />
     </View>
   );
 });

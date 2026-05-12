@@ -182,7 +182,7 @@ export default function FoodPage() {
       setComposedMeals(meals);
       setComposedHistory(history);
     } catch (error) {
-      console.log("Could not load composed meals", error);
+      if (__DEV__) console.log("Could not load composed meals", error);
     } finally {
       setIsLoadingComposedMeals(false);
     }
@@ -207,7 +207,7 @@ export default function FoodPage() {
       void refreshMeals();
       setIsOpen(false);
     } catch (error) {
-      console.log("Could not save meal to backend", error);
+      if (__DEV__) console.log("Could not save meal to backend", error);
       Alert.alert("Kunne ikke lagre måltid", "Noe gikk galt. Prøv igjen.");
     }
   };
@@ -229,7 +229,7 @@ export default function FoodPage() {
           target =
             latestMeals.find((x) => String(x.id) === composedMealId) ?? null;
         } catch (error) {
-          console.log("Could not refresh composed meals before edit", error);
+          if (__DEV__) console.log("Could not refresh composed meals before edit", error);
         }
       }
 
@@ -274,7 +274,7 @@ export default function FoodPage() {
         closeEdit();
       }
     } catch (e) {
-      console.log("DeleteUserMeal failed:", e);
+      if (__DEV__) console.log("DeleteUserMeal failed:", e);
       setFoodList(prev);
 
       Alert.alert("Kunne ikke slette", "Noe gikk galt. Prøv igjen.", [
@@ -318,7 +318,7 @@ export default function FoodPage() {
       void refreshMeals();
       closeEdit();
     } catch (e) {
-      console.log("UpdateUserMeal failed:", e);
+      if (__DEV__) console.log("UpdateUserMeal failed:", e);
       setFoodList(prev);
 
       Alert.alert("Kunne ikke oppdatere", "Noe gikk galt. Prøv igjen.", [
@@ -348,7 +348,7 @@ export default function FoodPage() {
       closeComposedEditor();
       await refreshComposedData();
     } catch (error) {
-      console.log("Could not save composed meal", error);
+      if (__DEV__) console.log("Could not save composed meal", error);
       Alert.alert(
         "Kunne ikke lagre rett",
         "Sjekk ingrediensene og prøv igjen."
@@ -380,7 +380,7 @@ export default function FoodPage() {
               }
               await refreshComposedData();
             } catch (error) {
-              console.log("Could not delete composed meal", error);
+              if (__DEV__) console.log("Could not delete composed meal", error);
               Alert.alert("Kunne ikke slette rett", "Prøv igjen.");
             }
           },
@@ -410,7 +410,7 @@ export default function FoodPage() {
       );
       await refreshComposedData();
     } catch (error) {
-      console.log("Could not toggle favorite", error);
+      if (__DEV__) console.log("Could not toggle favorite", error);
       setComposedMeals(prev);
       Alert.alert("Kunne ikke oppdatere favoritt", "Prøv igjen.");
     }
@@ -457,7 +457,7 @@ export default function FoodPage() {
         await refreshComposedData();
       }
     } catch (error) {
-      console.log("Could not log composed meal (custom)", error);
+      if (__DEV__) console.log("Could not log composed meal (custom)", error);
       Alert.alert("Kunne ikke logge rett", "Prøv igjen.");
     }
   };
@@ -475,7 +475,7 @@ export default function FoodPage() {
       void refreshMeals();
       await refreshComposedData();
     } catch (error) {
-      console.log("Could not relog from history", error);
+      if (__DEV__) console.log("Could not relog from history", error);
       Alert.alert("Kunne ikke logge på nytt", "Prøv igjen.");
     }
   };

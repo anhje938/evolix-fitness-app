@@ -1,4 +1,5 @@
 import { DataQualityLevel, type TodayFocus } from "@/types/adaptive";
+import { NonMedicalDisclaimer } from "@/components/common/NonMedicalDisclaimer";
 import { useTodayFocus } from "@/hooks/useAdaptive";
 import { useFoodContext } from "@/context/FoodProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
@@ -160,6 +161,7 @@ function MainContent({
           <Ionicons name="chevron-forward" size={14} color="#02111f" />
         </Pressable>
       </View>
+      <NonMedicalDisclaimer compact />
         </>
       )}
     </>

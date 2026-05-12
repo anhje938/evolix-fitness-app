@@ -1,4 +1,5 @@
 import { generalStyles } from "@/config/styles";
+import { NonMedicalDisclaimer } from "@/components/common/NonMedicalDisclaimer";
 import { typography } from "@/config/typography";
 import {
   type BodyGoalCoachRecommendation,
@@ -351,6 +352,8 @@ export function BodyGoalCoachCard({ recommendation, variant }: Props) {
               {recommendation.confidenceLabel}. Juster bare når trenden holder seg over flere målinger.
             </Text>
           )}
+
+          <NonMedicalDisclaimer compact={isFood} />
         </>
       )}
     </View>

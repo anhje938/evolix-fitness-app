@@ -3,6 +3,7 @@ import {
   RecommendationConfidence,
   type AdaptiveRecommendation,
 } from "@/types/adaptive";
+import { NonMedicalDisclaimer } from "@/components/common/NonMedicalDisclaimer";
 import {
   useAcceptAdaptiveRecommendation,
   useDismissAdaptiveRecommendation,
@@ -233,6 +234,7 @@ export function RecommendationCard({
       >
         {recommendation.explanation}
       </Text>
+      <NonMedicalDisclaimer compact={compact} />
 
       <View style={styles.actions}>
         {hasApplyAction && (
