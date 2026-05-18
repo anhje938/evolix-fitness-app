@@ -31,6 +31,7 @@ import { useAuth } from "@/context/AuthProvider";
 import { useFoodContext } from "@/context/FoodProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useWeightContext } from "@/context/WeightProvider";
+import { useTranslation } from "@/i18n/translations";
 import type {
   ComposedMeal,
   ComposedMealHistoryItem,
@@ -95,6 +96,7 @@ function normalizeExcludedDateKeys(dateKeys: string[]) {
 }
 
 export default function FoodPage() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<"manual" | "qr">("manual");
@@ -350,20 +352,20 @@ export default function FoodPage() {
     } catch (error) {
       if (__DEV__) console.log("Could not save composed meal", error);
       Alert.alert(
-        "Kunne ikke lagre rett",
-        "Sjekk ingrediensene og prøv igjen."
+        t("mealDishSaveFailedTitle"),
+        t("mealDishSaveFailedBody")
       );
     }
   };
 
   const handleDeleteComposedMeal = (meal: ComposedMeal) => {
     Alert.alert(
-      "Slette retten?",
-      `Rett "${meal.name}" blir slettet permanent.`,
+      t("mealDishDeleteTitle"),
+      t("mealDishDeleteBody", { dish: meal.name }),
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t("commonCancel"), style: "cancel" },
         {
-          text: "Slett",
+          text: t("commonDelete"),
           style: "destructive",
           onPress: async () => {
             try {

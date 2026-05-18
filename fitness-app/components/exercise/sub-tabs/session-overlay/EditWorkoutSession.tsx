@@ -24,6 +24,7 @@ import {
 import DumbbellIcon from "../../../../assets/icons/dumbbell-white.svg";
 import XIcon from "../../../../assets/icons/white-x.svg";
 import { Divider, Stat } from "./ExerciseBlocks";
+import { useTranslation } from "@/i18n/translations";
 
 type Props = {
   visible: boolean;
@@ -87,6 +88,7 @@ export function EditWorkoutSession({
   saveSummaryOverlay,
   exercisePickerOverlay,
 }: Props) {
+  const { t } = useTranslation();
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.modalRoot}>
@@ -126,7 +128,7 @@ export function EditWorkoutSession({
                             Keyboard.dismiss();
                           }}
                           returnKeyType="done"
-                          placeholder="Navn på økt"
+                          placeholder={t("workoutNewTitle")}
                           placeholderTextColor={modalTheme.muted}
                           style={[typography.bodyBold, styles.headerTitleInput]}
                           maxLength={50}
@@ -165,7 +167,7 @@ export function EditWorkoutSession({
                   )}
 
                   <Text style={[typography.body, styles.headerSubtitle]}>
-                    Rediger økt
+                    {t("workoutEditTitle")}
                   </Text>
                 </View>
               </View>
@@ -176,9 +178,9 @@ export function EditWorkoutSession({
             </View>
 
             <View style={styles.statsRow}>
-              <Stat icon="time-outline" label="Varighet" value={durationLabel} />
+              <Stat icon="time-outline" label={t("modalDuration")} value={durationLabel} />
               <Divider />
-              <Stat icon="barbell-outline" label="Øvelser" value={`${totals.exercises}`} />
+              <Stat icon="barbell-outline" label={t("navExercises")} value={`${totals.exercises}`} />
               <Divider />
               <Stat icon="list-outline" label="Sett" value={`${totals.sets}`} />
             </View>
@@ -200,7 +202,7 @@ export function EditWorkoutSession({
                 <View style={styles.addExerciseTopInner}>
                   <Ionicons name="add-outline" size={16} color={modalTheme.text} />
                   <Text style={[typography.body, styles.addExerciseTopText]}>
-                    Legg til øvelse
+                    {t("workoutAddExercise")}
                   </Text>
                 </View>
               </Pressable>
@@ -237,7 +239,7 @@ export function EditWorkoutSession({
                 <LinearGradient colors={modalConfirmButtonColors} style={styles.finishButton}>
                   <Ionicons name="checkmark-done" size={18} color="white" />
                   <Text style={[typography.body, styles.finishText]}>
-                    {isSaving ? "Lagrer..." : finishButtonLabel}
+                    {isSaving ? t("modalSaving") : finishButtonLabel}
                   </Text>
                 </LinearGradient>
               </Pressable>
@@ -252,7 +254,7 @@ export function EditWorkoutSession({
                 >
                   <Ionicons name="trash-outline" size={16} color={stylesVars.danger} />
                   <Text style={[typography.body, styles.deleteBottomText]}>
-                    Slett økt
+                    {t("workoutDelete")}
                   </Text>
                 </Pressable>
               ) : null}

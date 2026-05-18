@@ -5,6 +5,7 @@ import { PostWeight } from "@/api/weight";
 import SettingsLogo from "@/assets/icons/white-settings.svg";
 import { DarkOceanBackground } from "@/components/DarkOceanBackground";
 import { TodayFocusCard } from "@/components/adaptive/TodayFocusCard";
+import { CutIntelligenceCard } from "@/components/home/CutIntelligenceCard";
 import { PremiumGate } from "@/components/subscription/PremiumGate";
 import AnatomyFigure from "@/components/exercise/AnatomyFigure";
 import { AddMealSheet } from "@/components/food/addMealSheet";
@@ -683,7 +684,7 @@ export default function HomePage() {
         Alert.alert(t("foodSaveFailedTitle"), t("settingsTryAgainLater"));
       }
     },
-    [mealSheetMode, refreshMeals, token]
+    [mealSheetMode, refreshMeals, t, token]
   );
 
   const handlePostWeight = useCallback(
@@ -699,7 +700,7 @@ export default function HomePage() {
         Alert.alert(t("weightSaveFailedTitle"), t("settingsTryAgainLater"));
       }
     },
-    [refreshWeights, token]
+    [refreshWeights, t, token]
   );
 
   const orderedHomeSections = normalizeHomeSectionOrder(
@@ -1083,6 +1084,10 @@ export default function HomePage() {
           >
             <TodayFocusCard />
           </PremiumGate>
+        </View>
+
+        <View style={styles.section}>
+          <CutIntelligenceCard />
         </View>
 
         {homeSections.map((section, index) => (

@@ -38,6 +38,7 @@ import Svg, {
 } from "react-native-svg";
 
 import { useSvgChartZoom } from "@/hooks/useSvgChartZoom";
+import { useTranslation } from "@/i18n/translations";
 
 export type ExerciseProgressPoint = {
   timestampUtc: string;
@@ -315,6 +316,7 @@ export function CombinedExerciseChart({
   maxZoom = 5,
   zoomStep = 0.35,
 }: Props) {
+  const { t } = useTranslation();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const fillId = useMemo(
     () => `combined-progress-fill-${Math.random().toString(36).slice(2, 10)}`,
@@ -446,7 +448,7 @@ export function CombinedExerciseChart({
           </View>
           <View style={styles.emptyWrap}>
             <Text style={[typography.bodyBlack, weightChartStyles.emptyTitle]}>
-              Ingen data tilgjengelig enda
+              {t("progressionNoData")}
             </Text>
             <Text style={[typography.body, weightChartStyles.emptySub]}>
               Når øktene inneholder nok data, bygger vi både 1RM og volum her.

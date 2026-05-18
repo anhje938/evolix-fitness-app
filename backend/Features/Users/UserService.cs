@@ -880,6 +880,12 @@ namespace backend.Features.Users
             if (dto.WeightGoalTimeUtc.HasValue)
                 settings.WeightGoalTimeUtc = dto.WeightGoalTimeUtc.Value;
 
+            if (dto.CutStartDateUtc.HasValue)
+                settings.CutStartDateUtc = dto.CutStartDateUtc.Value.Date.AddHours(12);
+
+            if (dto.CutStartWeightKg.HasValue)
+                settings.CutStartWeightKg = dto.CutStartWeightKg.Value;
+
             if (dto.WeightDirection.HasValue)
                 settings.WeightDirection = dto.WeightDirection.Value;
 

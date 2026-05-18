@@ -1,6 +1,7 @@
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { ComposedMeal, ComposedMealHistoryItem } from "@/types/meal";
+import { useTranslation } from "@/i18n/translations";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useMemo, useState } from "react";
@@ -61,6 +62,7 @@ export function ComposedMealsSection({
   onToggleFavorite,
   onOpenLogSheet,
 }: ComposedMealsSectionProps) {
+  const { t } = useTranslation();
   const [detailsMeal, setDetailsMeal] = useState<ComposedMeal | null>(null);
 
   const mealIds = useMemo(
@@ -120,10 +122,10 @@ export function ComposedMealsSection({
   const favoriteCount = sortedMeals.filter((x) => x.isFavorite).length;
 
   const openManageMenu = (meal: ComposedMeal) => {
-    Alert.alert(meal.name, "Hva vil du gjøre?", [
-      { text: "Avbryt", style: "cancel" },
-      { text: "Rediger", onPress: () => onEdit(meal) },
-      { text: "Slett", style: "destructive", onPress: () => onDelete(meal) },
+    Alert.alert(meal.name, t("mealMenuBody"), [
+      { text: t("commonCancel"), style: "cancel" },
+      { text: t("mealEditAction"), onPress: () => onEdit(meal) },
+      { text: t("commonDelete"), style: "destructive", onPress: () => onDelete(meal) },
     ]);
   };
 
@@ -143,16 +145,16 @@ export function ComposedMealsSection({
 
       <View style={styles.headerRow}>
         <View>
-          <Text style={[typography.h2, styles.title]}>Matretter</Text>
+          <Text style={[typography.h2, styles.title]}>{t("mealDishesTitle")}</Text>
           <Text style={[typography.body, styles.subtitle]}>
-            Favoritter og ferdige retter for rask, presis logging
+            {t("mealDishesSubtitle")}
           </Text>
         </View>
 
         <TouchableOpacity onPress={onCreate} style={styles.createBtn}>
           <Ionicons name="add" size={16} color="#E6FFFB" />
           <Text style={[typography.bodyBlack, styles.createBtnText]}>
-            Ny rett
+            {t("mealNewDish")}
           </Text>
         </TouchableOpacity>
       </View>
@@ -160,28 +162,28 @@ export function ComposedMealsSection({
       <View style={styles.statsRow}>
         <View style={styles.statsChip}>
           <Text style={styles.statsValue}>{sortedMeals.length}</Text>
-          <Text style={styles.statsLabel}>lagrede retter</Text>
+          <Text style={styles.statsLabel}>{t("mealSavedDishes")}</Text>
         </View>
         <View style={styles.statsChip}>
           <Text style={styles.statsValue}>{favoriteCount}</Text>
-          <Text style={styles.statsLabel}>favoritter</Text>
+          <Text style={styles.statsLabel}>{t("mealFavorites")}</Text>
         </View>
       </View>
 
       {isLoading ? (
         <View style={styles.emptyState}>
           <Text style={[typography.body, styles.emptyTitle]}>
-            Laster retter...
+            {t("mealLoadingDishes")}
           </Text>
         </View>
       ) : sortedMeals.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="restaurant-outline" size={22} color="#67E8F9" />
           <Text style={[typography.bodyBlack, styles.emptyTitle]}>
-            Ingen retter enda
+            {t("mealNoDishesTitle")}
           </Text>
           <Text style={[typography.body, styles.emptySub]}>
-            Lag en matrett med ingredienser, så kan du logge den på sekunder.
+            {t("mealNoDishesBody")}
           </Text>
         </View>
       ) : (
@@ -189,9 +191,9 @@ export function ComposedMealsSection({
           <View style={styles.listHeaderRow}>
             <View style={styles.listTitleChip}>
               <Ionicons name="albums-outline" size={13} color="#BAE6FD" />
-              <Text style={styles.listTitleText}>Rettliste</Text>
+              <Text style={styles.listTitleText}>{t("mealDishList")}</Text>
             </View>
-            <Text style={styles.listHint}>Sveip sideveis</Text>
+            <Text style={styles.listHint}>{t("mealSwipeHint")}</Text>
           </View>
 
           <ScrollView

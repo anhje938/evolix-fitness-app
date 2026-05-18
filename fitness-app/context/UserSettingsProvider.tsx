@@ -48,6 +48,8 @@ const INITIAL_USER_SETTINGS: UserSettings = {
   foodCoachExcludedDateKeys: [],
   weightGoalKg: 84,
   weightGoalTimeUtc: getFutureUtcNoonIsoDate(84),
+  cutStartDateUtc: null,
+  cutStartWeightKg: null,
   weightDirection: "maintain",
 };
 
@@ -109,6 +111,8 @@ function areSettingsEqual(a: UserSettings, b: UserSettings) {
     sameStringArray(a.foodCoachExcludedDateKeys, b.foodCoachExcludedDateKeys) &&
     a.weightGoalKg === b.weightGoalKg &&
     a.weightGoalTimeUtc === b.weightGoalTimeUtc &&
+    a.cutStartDateUtc === b.cutStartDateUtc &&
+    a.cutStartWeightKg === b.cutStartWeightKg &&
     a.weightDirection === b.weightDirection &&
     a.muscleFilter === b.muscleFilter &&
     sameStringArray(a.recoveryMapHiddenMuscles, b.recoveryMapHiddenMuscles) &&

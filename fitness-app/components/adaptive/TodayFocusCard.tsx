@@ -1,5 +1,9 @@
 import { DataQualityLevel, type TodayFocus } from "@/types/adaptive";
 import { NonMedicalDisclaimer } from "@/components/common/NonMedicalDisclaimer";
+import {
+  coachCompactText,
+  coachVisualTheme,
+} from "@/components/coaching/coachVisualTheme";
 import { useTodayFocus } from "@/hooks/useAdaptive";
 import { useFoodContext } from "@/context/FoodProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
@@ -113,7 +117,7 @@ function MainContent({
           <Ionicons
             name="sparkles-outline"
             size={13}
-            color="rgba(251,191,36,0.98)"
+            color={coachVisualTheme.accent}
           />
           <Text style={styles.badgeText}>EvoliX Plan</Text>
         </View>
@@ -135,7 +139,7 @@ function MainContent({
             <Ionicons
               name={collapsed ? "chevron-down" : "chevron-up"}
               size={14}
-              color="rgba(253,230,138,0.92)"
+              color={coachVisualTheme.accentMuted}
             />
           </Pressable>
         </View>
@@ -220,14 +224,14 @@ export function TodayFocusCard() {
       userSettings,
     });
   }, [foodList, userSettings, weightList]);
-  const errorCopy = getAdaptiveErrorCopy(error, "plan");
+  const errorCopy = getAdaptiveErrorCopy(error, "plan", userSettings.language);
 
   return (
     <LinearGradient
       colors={[
-        "rgba(24,20,12,0.76)",
-        "rgba(64,48,14,0.42)",
-        "rgba(15,23,42,0.62)",
+        coachVisualTheme.cardBg,
+        coachVisualTheme.panelBg,
+        "rgba(15,23,42,0.58)",
       ]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
@@ -242,7 +246,7 @@ export function TodayFocusCard() {
 
       {isLoading ? (
         <View style={styles.loadingRow}>
-          <ActivityIndicator size="small" color="rgba(103,232,249,0.98)" />
+          <ActivityIndicator size="small" color={coachVisualTheme.accent} />
           <Text style={styles.loadingText}>Henter dagens plan</Text>
         </View>
       ) : isError || !data ? (
@@ -252,7 +256,7 @@ export function TodayFocusCard() {
               <Ionicons
                 name="sparkles-outline"
                 size={13}
-                color="rgba(103,232,249,0.98)"
+                color={coachVisualTheme.accent}
               />
               <Text style={styles.badgeText}>EvoliX Plan</Text>
             </View>
@@ -291,7 +295,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingBottom: 14,
     borderWidth: 1,
-    borderColor: "rgba(251,191,36,0.18)",
+    borderColor: coachVisualTheme.accentSoft,
     shadowColor: "#f59e0b",
     shadowOpacity: 0.12,
     shadowRadius: 18,
@@ -318,13 +322,13 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 9,
     borderRadius: 999,
-    backgroundColor: "rgba(44,33,12,0.52)",
+    backgroundColor: coachVisualTheme.panelBg,
     borderWidth: 1,
-    borderColor: "rgba(251,191,36,0.20)",
+    borderColor: coachVisualTheme.accentSoft,
   },
   badgeText: {
-    color: "rgba(226,232,240,0.94)",
-    fontSize: 11,
+    color: coachVisualTheme.text,
+    fontSize: coachCompactText.kicker,
     fontWeight: "600",
     letterSpacing: 0.2,
   },
@@ -352,35 +356,35 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(44,33,12,0.42)",
+    backgroundColor: "rgba(34,24,10,0.32)",
     borderWidth: 1,
-    borderColor: "rgba(251,191,36,0.18)",
+    borderColor: coachVisualTheme.accentSoft,
   },
   collapsedText: {
     marginTop: 10,
-    color: "rgba(248,250,252,0.94)",
-    fontSize: 13,
-    lineHeight: 18,
+    color: coachVisualTheme.text,
+    fontSize: coachCompactText.value,
+    lineHeight: coachCompactText.valueLine,
     fontWeight: "400",
   },
   mainAction: {
     marginTop: 14,
     color: "rgba(248,250,252,0.99)",
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: "500",
   },
   why: {
     marginTop: 7,
     color: "rgba(203,213,225,0.93)",
-    fontSize: 12.5,
-    lineHeight: 18,
+    fontSize: coachCompactText.body,
+    lineHeight: coachCompactText.bodyLine,
   },
   dataLine: {
     marginTop: 8,
-    color: "rgba(253,230,138,0.74)",
-    fontSize: 11.5,
-    lineHeight: 16,
+    color: coachVisualTheme.accentMuted,
+    fontSize: 11,
+    lineHeight: 15,
   },
   metricGrid: {
     marginTop: 14,
@@ -392,15 +396,15 @@ const styles = StyleSheet.create({
     minHeight: 62,
     borderRadius: 15,
     padding: 10,
-    backgroundColor: "rgba(2,6,23,0.28)",
+    backgroundColor: coachVisualTheme.darkPanel,
     borderWidth: 1,
-    borderColor: "rgba(125,211,252,0.12)",
+    borderColor: "rgba(251,191,36,0.10)",
     gap: 7,
   },
   metricText: {
     color: "rgba(226,232,240,0.94)",
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: coachCompactText.body,
+    lineHeight: coachCompactText.bodyLine,
     fontWeight: "500",
   },
   footer: {
@@ -424,7 +428,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    backgroundColor: "rgba(103,232,249,0.96)",
+    backgroundColor: coachVisualTheme.accent,
   },
   reportButtonPressed: {
     opacity: 0.82,
@@ -456,8 +460,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(125,211,252,0.2)",
-    backgroundColor: "rgba(8,47,73,0.5)",
+    borderColor: coachVisualTheme.accentSoft,
+    backgroundColor: coachVisualTheme.panelBg,
   },
   retryButtonText: {
     color: "rgba(226,232,240,0.96)",

@@ -4,6 +4,7 @@ import { typography } from "@/config/typography";
 import type { ExerciseSessionSetsDto } from "@/api/exercise/exerchiseHistory";
 import { Exercise } from "@/types/exercise";
 import { ADVANCED_MUSCLE_FILTERS } from "@/types/muscles";
+import { useTranslation } from "@/i18n/translations";
 import { sessionBest1RmFromSets } from "@/utils/exercise/sessionBest1RmFromSets";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -79,6 +80,7 @@ export default function ExerciseCard({
   isAdmin?: boolean;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const [editOpen, setEditOpen] = useState(false);
 
   const isGlobal = exercise.userId == null;
@@ -252,7 +254,7 @@ export default function ExerciseCard({
 
           <View style={styles.rightCluster}>
             <View style={styles.prBox}>
-              <Text style={styles.prLabel}>Estimert PR</Text>
+              <Text style={styles.prLabel}>{t("exerciseEstimatedPr")}</Text>
               <Text style={styles.prValue}>{formatKg(vm.pr1Rm)}</Text>
             </View>
             <Ionicons
@@ -266,19 +268,19 @@ export default function ExerciseCard({
         <View style={styles.statsChartRow}>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Siste 1RM</Text>
+              <Text style={styles.statLabel}>{t("exerciseLastOneRm")}</Text>
               <Text style={styles.statValue}>{formatKg(vm.last1Rm)}</Text>
             </View>
 
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Økter</Text>
+              <Text style={styles.statLabel}>{t("exerciseSessions")}</Text>
               <Text style={styles.statValue}>
                 {vm.sortedSessionsCount ?? "--"}
               </Text>
             </View>
 
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Fremgang</Text>
+              <Text style={styles.statLabel}>{t("exerciseProgress")}</Text>
               <Text style={[styles.statValue, { color: progressColor }]}>
                 {vm.progress != null
                   ? `${vm.progress > 0 ? "+" : ""}${vm.progress} kg`

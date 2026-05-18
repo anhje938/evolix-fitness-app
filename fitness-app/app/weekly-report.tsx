@@ -291,9 +291,14 @@ function ReportContent({ report }: { report: WeeklyReport }) {
 
 function WeeklyReportPremiumScreen() {
   const insets = useSafeAreaInsets();
+  const { userSettings } = useUserSettings();
   const reportQuery = useCurrentWeeklyReport();
   const regenerateReport = useRegenerateWeeklyReport();
-  const errorCopy = getAdaptiveErrorCopy(reportQuery.error, "report");
+  const errorCopy = getAdaptiveErrorCopy(
+    reportQuery.error,
+    "report",
+    userSettings.language
+  );
 
   const handleRefresh = async () => {
     await regenerateReport.mutateAsync();

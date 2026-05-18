@@ -3,6 +3,7 @@ import React, { useMemo, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { typography } from "@/config/typography";
+import { useTranslation } from "@/i18n/translations";
 import type { HomeGoalTile } from "@/types/userSettings";
 
 const colors = {
@@ -18,13 +19,6 @@ const colors = {
 
 const ALL: HomeGoalTile[] = ["calories", "protein", "carbs", "fat"];
 
-const labelMap: Record<HomeGoalTile, string> = {
-  calories: "Kalorier",
-  protein: "Protein",
-  carbs: "Karbo",
-  fat: "Fett",
-};
-
 type Props = {
   visible: boolean;
   selected: HomeGoalTile[];
@@ -38,7 +32,14 @@ export default function HomeGoalsPickerModal({
   onClose,
   onSave,
 }: Props) {
+  const { t } = useTranslation();
   const [local, setLocal] = useState<HomeGoalTile[]>(selected);
+  const labelMap: Record<HomeGoalTile, string> = {
+    calories: t("homeCalories"),
+    protein: t("homeProtein"),
+    carbs: t("homeCarbsShort"),
+    fat: t("homeFat"),
+  };
 
   // sync when opening
   React.useEffect(() => {
@@ -69,14 +70,14 @@ export default function HomeGoalsPickerModal({
 
       <View style={styles.sheet}>
         <View style={styles.header}>
-          <Text style={[typography.h2, styles.title]}>Velg mål på Home</Text>
+          <Text style={[typography.h2, styles.title]}>{t("homeGoalPickerTitle")}</Text>
           <Pressable onPress={onClose} style={styles.iconBtn}>
             <Ionicons name="close" size={18} color={colors.text} />
           </Pressable>
         </View>
 
         <Text style={[typography.body, styles.help]}>
-          Velg 1–4 mål som vises i “Dagens mål”.
+          {t("homeGoalPickerHelp")}
         </Text>
 
         <View style={styles.list}>
@@ -108,7 +109,7 @@ export default function HomeGoalsPickerModal({
 
         <View style={styles.actions}>
           <Pressable onPress={onClose} style={[styles.btn, styles.btnGhost]}>
-            <Text style={[typography.body, styles.btnTextGhost]}>Avbryt</Text>
+            <Text style={[typography.body, styles.btnTextGhost]}>{t("commonCancel")}</Text>
           </Pressable>
 
           <Pressable
@@ -120,7 +121,7 @@ export default function HomeGoalsPickerModal({
               !canSave && styles.btnDisabled,
             ]}
           >
-            <Text style={[typography.body, styles.btnTextPrimary]}>Lagre</Text>
+            <Text style={[typography.body, styles.btnTextPrimary]}>{t("commonSave")}</Text>
           </Pressable>
         </View>
       </View>

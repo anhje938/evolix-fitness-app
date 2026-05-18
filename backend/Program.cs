@@ -5,6 +5,7 @@ using backend.Data;
 using backend.Features.AdaptivePlanning;
 using backend.Features.Auth;
 using backend.Features.AuthAuth;
+using backend.Features.CutIntelligence;
 using backend.Features.Food;
 using backend.Features.Monitoring;
 using backend.Features.Subscriptions;
@@ -49,6 +50,7 @@ builder.Services.AddScoped<RecoveryAnalysisService>();
 builder.Services.AddScoped<WeeklyReportService>();
 builder.Services.AddScoped<RecommendationService>();
 builder.Services.AddScoped<AdaptivePlanService>();
+builder.Services.AddScoped<CutIntelligenceService>();
 builder.Services.AddHttpClient<RevenueCatSubscriptionService>();
 
 builder.Services.AddMemoryCache();

@@ -1,5 +1,9 @@
 import { typography } from "@/config/typography";
 import { NonMedicalDisclaimer } from "@/components/common/NonMedicalDisclaimer";
+import {
+  coachCompactText,
+  coachVisualTheme,
+} from "@/components/coaching/coachVisualTheme";
 import type { SessionExercise, SessionSet } from "@/types/exercise";
 import {
   getWorkoutCoachPlanSummaryParts,
@@ -7,6 +11,7 @@ import {
 } from "@/utils/exercise/workoutCoach";
 import { parseNullableFloat } from "@/utils/session-overlay/parseNullableFloat";
 import { parseNullableInt } from "@/utils/session-overlay/parseNullableInt";
+import { useTranslation } from "@/i18n/translations";
 import { Ionicons } from "@expo/vector-icons";
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { TextInput as RNTextInput } from "react-native";
@@ -191,9 +196,8 @@ type ExerciseBlockProps = {
 
 const coachGoldTone = {
   icon: "sparkles-outline" as const,
-  tint: overlayColors.amber,
-  bg: "rgba(251,191,36,0.12)",
-  border: "rgba(251,191,36,0.28)",
+  tint: coachVisualTheme.accent,
+  border: coachVisualTheme.accentBorder,
 };
 
 const coachToneMap: Record<
@@ -201,7 +205,6 @@ const coachToneMap: Record<
   {
     icon: keyof typeof Ionicons.glyphMap;
     tint: string;
-    bg: string;
     border: string;
   }
 > = {
@@ -211,6 +214,88 @@ const coachToneMap: Record<
   plateau: coachGoldTone,
   reentry: coachGoldTone,
 };
+
+function localizeWorkoutCoachText(value: string | null, language: "nb" | "en") {
+  if (!value || language !== "en") return value;
+
+  return value
+    .replaceAll("sett", "sets")
+    .replaceAll("minst", "at least")
+    .replaceAll("Trent i dag", "Trained today")
+    .replaceAll("dag siden", "day ago")
+    .replaceAll("dager siden", "days ago");
+}
+
+function workoutCoachHeadline(
+  recommendation: WorkoutCoachRecommendation,
+  language: "nb" | "en"
+) {
+  if (language !== "en") return recommendation.headline;
+
+  if (recommendation.status === "increase") {
+    return recommendation.mode === "load"
+      ? "Try a slightly heavier load"
+      : "Aim for a few more reps";
+  }
+  if (recommendation.status === "decrease") {
+    return "Take a small step back and rebuild";
+  }
+  if (recommendation.status === "plateau") {
+    return recommendation.mode === "load"
+      ? "No clear progress in recent sessions"
+      : "Reps are flat right now";
+  }
+  if (recommendation.status === "reentry") {
+    return `${recommendation.daysSinceLastSession} days since last time`;
+  }
+
+  return recommendation.mode === "load"
+    ? "Build another strong session at the same weight"
+    : "Repeat the setup and own the reps";
+}
+
+function workoutCoachReason(
+  recommendation: WorkoutCoachRecommendation,
+  language: "nb" | "en"
+) {
+  if (language !== "en") return recommendation.reason;
+
+  if (recommendation.status === "increase") {
+    return recommendation.mode === "load"
+      ? "You have shown enough reps at the same weight. The next step is a small load increase with a slightly lower rep target."
+      : "You have an upward trend. The main goal is one more total rep, not a big jump.";
+  }
+  if (recommendation.status === "decrease") {
+    return recommendation.mode === "load"
+      ? "Load or reps have dropped across multiple sessions. Step down slightly and rebuild with clean execution."
+      : "Rep level has been lower across recent sessions. Step down slightly and rebuild stability.";
+  }
+  if (recommendation.status === "plateau") {
+    return "Progress has been flat. Keep the main target realistic and only use the stretch target if you have good control.";
+  }
+  if (recommendation.status === "reentry") {
+    return "It has been a while since last time. Start a little lighter and rebuild rhythm.";
+  }
+  return "The trend is not clear enough for a hard jump. Repeat the same level and let quality decide if you use the stretch target.";
+}
+
+function workoutCoachConfidenceLabel(
+  recommendation: WorkoutCoachRecommendation,
+  language: "nb" | "en"
+) {
+  if (language !== "en") return recommendation.confidenceLabel;
+  if (recommendation.confidence === "high") return "High confidence";
+  if (recommendation.confidence === "medium") return "Medium confidence";
+  return "Low confidence";
+}
+
+function workoutCoachDataSummary(
+  recommendation: WorkoutCoachRecommendation,
+  language: "nb" | "en"
+) {
+  if (language !== "en") return recommendation.dataSummary;
+  return `Based on ${recommendation.historySampleSize} recent sessions.`;
+}
 
 const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
   recommendation,
@@ -223,6 +308,7 @@ const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
   isLocked?: boolean;
   onPress: () => void;
 }) {
+  const { language } = useTranslation();
   const tone = coachToneMap[recommendation.status];
 
   return (
@@ -232,7 +318,7 @@ const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
         styles.coachToggleButton,
         {
           borderColor: tone.border,
-          backgroundColor: "rgba(255,255,255,0.03)",
+          backgroundColor: coachVisualTheme.cardBg,
         },
         pressed && { opacity: 0.94 },
       ]}
@@ -242,7 +328,7 @@ const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
           style={[
             styles.coachToggleIconWrap,
             {
-              backgroundColor: tone.bg,
+              backgroundColor: coachVisualTheme.accentSoft,
               borderColor: tone.border,
             },
           ]}
@@ -263,13 +349,23 @@ const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
         style={[
           styles.coachToggleActionWrap,
           {
-            backgroundColor: "rgba(2,6,23,0.48)",
+            backgroundColor: "rgba(34,24,10,0.30)",
             borderColor: tone.border,
           },
         ]}
       >
         <Text style={[styles.coachToggleAction, { color: tone.tint }]}>
-          {isLocked ? "Lås opp" : isVisible ? "Skjul" : "Vis"}
+          {isLocked
+            ? language === "en"
+              ? "Unlock"
+              : "Lås opp"
+            : isVisible
+            ? language === "en"
+              ? "Hide"
+              : "Skjul"
+            : language === "en"
+            ? "Show"
+            : "Vis"}
         </Text>
         <Ionicons
           name={isLocked ? "lock-closed" : isVisible ? "chevron-up" : "chevron-down"}
@@ -290,21 +386,36 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
   canApply: boolean;
   onApply?: () => void;
 }) {
+  const { language } = useTranslation();
   const tone = coachToneMap[recommendation.status];
   const planSummary = getWorkoutCoachPlanSummaryParts(recommendation);
   const daysSinceLabel =
     recommendation.daysSinceLastSession === 0
-      ? "Trent i dag"
+      ? language === "en"
+        ? "Trained today"
+        : "Trent i dag"
       : recommendation.daysSinceLastSession === 1
-      ? "1 dag siden"
+      ? language === "en"
+        ? "1 day ago"
+        : "1 dag siden"
+      : language === "en"
+      ? `${recommendation.daysSinceLastSession} days ago`
       : `${recommendation.daysSinceLastSession} dager siden`;
   const applyLabel =
     recommendation.status === "increase"
-      ? "Bruk neste steg"
+      ? language === "en"
+        ? "Use next step"
+        : "Bruk neste steg"
       : recommendation.status === "hold"
-      ? "Bruk oppsett"
+      ? language === "en"
+        ? "Use setup"
+        : "Bruk oppsett"
       : recommendation.status === "reentry"
-      ? "Bruk rolig start"
+      ? language === "en"
+        ? "Use easy start"
+        : "Bruk rolig start"
+      : language === "en"
+      ? "Use suggestion"
       : "Bruk forslag";
 
   return (
@@ -312,7 +423,7 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
       style={[
         styles.coachCard,
         {
-          backgroundColor: tone.bg,
+          backgroundColor: coachVisualTheme.cardBg,
           borderColor: tone.border,
         },
       ]}
@@ -323,7 +434,7 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
             style={[
               styles.coachCardIconWrap,
               {
-                backgroundColor: "rgba(2,6,23,0.28)",
+                backgroundColor: coachVisualTheme.accentSoft,
                 borderColor: tone.border,
               },
             ]}
@@ -336,25 +447,25 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
               Coach
             </Text>
             <Text style={[typography.bodyBold, styles.coachCardHeadline]}>
-              {recommendation.headline}
+              {workoutCoachHeadline(recommendation, language)}
             </Text>
           </View>
         </View>
         <View style={styles.coachConfidenceBadge}>
           <Ionicons name="analytics-outline" size={11} color={tone.tint} />
           <Text style={[styles.coachConfidenceText, { color: tone.tint }]}>
-            {recommendation.confidenceLabel}
+            {workoutCoachConfidenceLabel(recommendation, language)}
           </Text>
         </View>
       </View>
 
       <View style={styles.coachSectionBlock}>
         <Text style={[typography.body, styles.coachSectionLabel]}>
-          Anbefalt sett
+          {language === "en" ? "Recommended sets" : "Anbefalt sett"}
         </Text>
         <View style={styles.coachSummaryRow}>
           <Text style={[typography.body, styles.coachSummaryValue]}>
-            {planSummary.setLabel}
+            {localizeWorkoutCoachText(planSummary.setLabel, language)}
           </Text>
           <Ionicons
             name="arrow-forward"
@@ -363,12 +474,12 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
             style={styles.coachSummaryArrow}
           />
           <Text style={[typography.body, styles.coachSummaryValue]}>
-            {planSummary.detailLabel}
+            {localizeWorkoutCoachText(planSummary.detailLabel, language)}
           </Text>
         </View>
 
         <Text style={[typography.body, styles.coachReason]}>
-          {recommendation.reason}
+          {workoutCoachReason(recommendation, language)}
         </Text>
 
         {recommendation.stretchSummary ? (
@@ -378,11 +489,11 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
               <Text style={styles.coachStretchLabel}>Stretch</Text>
             </View>
             <Text style={styles.coachStretchValue}>
-              {recommendation.stretchSummary}
+              {localizeWorkoutCoachText(recommendation.stretchSummary, language)}
             </Text>
             {recommendation.stretchReason ? (
               <Text style={styles.coachStretchNote}>
-                {recommendation.stretchReason}
+                {localizeWorkoutCoachText(recommendation.stretchReason, language)}
               </Text>
             ) : null}
           </View>
@@ -395,7 +506,7 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
             color={overlayColors.muted2}
           />
           <Text style={styles.coachDataText}>
-            {recommendation.dataSummary}
+            {workoutCoachDataSummary(recommendation, language)}
           </Text>
         </View>
       </View>
@@ -408,7 +519,9 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
               size={13}
               color={overlayColors.muted2}
             />
-            <Text style={styles.coachHistoryLabel}>Sist logget</Text>
+            <Text style={styles.coachHistoryLabel}>
+              {language === "en" ? "Last logged" : "Sist logget"}
+            </Text>
           </View>
           <View style={styles.coachHistoryTimeBadge}>
             <Text style={styles.coachHistoryTimeText}>{daysSinceLabel}</Text>
@@ -417,7 +530,7 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
 
         <View style={styles.coachHistorySummaryRow}>
           <Text style={styles.coachHistoryValue}>
-            {recommendation.lastSessionSetLabel}
+            {localizeWorkoutCoachText(recommendation.lastSessionSetLabel, language)}
           </Text>
           <Ionicons
             name="arrow-forward"
@@ -425,7 +538,10 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
             color={overlayColors.muted2}
           />
           <Text style={styles.coachHistoryValue}>
-            {recommendation.lastSessionDetailLabel}
+            {localizeWorkoutCoachText(
+              recommendation.lastSessionDetailLabel,
+              language
+            )}
           </Text>
         </View>
       </View>
@@ -436,7 +552,7 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
           style={({ pressed }) => [
             styles.coachApplyButton,
             {
-              backgroundColor: "rgba(2,6,23,0.48)",
+              backgroundColor: "rgba(34,24,10,0.30)",
               borderColor: tone.border,
             },
             pressed && { opacity: 0.92 },
@@ -465,6 +581,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
   onRemoveSet,
   onInputFocus,
 }: ExerciseBlockProps) {
+  const { t } = useTranslation();
   const repsRefs = useRef<(RNTextInput | null)[]>([]);
   const weightRefs = useRef<(RNTextInput | null)[]>([]);
   const [focusedWeightSetId, setFocusedWeightSetId] = useState<string | null>(
@@ -676,7 +793,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
             >
               <Ionicons name="add" size={16} color={overlayColors.accent} />
               <Text style={[typography.body, styles.addSetText]}>
-                Legg til sett
+                {t("workoutAddSet")}
               </Text>
             </Pressable>
           ) : null}
@@ -685,7 +802,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
             onPress={() => setIsCollapsed((current) => !current)}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel={isCollapsed ? "Vis øvelse" : "Minimer øvelse"}
+            accessibilityLabel={isCollapsed ? t("exerciseShow") : t("exerciseMinimize")}
             style={({ pressed }) => [
               styles.collapseExerciseBtn,
               pressed && { opacity: 0.85 },
@@ -1209,7 +1326,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -1226,19 +1343,19 @@ const styles = StyleSheet.create({
   },
 
   coachToggleIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
   },
 
   coachToggleLabel: {
-    color: overlayColors.text,
-    fontSize: 12.5,
+    color: coachVisualTheme.text,
+    fontSize: coachCompactText.body,
     fontWeight: "500",
-    letterSpacing: 0.1,
+    letterSpacing: 0,
   },
 
   coachPremiumBadge: {
@@ -1248,9 +1365,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 7,
     paddingVertical: 3,
-    backgroundColor: "rgba(251,191,36,0.12)",
+    backgroundColor: coachVisualTheme.accentSoft,
     borderWidth: 1,
-    borderColor: "rgba(251,191,36,0.2)",
+    borderColor: coachVisualTheme.accentSoft,
   },
 
   coachPremiumBadgeText: {
@@ -1291,7 +1408,7 @@ const styles = StyleSheet.create({
   },
 
   coachCard: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -1315,9 +1432,9 @@ const styles = StyleSheet.create({
   },
 
   coachCardIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 11,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -1330,9 +1447,10 @@ const styles = StyleSheet.create({
   },
 
   coachCardHeadline: {
-    color: overlayColors.text,
-    fontSize: 13,
-    lineHeight: 18,
+    color: coachVisualTheme.text,
+    fontSize: coachCompactText.headline,
+    lineHeight: coachCompactText.headlineLine,
+    fontWeight: "400",
   },
 
   coachConfidenceBadge: {
@@ -1341,8 +1459,8 @@ const styles = StyleSheet.create({
     gap: 5,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(251,191,36,0.20)",
-    backgroundColor: "rgba(2,6,23,0.26)",
+    borderColor: coachVisualTheme.accentSoft,
+    backgroundColor: "rgba(34,24,10,0.30)",
     paddingHorizontal: 8,
     paddingVertical: 5,
     flexShrink: 0,
@@ -1373,8 +1491,8 @@ const styles = StyleSheet.create({
   },
 
   coachSectionLabel: {
-    color: overlayColors.muted2,
-    fontSize: 10.5,
+    color: coachVisualTheme.label,
+    fontSize: coachCompactText.label,
     textTransform: "uppercase",
     letterSpacing: 0.35,
     fontWeight: "500",
@@ -1396,9 +1514,9 @@ const styles = StyleSheet.create({
   },
 
   coachSummaryValue: {
-    color: overlayColors.text,
-    fontSize: 13,
-    lineHeight: 18,
+    color: coachVisualTheme.text,
+    fontSize: coachCompactText.value,
+    lineHeight: coachCompactText.valueLine,
     fontWeight: "800",
   },
 
@@ -1407,16 +1525,16 @@ const styles = StyleSheet.create({
   },
 
   coachReason: {
-    color: overlayColors.muted,
-    fontSize: 12,
-    lineHeight: 18,
+    color: coachVisualTheme.textMuted,
+    fontSize: coachCompactText.body,
+    lineHeight: coachCompactText.bodyLine,
   },
 
   coachStretchBox: {
     borderRadius: 13,
     borderWidth: 1,
-    borderColor: "rgba(251,191,36,0.18)",
-    backgroundColor: "rgba(2,6,23,0.24)",
+    borderColor: coachVisualTheme.accentSoft,
+    backgroundColor: coachVisualTheme.panelBgSoft,
     paddingHorizontal: 11,
     paddingVertical: 10,
     gap: 5,
@@ -1429,20 +1547,20 @@ const styles = StyleSheet.create({
   },
 
   coachStretchLabel: {
-    color: overlayColors.muted2,
+    color: coachVisualTheme.label,
     fontSize: 10,
     fontWeight: "800",
     textTransform: "uppercase",
   },
 
   coachStretchValue: {
-    color: overlayColors.text,
-    fontSize: 12.5,
-    fontWeight: "800",
+    color: coachVisualTheme.text,
+    fontSize: coachCompactText.value,
+    fontWeight: "600",
   },
 
   coachStretchNote: {
-    color: overlayColors.muted,
+    color: coachVisualTheme.textMuted,
     fontSize: 11.5,
     lineHeight: 16,
   },
@@ -1453,15 +1571,15 @@ const styles = StyleSheet.create({
     gap: 7,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.12)",
-    backgroundColor: "rgba(2,6,23,0.20)",
+    borderColor: "rgba(251,191,36,0.12)",
+    backgroundColor: coachVisualTheme.panelBgSoft,
     paddingHorizontal: 10,
     paddingVertical: 9,
   },
 
   coachDataText: {
     flex: 1,
-    color: overlayColors.muted,
+    color: coachVisualTheme.textMuted,
     fontSize: 11.5,
     lineHeight: 16,
   },
@@ -1469,8 +1587,8 @@ const styles = StyleSheet.create({
   coachHistoryPill: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    backgroundColor: "rgba(2,6,23,0.28)",
+    borderColor: "rgba(251,191,36,0.12)",
+    backgroundColor: coachVisualTheme.darkPanel,
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 8,
@@ -1491,7 +1609,7 @@ const styles = StyleSheet.create({
   },
 
   coachHistoryLabel: {
-    color: overlayColors.muted2,
+    color: coachVisualTheme.label,
     fontSize: 11.5,
     fontWeight: "500",
   },
@@ -1500,13 +1618,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(34,24,10,0.30)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: coachVisualTheme.accentSoft,
   },
 
   coachHistoryTimeText: {
-    color: overlayColors.text,
+    color: coachVisualTheme.text,
     fontSize: 10.5,
     fontWeight: "500",
   },
@@ -1520,7 +1638,7 @@ const styles = StyleSheet.create({
   },
 
   coachHistoryValue: {
-    color: overlayColors.text,
+    color: coachVisualTheme.text,
     fontSize: 12,
     fontWeight: "500",
   },

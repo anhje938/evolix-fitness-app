@@ -3,6 +3,7 @@ import { generalStyles } from "@/config/styles";
 import { MODAL_MAX_HEIGHT, modalGradientColors, modalTheme } from "@/config/modalTheme";
 import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
+import { useTranslation } from "@/i18n/translations";
 import { FoodDto, FoodFromBarcode } from "@/types/meal";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -61,6 +62,7 @@ export function AddMealSheetQR({
   const [grams, setGrams] = useState("100");
   const [isResolvingScan, setIsResolvingScan] = useState(false);
 
+  const { t } = useTranslation();
   const { token } = useAuth();
 
   const [macrosPer100g, setMacrosPer100g] = useState({
@@ -421,7 +423,7 @@ export function AddMealSheetQR({
                 {!scannedCode && (
                   <View style={styles.scannerCard}>
                     <Text style={styles.scannerLabel}>
-                      Hold strekkoden innenfor rammen
+                      {t("mealScanFrameLabel")}
                     </Text>
                     <View style={styles.scannerFrame}>
                       <QRScanner
@@ -431,27 +433,28 @@ export function AddMealSheetQR({
                       />
                     </View>
                     <Text style={styles.scannerHint}>
-                      Når produktet er skannet, kan du justere gram og lagre
-                      måltidet.
+                      {t("mealScanHint")}
                     </Text>
                   </View>
                 )}
 
                 {scannedCode && (
                   <View style={styles.section}>
-                    <Text style={styles.scannedTitle}>Produkt scannet</Text>
+                    <Text style={styles.scannedTitle}>
+                      {t("mealScanProductScanned")}
+                    </Text>
 
                     <View style={styles.scannedCard}>
                       <View style={styles.scannedRow}>
                         <View style={styles.scannedCopy}>
                           <Text style={styles.scannedName}>
                             {isResolvingScan
-                              ? "Henter produkt..."
-                              : productName ?? "Ukjent produkt"}
+                              ? t("mealScanFetchingProduct")
+                              : productName ?? t("mealScanUnknownProduct")}
                           </Text>
                           <Text style={styles.scannedMeta}>
                             {isResolvingScan
-                              ? `${scannedCode} • Henter produktdata`
+                              ? `${scannedCode} • ${t("mealScanFetchingData")}`
                               : scannedCode}
                           </Text>
                         </View>
@@ -589,10 +592,10 @@ export function AddMealSheetQR({
                     />
                     <Text style={styles.saveText}>
                       {isResolvingScan
-                        ? "Henter produkt..."
+                        ? t("mealScanFetchingProduct")
                         : canSaveScannedMeal
-                          ? "Lagre måltid"
-                          : "Skann et produkt først"}
+                          ? t("mealSave")
+                          : t("mealScanProductFirst")}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>

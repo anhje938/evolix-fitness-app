@@ -1,6 +1,7 @@
 import { generalStyles } from "@/config/styles";
 import { MODAL_MAX_HEIGHT, modalGradientColors, modalTheme } from "@/config/modalTheme";
 import { typography } from "@/config/typography";
+import { useTranslation } from "@/i18n/translations";
 import { useKeyboardAwareSheetScroll } from "@/hooks/useKeyboardAwareSheetScroll";
 import { FoodDto } from "@/types/meal";
 import { Ionicons } from "@expo/vector-icons";
@@ -44,6 +45,7 @@ export function AddMealSheet({
   mode,
   onSubmit,
 }: AddMealSheetProps) {
+  const { t } = useTranslation();
   const isClosingRef = useRef(false);
 
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -157,7 +159,7 @@ export function AddMealSheet({
 
   const handleSave = () => {
     const payload: FoodDto = {
-      title: title.trim() || "Hurtigmåltid",
+      title: title.trim() || t("mealNamePlaceholder"),
       calories: Number(calories) || 0,
       proteins: Number(proteins) || 0,
       carbs: Number(carbs) || 0,
@@ -191,7 +193,7 @@ export function AddMealSheet({
             style={StyleSheet.absoluteFill}
             onPress={handleRequestClose}
             accessibilityRole="button"
-            accessibilityLabel="Lukk legg til måltid"
+            accessibilityLabel={t("mealAddTitle")}
           />
         </Animated.View>
 
@@ -243,7 +245,7 @@ export function AddMealSheet({
               >
                 <View style={styles.headerRow}>
                   <Text style={[typography.h2, styles.title]}>
-                    Legg til måltid
+                    {t("mealAddTitle")}
                   </Text>
                   <TouchableOpacity
                     onPress={handleRequestClose}
@@ -260,12 +262,12 @@ export function AddMealSheet({
 
                 <View style={styles.section}>
                   <Text style={[typography.bodyBlack, styles.label]}>
-                    Måltidsnavn
+                    {t("mealName")}
                   </Text>
                   <TextInput
                     ref={titleInputRef}
                     style={styles.textInput}
-                    placeholder="Hurtigmåltid"
+                    placeholder={t("mealNamePlaceholder")}
                     value={title}
                     onChangeText={setTitle}
                     onFocus={() => handleInputFocus(titleInputRef.current)}
@@ -278,7 +280,7 @@ export function AddMealSheet({
 
                 <View style={styles.section}>
                   <Text style={[typography.bodyBlack, styles.label]}>
-                    Kalorier
+                    {t("homeCalories")}
                   </Text>
                   <View style={styles.calorieContainer}>
                     <TextInput
@@ -307,7 +309,7 @@ export function AddMealSheet({
                 <View style={[styles.section, styles.macroRow]}>
                   <View style={styles.macroWrapper}>
                     <Text style={[typography.bodyBlack, styles.macroLabel]}>
-                      Protein (g)
+                      {t("homeProtein")} (g)
                     </Text>
                     <TextInput
                       ref={proteinsInputRef}
@@ -326,7 +328,7 @@ export function AddMealSheet({
 
                   <View style={styles.macroWrapper}>
                     <Text style={[typography.bodyBlack, styles.macroLabel]}>
-                      Karbs (g)
+                      {t("homeCarbsShort")} (g)
                     </Text>
                     <TextInput
                       ref={carbsInputRef}
@@ -345,7 +347,7 @@ export function AddMealSheet({
 
                   <View style={styles.macroWrapper}>
                     <Text style={[typography.bodyBlack, styles.macroLabel]}>
-                      Fett (g)
+                      {t("homeFat")} (g)
                     </Text>
                     <TextInput
                       ref={fatsInputRef}
@@ -365,7 +367,7 @@ export function AddMealSheet({
 
                 <View style={styles.section}>
                   <Text style={[typography.bodyBlack, styles.label]}>
-                    Tidspunkt
+                    {t("modalTiming")}
                   </Text>
                   <AppDateTimePicker
                     label=""
@@ -386,11 +388,10 @@ export function AddMealSheet({
                   </View>
                   <View style={styles.tipCopy}>
                     <Text style={styles.tipTitle}>
-                      Tips for nøyaktig logging
+                      {t("mealTipTitle")}
                     </Text>
                     <Text style={styles.tipText}>
-                      Vei maten for mest nøyaktige resultater. Logg måltidet
-                      tett på når du spiser for en renere historikk.
+                      {t("mealTipBody")}
                     </Text>
                   </View>
                 </View>
@@ -423,7 +424,7 @@ export function AddMealSheet({
                       color="#FFFFFF"
                       style={styles.saveIcon}
                     />
-                    <Text style={styles.saveText}>Lagre måltid</Text>
+                    <Text style={styles.saveText}>{t("mealSave")}</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </ScrollView>

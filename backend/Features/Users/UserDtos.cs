@@ -30,6 +30,9 @@ namespace backend.Features.Users
         [InvariantDecimalRange("20", "500")]
         public decimal? WeightGoalKg { get; set; }
         public DateTime? WeightGoalTimeUtc { get; set; }
+        public DateTime? CutStartDateUtc { get; set; }
+        [InvariantDecimalRange("20", "500")]
+        public decimal? CutStartWeightKg { get; set; }
         public WeightDirection? WeightDirection { get; set; }
         public MuscleFilter? MuscleFilter { get; set; }
         [MaxLength(20)]

@@ -16,6 +16,7 @@ import { useCreateExercise } from "@/hooks/useCreateExercise";
 import { useAllExerciseSetsHistory } from "@/hooks/useAllExerciseSetsHistory";
 import { useLiveDurationLabel } from "@/hooks/useLiveDurationLabel";
 import { useExercises } from "@/hooks/useExercises";
+import { useTranslation } from "@/i18n/translations";
 import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { estimate1RMFromTopSet } from "@/utils/exercise/oneRepMax";
 import { sortExercisesByPopularity } from "@/utils/exercise/sortExercisesByPopularity";
@@ -394,6 +395,7 @@ function SessionDateTimeControls({
 }
 
 export function WorkoutSessionOverlay() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const {
     isOpen,
@@ -571,12 +573,12 @@ export function WorkoutSessionOverlay() {
     if (!canDeleteCompleted) return;
 
     Alert.alert(
-      "Slette økten?",
-      "Dette kan ikke angres. Hele økten og alle sett slettes.",
+      t("workoutDeleteTitle"),
+      t("workoutDeleteBody"),
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t("commonCancel"), style: "cancel" },
         {
-          text: "Slett",
+          text: t("commonDelete"),
           style: "destructive",
           onPress: async () => {
             await deleteSession();
@@ -818,8 +820,8 @@ export function WorkoutSessionOverlay() {
 
   const showSaveSuccessToast = useCallback(() => {
     const message = isEditingCompletedSession
-      ? "Endringer lagret"
-      : "Økt lagret";
+      ? t("workoutChangesSaved")
+      : t("workoutSaved");
 
     setSaveSuccessMessage(message);
     saveSuccessAnim.stopAnimation();
@@ -844,7 +846,7 @@ export function WorkoutSessionOverlay() {
         setSaveSuccessMessage("");
       }
     });
-  }, [isEditingCompletedSession, saveSuccessAnim]);
+  }, [isEditingCompletedSession, saveSuccessAnim, t]);
 
   const ensureFocusedInputVisible = useCallback(
     (input: RNTextInput | null, keyboardHeight = keyboardHeightRef.current) => {
@@ -1034,7 +1036,10 @@ Rett opp før du ${beforeSaveAction}.`,
       return;
     }
 
-    const res = validateSessionForSave(session.exercises);
+    const res = validateSessionForSave(session.exercises, {
+      needExercise: t("workoutValidationNeedExercise"),
+      needSets: t("workoutValidationNeedSets"),
+    });
     if (!res.ok) {
       Alert.alert(
         isEditingCompletedSession
@@ -1207,13 +1212,14 @@ Er du sikker på at dette stemmer?`,
     );
   }
 
-  const modeLabel = session.mode === "quick" ? "Fri økt" : "Planlagt økt";
+  const modeLabel =
+    session.mode === "quick" ? t("workoutFreeSession") : t("workoutPlannedSession");
   const finishButtonLabel = isEditingCompletedSession
-    ? "Lagre endringer"
-    : "Fullfør økt";
+    ? t("modalSaveChanges")
+    : t("workoutComplete");
   const saveSummaryConfirmLabel = isEditingCompletedSession
-    ? "Lagre endringer"
-    : "Lagre økt";
+    ? t("modalSaveChanges")
+    : t("workoutSave");
   const summaryPrimaryMetricLabel =
     savePreview?.totalVolumeKg != null ? "Volum" : "Reps";
   const summaryPrimaryMetricValue =
@@ -1257,7 +1263,7 @@ Er du sikker på at dette stemmer?`,
           Ingen øvelser lagt til
         </Text>
         <Text style={[typography.body, styles.emptySubtitle]}>
-          Legg til øvelse for å starte økten.
+          {t("workoutAddExerciseToStart")}
         </Text>
         <Pressable
           onPress={handleOpenExercisePicker}
@@ -1332,13 +1338,13 @@ Er du sikker på at dette stemmer?`,
                 <Text
                   style={[typography.bodyBold, styles.saveSummaryDisplayTitle]}
                 >
-                  Lagre trening
+                  {t("workoutSaveTraining")}
                 </Text>
                 <Text style={[typography.bodyBold, styles.saveSummaryTitle]}>
-                  Sammendrag av økt
+                  {t("workoutSummaryTitle")}
                 </Text>
                 <Text style={[typography.body, styles.saveSummarySubtitle]}>
-                  Se over dette før du lagrer.
+                  {t("workoutSummarySubtitle")}
                 </Text>
               </View>
 
@@ -1493,7 +1499,7 @@ Er du sikker på at dette stemmer?`,
                           styles.saveSummaryStatLabel,
                         ]}
                       >
-                        Øvelser
+                        {t("navExercises")}
                       </Text>
                       <Text
                         style={[
@@ -1584,7 +1590,7 @@ Er du sikker på at dette stemmer?`,
                       styles.saveSummarySectionTitle,
                     ]}
                   >
-                    Øvelser som lagres
+                    {t("workoutExercisesSaved")}
                   </Text>
 
                   {savePreviewWithPr.exercises.map((exercise) => (
@@ -1668,7 +1674,7 @@ Er du sikker på at dette stemmer?`,
                     styles.saveSummaryPrimaryBtnText,
                   ]}
                 >
-                  {isSaving ? "Lagrer..." : saveSummaryConfirmLabel}
+                  {isSaving ? t("modalSaving") : saveSummaryConfirmLabel}
                 </Text>
               </Pressable>
             </View>
@@ -1706,7 +1712,7 @@ Er du sikker på at dette stemmer?`,
         <View style={styles.pickerHeader}>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[typography.bodyBold, styles.pickerTitle]}>
-              Legg til øvelse
+              {t("workoutAddExercise")}
             </Text>
             <Text style={[typography.body, styles.pickerSubtitle]}>
               Velg fra øvelsesbiblioteket ditt
@@ -1775,7 +1781,7 @@ Er du sikker på at dette stemmer?`,
           <TextInput
             value={exerciseSearch}
             onChangeText={setExerciseSearch}
-            placeholder="Søk etter øvelse..."
+            placeholder={t("workoutSearchExercisePlaceholder")}
             placeholderTextColor={overlayColors.muted2}
             style={styles.pickerSearchInput}
             autoCorrect={false}
@@ -1809,7 +1815,7 @@ Er du sikker på at dette stemmer?`,
                 style={[typography.bodyBold, styles.pickerCreateTitle]}
                 numberOfLines={1}
               >
-                Opprett ny øvelse
+                {t("workoutCreateExercise")}
               </Text>
               <Text
                 style={[typography.body, styles.pickerCreateSubtitle]}
@@ -2040,7 +2046,7 @@ Er du sikker på at dette stemmer?`,
                   )}
 
                   <Text style={[typography.body, styles.headerSubtitle]}>
-                    {isEditingCompletedSession ? "Rediger økt" : modeLabel}
+                    {isEditingCompletedSession ? t("workoutEditTitle") : modeLabel}
                   </Text>
                 </View>
               </View>
@@ -2084,7 +2090,7 @@ Er du sikker på at dette stemmer?`,
               <Divider />
               <Stat
                 icon="barbell-outline"
-                label="Øvelser"
+                label={t("navExercises")}
                 value={`${totals.exercises}`}
               />
               <Divider />
@@ -2106,7 +2112,7 @@ Er du sikker på at dette stemmer?`,
                     color={overlayColors.accent}
                   />
                   <Text style={[typography.body, styles.addExerciseTopText]}>
-                    Legg til øvelse
+                    {t("workoutAddExercise")}
                   </Text>
                 </View>
               </Pressable>
@@ -2133,7 +2139,7 @@ Er du sikker på at dette stemmer?`,
                     style={[typography.bodyBold, styles.pickerCreateTitle]}
                     numberOfLines={1}
                   >
-                    Opprett ny øvelse
+                    {t("workoutCreateExercise")}
                   </Text>
                   <Text
                     style={[typography.body, styles.pickerCreateSubtitle]}
@@ -2166,7 +2172,7 @@ Er du sikker på at dette stemmer?`,
                       style={[typography.bodyBold, styles.pickerCreateTitle]}
                       numberOfLines={1}
                     >
-                      {`Opprett "${trimmedExerciseSearch}"`}
+                      {`${t("exerciseCreate")} "${trimmedExerciseSearch}"`}
                     </Text>
                     <Text
                       style={[typography.body, styles.pickerCreateSubtitle]}
@@ -2212,7 +2218,7 @@ Er du sikker på at dette stemmer?`,
                     Ingen øvelser lagt til
                   </Text>
                   <Text style={[typography.body, styles.emptySubtitle]}>
-                    Legg til øvelser for å starte økten
+                    {t("workoutAddExercisesToStart")}
                   </Text>
                   <Pressable
                     onPress={handleOpenExercisePicker}
@@ -2285,7 +2291,7 @@ Er du sikker på at dette stemmer?`,
                 >
                   <Ionicons name="checkmark-done" size={18} color="white" />
                   <Text style={[typography.body, styles.finishText]}>
-                    {isSaving ? "Lagrer..." : finishButtonLabel}
+                    {isSaving ? t("modalSaving") : finishButtonLabel}
                   </Text>
                 </LinearGradient>
               </Pressable>
@@ -2304,7 +2310,7 @@ Er du sikker på at dette stemmer?`,
                     color={overlayColors.danger}
                   />
                   <Text style={[typography.body, styles.deleteBottomText]}>
-                    Slett økt
+                    {t("workoutDelete")}
                   </Text>
                 </Pressable>
               ) : null}
@@ -2342,7 +2348,7 @@ Er du sikker på at dette stemmer?`,
                         styles.saveSummaryDisplayTitle,
                       ]}
                     >
-                      Lagre trening
+                      {t("workoutSaveTraining")}
                     </Text>
                     <Text
                       style={[typography.bodyBold, styles.saveSummaryTitle]}
@@ -2515,7 +2521,7 @@ Er du sikker på at dette stemmer?`,
                             styles.saveSummaryStatLabel,
                           ]}
                         >
-                          Øvelser
+                          {t("navExercises")}
                         </Text>
                         <Text
                           style={[
@@ -2602,7 +2608,7 @@ Er du sikker på at dette stemmer?`,
                     <Text
                       style={[typography.bodyBold, styles.saveSummarySectionTitle]}
                     >
-                      Øvelser som lagres
+                      {t("workoutExercisesSaved")}
                     </Text>
 
                     {savePreviewWithPr.exercises.map((exercise) => (
@@ -2686,7 +2692,7 @@ Er du sikker på at dette stemmer?`,
                         styles.saveSummaryPrimaryBtnText,
                       ]}
                     >
-                      {isSaving ? "Lagrer..." : saveSummaryConfirmLabel}
+                      {isSaving ? t("modalSaving") : saveSummaryConfirmLabel}
                     </Text>
                   </Pressable>
                 </View>

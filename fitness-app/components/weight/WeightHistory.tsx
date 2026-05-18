@@ -10,6 +10,7 @@ import {
 } from "@/utils/date";
 import { getRelativeDateLabel } from "@/utils/pastWeek";
 import { weeklyAverageProgression } from "@/utils/weightProgression";
+import { useTranslation } from "@/i18n/translations";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMemo, useState } from "react";
@@ -35,6 +36,7 @@ export default function WeightHistory({
   weeklySummary,
   onEditWeight,
 }: WeightHistoryProps) {
+  const { t } = useTranslation();
   const [listMode, setListMode] = useState<"daily" | "weekly">("daily");
   const [visibleCount, setVisibleCount] = useState<number>(DAILY_PAGE_SIZE);
 
@@ -321,7 +323,7 @@ export default function WeightHistory({
                     pressed && onEditWeight && styles.rowCardPressed,
                   ]}
                   accessibilityRole={onEditWeight ? "button" : undefined}
-                  accessibilityLabel="Rediger vekt"
+                  accessibilityLabel={t("weightEditTitle")}
                 >
                   <LinearGradient
                     pointerEvents="none"

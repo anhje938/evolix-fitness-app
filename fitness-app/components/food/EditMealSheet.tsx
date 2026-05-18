@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import XIcon from "../../assets/icons/white-x.svg";
 import { AppDateTimePicker } from "../date/AppDateTimePicker";
+import { useTranslation } from "@/i18n/translations";
 
 type EditMealSheetProps = {
   isOpen: boolean;
@@ -55,6 +56,7 @@ export function EditMealSheet({
   onSubmit,
   onDelete,
 }: EditMealSheetProps) {
+  const { t } = useTranslation();
   const mealId = useMemo(() => (meal ? String(meal.id) : ""), [meal]);
 
   const [title, setTitle] = useState("");
@@ -91,11 +93,11 @@ export function EditMealSheet({
   const handleSave = () => {
     const newErrors: FieldErrors = {};
 
-    if (!title.trim()) newErrors.title = "Tittel mangler";
-    if (!calories.trim()) newErrors.calories = "Kalorier mangler";
-    if (!proteins.trim()) newErrors.proteins = "Proteiner mangler";
-    if (!carbs.trim()) newErrors.carbs = "Karbs mangler";
-    if (!fats.trim()) newErrors.fats = "Fett mangler";
+    if (!title.trim()) newErrors.title = t("mealMissingTitle");
+    if (!calories.trim()) newErrors.calories = t("mealMissingCalories");
+    if (!proteins.trim()) newErrors.proteins = t("mealMissingProtein");
+    if (!carbs.trim()) newErrors.carbs = t("mealMissingCarbs");
+    if (!fats.trim()) newErrors.fats = t("mealMissingFat");
 
     if (
       newErrors.title ||
@@ -144,12 +146,14 @@ export function EditMealSheet({
     if (!onDelete) return;
 
     Alert.alert(
-      "Slette m\u00E5ltid?",
-      `${meal.title?.trim() ? meal.title : "M\u00E5ltidet"} fjernes fra matloggen.`,
+      t("mealDeleteTitle"),
+      t("mealDeleteBody", {
+        meal: meal.title?.trim() ? meal.title : t("mealMenuTitle"),
+      }),
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t("commonCancel"), style: "cancel" },
         {
-          text: "Slett",
+          text: t("commonDelete"),
           style: "destructive",
           onPress: () => {
             void Promise.resolve(onDelete(mealId));
@@ -185,10 +189,10 @@ export function EditMealSheet({
                   <View style={styles.headerRow}>
                     <View style={{ flex: 1 }}>
                       <Text style={[typography.h2, styles.title]}>
-                        Rediger måltid
+                        {t("mealEditTitle")}
                       </Text>
                       <Text style={styles.subtitle} numberOfLines={1}>
-                        {meal.title?.trim() ? meal.title : "Måltid"}
+                        {meal.title?.trim() ? meal.title : t("mealMenuTitle")}
                       </Text>
                     </View>
 
@@ -212,7 +216,7 @@ export function EditMealSheet({
                         color="rgba(229,236,255,0.92)"
                         style={{ marginRight: 8 }}
                       />
-                      <Text style={styles.actionText}>Tilbakestill</Text>
+                      <Text style={styles.actionText}>{t("commonReset")}</Text>
                     </TouchableOpacity>
 
                     <View style={styles.actionDivider} />
@@ -225,7 +229,7 @@ export function EditMealSheet({
                         style={{ marginRight: 8 }}
                       />
                       <Text style={styles.actionHintText}>
-                        Endringer lagres når du trykker Oppdater.
+                        {t("mealSaveHint")}
                       </Text>
                     </View>
                   </View>
@@ -233,7 +237,7 @@ export function EditMealSheet({
                   {/* meal title */}
                   <View style={styles.section}>
                     <Text style={[typography.bodyBlack, styles.label]}>
-                      Måltidsnavn
+                      {t("mealName")}
                     </Text>
                     <TextInput
                       style={styles.textInput}
@@ -251,7 +255,7 @@ export function EditMealSheet({
                   {/* calories */}
                   <View style={styles.section}>
                     <Text style={[typography.bodyBlack, styles.label]}>
-                      Kalorier
+                      {t("homeCalories")}
                     </Text>
                     <View style={styles.calorieContainer}>
                       <TextInput
@@ -280,7 +284,7 @@ export function EditMealSheet({
                   <View style={[styles.section, styles.macroRow]}>
                     <View style={styles.macroWrapper}>
                       <Text style={[typography.bodyBlack, styles.macroLabel]}>
-                        Protein (g)
+                        {t("homeProtein")} (g)
                       </Text>
                       <TextInput
                         style={styles.macroInput}
@@ -300,7 +304,7 @@ export function EditMealSheet({
 
                     <View style={styles.macroWrapper}>
                       <Text style={[typography.bodyBlack, styles.macroLabel]}>
-                        Karbs (g)
+                        {t("homeCarbsShort")} (g)
                       </Text>
                       <TextInput
                         style={styles.macroInput}
@@ -320,7 +324,7 @@ export function EditMealSheet({
 
                     <View style={styles.macroWrapper}>
                       <Text style={[typography.bodyBlack, styles.macroLabel]}>
-                        Fett (g)
+                        {t("homeFat")} (g)
                       </Text>
                       <TextInput
                         style={styles.macroInput}
@@ -342,7 +346,7 @@ export function EditMealSheet({
                   {/* time picker */}
                   <View style={styles.section}>
                     <Text style={[typography.bodyBlack, styles.label]}>
-                      Tidspunkt
+                      {t("modalTiming")}
                     </Text>
                     <AppDateTimePicker
                       label=""
@@ -362,10 +366,9 @@ export function EditMealSheet({
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.tipTitle}>Redigering</Text>
+                      <Text style={styles.tipTitle}>{t("mealEditTipTitle")}</Text>
                       <Text style={styles.tipText}>
-                        Oppdater gjerne tidspunktet hvis du logget feil.
-                        Makroene kan justeres senere uten å endre historikken.
+                        {t("mealEditTipBody")}
                       </Text>
                     </View>
                   </View>
@@ -387,7 +390,7 @@ export function EditMealSheet({
                         color="#FFFFFF"
                         style={{ marginRight: 8 }}
                       />
-                      <Text style={styles.saveText}>Oppdater måltid</Text>
+                      <Text style={styles.saveText}>{t("mealUpdate")}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                   {onDelete ? (
@@ -401,7 +404,7 @@ export function EditMealSheet({
                         color="rgba(254,202,202,0.98)"
                         style={styles.deleteIcon}
                       />
-                      <Text style={styles.deleteText}>{"Slett m\u00E5ltid"}</Text>
+                      <Text style={styles.deleteText}>{t("mealDelete")}</Text>
                     </TouchableOpacity>
                   ) : null}
                 </ScrollView>

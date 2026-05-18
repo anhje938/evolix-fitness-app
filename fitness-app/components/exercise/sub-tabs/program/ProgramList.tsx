@@ -4,6 +4,7 @@ import { useSubscription } from "@/context/SubscriptionProvider";
 import { useWorkoutSession } from "@/context/workoutSessionContext";
 import type { Exercise, Program, Workout } from "@/types/exercise";
 import type { AppLanguage } from "@/types/userSettings";
+import { translate } from "@/i18n/translations";
 import { getProgramDisplay } from "@/utils/exercise/localizedTraining";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -65,12 +66,11 @@ export const ProgramList = memo(function ProgramList({
         </View>
 
         <Text style={[typography.h2, styles.emptyTitle]}>
-          Ingen programmer enda
+          {translate(language, "programEmptyTitle")}
         </Text>
 
         <Text style={[typography.body, styles.emptySub]}>
-          Trykk på <Text style={styles.inlinePlus}>+</Text> for å lage ditt
-          første program.
+          {translate(language, "programEmptyBody")}
         </Text>
       </View>
     );

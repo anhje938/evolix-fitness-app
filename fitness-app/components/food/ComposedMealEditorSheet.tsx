@@ -4,6 +4,7 @@ import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
 import { useKeyboardAwareSheetScroll } from "@/hooks/useKeyboardAwareSheetScroll";
+import { useTranslation } from "@/i18n/translations";
 import {
   ComposedMeal,
   FoodFromBarcode,
@@ -98,6 +99,7 @@ export function ComposedMealEditorSheet({
   onClose,
   onSubmit,
 }: ComposedMealEditorSheetProps) {
+  const { t } = useTranslation();
   const isEdit = !!initialMeal;
   const { token } = useAuth();
 
@@ -393,7 +395,7 @@ export function ComposedMealEditorSheet({
 
     if (!token) {
       closeIngredientScanner();
-      Alert.alert("Mangler innlogging", "Logg inn på nytt og prøv igjen.");
+      Alert.alert(t("commonMissingLoginTitle"), t("commonLoginAgainBody"));
       return;
     }
 
@@ -457,8 +459,8 @@ export function ComposedMealEditorSheet({
       if (__DEV__) console.log("Could not scan ingredient barcode", error);
       closeIngredientScanner();
       Alert.alert(
-        "Fant ikke produkt",
-        "Kunne ikke hente produktdata fra strekkoden. Prøv igjen eller legg inn manuelt."
+        t("mealProductNotFoundTitle"),
+        t("mealProductNotFoundBody")
       );
     } finally {
       if (
@@ -478,7 +480,7 @@ export function ComposedMealEditorSheet({
   const handleSave = async () => {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setErrorText("Retten må ha et navn.");
+      setErrorText(t("mealDishMissingName"));
       return;
     }
 
@@ -495,12 +497,12 @@ export function ComposedMealEditorSheet({
       .filter((ing) => ing.name.length > 0);
 
     if (normalizedIngredients.length === 0) {
-      setErrorText("Legg til minst en ingrediens med navn.");
+      setErrorText(t("mealIngredientMissingName"));
       return;
     }
 
     if (normalizedIngredients.some((ing) => ing.amountGrams <= 0)) {
-      setErrorText("Alle ingredienser må ha gram over 0.");
+      setErrorText(t("mealIngredientMissingGrams"));
       return;
     }
 
@@ -579,10 +581,10 @@ export function ComposedMealEditorSheet({
               <View style={styles.headerRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={[typography.h2, styles.title]}>
-                    {isEdit ? "Rediger rett" : "Ny rett"}
+                    {isEdit ? t("mealEditDish") : t("mealNewDish")}
                   </Text>
                   <Text style={[typography.body, styles.subtitle]}>
-                    Legg inn ingredienser med gram for realistisk logging
+                    {t("mealDishEditorSubtitle")}
                   </Text>
                 </View>
 
@@ -593,7 +595,7 @@ export function ComposedMealEditorSheet({
 
               <View style={styles.section}>
                 <Text style={[typography.bodyBlack, styles.label]}>
-                  Navn på rett
+                  {t("mealDishNameLabel")}
                 </Text>
                 <TextInput
                   ref={(input) => setInputRef(mealNameInputKey, input)}
@@ -659,7 +661,7 @@ export function ComposedMealEditorSheet({
                   <View style={styles.metaInfoChip}>
                     <Ionicons name="list-outline" size={12} color="#BAE6FD" />
                     <Text style={styles.metaInfoText}>
-                      {activeIngredientCount} ingredienser
+                      {t("mealIngredientCount", { count: activeIngredientCount })}
                     </Text>
                   </View>
                 </View>
@@ -693,14 +695,14 @@ export function ComposedMealEditorSheet({
 
               <View style={styles.sectionTop}>
                 <Text style={[typography.bodyBlack, styles.sectionTitle]}>
-                  Ingredienser
+                  {t("mealIngredients")}
                 </Text>
                 <TouchableOpacity
                   onPress={handleAddIngredient}
                   style={styles.addIngredientBtn}
                 >
                   <Ionicons name="add" size={14} color="#E6FFFB" />
-                  <Text style={styles.addIngredientText}>Legg til</Text>
+                  <Text style={styles.addIngredientText}>{t("mealAddIngredient")}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -710,7 +712,7 @@ export function ComposedMealEditorSheet({
                     <Text
                       style={[typography.bodyBlack, styles.ingredientTitle]}
                     >
-                      Ingrediens {idx + 1}
+                      {t("mealIngredientTitle", { index: idx + 1 })}
                     </Text>
                     <TouchableOpacity
                       onPress={() => handleRemoveIngredient(ing.key)}
@@ -738,7 +740,7 @@ export function ComposedMealEditorSheet({
                     >
                       <Ionicons name="scan-outline" size={14} color="#22D3EE" />
                       <Text style={styles.scanBtnText}>
-                        {ing.scannedPer100 ? "Skann på nytt" : "Skann produkt"}
+                        {ing.scannedPer100 ? t("mealScanAgain") : t("mealScanProduct")}
                       </Text>
                     </TouchableOpacity>
 
@@ -758,7 +760,7 @@ export function ComposedMealEditorSheet({
                     <View style={styles.scannerCard}>
                       <Text style={styles.scannerLabel}>
                         {scanLoadingKey === ing.key
-                          ? "Henter produkt..."
+                          ? t("mealScanFetchingProduct")
                           : "Hold strekkoden innenfor rammen"}
                       </Text>
                       <View style={styles.scannerFrame}>
@@ -787,7 +789,7 @@ export function ComposedMealEditorSheet({
                         ] ?? null
                       )
                     }
-                    placeholder="Navn på ingrediens"
+                    placeholder={t("mealIngredientNamePlaceholder")}
                     placeholderTextColor="rgba(148,163,184,0.82)"
                     style={[styles.input, styles.ingredientInput]}
                     returnKeyType="next"
@@ -875,7 +877,7 @@ export function ComposedMealEditorSheet({
                       />
                     </View>
                     <View style={styles.gridCell}>
-                      <Text style={styles.smallLabel}>Protein</Text>
+                      <Text style={styles.smallLabel}>{t("homeProtein")}</Text>
                       <TextInput
                         ref={(input) =>
                           setInputRef(
@@ -914,7 +916,7 @@ export function ComposedMealEditorSheet({
                       />
                     </View>
                     <View style={styles.gridCell}>
-                      <Text style={styles.smallLabel}>Karbo</Text>
+                      <Text style={styles.smallLabel}>{t("homeCarbsShort")}</Text>
                       <TextInput
                         ref={(input) =>
                           setInputRef(
@@ -951,7 +953,7 @@ export function ComposedMealEditorSheet({
                       />
                     </View>
                     <View style={styles.gridCell}>
-                      <Text style={styles.smallLabel}>Fett</Text>
+                      <Text style={styles.smallLabel}>{t("homeFat")}</Text>
                       <TextInput
                         ref={(input) =>
                           setInputRef(
@@ -1009,10 +1011,10 @@ export function ComposedMealEditorSheet({
                     <Ionicons name="save-outline" size={17} color="white" />
                     <Text style={styles.saveText}>
                       {isSaving
-                        ? "Lagrer..."
+                        ? t("modalSaving")
                         : isEdit
-                        ? "Oppdater rett"
-                        : "Lagre rett"}
+                        ? t("mealUpdateDish")
+                        : t("mealSaveDish")}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>

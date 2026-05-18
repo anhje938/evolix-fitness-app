@@ -1,5 +1,6 @@
 import { CompletedWorkoutSummaryDto } from "@/api/exercise/completedWorkouts";
 import { typography } from "@/config/typography";
+import { useTranslation } from "@/i18n/translations";
 import { formatDateKeyNO, formatTimeNO, getOsloDateKey } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import React, { memo, useMemo } from "react";
@@ -68,6 +69,7 @@ export const WorkoutHistoryList = memo(function WorkoutHistoryList({
   sessions: CompletedWorkoutSummaryDto[];
   onOpenSession: (sessionId: string) => void;
 }) {
+  const { t } = useTranslation();
   const grouped = useMemo(() => {
     const sorted = [...sessions].sort(
       (a, b) =>
@@ -94,10 +96,10 @@ export const WorkoutHistoryList = memo(function WorkoutHistoryList({
     return (
       <View style={styles.empty}>
         <Text style={[typography.bodyBold, styles.emptyTitle]}>
-          Ingen fullførte økter enda
+          {t("workoutNoCompletedTitle")}
         </Text>
         <Text style={[typography.body, styles.emptySubtitle]}>
-          Fullfør en økt for å se historikk her.
+          {t("workoutNoCompletedBody")}
         </Text>
       </View>
     );

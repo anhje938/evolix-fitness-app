@@ -9,6 +9,7 @@ import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useExercises } from "@/hooks/useExercises";
+import { useTranslation } from "@/i18n/translations";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -130,6 +131,7 @@ export default function ProgressTab({
   selectedExerciseId,
   onSelectExercise,
 }: ProgressTabProps) {
+  const { t } = useTranslation();
   const { userSettings } = useUserSettings();
   const { data: exerciseData } = useExercises();
   const searchInputRef = useRef<TextInput | null>(null);
@@ -322,9 +324,9 @@ export default function ProgressTab({
     >
       <View style={styles.headerRow}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[typography.h2, styles.heading]}>Progresjon</Text>
+          <Text style={[typography.h2, styles.heading]}>{t("progressionTitle")}</Text>
           <Text style={[typography.body, styles.subHeading]}>
-            Velg øvelse og følg utviklingen din over tid.
+            {t("progressionSubtitle")}
           </Text>
         </View>
 
@@ -380,7 +382,7 @@ export default function ProgressTab({
           value={search}
           onChangeText={setSearch}
           placeholder={
-            selectedExercise ? selectedExercise.name : "Søk etter øvelse..."
+            selectedExercise ? selectedExercise.name : t("progressionSearchPlaceholder")
           }
           placeholderTextColor={ui.muted2}
           style={styles.searchInput}

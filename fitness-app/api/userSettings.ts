@@ -46,6 +46,8 @@ const FALLBACK_SETTINGS: UserSettings = {
   foodCoachExcludedDateKeys: [],
   weightGoalKg: 84,
   weightGoalTimeUtc: getFutureUtcNoonIsoDate(84),
+  cutStartDateUtc: null,
+  cutStartWeightKg: null,
   weightDirection: "maintain",
 };
 
@@ -59,6 +61,8 @@ type BackendSettingsResponse = Partial<UserSettings> & {
   useFoodCoach?: unknown;
   useWorkoutCoach?: unknown;
   foodCoachExcludedDateKeys?: unknown;
+  cutStartDateUtc?: unknown;
+  cutStartWeightKg?: unknown;
   weightDirection?: BackendEnum;
   muscleFilter?: BackendEnum;
   age?: unknown;
@@ -80,6 +84,8 @@ type UpdateUserSettingsDto = {
   carbGoal: number;
   weightGoalKg: number;
   weightGoalTimeUtc: string;
+  cutStartDateUtc: string | null;
+  cutStartWeightKg: number | null;
   weightDirection: 0 | 1 | 2;
   muscleFilter: 0 | 1;
   showOnlyCustomTrainingContent: boolean;
@@ -304,6 +310,25 @@ function normalizeGoalTime(value: unknown): string {
   );
 }
 
+function normalizeOptionalGoalTime(value: unknown): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    !(value instanceof Date)
+  ) {
+    return null;
+  }
+  return toUtcNoonIsoDate(value);
+}
+
+function normalizeOptionalWeight(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(20, Math.min(500, Number(n.toFixed(1))));
+}
+
 function normalizeUserSettings(raw?: BackendSettingsResponse | null): UserSettings {
   const src = raw ?? {};
   const homeUiFromJson = parseHomeUiJson(src.homeProgressCirclesJson);
@@ -362,6 +387,8 @@ function normalizeUserSettings(raw?: BackendSettingsResponse | null): UserSettin
       : [...FALLBACK_SETTINGS.homeSectionOrder],
     weightGoalKg: toSafeInt(src.weightGoalKg, FALLBACK_SETTINGS.weightGoalKg),
     weightGoalTimeUtc: normalizeGoalTime(src.weightGoalTimeUtc),
+    cutStartDateUtc: normalizeOptionalGoalTime(src.cutStartDateUtc),
+    cutStartWeightKg: normalizeOptionalWeight(src.cutStartWeightKg),
     weightDirection: normalizeWeightDirection(src.weightDirection),
   };
 }
@@ -389,6 +416,8 @@ function toBackendDto(settings: UserSettings): UpdateUserSettingsDto {
     carbGoal: toSafeInt(settings.carbGoal, FALLBACK_SETTINGS.carbGoal),
     weightGoalKg: Number(settings.weightGoalKg ?? FALLBACK_SETTINGS.weightGoalKg),
     weightGoalTimeUtc: normalizeGoalTime(settings.weightGoalTimeUtc),
+    cutStartDateUtc: normalizeOptionalGoalTime(settings.cutStartDateUtc),
+    cutStartWeightKg: normalizeOptionalWeight(settings.cutStartWeightKg),
     weightDirection: toBackendWeightDirection(settings.weightDirection),
     muscleFilter: toBackendMuscleFilter(settings.muscleFilter),
     showOnlyCustomTrainingContent: normalizeBoolean(

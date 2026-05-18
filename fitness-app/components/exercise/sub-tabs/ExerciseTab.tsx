@@ -19,6 +19,7 @@ import { useAllExerciseSetsHistory } from "@/hooks/useAllExerciseSetsHistory";
 import { useCreateExercise } from "@/hooks/useCreateExercise";
 import { useExercises } from "@/hooks/useExercises";
 import { useMyUser } from "@/hooks/useMyUser";
+import { useTranslation } from "@/i18n/translations";
 import { MuscleFilterValue } from "@/types/muscles";
 import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { sortExercisesByPopularity } from "@/utils/exercise/sortExercisesByPopularity";
@@ -44,6 +45,7 @@ const ui = {
 };
 
 export default function ExerciseTab({ onPressExercise }: Props) {
+  const { t } = useTranslation();
   const HISTORY_PREVIEW_FALLBACK_COUNT = 8;
   const [search, setSearch] = useState("");
   const [muscleFilter, setMuscleFilter] = useState<MuscleFilterValue>("ALL");
@@ -127,7 +129,7 @@ export default function ExerciseTab({ onPressExercise }: Props) {
 
   if (isLoading) {
     return (
-      <Text style={{ color: newColors.text.primary }}>Laster øvelser...</Text>
+      <Text style={{ color: newColors.text.primary }}>{t("exerciseLoading")}</Text>
     );
   }
 
@@ -163,10 +165,10 @@ export default function ExerciseTab({ onPressExercise }: Props) {
             <View style={styles.headerRow}>
               <View style={styles.headerTextWrap}>
                 <Text style={[typography.h2, styles.headerTitle]}>
-                  Dine øvelser
+                  {t("exerciseMyExercises")}
                 </Text>
                 <Text style={[typography.body, styles.headerSub]}>
-                  Trykk på en øvelse for detaljer og historikk.
+                  {t("exerciseListHint")}
                 </Text>
               </View>
 
@@ -209,7 +211,7 @@ export default function ExerciseTab({ onPressExercise }: Props) {
               <TextInput
                 ref={searchInputRef}
                 returnKeyType="done"
-                placeholder="Søk etter øvelser..."
+                placeholder={t("exerciseSearchPlaceholder")}
                 placeholderTextColor={ui.muted2}
                 style={[typography.body, styles.input]}
                 value={search}

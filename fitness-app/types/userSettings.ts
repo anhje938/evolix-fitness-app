@@ -26,5 +26,7 @@ export interface UserSettings {
   foodCoachExcludedDateKeys: string[];
   weightGoalKg: number;
   weightGoalTimeUtc: string;
+  cutStartDateUtc: string | null;
+  cutStartWeightKg: number | null;
   weightDirection?: "gain" | "lose" | "maintain";
 }

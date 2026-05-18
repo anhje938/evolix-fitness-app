@@ -14,6 +14,7 @@ import { typography } from "@/config/typography";
 import { parseISO } from "@/utils/date";
 import { estimate1RMFromTopSet } from "@/utils/exercise/oneRepMax";
 import { getRelativeDateLabel } from "@/utils/pastWeek";
+import { useTranslation } from "@/i18n/translations";
 
 type Props = {
   history: ExerciseSessionSetsDto[];
@@ -153,6 +154,7 @@ function buildDayWindowOptions(total: number): DayWindowOption[] {
 }
 
 export default function ExerciseHistoryList({ history }: Props) {
+  const { t } = useTranslation();
   const [selectedWindow, setSelectedWindow] = useState<DayWindowValue | null>(
     null
   );
@@ -403,10 +405,10 @@ export default function ExerciseHistoryList({ history }: Props) {
           <Ionicons name="barbell-outline" size={18} color={colors.muted} />
           <View style={styles.emptyCopy}>
             <Text style={[typography.body, styles.emptyTitle]}>
-              Ingen historikk enda
+              {t("progressionNoHistory")}
             </Text>
             <Text style={[typography.body, styles.emptySub]}>
-              {"Logg en \u00F8kt for \u00E5 se 1RM-estimat og utvikling her."}
+              {t("progressionNoHistoryBody")}
             </Text>
           </View>
         </View>

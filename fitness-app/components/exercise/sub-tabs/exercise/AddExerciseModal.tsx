@@ -4,6 +4,7 @@ import {
   modalGradientColors,
   modalTheme,
 } from "@/config/modalTheme";
+import { useTranslation } from "@/i18n/translations";
 import { ADVANCED_MUSCLE_FILTERS } from "@/types/muscles";
 import type { CreateExercisePayload } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
@@ -56,6 +57,7 @@ export function AddExerciseModal({
   isSubmitting = false,
   useModal = true,
 }: Props) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedMuscle, setSelectedMuscle] = useState<string>("ALL");
@@ -133,7 +135,7 @@ export function AddExerciseModal({
               stroke={exerciseModalColors.accent}
               fill={exerciseModalColors.accent}
             />
-            <Text style={styles.title}>Ny øvelse</Text>
+            <Text style={styles.title}>{t("exerciseNewTitle")}</Text>
           </View>
 
           <TouchableOpacity
@@ -151,10 +153,10 @@ export function AddExerciseModal({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.label}>Navn</Text>
+          <Text style={styles.label}>{t("modalName")}</Text>
           <TextInput
             style={styles.input}
-            placeholder="F.eks. Skrå benkpress"
+            placeholder={t("exerciseNamePlaceholder")}
             placeholderTextColor={exerciseModalColors.muted2}
             value={name}
             onChangeText={setName}
@@ -163,7 +165,7 @@ export function AddExerciseModal({
           />
 
           <View pointerEvents={isSubmitting ? "none" : "auto"}>
-            <Text style={styles.label}>Primær muskelgruppe</Text>
+            <Text style={styles.label}>{t("exercisePrimaryMuscle")}</Text>
             <MuscleFilterBar
               value={selectedMuscle}
               onChange={setSelectedMuscle}
@@ -180,7 +182,7 @@ export function AddExerciseModal({
           </View>
 
           <>
-            <Text style={styles.label}>Spesifikke muskelgrupper</Text>
+            <Text style={styles.label}>{t("exerciseSpecificMuscles")}</Text>
 
             <View style={styles.chipWrap}>
               {advancedSpecificList.map((item) => {
@@ -209,15 +211,15 @@ export function AddExerciseModal({
 
             {!!specificGroups.length && (
               <Text style={styles.selectedHint}>
-                Valgt: {specificGroups.join(", ")}
+                {t("exerciseSelected")}: {specificGroups.join(", ")}
               </Text>
             )}
           </>
 
-          <Text style={styles.label}>Utstyr</Text>
+          <Text style={styles.label}>{t("exerciseEquipment")}</Text>
           <TextInput
             style={styles.input}
-            placeholder="F.eks. Stang, manualer, maskin..."
+            placeholder={t("exerciseEquipmentPlaceholder")}
             placeholderTextColor={exerciseModalColors.muted2}
             value={equipment}
             onChangeText={setEquipment}
@@ -225,10 +227,10 @@ export function AddExerciseModal({
             returnKeyType="done"
           />
 
-          <Text style={styles.label}>Beskrivelse</Text>
+          <Text style={styles.label}>{t("modalDescription")}</Text>
           <TextInput
             style={[styles.input, styles.textarea]}
-            placeholder="Kort beskrivelse av øvelsen, teknikk eller fokus..."
+            placeholder={t("exerciseDescriptionPlaceholder")}
             placeholderTextColor={exerciseModalColors.muted2}
             value={description}
             onChangeText={setDescription}
@@ -248,7 +250,7 @@ export function AddExerciseModal({
           >
             <Ionicons name="save-outline" size={18} color="white" />
             <Text style={styles.buttonText}>
-              {isSubmitting ? "Oppretter..." : "Opprett øvelse"}
+              {isSubmitting ? t("modalCreating") : t("exerciseCreate")}
             </Text>
           </LinearGradient>
         </TouchableOpacity>

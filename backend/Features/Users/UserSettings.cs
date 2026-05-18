@@ -35,6 +35,8 @@
         
         public decimal WeightGoalKg { get; set; } = 84m;
         public DateTime WeightGoalTimeUtc { get; set; } = DateTime.UtcNow.Date.AddDays(84).AddHours(12);
+        public DateTime? CutStartDateUtc { get; set; }
+        public decimal? CutStartWeightKg { get; set; }
 
         
         public WeightDirection WeightDirection { get; set; } = WeightDirection.Maintain;

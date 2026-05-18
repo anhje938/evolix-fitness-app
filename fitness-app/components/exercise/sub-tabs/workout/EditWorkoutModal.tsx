@@ -29,6 +29,7 @@ import DraggableFlatList, {
 import { SafeAreaView } from "react-native-safe-area-context";
 import DumbbellIcon from "../../../../assets/icons/dumbbell-white.svg";
 import XIcon from "../../../../assets/icons/white-x.svg";
+import { useTranslation } from "@/i18n/translations";
 
 type Props = {
   visible: boolean;
@@ -120,6 +121,7 @@ export function EditWorkoutModal({
   onSubmit,
   onDelete,
 }: Props) {
+  const { t } = useTranslation();
   const [name, setName] = useState(initialName);
   const [dayLabel, setDayLabel] = useState(initialDayLabel ?? "");
   const [description, setDescription] = useState(initialDescription ?? "");
@@ -291,9 +293,9 @@ export function EditWorkoutModal({
   };
 
   const confirmDelete = () => {
-    Alert.alert("Slett økt?", "Dette kan ikke angres. Vil du slette økten?", [
-      { text: "Avbryt", style: "cancel" },
-      { text: "Slett", style: "destructive", onPress: onDelete },
+    Alert.alert(t("workoutDeleteTitle"), t("workoutDeleteBody"), [
+      { text: t("commonCancel"), style: "cancel" },
+      { text: t("commonDelete"), style: "destructive", onPress: onDelete },
     ]);
   };
 
@@ -308,12 +310,12 @@ export function EditWorkoutModal({
 
     if (!snapshot.name) {
       Alert.alert(
-        "Forkast endringer?",
-        "Navn må fylles ut før endringene kan lagres.",
+        t("workoutDiscardTitle"),
+        t("workoutNameRequiredToSave"),
         [
-          { text: "Fortsett redigering", style: "cancel" },
+          { text: t("commonContinueEditing"), style: "cancel" },
           {
-            text: "Forkast endringer",
+            text: t("commonDiscardChanges"),
             style: "destructive",
             onPress: onClose,
           },
@@ -440,7 +442,7 @@ export function EditWorkoutModal({
                   stroke={newColors.primary.light}
                   fill={newColors.primary.light}
                 />
-                <Text style={styles.title}>Rediger økt</Text>
+                <Text style={styles.title}>{t("workoutEditTitle")}</Text>
               </View>
 
               <TouchableOpacity
@@ -454,7 +456,7 @@ export function EditWorkoutModal({
             </View>
 
             <Text style={[typography.body, styles.subtitle]}>
-              Dra øvelser for å endre rekkefølge. Endringer lagres automatisk.
+              {t("workoutAutosaveHint")}
             </Text>
 
             <ScrollView
@@ -465,7 +467,7 @@ export function EditWorkoutModal({
               nestedScrollEnabled
               showsVerticalScrollIndicator={false}
             >
-              <Text style={[typography.body, styles.label]}>Navn</Text>
+              <Text style={[typography.body, styles.label]}>{t("modalName")}</Text>
               <View
                 style={[
                   styles.inputWrap,
@@ -486,7 +488,9 @@ export function EditWorkoutModal({
                 />
               </View>
 
-              <Text style={[typography.body, styles.label]}>Dag / etikett</Text>
+              <Text style={[typography.body, styles.label]}>
+                {t("workoutDayLabel")}
+              </Text>
               <View
                 style={[
                   styles.inputWrap,
@@ -495,7 +499,7 @@ export function EditWorkoutModal({
               >
                 <TextInput
                   style={styles.input}
-                  placeholder="F.eks. Mandag, Push A..."
+                  placeholder={t("workoutDayPlaceholder")}
                   placeholderTextColor="rgba(148,163,184,0.8)"
                   value={dayLabel}
                   onChangeText={setDayLabel}
@@ -507,7 +511,9 @@ export function EditWorkoutModal({
                 />
               </View>
 
-              <Text style={[typography.body, styles.label]}>Beskrivelse</Text>
+              <Text style={[typography.body, styles.label]}>
+                {t("modalDescription")}
+              </Text>
               <View
                 style={[
                   styles.inputWrap,
@@ -517,7 +523,7 @@ export function EditWorkoutModal({
               >
                 <TextInput
                   style={[styles.input, styles.textarea]}
-                  placeholder="Kort beskrivelse av økten..."
+                  placeholder={t("workoutDescriptionPlaceholder")}
                   placeholderTextColor="rgba(148,163,184,0.8)"
                   value={description}
                   onChangeText={setDescription}
@@ -534,7 +540,7 @@ export function EditWorkoutModal({
               <View style={styles.sectionCard}>
                 <View style={styles.sectionHeaderRow}>
                   <Text style={[typography.body, styles.sectionTitle]}>
-                    Øvelser i denne økten
+                    {t("workoutSelectedExercises")}
                   </Text>
                   <Text style={styles.sectionCount}>
                     {selectedExercises.length}
@@ -543,8 +549,7 @@ export function EditWorkoutModal({
 
                 {selectedExercises.length === 0 ? (
                   <Text style={[typography.body, styles.emptySelectedText]}>
-                    Ingen øvelser valgt enda. Trykk på øvelsene under for å
-                    legge til.
+                    {t("workoutNoSelectedExercises")}
                   </Text>
                 ) : (
                   <View style={styles.selectedListShell}>
@@ -567,7 +572,7 @@ export function EditWorkoutModal({
               <View style={styles.sectionCard}>
                 <View style={styles.sectionHeaderRow}>
                   <Text style={[typography.body, styles.sectionTitle]}>
-                    Tilgjengelige øvelser
+                    {t("workoutAvailableExercises")}
                   </Text>
                   <Text style={styles.sectionCount}>
                     {availableVisibleExercises.length}
@@ -587,7 +592,7 @@ export function EditWorkoutModal({
                   />
                   <TextInput
                     style={styles.searchInput}
-                    placeholder="Søk etter navn, muskel eller utstyr..."
+                    placeholder={t("workoutSearchExercisesPlaceholder")}
                     placeholderTextColor="rgba(148,163,184,0.8)"
                     value={search}
                     onChangeText={setSearch}
@@ -606,11 +611,11 @@ export function EditWorkoutModal({
 
                 {availableExercises.length === 0 ? (
                   <Text style={[typography.body, styles.emptyText]}>
-                    Du har ingen øvelser enda. Opprett dem under Øvelser-fanen.
+                    {t("workoutNoExercises")}
                   </Text>
                 ) : availableVisibleExercises.length === 0 ? (
                   <Text style={[typography.body, styles.emptyText]}>
-                    Ingen flere øvelser matcher søket akkurat nå.
+                    {t("workoutNoExerciseSearchResults")}
                   </Text>
                 ) : (
                   <View style={styles.availableList}>
@@ -689,7 +694,7 @@ export function EditWorkoutModal({
                   style={styles.button}
                 >
                   <Ionicons name="save-outline" size={18} color="white" />
-                  <Text style={styles.buttonText}>Lagre endringer</Text>
+                  <Text style={styles.buttonText}>{t("modalSaveChanges")}</Text>
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -702,7 +707,7 @@ export function EditWorkoutModal({
                   size={18}
                   color={colors.dangerText}
                 />
-                <Text style={styles.deleteButtonText}>Slett økt</Text>
+                <Text style={styles.deleteButtonText}>{t("workoutDelete")}</Text>
               </TouchableOpacity>
             </View>
           </View>

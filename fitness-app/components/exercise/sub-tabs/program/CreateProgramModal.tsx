@@ -15,6 +15,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import XIcon from "../../../../assets/icons/white-x.svg";
+import { useTranslation } from "@/i18n/translations";
 type Props = {
   visible: boolean;
   onClose: () => void;
@@ -26,6 +27,7 @@ export default function CreateProgramModal({
   onClose,
   onSubmit,
 }: Props) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
 
   const handleSubmit = () => {
@@ -49,7 +51,7 @@ export default function CreateProgramModal({
           <View pointerEvents="none" style={styles.orbBottom} />
           {/* HEADER */}
           <View style={styles.header}>
-            <Text style={styles.title}>Nytt program</Text>
+            <Text style={styles.title}>{t("programNewTitle")}</Text>
 
             <TouchableOpacity onPress={onClose}>
               <XIcon width={18} height={18} />
@@ -57,7 +59,7 @@ export default function CreateProgramModal({
           </View>
 
           {/* INPUT: NAVN */}
-          <Text style={styles.label}>Programnavn</Text>
+          <Text style={styles.label}>{t("programNameLabel")}</Text>
           <TextInput
             style={styles.input}
             placeholder="F.eks. Push Pull Legs"
@@ -74,7 +76,7 @@ export default function CreateProgramModal({
               style={styles.button}
             >
               <Ionicons name="save-outline" size={18} color="white" />
-              <Text style={styles.buttonText}>Opprett program</Text>
+              <Text style={styles.buttonText}>{t("programCreate")}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>

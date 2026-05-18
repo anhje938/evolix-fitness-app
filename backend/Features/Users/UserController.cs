@@ -155,6 +155,8 @@ namespace backend.Features.Users
                 carbGoal = settings.CarbGoal,
                 weightGoalKg = settings.WeightGoalKg,
                 weightGoalTimeUtc = settings.WeightGoalTimeUtc,
+                cutStartDateUtc = settings.CutStartDateUtc,
+                cutStartWeightKg = settings.CutStartWeightKg,
                 weightDirection = settings.WeightDirection,
                 muscleFilter = settings.MuscleFilter,
                 homeProgressCircles = homeProgressCircles,

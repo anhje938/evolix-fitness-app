@@ -27,7 +27,7 @@ import XIcon from "../../../../assets/icons/white-x.svg";
 import { MuscleFilterBar } from "../../MuscleFilterBar";
 import { newColors } from "@/config/theme";
 import { DeleteExercise, UpdateExercise } from "@/api/exercise/exercise";
-import type { Exercise as ExerciseModel } from "@/types/exercise";
+import { useTranslation } from "@/i18n/translations";
 
 type Props = {
   visible: boolean;
@@ -36,6 +36,7 @@ type Props = {
 };
 
 export function EditExerciseModal({ visible, exercise, onClose }: Props) {
+  const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [name, setName] = useState("");
@@ -79,7 +80,7 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert("Mangler navn", "Skriv inn navn på øvelsen.");
+      Alert.alert(t("exerciseMissingNameTitle"), t("exerciseMissingNameBody"));
       return;
     }
 
@@ -97,7 +98,7 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
           : "",
       });
 
-      queryClient.setQueryData<ExerciseModel[] | undefined>(
+      queryClient.setQueryData<Exercise[] | undefined>(
         ["exercises"],
         (current) => {
           if (!current) return current;
@@ -131,7 +132,7 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
       onClose();
     } catch (err) {
       if (__DEV__) console.log("Feil ved oppdatering av øvelse", err);
-      Alert.alert("Noe gikk galt", "Kunne ikke lagre endringene.");
+      Alert.alert(t("exerciseSaveFailedTitle"), t("exerciseSaveFailedBody"));
     } finally {
       setSaving(false);
     }
@@ -151,7 +152,7 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
       onClose();
     } catch (err) {
       if (__DEV__) console.log("Feil ved sletting av øvelse", err);
-      Alert.alert("Noe gikk galt", "Kunne ikke slette øvelsen.");
+      Alert.alert(t("exerciseSaveFailedTitle"), t("exerciseDeleteFailedBody"));
     } finally {
       setDeleting(false);
     }
@@ -159,11 +160,11 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
 
   const confirmDelete = () => {
     Alert.alert(
-      "Slett øvelse?",
-      "Dette kan ikke angres. Vil du slette øvelsen?",
+      t("exerciseDeleteTitle"),
+      t("exerciseDeleteBody"),
       [
-        { text: "Avbryt", style: "cancel" },
-        { text: "Slett", style: "destructive", onPress: handleDelete },
+        { text: t("commonCancel"), style: "cancel" },
+        { text: t("commonDelete"), style: "destructive", onPress: handleDelete },
       ]
     );
   };
@@ -194,7 +195,7 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
                 fill={newColors.primary.light}
                 stroke={newColors.primary.light}
               />
-              <Text style={styles.title}>Rediger øvelse</Text>
+              <Text style={styles.title}>{t("exerciseEditTitle")}</Text>
             </View>
 
             <TouchableOpacity
@@ -213,18 +214,18 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
             showsVerticalScrollIndicator={false}
           >
             {/* Navn */}
-            <Text style={styles.label}>Navn</Text>
+            <Text style={styles.label}>{t("modalName")}</Text>
             <TextInput
               style={styles.input}
               value={name}
               onChangeText={setName}
               editable={!saving && !deleting}
-              placeholder="F.eks. Skrå benkpress"
+              placeholder={t("exerciseNamePlaceholder")}
               placeholderTextColor="rgba(148,163,184,0.8)"
             />
 
             {/* Primær muskelgruppe */}
-            <Text style={styles.label}>Primær muskelgruppe</Text>
+            <Text style={styles.label}>{t("exercisePrimaryMuscle")}</Text>
             <MuscleFilterBar
               value={muscle}
               onChange={setMuscle}
@@ -232,7 +233,7 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
             />
 
             {/* Spesifikke muskelgrupper */}
-            <Text style={styles.label}>Spesifikke muskelgrupper</Text>
+            <Text style={styles.label}>{t("exerciseSpecificMuscles")}</Text>
             <View style={styles.chipWrap}>
               {advancedSpecificList.map((item) => {
                 const active = specificGroups.includes(item.value);
@@ -256,30 +257,30 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
             </View>
             {!!specificGroups.length && (
               <Text style={styles.selectedHint}>
-                Valgt: {specificGroups.join(", ")}
+                {t("exerciseSelected")}: {specificGroups.join(", ")}
               </Text>
             )}
 
             {/* Utstyr */}
-            <Text style={styles.label}>Utstyr</Text>
+            <Text style={styles.label}>{t("exerciseEquipment")}</Text>
             <TextInput
               style={styles.input}
               value={equipment}
               onChangeText={setEquipment}
               editable={!saving && !deleting}
-              placeholder="F.eks. Stang, manualer, maskin..."
+              placeholder={t("exerciseEquipmentPlaceholder")}
               placeholderTextColor="rgba(148,163,184,0.8)"
             />
 
             {/* Beskrivelse */}
-            <Text style={styles.label}>Beskrivelse</Text>
+            <Text style={styles.label}>{t("modalDescription")}</Text>
             <TextInput
               style={[styles.input, styles.textarea]}
               value={description}
               onChangeText={setDescription}
               multiline
               editable={!saving && !deleting}
-              placeholder="Kort beskrivelse av øvelsen, teknikk eller fokus..."
+              placeholder={t("exerciseDescriptionPlaceholder")}
               placeholderTextColor="rgba(148,163,184,0.8)"
             />
           </ScrollView>
@@ -296,7 +297,7 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
             >
               <Ionicons name="save-outline" size={18} color="white" />
               <Text style={styles.buttonText}>
-                {saving ? "Lagrer..." : "Lagre endringer"}
+                {saving ? t("modalSaving") : t("modalSaveChanges")}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -312,7 +313,7 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
               color="rgba(254,202,202,0.98)"
             />
             <Text style={styles.deleteButtonText}>
-              {deleting ? "Sletter..." : "Slett øvelse"}
+              {deleting ? t("modalDeleting") : t("exerciseDelete")}
             </Text>
           </TouchableOpacity>
         </View>

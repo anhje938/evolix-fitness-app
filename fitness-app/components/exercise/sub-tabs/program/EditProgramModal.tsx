@@ -32,6 +32,7 @@ import DraggableFlatList, {
 import DumbbellIcon from "../../../../assets/icons/dumbbell-white.svg";
 import XIcon from "../../../../assets/icons/white-x.svg";
 import { AddWorkoutModal } from "../workout/AddWorkoutModal";
+import { useTranslation } from "@/i18n/translations";
 
 type Props = {
   visible: boolean;
@@ -60,6 +61,7 @@ export default function EditProgramModal({
   onCreateWorkout,
   isBusy = false,
 }: Props) {
+  const { t } = useTranslation();
   const [name, setName] = useState(initialName);
   const [selectedWorkoutIds, setSelectedWorkoutIds] =
     useState<string[]>(initialWorkoutIds);
@@ -142,7 +144,7 @@ export default function EditProgramModal({
     setLocalError(null);
     const trimmed = (name ?? "").trim();
     if (!trimmed) {
-      setLocalError("Programnavn kan ikke være tomt.");
+      setLocalError(t("programNameRequired"));
       return;
     }
 
@@ -151,11 +153,11 @@ export default function EditProgramModal({
 
   const confirmDelete = () => {
     Alert.alert(
-      "Slett program?",
-      "Dette kan ikke angres. Vil du slette programmet?",
+      t("programDeleteTitle"),
+      t("programDeleteBody"),
       [
-        { text: "Avbryt", style: "cancel" },
-        { text: "Slett", style: "destructive", onPress: onDelete },
+        { text: t("commonCancel"), style: "cancel" },
+        { text: t("commonDelete"), style: "destructive", onPress: onDelete },
       ]
     );
   };
@@ -186,7 +188,7 @@ export default function EditProgramModal({
       setOpenCreateWorkout(false);
     } catch (error) {
       setLocalError(
-        error instanceof Error ? error.message : "Kunne ikke opprette økt."
+        error instanceof Error ? error.message : t("programCreateError")
       );
     } finally {
       setCreatingWorkout(false);
@@ -296,7 +298,7 @@ export default function EditProgramModal({
                   stroke={newColors.primary.light}
                   fill={newColors.primary.light}
                 />
-                <Text style={styles.title}>Rediger program</Text>
+                <Text style={styles.title}>{t("programEditTitle")}</Text>
               </View>
 
               <TouchableOpacity
@@ -314,7 +316,7 @@ export default function EditProgramModal({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.label}>Navn</Text>
+              <Text style={styles.label}>{t("modalName")}</Text>
               <View
                 style={[
                   styles.inputWrap,
@@ -344,11 +346,10 @@ export default function EditProgramModal({
                 </View>
               )}
 
-              <Text style={styles.label}>Økter i programmet</Text>
+              <Text style={styles.label}>{t("programSelectedWorkouts")}</Text>
               {selectedWorkouts.length === 0 ? (
                 <Text style={[typography.body, styles.emptyText]}>
-                  Ingen økter valgt enda. Trykk på økter under for å legge dem
-                  til.
+                  {t("programNoSelectedWorkouts")}
                 </Text>
               ) : (
                 <View style={styles.selectedListShell}>
@@ -367,7 +368,7 @@ export default function EditProgramModal({
               )}
 
               <View style={styles.availableHeader}>
-                <Text style={styles.label}>Tilgjengelige økter</Text>
+                <Text style={styles.label}>{t("programAvailableWorkouts")}</Text>
                 <TouchableOpacity
                   onPress={() => setOpenCreateWorkout(true)}
                   disabled={!canInteract}
@@ -382,7 +383,7 @@ export default function EditProgramModal({
                     color="rgba(224,242,254,0.95)"
                   />
                   <Text style={styles.createButtonText}>
-                    {creatingWorkout ? "Oppretter..." : "Ny økt"}
+                    {creatingWorkout ? t("modalCreating") : t("workoutNewTitle")}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -401,7 +402,7 @@ export default function EditProgramModal({
                 />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Søk i økter..."
+                  placeholder={t("programSearchWorkoutsPlaceholder")}
                   placeholderTextColor="rgba(148,163,184,0.8)"
                   value={search}
                   onChangeText={setSearch}
@@ -419,11 +420,11 @@ export default function EditProgramModal({
 
               {availableWorkouts.length === 0 ? (
                 <Text style={[typography.body, styles.emptyText]}>
-                  Du har ingen økter enda. Opprett dem i Økter-fanen.
+                  {t("programNoWorkouts")}
                 </Text>
               ) : unselectedWorkouts.length === 0 ? (
                 <Text style={[typography.body, styles.emptyText]}>
-                  Ingen flere økter matcher søket akkurat nå.
+                  {t("programNoWorkoutSearchResults")}
                 </Text>
               ) : (
                 <View style={styles.availableList}>
@@ -446,7 +447,7 @@ export default function EditProgramModal({
                 ) : (
                   <>
                     <Ionicons name="save-outline" size={18} color="white" />
-                    <Text style={styles.buttonText}>Lagre endringer</Text>
+                    <Text style={styles.buttonText}>{t("modalSaveChanges")}</Text>
                   </>
                 )}
               </LinearGradient>
@@ -462,7 +463,7 @@ export default function EditProgramModal({
                 size={18}
                 color="rgba(254,202,202,0.98)"
               />
-              <Text style={styles.deleteButtonText}>Slett program</Text>
+              <Text style={styles.deleteButtonText}>{t("programDelete")}</Text>
             </TouchableOpacity>
 
             <AddWorkoutModal

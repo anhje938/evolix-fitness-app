@@ -25,11 +25,18 @@ export function normalizeTitle(input: string) {
   return input.replace(/\s+/g, " ").trim();
 }
 
-export function validateSessionForSave(exercises: SessionExercise[]) {
+export function validateSessionForSave(
+  exercises: SessionExercise[],
+  messages?: {
+    needExercise: string;
+    needSets: string;
+  }
+) {
   if (exercises.length === 0) {
     return {
       ok: false as const,
-      message: "Legg til minst én øvelse før du fullfører.",
+      message:
+        messages?.needExercise ?? "Legg til minst én øvelse før du fullfører.",
     };
   }
 
@@ -38,6 +45,7 @@ export function validateSessionForSave(exercises: SessionExercise[]) {
     return {
       ok: false as const,
       message:
+        messages?.needSets ??
         "En eller flere øvelser mangler sett. Legg til minst ett sett på alle øvelser før du fullfører.",
     };
   }

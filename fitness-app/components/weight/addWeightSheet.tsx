@@ -1,6 +1,7 @@
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { useWeightContext } from "@/context/WeightProvider";
+import { useTranslation } from "@/i18n/translations";
 import type { Weight } from "@/types/weight";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -54,6 +55,7 @@ export function AddWeightSheet({
   initialEntry = null,
   onDelete,
 }: AddWeightSheetProps) {
+  const { t } = useTranslation();
   const { lastWeight } = useWeightContext();
   const isClosingRef = useRef(false);
 
@@ -184,7 +186,7 @@ export function AddWeightSheet({
 
     const value = Number.parseFloat(weightKg.replace(",", "."));
     if (!Number.isFinite(value) || value <= 0) {
-      Alert.alert("Ugyldig vekt", "Skriv inn en gyldig vekt i kg.");
+      Alert.alert(t("modalInvalidWeightTitle"), t("modalInvalidWeightBody"));
       return;
     }
 
@@ -242,7 +244,7 @@ export function AddWeightSheet({
             style={StyleSheet.absoluteFill}
             onPress={handleRequestClose}
             accessibilityRole="button"
-            accessibilityLabel="Lukk logg vekt"
+            accessibilityLabel={t("weightLogTitle")}
           />
         </Animated.View>
 
@@ -280,10 +282,10 @@ export function AddWeightSheet({
                     <View style={styles.headerRow}>
                       <View style={styles.headerCopy}>
                         <Text style={[typography.h2, styles.title]}>
-                          {initialEntry ? "Rediger vekt" : "Logg vekt"}
+                          {initialEntry ? t("weightEditTitle") : t("weightLogTitle")}
                         </Text>
                         <Text style={[typography.bodyBlack, styles.subtitle]}>
-                          Rask, stabil og presis logging med ren historikk.
+                          {t("weightSheetSubtitle")}
                         </Text>
                       </View>
 
@@ -299,7 +301,7 @@ export function AddWeightSheet({
                     <View style={styles.sectionCard}>
                       <View style={styles.labelRow}>
                         <Text style={[typography.bodyBlack, styles.label]}>
-                          Vekt (kg)
+                          {t("weightLabelKg")}
                         </Text>
 
                         {deltaFromLast !== null && (
@@ -360,14 +362,14 @@ export function AddWeightSheet({
                     <View style={[styles.sectionCard, styles.dateCard]}>
                       <View style={styles.sectionHeader}>
                         <Text style={[typography.bodyBlack, styles.label]}>
-                          Tidspunkt
+                          {t("modalTiming")}
                         </Text>
                       </View>
 
                       <View style={styles.dateRow}>
                         <View style={styles.dateTimeColumn}>
                           <AppDateTimePicker
-                            label="Dato"
+                            label={t("modalDate")}
                             mode="date"
                             value={selectedDate}
                             onChange={setSelectedDate}
@@ -377,7 +379,7 @@ export function AddWeightSheet({
 
                         <View style={styles.dateTimeColumn}>
                           <AppDateTimePicker
-                            label="Tid"
+                            label={t("modalTime")}
                             mode="time"
                             value={selectedTime}
                             onChange={setSelectedTime}
@@ -390,7 +392,7 @@ export function AddWeightSheet({
                     <View style={[styles.sectionCard, styles.quickCard]}>
                       <View style={styles.sectionHeader}>
                         <Text style={[typography.bodyBlack, styles.label]}>
-                          Hurtigvalg
+                          {t("weightQuickChoices")}
                         </Text>
                       </View>
 
@@ -430,10 +432,9 @@ export function AddWeightSheet({
                       </View>
 
                       <View style={styles.tipCopy}>
-                        <Text style={styles.tipTitle}>Renere data</Text>
+                        <Text style={styles.tipTitle}>{t("weightCleanDataTitle")}</Text>
                         <Text style={styles.tipText}>
-                          Målinger på samme tidspunkt gir roligere trendlinjer og
-                          bedre sammenligning fra uke til uke.
+                          {t("weightCleanDataBody")}
                         </Text>
                       </View>
                     </View>
@@ -477,10 +478,10 @@ export function AddWeightSheet({
                         />
                         <Text style={styles.saveText}>
                           {isSaving
-                            ? "Lagrer..."
+                            ? t("modalSaving")
                             : initialEntry
-                            ? "Oppdater vekt"
-                            : "Lagre vekt"}
+                            ? t("weightUpdate")
+                            : t("weightSave")}
                         </Text>
                       </LinearGradient>
                     </TouchableOpacity>
@@ -500,7 +501,7 @@ export function AddWeightSheet({
                           color="rgba(254,202,202,0.98)"
                           style={styles.deleteIcon}
                         />
-                        <Text style={styles.deleteText}>Slett vekt</Text>
+                        <Text style={styles.deleteText}>{t("commonDelete")}</Text>
                       </TouchableOpacity>
                     ) : null}
                   </View>

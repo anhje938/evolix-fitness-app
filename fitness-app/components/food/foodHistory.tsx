@@ -9,6 +9,7 @@ import {
   shiftDateKey,
 } from "@/utils/date";
 import { calcTotalMacros } from "@/utils/food/calculateTotalMacros";
+import { useTranslation } from "@/i18n/translations";
 import {
   getWeeklyMacroTotals,
   groupMealsByDate,
@@ -32,6 +33,7 @@ export function FoodHistory({
   onToggleFoodCoachDate,
   onEditMeal,
 }: FoodHistoryProps) {
+  const { t } = useTranslation();
   const [listMode, setListMode] = useState<"daily" | "weekly">("daily");
   const [dailyVisible, setDailyVisible] = useState(PAGE_SIZE);
   const [weeklyVisible, setWeeklyVisible] = useState(PAGE_SIZE);
@@ -286,7 +288,7 @@ export function FoodHistory({
                   ]}
                   accessibilityRole={isClickable ? "button" : undefined}
                   accessibilityLabel={
-                    isClickable ? "Rediger m\u00E5ltid" : undefined
+                    isClickable ? t("mealEditTitle") : undefined
                   }
                 >
                   <View style={styles.mealIconWrap}>

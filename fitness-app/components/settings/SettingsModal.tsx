@@ -19,7 +19,6 @@ import {
   type HomeSectionKey,
   type RecoveryMapMuscleKey,
   type UserSettings,
-  type UserGender,
 } from "@/types/userSettings";
 import { getFutureUtcNoonIsoDate, toUtcNoonIsoDate } from "@/utils/date";
 import Constants from "expo-constants";
@@ -71,6 +70,8 @@ const INITIAL_SETTINGS: UserSettings = {
   foodCoachExcludedDateKeys: [],
   weightGoalKg: 84,
   weightGoalTimeUtc: getFutureUtcNoonIsoDate(84),
+  cutStartDateUtc: null,
+  cutStartWeightKg: null,
   weightDirection: "maintain",
 };
 
@@ -118,6 +119,14 @@ function clampInt(value: string, fallback: number) {
   const n = Number(cleaned);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.round(n));
+}
+
+function clampOptionalWeight(value: string): number | null {
+  const cleaned = value.replace(",", ".").trim();
+  if (!cleaned) return null;
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(20, Math.min(500, Number(n.toFixed(1))));
 }
 
 function clampOptionalAge(value: string) {
@@ -1127,6 +1136,112 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
+                          {t("settingsCutStart")}
+                        </Text>
+                        <Text style={[typography.body, styles.itemSubtext]}>
+                          {t("settingsCutStartDescription")}
+                        </Text>
+                      </View>
+
+                      <View style={styles.segment}>
+                        <Pressable
+                          onPress={() =>
+                            updateSettings({
+                              weightDirection: "lose",
+                              cutStartDateUtc:
+                                toUtcNoonIsoDate(new Date()) ??
+                                settings.cutStartDateUtc,
+                              cutStartWeightKg:
+                                settings.cutStartWeightKg ??
+                                settings.weightGoalKg,
+                            })
+                          }
+                          style={({ pressed }) => [
+                            styles.segmentBtn,
+                            settings.weightDirection === "lose" &&
+                              styles.segmentBtnActive,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              typography.bodyBold,
+                              styles.segmentText,
+                              settings.weightDirection === "lose" &&
+                                styles.segmentTextActive,
+                            ]}
+                          >
+                            Aktiv cut
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          onPress={() =>
+                            updateSettings({ weightDirection: "maintain" })
+                          }
+                          style={({ pressed }) => [
+                            styles.segmentBtn,
+                            settings.weightDirection !== "lose" &&
+                              styles.segmentBtnActive,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              typography.bodyBold,
+                              styles.segmentText,
+                              settings.weightDirection !== "lose" &&
+                                styles.segmentTextActive,
+                            ]}
+                          >
+                            Ikke cut
+                          </Text>
+                        </Pressable>
+                      </View>
+
+                      <AppDateTimePicker
+                        label="Startdato"
+                        mode="date"
+                        compact
+                        value={toSafeDate(settings.cutStartDateUtc)}
+                        onChange={(date) =>
+                          updateSettings({
+                            cutStartDateUtc: date
+                              ? toUtcNoonIsoDate(date)
+                              : settings.cutStartDateUtc,
+                            weightDirection: "lose",
+                          })
+                        }
+                      />
+
+                      <View style={styles.inlineInputRow}>
+                        <Text style={[typography.body, styles.inlineLabel]}>
+                          Startvekt
+                        </Text>
+                        <TextInput
+                          {...settingsInputProps}
+                          value={
+                            settings.cutStartWeightKg == null
+                              ? ""
+                              : String(settings.cutStartWeightKg)
+                          }
+                          onChangeText={(value) =>
+                            updateSettings({
+                              cutStartWeightKg: clampOptionalWeight(value),
+                              weightDirection: "lose",
+                            })
+                          }
+                          keyboardType="decimal-pad"
+                          style={[typography.body, styles.inputValue]}
+                          placeholder="kg"
+                          placeholderTextColor="rgba(148,163,184,0.6)"
+                        />
+                      </View>
+                    </View>
+
+                    <View style={[styles.settingsItemBox, styles.stackItem]}>
+                      <View style={styles.itemTextBox}>
+                        <Text style={[typography.body, styles.itemText]}>
                           Muskel-filter
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
@@ -2056,6 +2171,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
     color: "rgba(255,255,255,0.92)",
+    fontSize: 13,
+  },
+  inlineInputRow: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  inlineLabel: {
+    flex: 1,
+    color: "rgba(226,232,240,0.9)",
     fontSize: 13,
   },
 

@@ -274,6 +274,7 @@ namespace backend.Data
                 b.Property(x => x.HasDismissedRegistrationOnboarding)
                     .HasDefaultValue(false);
                 b.Property(x => x.WeightGoalKg).HasPrecision(18, 2);
+                b.Property(x => x.CutStartWeightKg).HasPrecision(18, 2);
                 b.Property(x => x.UseFoodCoach).HasDefaultValue(true);
                 b.Property(x => x.UseWorkoutCoach).HasDefaultValue(true);
 

@@ -1,5 +1,6 @@
 import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
+import { useTranslation } from "@/i18n/translations";
 import { Food } from "@/types/meal";
 import { formatTimeNO, getOsloDateKey, getOsloTodayDateKey } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
@@ -40,13 +41,13 @@ function formatServings(value: number | null | undefined): string {
   return safe.toFixed(1).replace(".", ",");
 }
 
-function getSourceLabel(meal: Food): string | null {
+function getSourceLabel(meal: Food, t: ReturnType<typeof useTranslation>["t"]): string | null {
   if (meal.sourceType === "composedMeal") {
-    return `Matrett - ${formatServings(meal.sourceServings)} porsjoner`;
+    return `${t("mealSourceComposed")} - ${formatServings(meal.sourceServings)} ${t("mealPortions")}`;
   }
-  if (meal.sourceType === "qr") return "Skannet produkt";
-  if (meal.sourceType === "quickAdd") return "Hurtigregistrert";
-  if (meal.sourceType === "manual") return "Manuell registrering";
+  if (meal.sourceType === "qr") return t("mealSourceScanned");
+  if (meal.sourceType === "quickAdd") return t("mealSourceQuickAdd");
+  if (meal.sourceType === "manual") return t("mealSourceManual");
   return null;
 }
 
@@ -55,6 +56,7 @@ export const MealCard = memo(function MealCard({
   onEditMeal,
   onDeleteMeal,
 }: MealCardProps) {
+  const { t } = useTranslation();
   const todayKey = useMemo(() => getOsloTodayDateKey(), []);
 
   const todaysMeals = useMemo(() => {
@@ -78,14 +80,14 @@ export const MealCard = memo(function MealCard({
 
     if (typeof onEditMeal === "function") {
       buttons.push({
-        text: "Rediger",
+        text: t("mealEditAction"),
         onPress: () => onEditMeal(meal),
       });
     }
 
     if (typeof onDeleteMeal === "function") {
       buttons.push({
-        text: "Slett",
+        text: t("commonDelete"),
         style: "destructive",
         onPress: () => {
           Promise.resolve(onDeleteMeal(String(meal.id))).catch((e) => {
@@ -95,9 +97,9 @@ export const MealCard = memo(function MealCard({
       });
     }
 
-    buttons.push({ text: "Avbryt", style: "cancel" });
+    buttons.push({ text: t("commonCancel"), style: "cancel" });
 
-    Alert.alert(meal.title?.trim() ? meal.title : "Måltid", "Hva vil du gjøre?", buttons, {
+    Alert.alert(meal.title?.trim() ? meal.title : t("mealMenuTitle"), t("mealMenuBody"), buttons, {
       cancelable: true,
     });
   };
@@ -134,9 +136,9 @@ export const MealCard = memo(function MealCard({
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={[typography.bodyBlack, styles.emptyTitle]}>Ingen måltider registrert i dag</Text>
+          <Text style={[typography.bodyBlack, styles.emptyTitle]}>{t("mealEmptyTodayTitle")}</Text>
           <Text style={[typography.body, styles.emptySub]}>
-            Logg et måltid for å se kalorier og makroer her.
+            {t("mealEmptyTodayBody")}
           </Text>
         </View>
       </View>
@@ -148,7 +150,7 @@ export const MealCard = memo(function MealCard({
   return (
     <View style={styles.carouselWrap}>
       <View style={styles.topRow}>
-        <Text style={[typography.bodyBlack, styles.cardsTitle]}>Dagens måltider</Text>
+        <Text style={[typography.bodyBlack, styles.cardsTitle]}>{t("mealTodayTitle")}</Text>
 
         {showSwipeHint && (
           <View style={styles.swipeHintRow}>
@@ -157,7 +159,7 @@ export const MealCard = memo(function MealCard({
               size={12}
               color="rgba(153,246,228,0.92)"
             />
-            <Text style={[typography.body, styles.swipeHintText]}>Sveip for flere</Text>
+            <Text style={[typography.body, styles.swipeHintText]}>{t("mealSwipeHint")}</Text>
           </View>
         )}
       </View>
@@ -172,7 +174,7 @@ export const MealCard = memo(function MealCard({
         style={styles.scroll}
       >
         {todaysMeals.map((meal) => {
-          const sourceLabel = getSourceLabel(meal);
+          const sourceLabel = getSourceLabel(meal, t);
 
           return (
             <Pressable
@@ -233,7 +235,7 @@ export const MealCard = memo(function MealCard({
                       ellipsizeMode="tail"
                       style={[typography.bodyBlack, styles.title]}
                     >
-                      {meal.title || "Måltid"}
+                      {meal.title || t("mealMenuTitle")}
                     </Text>
 
                     <View style={styles.metaRow}>
@@ -272,8 +274,8 @@ export const MealCard = memo(function MealCard({
 
                 <View style={styles.macrosRow}>
                   <MacroPill label="Protein" value={`${toRounded(meal.proteins)}g`} />
-                  <MacroPill label="Karbo" value={`${toRounded(meal.carbs)}g`} />
-                  <MacroPill label="Fett" value={`${toRounded(meal.fats)}g`} />
+                  <MacroPill label={t("homeCarbsShort")} value={`${toRounded(meal.carbs)}g`} />
+                  <MacroPill label={t("homeFat")} value={`${toRounded(meal.fats)}g`} />
                 </View>
               </View>
             </Pressable>

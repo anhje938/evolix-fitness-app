@@ -3,6 +3,7 @@ import { useSubscription } from "@/context/SubscriptionProvider";
 import { typography } from "@/config/typography";
 import type { Exercise, Workout } from "@/types/exercise";
 import type { AppLanguage } from "@/types/userSettings";
+import { translate } from "@/i18n/translations";
 import { getWorkoutDisplay } from "@/utils/exercise/localizedTraining";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -111,11 +112,12 @@ export const WorkoutList = memo(function WorkoutList({
           <Ionicons name="barbell-outline" size={18} color={colors.text} />
         </View>
 
-        <Text style={[typography.h2, styles.emptyTitle]}>Ingen økter enda</Text>
+        <Text style={[typography.h2, styles.emptyTitle]}>
+          {translate(language, "workoutEmptyTitle")}
+        </Text>
 
         <Text style={[typography.body, styles.emptySub]}>
-          Trykk på <Text style={styles.inlinePlus}>+</Text> for å lage din
-          første økt.
+          {translate(language, "workoutEmptyBody")}
         </Text>
       </View>
     );

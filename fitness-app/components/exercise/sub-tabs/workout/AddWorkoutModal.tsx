@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import DumbbellIcon from "../../../../assets/icons/dumbbell-white.svg";
 import XIcon from "../../../../assets/icons/white-x.svg";
+import { useTranslation } from "@/i18n/translations";
 
 type Props = {
   visible: boolean;
@@ -32,6 +33,7 @@ type Props = {
 };
 
 export function AddWorkoutModal({ visible, onClose, onSubmit }: Props) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [dayLabel, setDayLabel] = useState("");
@@ -87,7 +89,7 @@ export function AddWorkoutModal({ visible, onClose, onSubmit }: Props) {
                 stroke={newColors.primary.light}
                 fill={newColors.primary.light}
               />
-              <Text style={styles.title}>Ny økt</Text>
+              <Text style={styles.title}>{t("workoutNewTitle")}</Text>
             </View>
 
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -101,7 +103,7 @@ export function AddWorkoutModal({ visible, onClose, onSubmit }: Props) {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.label}>Navn</Text>
+            <Text style={styles.label}>{t("modalName")}</Text>
             <TextInput
               style={styles.input}
               placeholder="F.eks. Push A"
@@ -111,20 +113,20 @@ export function AddWorkoutModal({ visible, onClose, onSubmit }: Props) {
               returnKeyType="next"
             />
 
-            <Text style={styles.label}>Dag / etikett</Text>
+            <Text style={styles.label}>{t("workoutDayLabel")}</Text>
             <TextInput
               style={styles.input}
-              placeholder="F.eks. Mandag, Pull B..."
+              placeholder={t("workoutDayPlaceholder")}
               placeholderTextColor="rgba(148,163,184,0.8)"
               value={dayLabel}
               onChangeText={setDayLabel}
               returnKeyType="next"
             />
 
-            <Text style={styles.label}>Beskrivelse</Text>
+            <Text style={styles.label}>{t("modalDescription")}</Text>
             <TextInput
               style={[styles.input, styles.textarea]}
-              placeholder="Kort beskrivelse av økten..."
+              placeholder={t("workoutDescriptionPlaceholder")}
               placeholderTextColor="rgba(148,163,184,0.8)"
               value={description}
               onChangeText={setDescription}
@@ -146,13 +148,13 @@ export function AddWorkoutModal({ visible, onClose, onSubmit }: Props) {
               style={styles.button}
             >
               <Ionicons name="save-outline" size={18} color="white" />
-              <Text style={styles.buttonText}>Opprett økt</Text>
+              <Text style={styles.buttonText}>{t("workoutCreate")}</Text>
             </LinearGradient>
           </TouchableOpacity>
 
           {!canSubmit && (
             <Text style={styles.helperText}>
-              Skriv inn et navn for å opprette.
+              {t("workoutNeedName")}
             </Text>
           )}
         </Pressable>

@@ -1,9 +1,11 @@
 import { gradients } from "@/config/theme";
 import { typography } from "@/config/typography";
+import { useTranslation } from "@/i18n/translations";
 import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, Text, View } from "react-native";
 
 export default function WeeklySummaryCard() {
+  const { t } = useTranslation();
   const progress = 4 / 5;
 
   return (
@@ -22,7 +24,7 @@ export default function WeeklySummaryCard() {
           November 2025
         </Text>
         <Text style={[typography.body, { fontSize: 13, opacity: 0.7 }]}>
-          Økter
+          {t("navWorkouts")}
         </Text>
       </View>
 

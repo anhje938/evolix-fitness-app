@@ -1,4 +1,5 @@
 import { CompletedWorkoutSummaryDto } from "@/api/exercise/completedWorkouts";
+import { useTranslation } from "@/i18n/translations";
 import { formatDateKeyLongNO, formatTimeNO } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import React, { memo, useMemo } from "react";
@@ -48,6 +49,7 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
   onClose: () => void;
   onOpenSession: (sessionId: string) => void;
 }) {
+  const { t } = useTranslation();
   const formattedDate = useMemo(() => {
     if (!selectedDate) return "";
     return formatDateKeyLongNO(selectedDate);
@@ -70,7 +72,7 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
                 <Ionicons name="calendar" size={20} color={colors.accent} />
               </View>
               <View>
-                <Text style={styles.sheetDateLabel}>Økter</Text>
+                <Text style={styles.sheetDateLabel}>{t("navWorkouts")}</Text>
                 <Text style={styles.sheetTitle}>{formattedDate}</Text>
               </View>
             </View>

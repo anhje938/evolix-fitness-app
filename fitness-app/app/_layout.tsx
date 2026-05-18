@@ -12,7 +12,10 @@ import { fetchMyUser } from "@/api/user";
 import { queryClient, queryStaleTimes } from "@/config/queryClient";
 import { RegistrationOnboardingModal } from "@/components/settings/RegistrationOnboardingModal";
 import { AuthProvider, useAuth } from "@/context/AuthProvider";
-import { SubscriptionProvider } from "@/context/SubscriptionProvider";
+import {
+  SubscriptionProvider,
+  useSubscription,
+} from "@/context/SubscriptionProvider";
 import { UserSettingsProvider } from "@/context/UserSettingsProvider";
 import {
   WorkoutSessionProvider,
@@ -61,6 +64,7 @@ function AuthStateCleanup() {
 
 function AppDataPrefetcher() {
   const { authReady, token } = useAuth();
+  const { isPremium, isLoading: isSubscriptionLoading } = useSubscription();
   const client = useQueryClient();
 
   useEffect(() => {
@@ -93,11 +97,6 @@ function AppDataPrefetcher() {
           queryFn: GetProgramsForUser,
           staleTime: queryStaleTimes.long,
         }),
-        client.prefetchQuery({
-          queryKey: ["adaptive", "today"],
-          queryFn: getTodayFocus,
-          staleTime: queryStaleTimes.short,
-        }),
       ]);
     });
 
@@ -105,6 +104,22 @@ function AppDataPrefetcher() {
       task.cancel();
     };
   }, [authReady, client, token]);
+
+  useEffect(() => {
+    if (!authReady || !token || isSubscriptionLoading || !isPremium) return;
+
+    const task = InteractionManager.runAfterInteractions(() => {
+      void client.prefetchQuery({
+        queryKey: ["adaptive", "today"],
+        queryFn: getTodayFocus,
+        staleTime: queryStaleTimes.short,
+      });
+    });
+
+    return () => {
+      task.cancel();
+    };
+  }, [authReady, client, isPremium, isSubscriptionLoading, token]);
 
   return null;
 }
