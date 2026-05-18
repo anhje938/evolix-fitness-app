@@ -10,6 +10,7 @@ import {
 
 export type BodyGoalCoachStatus =
   | "insufficientData"
+  | "earlySignal"
   | "goalReached"
   | "onTrack"
   | "increaseCalories"
@@ -43,7 +44,11 @@ export type BodyGoalCoachRecommendation = {
   trackedCalorieDays: number;
   consecutiveCalorieDays: number;
   excludedCalorieDays: number;
+  incompleteCalorieDays: number;
   usesLoggedCalories: boolean;
+  isPreview: boolean;
+  canRecommendCalories: boolean;
+  dataSummary: string;
 };
 
 type BuildBodyGoalCoachArgs = {
@@ -72,13 +77,18 @@ type CalorieCoachWindow = {
   eligiblePoints: DailyCaloriesPoint[];
   recentConsecutivePoints: DailyCaloriesPoint[];
   excludedDays: number;
+  incompleteDays: number;
 };
 
 const ANALYSIS_WINDOW_DAYS = 28;
-const MIN_CONSECUTIVE_CALORIE_DAYS = 7;
+const MIN_CONSECUTIVE_CALORIE_DAYS = 5;
 const MIN_LOGGED_CALORIE_DAYS = 7;
 const MIN_WEIGHT_MEASUREMENT_DAYS = 7;
 const MIN_WEIGHT_SPAN_DAYS = 10;
+const MIN_PREVIEW_CALORIE_DAYS = 3;
+const MIN_PREVIEW_WEIGHT_MEASUREMENT_DAYS = 2;
+const MIN_PREVIEW_WEIGHT_SPAN_DAYS = 3;
+const MIN_COMPLETE_CALORIE_DAY = 800;
 const EMA_ALPHA = 0.2;
 const KCAL_PER_KG = 7700;
 const MIN_RECOMMENDED_CALORIES = 1200;
@@ -239,8 +249,16 @@ function getCalorieCoachWindow(
   const excludedDays = windowPoints.filter((point) =>
     excludedDateKeys.has(point.dateKey)
   ).length;
+  const incompleteDays = windowPoints.filter(
+    (point) =>
+      !excludedDateKeys.has(point.dateKey) &&
+      point.calories > 0 &&
+      point.calories < MIN_COMPLETE_CALORIE_DAY
+  ).length;
   const eligiblePoints = windowPoints.filter(
-    (point) => !excludedDateKeys.has(point.dateKey)
+    (point) =>
+      !excludedDateKeys.has(point.dateKey) &&
+      point.calories >= MIN_COMPLETE_CALORIE_DAY
   );
   const eligibleByEpochDay = new Map(
     eligiblePoints.map((point) => [point.epochDay, point] as const)
@@ -257,6 +275,7 @@ function getCalorieCoachWindow(
     eligiblePoints,
     recentConsecutivePoints,
     excludedDays,
+    incompleteDays,
   };
 }
 
@@ -325,11 +344,16 @@ function buildInsufficientDataRecommendation(args: {
   trackedCalorieDays: number;
   consecutiveCalorieDays: number;
   excludedCalorieDays: number;
+  incompleteCalorieDays: number;
 }): BodyGoalCoachRecommendation {
   const goalDateLabel = formatDateLongNO(args.goalDateUtc);
   const excludedDaysText =
     args.excludedCalorieDays > 0
       ? ` ${args.excludedCalorieDays} dager er markert som «ikke tell», og coachen hopper derfor over dem.`
+      : "";
+  const incompleteDaysText =
+    args.incompleteCalorieDays > 0
+      ? ` ${args.incompleteCalorieDays} dager ser ufullstendige ut og brukes ikke som hele matdager.`
       : "";
 
   return {
@@ -337,9 +361,9 @@ function buildInsufficientDataRecommendation(args: {
     statusLabel: "For lite data",
     confidence: null,
     confidenceLabel: "Ingen sikkerhet",
-    headline: "Logg litt mer før coachen gir tips",
-    summary: `Coachen trenger minst ${MIN_CONSECUTIVE_CALORIE_DAYS} gyldige kalori-dager på rad frem til i går og minst ${MIN_WEIGHT_MEASUREMENT_DAYS} vektmålinger de siste ${ANALYSIS_WINDOW_DAYS} dagene for å gi råd mot ${formatWeight(args.goalWeightKg)} innen ${goalDateLabel}.`,
-    note: `Coachen bruker bare dager den kan stole på. Akkurat nå har du ${args.consecutiveCalorieDays} dager på rad med brukbar kalorilogging, ${args.trackedCalorieDays} brukbare kaloridager totalt de siste ${ANALYSIS_WINDOW_DAYS} dagene og ${args.trackedWeightDays} vektmålinger.${excludedDaysText}`,
+    headline: "Logg litt mer før coachen gir råd",
+    summary: `Coachen trenger minst ${MIN_LOGGED_CALORIE_DAYS} brukbare matdager og minst ${MIN_WEIGHT_MEASUREMENT_DAYS} vektmålinger de siste ${ANALYSIS_WINDOW_DAYS} dagene før den anbefaler kalorier mot ${formatWeight(args.goalWeightKg)} innen ${goalDateLabel}.`,
+    note: `Akkurat nå har du ${args.trackedCalorieDays} brukbare matdager, ${args.consecutiveCalorieDays} på rad og ${args.trackedWeightDays} vektmålinger.${excludedDaysText}${incompleteDaysText}`,
     goalDateUtc: args.goalDateUtc,
     daysRemaining: null,
     latestWeightKg: null,
@@ -357,7 +381,65 @@ function buildInsufficientDataRecommendation(args: {
     trackedCalorieDays: args.trackedCalorieDays,
     consecutiveCalorieDays: args.consecutiveCalorieDays,
     excludedCalorieDays: args.excludedCalorieDays,
+    incompleteCalorieDays: args.incompleteCalorieDays,
     usesLoggedCalories: args.trackedCalorieDays > 0,
+    isPreview: true,
+    canRecommendCalories: false,
+    dataSummary: `Mat: ${args.trackedCalorieDays}/${MIN_LOGGED_CALORIE_DAYS} dager. Vekt: ${args.trackedWeightDays}/${MIN_WEIGHT_MEASUREMENT_DAYS} målinger.`,
+  };
+}
+
+function buildEarlySignalRecommendation(args: {
+  goalDateUtc: string;
+  goalWeightKg: number | null;
+  latestTrendWeightKg: number | null;
+  latestMeasuredWeightKg: number | null;
+  deltaToGoalKg: number | null;
+  currentTrendKgPerWeek: number | null;
+  recentAverageCalories: number | null;
+  trackedWeightDays: number;
+  trackedCalorieDays: number;
+  consecutiveCalorieDays: number;
+  excludedCalorieDays: number;
+  incompleteCalorieDays: number;
+}): BodyGoalCoachRecommendation {
+  const trendText = formatTrend(args.currentTrendKgPerWeek);
+  const caloriesText = formatCalories(args.recentAverageCalories);
+
+  return {
+    status: "earlySignal",
+    statusLabel: "Tidlig signal",
+    confidence: "low",
+    confidenceLabel: "Lav sikkerhet",
+    headline: "Tidlige data er synlige, men ikke klare for justering",
+    summary:
+      args.recentAverageCalories === null && args.currentTrendKgPerWeek === null
+        ? "Coachen ser de første loggene dine, men trenger mer sammenheng før den kan tolke retningen."
+        : `Foreløpig matnivå er ${caloriesText}, og vekttrenden ser ut som ${trendText}. Dette er et tidlig estimat med høy usikkerhet.`,
+    note:
+      "Bruk dette som en pekepinn, ikke som en kaloriendring. Når flere hele matdager og vektmålinger er inne, låses et tryggere område opp.",
+    goalDateUtc: args.goalDateUtc,
+    daysRemaining: null,
+    latestWeightKg: args.latestTrendWeightKg,
+    latestMeasuredWeightKg: args.latestMeasuredWeightKg,
+    goalWeightKg: args.goalWeightKg,
+    deltaToGoalKg: args.deltaToGoalKg,
+    currentTrendKgPerWeek: args.currentTrendKgPerWeek,
+    requiredTrendKgPerWeek: null,
+    recentAverageCalories: args.recentAverageCalories,
+    maintenanceCalories: null,
+    recommendedCalories: null,
+    recommendedCaloriesMin: null,
+    recommendedCaloriesMax: null,
+    trackedWeightDays: args.trackedWeightDays,
+    trackedCalorieDays: args.trackedCalorieDays,
+    consecutiveCalorieDays: args.consecutiveCalorieDays,
+    excludedCalorieDays: args.excludedCalorieDays,
+    incompleteCalorieDays: args.incompleteCalorieDays,
+    usesLoggedCalories: args.trackedCalorieDays > 0,
+    isPreview: true,
+    canRecommendCalories: false,
+    dataSummary: `Tidlig estimat basert på ${args.trackedCalorieDays} matdager og ${args.trackedWeightDays} vektmålinger.`,
   };
 }
 
@@ -381,6 +463,7 @@ export function buildBodyGoalCoach({
       trackedCalorieDays: 0,
       consecutiveCalorieDays: 0,
       excludedCalorieDays: 0,
+      incompleteCalorieDays: 0,
     });
   }
 
@@ -395,11 +478,15 @@ export function buildBodyGoalCoach({
     toExcludedDateKeySet(userSettings.foodCoachExcludedDateKeys),
     todayEpochDay
   );
-  const caloriePoints = calorieWindow.recentConsecutivePoints;
-  const trackedCalorieDays = caloriePoints.length;
   const totalEligibleCalorieDays = calorieWindow.eligiblePoints.length;
+  const caloriePoints =
+    calorieWindow.recentConsecutivePoints.length >= MIN_CONSECUTIVE_CALORIE_DAYS
+      ? calorieWindow.recentConsecutivePoints
+      : calorieWindow.eligiblePoints.slice(-MIN_LOGGED_CALORIE_DAYS);
+  const trackedCalorieDays = caloriePoints.length;
   const consecutiveCalorieDays = calorieWindow.recentConsecutivePoints.length;
   const excludedCalorieDays = calorieWindow.excludedDays;
+  const incompleteCalorieDays = calorieWindow.incompleteDays;
   const trendPoints = toTrendWeightPoints(weightPoints);
   const trackedWeightDays = weightPoints.length;
   const latestMeasuredWeightKg =
@@ -411,15 +498,56 @@ export function buildBodyGoalCoach({
     firstTrendPoint && lastTrendPoint
       ? lastTrendPoint.epochDay - firstTrendPoint.epochDay
       : 0;
+  const previewCalories =
+    totalEligibleCalorieDays >= MIN_PREVIEW_CALORIE_DAYS
+      ? Math.round(
+          calorieWindow.eligiblePoints
+            .slice(-Math.min(totalEligibleCalorieDays, MIN_LOGGED_CALORIE_DAYS))
+            .reduce((sum, point) => sum + point.calories, 0) /
+            Math.min(totalEligibleCalorieDays, MIN_LOGGED_CALORIE_DAYS)
+        )
+      : null;
+  const previewTrendKgPerWeek =
+    firstTrendPoint &&
+    lastTrendPoint &&
+    trackedWeightDays >= MIN_PREVIEW_WEIGHT_MEASUREMENT_DAYS &&
+    weightSpanDays >= MIN_PREVIEW_WEIGHT_SPAN_DAYS
+      ? ((lastTrendPoint.trendWeightKg - firstTrendPoint.trendWeightKg) /
+          Math.max(weightSpanDays, 1)) *
+        7
+      : null;
+  const previewDeltaToGoalKg =
+    goalWeightKg === null || !lastTrendPoint
+      ? null
+      : goalWeightKg - lastTrendPoint.trendWeightKg;
 
   if (
     trackedCalorieDays < MIN_LOGGED_CALORIE_DAYS ||
-    consecutiveCalorieDays < MIN_CONSECUTIVE_CALORIE_DAYS ||
     trackedWeightDays < MIN_WEIGHT_MEASUREMENT_DAYS ||
     weightSpanDays < MIN_WEIGHT_SPAN_DAYS ||
     !firstTrendPoint ||
     !lastTrendPoint
   ) {
+    if (
+      totalEligibleCalorieDays >= MIN_PREVIEW_CALORIE_DAYS ||
+      trackedWeightDays >= MIN_PREVIEW_WEIGHT_MEASUREMENT_DAYS
+    ) {
+      return buildEarlySignalRecommendation({
+        goalDateUtc,
+        goalWeightKg,
+        latestTrendWeightKg: lastTrendPoint?.trendWeightKg ?? null,
+        latestMeasuredWeightKg,
+        deltaToGoalKg: previewDeltaToGoalKg,
+        currentTrendKgPerWeek: previewTrendKgPerWeek,
+        recentAverageCalories: previewCalories,
+        trackedWeightDays,
+        trackedCalorieDays: totalEligibleCalorieDays,
+        consecutiveCalorieDays,
+        excludedCalorieDays,
+        incompleteCalorieDays,
+      });
+    }
+
     return buildInsufficientDataRecommendation({
       goalDateUtc,
       goalWeightKg,
@@ -428,6 +556,7 @@ export function buildBodyGoalCoach({
       trackedCalorieDays: totalEligibleCalorieDays,
       consecutiveCalorieDays,
       excludedCalorieDays,
+      incompleteCalorieDays,
     });
   }
 
@@ -549,14 +678,22 @@ export function buildBodyGoalCoach({
   }
 
   const goalDateLabel = formatDateLongNO(goalDateUtc);
+  const calorieBasisLabel =
+    consecutiveCalorieDays >= MIN_CONSECUTIVE_CALORIE_DAYS
+      ? `${trackedCalorieDays} brukbare matdager på rad`
+      : `${trackedCalorieDays} brukbare matdager`;
   const summary = goalReached
     ? `Basert på trendvekten fra målingene dine ligger du omtrent ved mål. Hold deg rundt ${formatCaloriesRange(recommendedCaloriesMin, recommendedCaloriesMax)} hvis du vil stabilisere vekten videre.`
-    : `Basert på ${trackedCalorieDays} gyldige kalori-dager på rad frem til i går og trendvekten fra ${trackedWeightDays} måledager estimerer coachen vedlikeholdet ditt rundt ${formatCalories(maintenanceCalories)}. For å nå ${formatWeight(goalWeightKg)} innen ${goalDateLabel} ser et realistisk startområde ut til å være ${formatCaloriesRange(recommendedCaloriesMin, recommendedCaloriesMax)}.`;
+    : `Basert på ${calorieBasisLabel} og trendvekten fra ${trackedWeightDays} måledager estimerer coachen vedlikeholdet ditt rundt ${formatCalories(maintenanceCalories)}. For å nå ${formatWeight(goalWeightKg)} innen ${goalDateLabel} ser et realistisk startområde ut til å være ${formatCaloriesRange(recommendedCaloriesMin, recommendedCaloriesMax)}.`;
   const note = goalReached
     ? `${confidenceMeta.confidenceLabel}. Rådet bygger kun på loggede kalorier og vektmålinger, og bør justeres først når 1-2 nye uker peker samme vei. Skippede dager teller aldri som 0 kcal.`
     : isAggressiveGoal
     ? `${confidenceMeta.confidenceLabel}. Nåværende frist krever omtrent ${formatTrend(rawRequiredTrendKgPerWeek)}. Coachen har derfor klippet rådet til en mer realistisk fart rundt ${formatTrend(requiredTrendKgPerWeek)}. Skippede dager teller aldri som 0 kcal.`
     : `${confidenceMeta.confidenceLabel}. Coachens retning styres bare av loggede kalorier og trendvekt fra målinger, ikke av kalori-målet i settings. Skippede eller manglende dager teller ikke og erstattes aldri av 0.`;
+  const dataSummary =
+    consecutiveCalorieDays >= MIN_CONSECUTIVE_CALORIE_DAYS
+      ? `Basert på ${trackedCalorieDays} nylige matdager på rad, ${trackedWeightDays} vektmålinger og ${weightSpanDays} dager vektspenn.`
+      : `Basert på ${trackedCalorieDays} brukbare matdager, men bare ${consecutiveCalorieDays} på rad. Rådet er derfor ekstra konservativt.`;
 
   return {
     status,
@@ -583,7 +720,11 @@ export function buildBodyGoalCoach({
     trackedCalorieDays,
     consecutiveCalorieDays,
     excludedCalorieDays,
+    incompleteCalorieDays,
     usesLoggedCalories: trackedCalorieDays > 0,
+    isPreview: false,
+    canRecommendCalories: true,
+    dataSummary,
   };
 }
 

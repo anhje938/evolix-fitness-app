@@ -3,6 +3,8 @@ import { typography } from "@/config/typography";
 import { useSubscription } from "@/context/SubscriptionProvider";
 import { useWorkoutSession } from "@/context/workoutSessionContext";
 import type { Exercise, Program, Workout } from "@/types/exercise";
+import type { AppLanguage } from "@/types/userSettings";
+import { getProgramDisplay } from "@/utils/exercise/localizedTraining";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { memo, useCallback, useState } from "react";
@@ -26,6 +28,9 @@ const colors = {
   premiumBg: "rgba(251,191,36,0.12)",
   premiumBorder: "rgba(251,191,36,0.22)",
   premiumText: "#FDE68A",
+  premiumCard: "rgba(44,34,18,0.94)",
+  premiumGlow: "rgba(251,191,36,0.22)",
+  premiumStroke: "rgba(251,191,36,0.34)",
   iconBg: "rgba(8,24,54,0.98)",
   iconBorder: "rgba(96,165,250,0.18)",
   actionBorder: "rgba(96,165,250,0.16)",
@@ -35,6 +40,7 @@ type Props = {
   programs: Program[];
   workoutsByProgramId: Map<string, Workout[]>;
   exerciseMap: Map<string, Exercise>;
+  language: AppLanguage;
   onEdit?: (programId: string) => void;
 };
 
@@ -42,6 +48,7 @@ export const ProgramList = memo(function ProgramList({
   programs,
   workoutsByProgramId,
   exerciseMap,
+  language,
   onEdit,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -77,6 +84,7 @@ export const ProgramList = memo(function ProgramList({
           program={program}
           sessions={workoutsByProgramId.get(program.id) ?? []}
           exerciseMap={exerciseMap}
+          language={language}
           expanded={expandedId === program.id}
           onToggle={() => toggleExpanded(program.id)}
           onEdit={onEdit}
@@ -90,6 +98,7 @@ type ItemProps = {
   program: Program;
   sessions: Workout[];
   exerciseMap: Map<string, Exercise>;
+  language: AppLanguage;
   expanded: boolean;
   onToggle: () => void;
   onEdit?: (programId: string) => void;
@@ -99,6 +108,7 @@ const ProgramListItem = memo(function ProgramListItem({
   program,
   sessions,
   exerciseMap,
+  language,
   expanded,
   onToggle,
   onEdit,
@@ -109,6 +119,7 @@ const ProgramListItem = memo(function ProgramListItem({
 
   const workoutCount = sessions.length;
   const isProgramLocked = program.isPremium === true && !isPremium;
+  const display = getProgramDisplay(program, language);
 
   const handleToggle = () => {
     if (isProgramLocked) {
@@ -120,8 +131,17 @@ const ProgramListItem = memo(function ProgramListItem({
   };
 
   return (
-    <View style={[styles.cardOuter, expanded && styles.cardOuterExpanded]}>
-      <View pointerEvents="none" style={styles.base} />
+    <View
+      style={[
+        styles.cardOuter,
+        program.isPremium && styles.cardOuterPremium,
+        expanded && styles.cardOuterExpanded,
+      ]}
+    >
+      <View
+        pointerEvents="none"
+        style={[styles.base, program.isPremium && styles.basePremium]}
+      />
 
       <LinearGradient
         colors={[colors.glassTop, colors.glassMid, colors.glassNone]}
@@ -132,11 +152,19 @@ const ProgramListItem = memo(function ProgramListItem({
       />
 
       <LinearGradient
-        colors={[
-          "rgba(59,130,246,0.18)",
-          "rgba(34,211,238,0.10)",
-          "rgba(255,255,255,0)",
-        ]}
+        colors={
+          program.isPremium
+            ? [
+                "rgba(251,191,36,0.26)",
+                "rgba(245,158,11,0.12)",
+                "rgba(255,255,255,0)",
+              ]
+            : [
+                "rgba(59,130,246,0.18)",
+                "rgba(34,211,238,0.10)",
+                "rgba(255,255,255,0)",
+              ]
+        }
         start={{ x: 1, y: 0 }}
         end={{ x: 0.2, y: 1 }}
         style={styles.accentSheen}
@@ -145,7 +173,11 @@ const ProgramListItem = memo(function ProgramListItem({
 
       <View
         pointerEvents="none"
-        style={[styles.outerStroke, expanded && styles.outerStrokeExpanded]}
+        style={[
+          styles.outerStroke,
+          program.isPremium && styles.outerStrokePremium,
+          expanded && styles.outerStrokeExpanded,
+        ]}
       />
       <View
         pointerEvents="none"
@@ -163,8 +195,17 @@ const ProgramListItem = memo(function ProgramListItem({
             hitSlop={8}
           >
             <View style={styles.headerMainRow}>
-              <View style={styles.iconCircle}>
-                <Ionicons name="albums-outline" size={15} color={colors.cyan} />
+              <View
+                style={[
+                  styles.iconCircle,
+                  program.isPremium && styles.iconCirclePremium,
+                ]}
+              >
+                <Ionicons
+                  name="albums-outline"
+                  size={15}
+                  color={program.isPremium ? colors.premiumText : colors.cyan}
+                />
               </View>
 
               <View style={styles.headerTextWrap}>
@@ -173,7 +214,7 @@ const ProgramListItem = memo(function ProgramListItem({
                     style={[typography.bodyBold, styles.title]}
                     numberOfLines={1}
                   >
-                    {program.name}
+                    {display.name}
                   </Text>
 
                   {program.isPremium ? (
@@ -276,6 +317,7 @@ const ProgramListItem = memo(function ProgramListItem({
                     workout={session}
                     programId={program.id}
                     exerciseMap={exerciseMap}
+                    language={language}
                     onStart={(payload) => openProgramSession(payload)}
                   />
                 ))}
@@ -331,6 +373,13 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     overflow: "hidden",
   },
+  cardOuterPremium: {
+    shadowColor: colors.premiumGlow,
+    shadowOpacity: 0.24,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 5,
+  },
   cardOuterExpanded: {
     shadowColor: colors.glow,
     shadowOpacity: 0.18,
@@ -341,6 +390,9 @@ const styles = StyleSheet.create({
   base: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.cardSolid,
+  },
+  basePremium: {
+    backgroundColor: colors.premiumCard,
   },
   accentSheen: {
     position: "absolute",
@@ -356,6 +408,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.borderSoft,
+  },
+  outerStrokePremium: {
+    borderColor: colors.premiumStroke,
   },
   outerStrokeExpanded: {
     borderColor: colors.borderExpanded,
@@ -405,6 +460,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.iconBg,
     borderWidth: 1,
     borderColor: colors.iconBorder,
+  },
+  iconCirclePremium: {
+    backgroundColor: "rgba(120,83,18,0.42)",
+    borderColor: "rgba(251,191,36,0.32)",
   },
   headerTextWrap: {
     flex: 1,

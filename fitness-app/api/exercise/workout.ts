@@ -6,6 +6,9 @@ export type CreateWorkoutPayload = {
   name: string;
   description?: string;
   dayLabel?: string;
+  englishName?: string;
+  englishDescription?: string;
+  englishDayLabel?: string;
   workoutProgramId?: string | null;
   isPremium?: boolean;
   exerciseIds?: string[];
@@ -55,6 +58,9 @@ export type UpdateWorkoutPayload = {
   name: string;
   description?: string;
   dayLabel?: string;
+  englishName?: string;
+  englishDescription?: string;
+  englishDayLabel?: string;
   workoutProgramId?: string | null;
   isPremium?: boolean;
   exerciseIds: string[];

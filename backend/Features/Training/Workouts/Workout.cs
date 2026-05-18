@@ -9,9 +9,12 @@ namespace backend.Features.Training.Workouts
 
         public string Name { get; set; } = null!;
         public string? Description { get; set; }
+        public string? EnglishName { get; set; }
+        public string? EnglishDescription { get; set; }
 
         // Optional: label used in splits, e.g. "Push", "Pull", "Legs", "Upper"
         public string? DayLabel { get; set; }
+        public string? EnglishDayLabel { get; set; }
         public bool IsPremium { get; set; }
 
         // Foreign key → Program 

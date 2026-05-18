@@ -1,5 +1,6 @@
 import { typography } from "@/config/typography";
 import { useWorkoutSession } from "@/context/workoutSessionContext";
+import { useTranslation } from "@/i18n/translations";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, type ReactNode } from "react";
@@ -26,48 +27,48 @@ type ActionConfig = {
   icon: ReactNode;
 };
 
-const ACTIONS: ActionConfig[] = [
-  {
-    key: "meal",
-    title: "Logg måltid",
-    accent: ["#2A2F3A", "#1B4DFF"],
-    glow: [
-      "rgba(59,130,246,0.22)",
-      "rgba(59,130,246,0.08)",
-      "rgba(59,130,246,0.00)",
-    ],
-    icon: <Ionicons name="restaurant-outline" size={16} color="#93C5FD" />,
-  },
-  {
-    key: "weight",
-    title: "Logg vekt",
-    accent: ["#22C55E", "#15803D"],
-    glow: [
-      "rgba(34,197,94,0.22)",
-      "rgba(34,197,94,0.08)",
-      "rgba(34,197,94,0.00)",
-    ],
-    icon: <Ionicons name="scale-outline" size={16} color="#86EFAC" />,
-  },
-  {
-    key: "workout",
-    title: "Hurtigstart økt",
-    accent: ["#F59E0B", "#D97706"],
-    glow: [
-      "rgba(245,158,11,0.22)",
-      "rgba(245,158,11,0.08)",
-      "rgba(245,158,11,0.00)",
-    ],
-    icon: <Ionicons name="flash-outline" size={16} color="#FCD34D" />,
-  },
-];
-
 export default function QuickStartButtons({
   style,
   onLogMealPress,
   onLogWeightPress,
 }: Props) {
   const { openQuickSession } = useWorkoutSession();
+  const { t } = useTranslation();
+  const actions: ActionConfig[] = [
+    {
+      key: "meal",
+      title: t("quickLogMeal"),
+      accent: ["#2A2F3A", "#1B4DFF"],
+      glow: [
+        "rgba(59,130,246,0.22)",
+        "rgba(59,130,246,0.08)",
+        "rgba(59,130,246,0.00)",
+      ],
+      icon: <Ionicons name="restaurant-outline" size={16} color="#93C5FD" />,
+    },
+    {
+      key: "weight",
+      title: t("quickLogWeight"),
+      accent: ["#22C55E", "#15803D"],
+      glow: [
+        "rgba(34,197,94,0.22)",
+        "rgba(34,197,94,0.08)",
+        "rgba(34,197,94,0.00)",
+      ],
+      icon: <Ionicons name="scale-outline" size={16} color="#86EFAC" />,
+    },
+    {
+      key: "workout",
+      title: t("quickStartWorkout"),
+      accent: ["#F59E0B", "#D97706"],
+      glow: [
+        "rgba(245,158,11,0.22)",
+        "rgba(245,158,11,0.08)",
+        "rgba(245,158,11,0.00)",
+      ],
+      icon: <Ionicons name="flash-outline" size={16} color="#FCD34D" />,
+    },
+  ];
 
   const runAction = useCallback(
     (action: "meal" | "weight" | "workout") => {
@@ -81,14 +82,14 @@ export default function QuickStartButtons({
         return;
       }
 
-      openQuickSession("Hurtigøkt");
+      openQuickSession(t("quickWorkoutName"));
     },
-    [onLogMealPress, onLogWeightPress, openQuickSession]
+    [onLogMealPress, onLogWeightPress, openQuickSession, t]
   );
 
   return (
     <View style={[styles.container, style]}>
-      {ACTIONS.map((action) => (
+      {actions.map((action) => (
         <Pressable
           key={action.key}
           onPress={() => runAction(action.key)}

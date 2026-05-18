@@ -1,4 +1,3 @@
-// app/(tabs)/home.tsx
 import { PostUserMeal } from "@/api/food";
 import { getAccessTokenUserId } from "@/api/authSession";
 import { deleteMyUser } from "@/api/user";
@@ -38,6 +37,7 @@ import { useAuth } from "@/context/AuthProvider";
 import { useFoodContext } from "@/context/FoodProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useWeightContext } from "@/context/WeightProvider";
+import { useTranslation } from "@/i18n/translations";
 import { useExercises } from "@/hooks/useExercises";
 import { useRecoveryMap } from "@/hooks/useRecoveryMap";
 import { useCompletedWorkouts } from "@/hooks/workout-history/useCompletedWorkouts";
@@ -86,25 +86,11 @@ const HOME_SECTION_ORDER_FALLBACK: HomeSectionKey[] = [
   "recoveryMap",
 ];
 
-const labelMap: Record<HomeGoalTile, string> = {
-  calories: "Kalorier",
-  protein: "Proteiner",
-  carbs: "Karbohydrater",
-  fat: "Fett",
-};
-
-const shortLabelMap: Record<HomeGoalTile, string> = {
-  calories: "Kalorier",
-  protein: "Protein",
-  carbs: "Karbo",
-  fat: "Fett",
-};
-
 const circleAccents: Record<HomeGoalTile, string> = {
-  calories: "rgba(255,159,28,1)", // orange
-  protein: "rgba(168,85,247,1)", // purple
-  carbs: "rgba(6,182,212,1)", // cyan
-  fat: "rgba(34,197,94,1)", // green
+  calories: "rgba(255,159,28,1)",
+  protein: "rgba(168,85,247,1)",
+  carbs: "rgba(6,182,212,1)",
+  fat: "rgba(34,197,94,1)",
 };
 
 function clampPct(p: number) {
@@ -315,6 +301,21 @@ export default function HomePage() {
   const { data: sessions = [] } = useCompletedWorkouts();
   const { data: exercises = [] } = useExercises();
   const { recoveryMap } = useRecoveryMap({ sessions, exercises });
+  const { t } = useTranslation();
+
+  const labelMap: Record<HomeGoalTile, string> = {
+    calories: t("homeCalories"),
+    protein: t("homeProteins"),
+    carbs: t("homeCarbs"),
+    fat: t("homeFat"),
+  };
+
+  const shortLabelMap: Record<HomeGoalTile, string> = {
+    calories: t("homeCalories"),
+    protein: t("homeProtein"),
+    carbs: t("homeCarbsShort"),
+    fat: t("homeFat"),
+  };
 
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [isMealSheetOpen, setIsMealSheetOpen] = useState(false);
@@ -515,9 +516,9 @@ export default function HomePage() {
       )[0];
       const lastTrained = selected.lastStimulusAtUtc
         ? formatLastTrained(selected.lastStimulusAtUtc)
-        : "Ingen data";
+        : t("homeNoData");
 
-      let estimatedReady = "Ingen data";
+      let estimatedReady = t("homeNoData");
       if (selected.lastStimulusAtUtc) {
         const trainedAtMs = Date.parse(selected.lastStimulusAtUtc);
         if (Number.isFinite(trainedAtMs)) {
@@ -542,10 +543,10 @@ export default function HomePage() {
       frontColLayout,
       frontFigureLayout,
       recoveryBySlug,
+      t,
     ]
   );
 
-  // Tiles valgt i settings
   const enabledTiles = useMemo(() => {
     const raw = userSettings.homeGoalTiles ?? [];
     return uniq(raw).filter((t) => ALL_TILES.includes(t));
@@ -596,7 +597,7 @@ export default function HomePage() {
 
   const deleteUserAccount = async () => {
     if (!token) {
-      throw new Error("Du er ikke logget inn.");
+      throw new Error(t("deleteAccountNotSignedIn"));
     }
 
     const appleUserId = getAccessTokenUserId(token);
@@ -608,19 +609,19 @@ export default function HomePage() {
     if (!isMockAppleUser) {
       if (Platform.OS !== "ios") {
         throw new Error(
-          "Kontosletting med Apple må bekreftes på iPhone eller iPad."
+          t("deleteAccountAppleDevice")
         );
       }
 
       if (!appleUserId) {
-        throw new Error("Fant ikke Apple-brukeren som skal slettes.");
+        throw new Error(t("deleteAccountMissingAppleUser"));
       }
 
       const isAppleAuthAvailable =
         await AppleAuthentication.isAvailableAsync();
 
       if (!isAppleAuthAvailable) {
-        throw new Error("Apple Sign-In er ikke tilgjengelig på denne enheten.");
+        throw new Error(t("deleteAccountAppleUnavailable"));
       }
 
       try {
@@ -631,14 +632,14 @@ export default function HomePage() {
         authorizationCode = credential.authorizationCode?.trim() || null;
       } catch (error: any) {
         if (error?.code === "ERR_REQUEST_CANCELED") {
-          throw new Error("Kontosletting ble avbrutt.");
+          throw new Error(t("deleteAccountCancelled"));
         }
 
         throw error;
       }
 
       if (!authorizationCode) {
-        throw new Error("Apple Sign-In returnerte ikke authorization code.");
+        throw new Error(t("deleteAccountMissingCode"));
       }
     }
 
@@ -679,7 +680,7 @@ export default function HomePage() {
         setIsMealSheetOpen(false);
       } catch (error) {
         if (__DEV__) console.log("Could not save meal from home", error);
-        Alert.alert("Kunne ikke lagre måltid", "Prøv igjen om et øyeblikk.");
+        Alert.alert(t("foodSaveFailedTitle"), t("settingsTryAgainLater"));
       }
     },
     [mealSheetMode, refreshMeals, token]
@@ -695,7 +696,7 @@ export default function HomePage() {
         setIsWeightSheetOpen(false);
       } catch (error) {
         if (__DEV__) console.log("Could not save weight from home", error);
-        Alert.alert("Kunne ikke lagre vekt", "Prøv igjen om et øyeblikk.");
+        Alert.alert(t("weightSaveFailedTitle"), t("settingsTryAgainLater"));
       }
     },
     [refreshWeights, token]
@@ -741,7 +742,7 @@ export default function HomePage() {
             />
             <View style={styles.goalsHeader}>
               <Text style={[typography.body, styles.goalsTitle]}>
-                Dagens mål
+                {t("settingsTodayGoals")}
               </Text>
             </View>
 
@@ -879,7 +880,7 @@ export default function HomePage() {
 
           <View style={styles.anatomyHeader}>
             <Text style={[typography.body, styles.anatomyTitle]}>
-              Restitusjonskart
+              {t("homeRecoveryMap")}
             </Text>
           </View>
 
@@ -892,7 +893,7 @@ export default function HomePage() {
               onLayout={(e) => setFrontColLayout(e.nativeEvent.layout)}
             >
               <View style={styles.anatomyLabelPill}>
-                <Text style={styles.anatomyLabelText}>Forside</Text>
+                <Text style={styles.anatomyLabelText}>{t("homeFront")}</Text>
               </View>
 
               <View
@@ -920,7 +921,7 @@ export default function HomePage() {
               onLayout={(e) => setBackColLayout(e.nativeEvent.layout)}
             >
               <View style={styles.anatomyLabelPill}>
-                <Text style={styles.anatomyLabelText}>Bakside</Text>
+                <Text style={styles.anatomyLabelText}>{t("homeBack")}</Text>
               </View>
 
               <View
@@ -1010,7 +1011,7 @@ export default function HomePage() {
                       color="rgba(148,163,184,0.95)"
                     />
                     <Text style={styles.musclePopupMetricLabelText}>
-                      Sist trent
+                      {t("homeLastTrained")}
                     </Text>
                   </View>
                   <Text style={styles.musclePopupMetricValue}>
@@ -1026,7 +1027,7 @@ export default function HomePage() {
                       color="rgba(148,163,184,0.95)"
                     />
                     <Text style={styles.musclePopupMetricLabelText}>
-                      Estimert klar
+                      {t("homeEstimatedReady")}
                     </Text>
                   </View>
                   <Text
@@ -1061,7 +1062,6 @@ export default function HomePage() {
         ]}
         onContentSizeChange={applyInitialHomeOffset}
       >
-        {/* HEADER */}
         <View style={styles.headerRow}>
           <Pressable
             style={({ pressed }) => [
@@ -1078,8 +1078,8 @@ export default function HomePage() {
 
         <View style={styles.section}>
           <PremiumGate
-            featureTitle="EvoliX Plan"
-            description="Lås opp dagens coachplan, ukesrapport og anbefalinger som følger progresjonen din."
+            featureTitle={t("homePlanTitle")}
+            description={t("homePlanDescription")}
           >
             <TodayFocusCard />
           </PremiumGate>
@@ -1164,7 +1164,6 @@ const styles = StyleSheet.create({
     bottom: 30,
   },
 
-  // ✅ Global, consistent vertical rhythm between sections
   section: { marginBottom: SECTION_GAP },
   sectionLast: { marginBottom: 0 },
 
@@ -1309,7 +1308,6 @@ const styles = StyleSheet.create({
     opacity: 0.95,
   },
 
-  // === Anatomy card styles ===
   anatomyCard: {
     width: "100%",
     borderRadius: 18,

@@ -59,6 +59,9 @@ namespace backend.Features.Training.WorkoutPrograms
                     Name = p.Name,
                     Goal = p.Goal,
                     Level = p.Level,
+                    EnglishName = p.EnglishName,
+                    EnglishGoal = p.EnglishGoal,
+                    EnglishLevel = p.EnglishLevel,
                     IsPremium = p.IsPremium,
                     IsCustom = p.IsCustom,
                     UserId = p.UserId,
@@ -69,7 +72,9 @@ namespace backend.Features.Training.WorkoutPrograms
                         {
                             Id = w.Id,
                             Name = w.Name,
-                            Description = w.Description
+                            Description = w.Description,
+                            EnglishName = w.EnglishName,
+                            EnglishDescription = w.EnglishDescription
                         })
                         .ToList()
                 })
@@ -90,6 +95,9 @@ namespace backend.Features.Training.WorkoutPrograms
                 Name = req.Name,
                 Goal = req.Goal,
                 Level = req.Level,
+                EnglishName = req.EnglishName,
+                EnglishGoal = req.EnglishGoal,
+                EnglishLevel = req.EnglishLevel,
                 IsPremium = isAdmin && req.IsPremium,
                 UserId = isAdmin ? null : userId,
             };
@@ -108,6 +116,9 @@ namespace backend.Features.Training.WorkoutPrograms
                     Name = workoutReq.Name,
                     DayLabel = workoutReq.DayLabel,
                     Description = workoutReq.Description,
+                    EnglishName = workoutReq.EnglishName,
+                    EnglishDayLabel = workoutReq.EnglishDayLabel,
+                    EnglishDescription = workoutReq.EnglishDescription,
                     IsPremium = workoutProgram.IsPremium,
                     UserId = isAdmin ? null : userId,
                     WorkoutExercises = orderedExerciseIds
@@ -129,6 +140,9 @@ namespace backend.Features.Training.WorkoutPrograms
                 Name = workoutProgram.Name,
                 Goal = workoutProgram.Goal,
                 Level = workoutProgram.Level,
+                EnglishName = workoutProgram.EnglishName,
+                EnglishGoal = workoutProgram.EnglishGoal,
+                EnglishLevel = workoutProgram.EnglishLevel,
                 IsPremium = workoutProgram.IsPremium,
                 UserId = workoutProgram.UserId,
                 IsCustom = workoutProgram.IsCustom,
@@ -136,7 +150,9 @@ namespace backend.Features.Training.WorkoutPrograms
                 {
                     Id = w.Id,
                     Name = w.Name,
-                    Description = w.Description
+                    Description = w.Description,
+                    EnglishName = w.EnglishName,
+                    EnglishDescription = w.EnglishDescription
                 }).ToList()
             };
         }
@@ -187,6 +203,15 @@ namespace backend.Features.Training.WorkoutPrograms
 
             if (!string.IsNullOrWhiteSpace(req.Goal))
                 existing.Goal = req.Goal;
+
+            if (!string.IsNullOrWhiteSpace(req.EnglishName))
+                existing.EnglishName = req.EnglishName;
+
+            if (!string.IsNullOrWhiteSpace(req.EnglishGoal))
+                existing.EnglishGoal = req.EnglishGoal;
+
+            if (!string.IsNullOrWhiteSpace(req.EnglishLevel))
+                existing.EnglishLevel = req.EnglishLevel;
 
             if (isAdmin && req.IsPremium.HasValue)
                 existing.IsPremium = req.IsPremium.Value;
@@ -263,6 +288,9 @@ namespace backend.Features.Training.WorkoutPrograms
                 Name = updated.Name,
                 Goal = updated.Goal,
                 Level = updated.Level,
+                EnglishName = updated.EnglishName,
+                EnglishGoal = updated.EnglishGoal,
+                EnglishLevel = updated.EnglishLevel,
                 IsPremium = updated.IsPremium,
                 UserId = updated.UserId,
                 IsCustom = updated.IsCustom,
@@ -270,7 +298,9 @@ namespace backend.Features.Training.WorkoutPrograms
                 {
                     Id = w.Id,
                     Name = w.Name,
-                    Description = w.Description
+                    Description = w.Description,
+                    EnglishName = w.EnglishName,
+                    EnglishDescription = w.EnglishDescription
                 }).ToList()
             };
         }

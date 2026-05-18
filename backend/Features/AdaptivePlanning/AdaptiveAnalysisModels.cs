@@ -4,8 +4,8 @@ namespace backend.Features.AdaptivePlanning
 {
     public sealed record WeekWindow(DateOnly Start, DateOnly End)
     {
-        public DateTime StartUtc => Start.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-        public DateTime EndExclusiveUtc => End.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        public DateTime StartUtc => AdaptivePlanningClock.StartOfDayUtc(Start);
+        public DateTime EndExclusiveUtc => AdaptivePlanningClock.EndExclusiveUtc(End);
     }
 
     public sealed class WeightTrendAnalysis
@@ -14,6 +14,8 @@ namespace backend.Features.AdaptivePlanning
         public double? RecentAverageKg { get; set; }
         public double? WeeklyChangeKg { get; set; }
         public double? ExpectedWeeklyChangeKg { get; set; }
+        public double? RawExpectedWeeklyChangeKg { get; set; }
+        public bool GoalPaceClipped { get; set; }
         public DateOnly? EstimatedGoalDate { get; set; }
         public int RecentLogsCount { get; set; }
         public int TotalLogsCount { get; set; }
@@ -60,6 +62,7 @@ namespace backend.Features.AdaptivePlanning
     {
         public string Muscle { get; set; } = "";
         public decimal Sets { get; set; }
+        public decimal HardSets { get; set; }
         public double VolumeKg { get; set; }
         public DateTime? LastStimulusAtUtc { get; set; }
     }

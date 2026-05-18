@@ -6,6 +6,7 @@ using backend.Features.AdaptivePlanning;
 using backend.Features.Auth;
 using backend.Features.AuthAuth;
 using backend.Features.Food;
+using backend.Features.Monitoring;
 using backend.Features.Subscriptions;
 using backend.Features.Training.Exercises;
 using backend.Features.Training.WorkoutPrograms;
@@ -73,7 +74,11 @@ builder.Services.Configure<AppleSettings>(
 builder.Services.Configure<RevenueCatOptions>(
     builder.Configuration.GetSection("RevenueCat"));
 
+builder.Services.Configure<MonitoringOptions>(
+    builder.Configuration.GetSection("Monitoring"));
+
 builder.Services.AddSingleton<JwtService>();
+builder.Services.AddHttpClient<MonitoringAlertService>();
 
 if (builder.Environment.IsDevelopment())
 {
@@ -134,9 +139,7 @@ builder.Services.AddSwaggerGen();
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
           ?? throw new InvalidOperationException("Jwt settings missing.");
 
-if (string.IsNullOrWhiteSpace(jwt.SecretKey))
-    throw new InvalidOperationException("Jwt:SecretKey missing.");
-
+ValidateJwtSettings(jwt, builder.Environment);
 var keyBytes = Encoding.UTF8.GetBytes(jwt.SecretKey);
 
 builder.Services
@@ -161,11 +164,58 @@ app.UseForwardedHeaders();
 
 app.MapGet("/", () => "OK");
 app.MapGet("/health", () => "OK");
-
-using (var scope = app.Services.CreateScope())
+app.MapGet("/health/db", async (
+    AppDbContext db,
+    MonitoringAlertService monitoring,
+    HttpContext context,
+    CancellationToken ct) =>
 {
+    try
+    {
+        if (await db.Database.CanConnectAsync(ct))
+        {
+            return Results.Ok(new { status = "OK" });
+        }
+
+        await monitoring.AlertAsync(
+            MonitoringAreas.Database,
+            "health_check_unhealthy",
+            "Database health check could not connect.",
+            LogLevel.Error,
+            context.TraceIdentifier,
+            ct: ct);
+        return Results.Problem("Database connection failed.", statusCode: 503);
+    }
+    catch (Exception ex)
+    {
+        await monitoring.AlertAsync(
+            MonitoringAreas.Database,
+            "health_check_failed",
+            "Database health check failed.",
+            LogLevel.Error,
+            context.TraceIdentifier,
+            exception: ex,
+            ct: ct);
+        return Results.Problem("Database connection failed.", statusCode: 503);
+    }
+});
+
+try
+{
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    await db.Database.MigrateAsync();
+}
+catch (Exception ex)
+{
+    var monitoring = app.Services.GetRequiredService<MonitoringAlertService>();
+    await monitoring.AlertAsync(
+        MonitoringAreas.Database,
+        "migration_failed",
+        "Database migration failed during startup.",
+        LogLevel.Critical,
+        exception: ex);
+    throw;
 }
 
 if (app.Environment.IsDevelopment())
@@ -205,11 +255,84 @@ app.UseExceptionHandler(errorApp =>
         };
 
         context.Response.StatusCode = statusCode;
+        if (statusCode >= StatusCodes.Status500InternalServerError && error != null)
+        {
+            var monitoring = context.RequestServices
+                .GetRequiredService<MonitoringAlertService>();
+            await monitoring.AlertAsync(
+                MonitoringAreas.Api,
+                "unhandled_exception",
+                "Unhandled API exception.",
+                LogLevel.Error,
+                context.TraceIdentifier,
+                new Dictionary<string, string?>
+                {
+                    ["path"] = context.Request.Path,
+                    ["method"] = context.Request.Method,
+                    ["statusCode"] = statusCode.ToString()
+                },
+                error,
+                context.RequestAborted);
+            context.Items["MonitoringAlertSent"] = true;
+        }
+
         await context.Response.WriteAsJsonAsync(new
         {
             error = message
         });
     });
+});
+
+app.Use(async (context, next) =>
+{
+    var started = System.Diagnostics.Stopwatch.StartNew();
+    await next();
+    started.Stop();
+
+    var monitoringOptions = context.RequestServices
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<MonitoringOptions>>()
+        .Value;
+
+    var alertAlreadySent = context.Items.ContainsKey("MonitoringAlertSent");
+
+    if (context.Response.StatusCode >= StatusCodes.Status500InternalServerError &&
+        !alertAlreadySent)
+    {
+        var monitoring = context.RequestServices
+            .GetRequiredService<MonitoringAlertService>();
+        await monitoring.AlertAsync(
+            MonitoringAreas.Api,
+            "http_5xx",
+            "API returned a server error.",
+            LogLevel.Error,
+            context.TraceIdentifier,
+            new Dictionary<string, string?>
+            {
+                ["path"] = context.Request.Path,
+                ["method"] = context.Request.Method,
+                ["statusCode"] = context.Response.StatusCode.ToString(),
+                ["elapsedMs"] = started.ElapsedMilliseconds.ToString()
+            },
+            ct: context.RequestAborted);
+    }
+    else if (started.ElapsedMilliseconds >= monitoringOptions.SlowRequestThresholdMs)
+    {
+        var monitoring = context.RequestServices
+            .GetRequiredService<MonitoringAlertService>();
+        await monitoring.AlertAsync(
+            MonitoringAreas.Api,
+            "slow_request",
+            "API request exceeded the configured slow request threshold.",
+            LogLevel.Warning,
+            context.TraceIdentifier,
+            new Dictionary<string, string?>
+            {
+                ["path"] = context.Request.Path,
+                ["method"] = context.Request.Method,
+                ["elapsedMs"] = started.ElapsedMilliseconds.ToString()
+            },
+            ct: context.RequestAborted);
+    }
 });
 
 app.UseAuthentication();
@@ -218,3 +341,36 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static void ValidateJwtSettings(
+    JwtSettings jwt,
+    IWebHostEnvironment environment)
+{
+    if (string.IsNullOrWhiteSpace(jwt.SecretKey))
+    {
+        throw new InvalidOperationException("Jwt:SecretKey missing.");
+    }
+
+    if (!environment.IsProduction())
+    {
+        return;
+    }
+
+    if (string.IsNullOrWhiteSpace(jwt.Issuer))
+    {
+        throw new InvalidOperationException(
+            "Jwt:Issuer must be configured in production.");
+    }
+
+    if (string.IsNullOrWhiteSpace(jwt.Audience))
+    {
+        throw new InvalidOperationException(
+            "Jwt:Audience must be configured in production.");
+    }
+
+    if (Encoding.UTF8.GetByteCount(jwt.SecretKey) < 32)
+    {
+        throw new InvalidOperationException(
+            "Jwt:SecretKey must be at least 32 bytes in production.");
+    }
+}

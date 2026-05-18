@@ -3,7 +3,7 @@ import { useAuth } from "@/context/AuthProvider";
 import {
   addCustomerInfoListener,
   getCustomerInfo,
-  getOfferings,
+  getOfferings as fetchOfferings,
   hasPremiumAccess,
   initializeSubscriptions,
   logInRevenueCat,
@@ -29,6 +29,7 @@ import { AppState, Linking, Platform, type AppStateStatus } from "react-native";
 
 const PREMIUM_CACHE_KEY = "subscription_premium_cache_v1";
 const PREMIUM_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 6;
+const OFFERINGS_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
 
 type PremiumCache = {
   isPremium: boolean;
@@ -122,6 +123,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const currentRevenueCatUserIdRef = useRef<string | null>(null);
   const refreshPromiseRef = useRef<Promise<CustomerInfo | null> | null>(null);
+  const offeringsCacheRef = useRef<{
+    offerings: PurchasesOfferings;
+    fetchedAt: number;
+  } | null>(null);
+  const offeringsPromiseRef = useRef<Promise<PurchasesOfferings> | null>(null);
 
   const appUserId = useMemo(() => getAccessTokenUserId(token), [token]);
   const livePremium = hasPremiumAccess(customerInfo);
@@ -139,6 +145,32 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     },
     [appUserId]
   );
+
+  const getCachedOfferings = useCallback(async () => {
+    const cached = offeringsCacheRef.current;
+    if (
+      cached &&
+      Date.now() - cached.fetchedAt <= OFFERINGS_CACHE_MAX_AGE_MS
+    ) {
+      return cached.offerings;
+    }
+
+    if (offeringsPromiseRef.current) return offeringsPromiseRef.current;
+
+    offeringsPromiseRef.current = fetchOfferings()
+      .then((offerings) => {
+        offeringsCacheRef.current = {
+          offerings,
+          fetchedAt: Date.now(),
+        };
+        return offerings;
+      })
+      .finally(() => {
+        offeringsPromiseRef.current = null;
+      });
+
+    return offeringsPromiseRef.current;
+  }, []);
 
   const refreshCustomerInfo = useCallback(async () => {
     if (Platform.OS !== "ios" && Platform.OS !== "android") {
@@ -230,6 +262,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
         if (nextCustomerInfo) {
           await applyCustomerInfo(nextCustomerInfo, appUserId);
+          if (!hasPremiumAccess(nextCustomerInfo)) {
+            void getCachedOfferings().catch(() => undefined);
+          }
         }
       } catch (initError) {
         if (!cancelled) setError(toErrorMessage(initError));
@@ -241,7 +276,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [appUserId, applyCustomerInfo, authReady]);
+  }, [appUserId, applyCustomerInfo, authReady, getCachedOfferings]);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -306,7 +341,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       error,
       managementURL,
       refreshCustomerInfo,
-      getOfferings,
+      getOfferings: getCachedOfferings,
       purchasePackage,
       restorePurchases,
       openManageSubscription,
@@ -324,6 +359,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       refreshCustomerInfo,
       restorePurchases,
       revenueCatAppUserId,
+      getCachedOfferings,
     ]
   );
 

@@ -63,13 +63,14 @@ namespace backend.Features.AdaptivePlanning
             UserSettings settings,
             CancellationToken ct)
         {
-            var today = DateTime.UtcNow.Date;
-            var tomorrow = today.AddDays(1);
+            var today = AdaptivePlanningClock.Today();
+            var todayStartUtc = AdaptivePlanningClock.StartOfDayUtc(today);
+            var tomorrowStartUtc = AdaptivePlanningClock.EndExclusiveUtc(today);
             var totals = await _db.FoodLogs
                 .AsNoTracking()
                 .Where(x => x.UserId == userId &&
-                            x.TimestampUtc >= today &&
-                            x.TimestampUtc < tomorrow)
+                            x.TimestampUtc >= todayStartUtc &&
+                            x.TimestampUtc < tomorrowStartUtc)
                 .GroupBy(x => 1)
                 .Select(g => new
                 {
@@ -121,17 +122,31 @@ namespace backend.Features.AdaptivePlanning
             TodayNutritionFocus todayNutrition,
             WeeklyReport report)
         {
-            if (todayNutrition.Confidence == DataQualityLevel.Low)
-                return "Få inn dagens første måltid";
-
             if (report.DataQuality == DataQualityLevel.Low)
                 return "Bygg nok data før planen justeres";
+
+            if (report.WeightSummary?.Status is "behind" or "slightlyBehind")
+                return "Vurder en liten justering, ikke et stort hopp";
+
+            if (report.WeightSummary?.Status == "tooAggressive")
+                return "Gjør planen litt roligere i dag";
+
+            if (report.RecoverySummary?.RestMusclesText is { Length: > 0 } rest &&
+                rest != "Ingen tydelige begrensninger" &&
+                rest != "Ingen data")
+                return "La recovery styre neste økt";
+
+            if (todayNutrition.Confidence == DataQualityLevel.Low)
+                return "Få inn dagens første måltid";
 
             return "Hold planen rolig i dag";
         }
 
         private static string BuildSecondaryLine(WeeklyReport report)
         {
+            if (report.RecoverySummary != null)
+                return $"{report.RecoverySummary.RecommendedNextSession}: {report.RecoverySummary.IntensityRecommendation}.";
+
             if (report.NutritionSummary == null)
                 return "Matloggen styrer dagens råd.";
 
@@ -145,10 +160,8 @@ namespace backend.Features.AdaptivePlanning
             DataQualityLevel nutrition)
         {
             var levels = new[] { report, nutrition };
-            var usable = levels.Count(x => x != DataQualityLevel.Low);
-            if (usable == 2 && levels.Count(x => x == DataQualityLevel.High) == 2)
-                return DataQualityLevel.High;
-            if (usable >= 2) return DataQualityLevel.Medium;
+            if (levels.All(x => x == DataQualityLevel.High)) return DataQualityLevel.High;
+            if (levels.All(x => x != DataQualityLevel.Low)) return DataQualityLevel.Medium;
             return DataQualityLevel.Low;
         }
 

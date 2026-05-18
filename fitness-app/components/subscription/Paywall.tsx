@@ -1,6 +1,8 @@
 import { hasPremiumAccess, isPurchaseCancelledError } from "@/services/subscriptionService";
 import { useSubscription } from "@/context/SubscriptionProvider";
 import { typography } from "@/config/typography";
+import { translate, useTranslation, type TranslationKey } from "@/i18n/translations";
+import type { AppLanguage } from "@/types/userSettings";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useMemo, useState } from "react";
@@ -26,35 +28,47 @@ type Props = {
   source?: string;
 };
 
-function packageLabel(packageToShow: PurchasesPackage) {
-  if (packageToShow.packageType === "ANNUAL") return "Årlig";
-  if (packageToShow.packageType === "MONTHLY") return "Månedlig";
+function packageLabel(packageToShow: PurchasesPackage, language: AppLanguage) {
+  if (packageToShow.packageType === "ANNUAL") {
+    return translate(language, "premiumAnnual");
+  }
+  if (packageToShow.packageType === "MONTHLY") {
+    return translate(language, "premiumMonthly");
+  }
   return packageToShow.product.title || "Premium";
 }
 
-function packageSubtitle(packageToShow: PurchasesPackage) {
+function packageSubtitle(packageToShow: PurchasesPackage, language: AppLanguage) {
   if (packageToShow.packageType === "ANNUAL") {
     return packageToShow.product.pricePerMonthString
-      ? `${packageToShow.product.pricePerMonthString} per måned`
-      : "Betales årlig";
+      ? translate(language, "premiumPerMonth", {
+          price: packageToShow.product.pricePerMonthString,
+        })
+      : translate(language, "premiumAnnualBilling");
   }
 
-  if (packageToShow.packageType === "MONTHLY") return "Betales per måned";
-  return packageToShow.product.description || "Lås opp Premium";
+  if (packageToShow.packageType === "MONTHLY") {
+    return translate(language, "premiumMonthlyBilling");
+  }
+  return packageToShow.product.description || translate(language, "premiumUnlock");
 }
 
-function billingPeriodLabel(packageToShow: PurchasesPackage) {
-  if (packageToShow.packageType === "ANNUAL") return "år";
-  if (packageToShow.packageType === "MONTHLY") return "måned";
-  return "periode";
+function billingPeriodLabel(packageToShow: PurchasesPackage): TranslationKey {
+  if (packageToShow.packageType === "ANNUAL") return "premiumPeriodYear";
+  if (packageToShow.packageType === "MONTHLY") return "premiumPeriodMonth";
+  return "premiumPeriod";
 }
 
-function renewalDetails(packageToShow: PurchasesPackage | null) {
+function renewalDetails(
+  packageToShow: PurchasesPackage | null,
+  language: AppLanguage
+) {
   if (!packageToShow) return null;
 
-  return `${packageToShow.product.priceString} per ${billingPeriodLabel(
-    packageToShow
-  )}. Abonnementet fornyes automatisk til det avsluttes minst 24 timer før utløpet av gjeldende periode. Administrer eller avslutt abonnementet i Apple konto innstillingene dine.`;
+  return translate(language, "premiumRenewal", {
+    price: packageToShow.product.priceString,
+    period: translate(language, billingPeriodLabel(packageToShow)),
+  });
 }
 
 function logOfferingsDebug(packagesToLog: PurchasesPackage[], offeringId?: string) {
@@ -115,7 +129,12 @@ export function Paywall({
   onUnlocked,
   mandatory = false,
 }: Props) {
-  const subscription = useSubscription();
+  const {
+    getOfferings,
+    purchasePackage,
+    restorePurchases,
+  } = useSubscription();
+  const { language, t } = useTranslation();
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(
     null
@@ -135,7 +154,7 @@ export function Paywall({
       setMessage(null);
 
       try {
-        const offerings = await subscription.getOfferings();
+        const offerings = await getOfferings();
         if (cancelled) return;
 
         const current = pickOffering(offerings);
@@ -153,7 +172,7 @@ export function Paywall({
 
         if (!current || nextPackages.length === 0) {
           setMessage(
-            "Fant ingen aktive produkter. Sjekk at du har satt et current tilbud i RevenueCat og at produkt-idene finnes i App Store Connect."
+            t("premiumNoProducts")
           );
         }
       } catch (error) {
@@ -162,8 +181,8 @@ export function Paywall({
           if (__DEV__) console.warn("[Paywall] Kunne ikke hente pris", details ?? error);
           setMessage(
             details
-              ? `Kunne ikke hente pris. ${details}`
-              : "Kunne ikke hente pris. Prøv igjen om litt."
+              ? `${t("premiumPriceError")} ${details}`
+              : t("premiumPriceError")
           );
         }
       } finally {
@@ -174,7 +193,7 @@ export function Paywall({
     return () => {
       cancelled = true;
     };
-  }, [subscription, visible]);
+  }, [getOfferings, t, visible]);
 
   const selectedPackage = useMemo(
     () =>
@@ -191,17 +210,17 @@ export function Paywall({
     setMessage(null);
 
     try {
-      const customerInfo = await subscription.purchasePackage(selectedPackage);
+      const customerInfo = await purchasePackage(selectedPackage);
       if (hasPremiumAccess(customerInfo)) {
         onUnlocked?.();
         onClose();
         return;
       }
 
-      setMessage("Kjøpet ble registrert, men Premium er ikke aktiv ennå.");
+      setMessage(t("premiumPurchaseInactive"));
     } catch (error) {
       if (!isPurchaseCancelledError(error)) {
-        setMessage("Kjøpet kunne ikke fullføres. Prøv igjen.");
+        setMessage(t("premiumPurchaseFailed"));
       }
     } finally {
       setIsPurchasing(false);
@@ -215,16 +234,16 @@ export function Paywall({
     setMessage(null);
 
     try {
-      const result = await subscription.restorePurchases();
+      const result = await restorePurchases();
       if (result.status === "restored") {
         onUnlocked?.();
         onClose();
         return;
       }
 
-      setMessage("Fant ingen aktive kjøp.");
+      setMessage(t("premiumNoPurchases"));
     } catch {
-      setMessage("Kunne ikke gjenopprette kjøp. Prøv igjen.");
+      setMessage(t("premiumRestoreFailed"));
     } finally {
       setIsRestoring(false);
     }
@@ -267,16 +286,16 @@ export function Paywall({
             ) : null}
           </View>
 
-          <Text style={[typography.h2, styles.title]}>EvoliX Premium</Text>
+          <Text style={[typography.h2, styles.title]}>{t("premiumTitle")}</Text>
           <Text style={[typography.body, styles.body]}>
-            Lås opp alle coacher, ukesrapport og premiumprogrammer.
+            {t("premiumBody")}
           </Text>
 
           <View style={styles.benefits}>
             {[
-              "Matcoach og vektcoach",
-              "Treningscoach i øktloggingen",
-              "Premium treningsprogrammer",
+              t("premiumBenefitFoodWeight"),
+              t("premiumBenefitWorkout"),
+              t("premiumBenefitPrograms"),
             ].map((item) => (
               <View key={item} style={styles.benefitRow}>
                 <Ionicons name="checkmark-circle" size={16} color="#67E8F9" />
@@ -288,7 +307,7 @@ export function Paywall({
           {isLoadingOfferings ? (
             <View style={styles.loadingBox}>
               <ActivityIndicator color="#67E8F9" />
-              <Text style={styles.loadingText}>Henter pris</Text>
+              <Text style={styles.loadingText}>{t("premiumLoadingPrice")}</Text>
             </View>
           ) : packages.length > 0 ? (
             <View style={styles.packageList}>
@@ -305,8 +324,12 @@ export function Paywall({
                     ]}
                   >
                     <View style={styles.packageCopy}>
-                      <Text style={styles.packageTitle}>{packageLabel(item)}</Text>
-                      <Text style={styles.packageSub}>{packageSubtitle(item)}</Text>
+                      <Text style={styles.packageTitle}>
+                        {packageLabel(item, language)}
+                      </Text>
+                      <Text style={styles.packageSub}>
+                        {packageSubtitle(item, language)}
+                      </Text>
                     </View>
                     <Text style={styles.packagePrice}>
                       {item.product.priceString}
@@ -322,10 +345,10 @@ export function Paywall({
           {selectedPackage ? (
             <View style={styles.subscriptionInfoBox}>
               <Text style={styles.subscriptionInfoText}>
-                {renewalDetails(selectedPackage)}
+                {renewalDetails(selectedPackage, language)}
               </Text>
               <Text style={styles.subscriptionInfoText}>
-                Ved kjøp godtar du vilkårene våre og personvernerklæringen vår.
+                {t("premiumLegal")}
               </Text>
             </View>
           ) : null}
@@ -344,8 +367,10 @@ export function Paywall({
             ) : (
               <Text style={styles.purchaseText}>
                 {selectedPackage
-                  ? `Fortsett med ${selectedPackage.product.priceString}`
-                  : "Ikke tilgjengelig"}
+                  ? t("premiumContinueWith", {
+                      price: selectedPackage.product.priceString,
+                    })
+                  : t("commonNotAvailable")}
               </Text>
             )}
           </Pressable>
@@ -359,17 +384,17 @@ export function Paywall({
             ]}
           >
             <Text style={styles.restoreText}>
-              {isRestoring ? "Gjenoppretter..." : "Gjenopprett kjøp"}
+              {isRestoring ? t("premiumRestoring") : t("premiumRestore")}
             </Text>
           </Pressable>
 
           <View style={styles.legalRow}>
             <Pressable onPress={() => Linking.openURL(TERMS_URL)}>
-              <Text style={styles.legalLink}>Vilkår</Text>
+              <Text style={styles.legalLink}>{t("premiumTerms")}</Text>
             </Pressable>
             <Text style={styles.legalDot}>•</Text>
             <Pressable onPress={() => Linking.openURL(PRIVACY_URL)}>
-              <Text style={styles.legalLink}>Personvern</Text>
+              <Text style={styles.legalLink}>{t("premiumPrivacy")}</Text>
             </Pressable>
           </View>
         </View>

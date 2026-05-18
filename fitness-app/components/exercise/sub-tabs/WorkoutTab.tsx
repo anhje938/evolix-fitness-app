@@ -219,6 +219,7 @@ export function WorkoutTab() {
         <WorkoutList
           workouts={workouts}
           exercises={exercises}
+          language={userSettings.language}
           onEdit={setEditingWorkout}
           onStart={handleStartWorkout} // ✅ payload signature
         />

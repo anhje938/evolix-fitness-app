@@ -6,6 +6,8 @@ namespace backend.Features.AdaptivePlanning
 {
     public class NutritionAnalysisService
     {
+        private const int MinimumCompleteCalorieDay = 800;
+
         private readonly AppDbContext _db;
 
         public NutritionAnalysisService(AppDbContext db)
@@ -35,7 +37,7 @@ namespace backend.Features.AdaptivePlanning
                 .ToListAsync(ct);
 
             var days = logs
-                .GroupBy(x => DateOnly.FromDateTime(x.TimestampUtc))
+                .GroupBy(x => AdaptivePlanningClock.ToLocalDate(x.TimestampUtc))
                 .Select(g => new
                 {
                     Calories = g.Sum(x => x.Calories),
@@ -45,11 +47,15 @@ namespace backend.Features.AdaptivePlanning
                 })
                 .ToList();
 
-            var loggedDays = days.Count;
-            int? avgCalories = loggedDays > 0 ? (int)Math.Round(days.Average(x => x.Calories)) : null;
-            int? avgProtein = loggedDays > 0 ? (int)Math.Round(days.Average(x => x.Protein)) : null;
-            int? avgCarbs = loggedDays > 0 ? (int)Math.Round(days.Average(x => x.Carbs)) : null;
-            int? avgFat = loggedDays > 0 ? (int)Math.Round(days.Average(x => x.Fat)) : null;
+            var completeDays = days
+                .Where(x => x.Calories >= MinimumCompleteCalorieDay)
+                .ToList();
+            var incompleteDays = days.Count - completeDays.Count;
+            var loggedDays = completeDays.Count;
+            int? avgCalories = loggedDays > 0 ? (int)Math.Round(completeDays.Average(x => x.Calories)) : null;
+            int? avgProtein = loggedDays > 0 ? (int)Math.Round(completeDays.Average(x => x.Protein)) : null;
+            int? avgCarbs = loggedDays > 0 ? (int)Math.Round(completeDays.Average(x => x.Carbs)) : null;
+            int? avgFat = loggedDays > 0 ? (int)Math.Round(completeDays.Average(x => x.Fat)) : null;
             var confidence = loggedDays >= 5
                 ? DataQualityLevel.High
                 : loggedDays >= 3
@@ -70,7 +76,7 @@ namespace backend.Features.AdaptivePlanning
                 TargetFat = settings.FatGoal,
                 Confidence = confidence,
                 Status = status,
-                Insight = BuildInsight(avgCalories, avgProtein, settings, loggedDays, confidence)
+                Insight = BuildInsight(avgCalories, avgProtein, settings, loggedDays, incompleteDays, confidence)
             };
         }
 
@@ -87,23 +93,28 @@ namespace backend.Features.AdaptivePlanning
             int? avgProtein,
             UserSettings settings,
             int loggedDays,
+            int incompleteDays,
             DataQualityLevel confidence)
         {
+            var incompleteText = incompleteDays > 0
+                ? $" {incompleteDays} korte matdager er holdt utenfor snittet."
+                : "";
+
             if (confidence == DataQualityLevel.Low)
-                return $"Du logget mat {loggedDays} av 7 dager. EvoliX trenger minst 3 dager for rolige råd og helst 5+ for høy sikkerhet.";
+                return $"Du logget {loggedDays} brukbare matdager. EvoliX trenger minst 3 dager for rolige råd og helst 5+ for høy sikkerhet.{incompleteText}";
 
             var proteinGap = avgProtein.HasValue ? settings.ProteinGoal - avgProtein.Value : 0;
             if (proteinGap > 15)
-                return $"Kaloriene kan vurderes, men protein ligger i snitt {proteinGap} g under målet. Prioriter protein først.";
+                return $"Kaloriene kan vurderes, men protein ligger i snitt {proteinGap} g under målet. Prioriter protein først.{incompleteText}";
 
             if (avgCalories.HasValue)
             {
                 var calorieGap = avgCalories.Value - settings.CalorieGoal;
                 if (Math.Abs(calorieGap) <= Math.Max(100, settings.CalorieGoal * 0.05))
-                    return "Kaloriene dine ligger stabilt nær målet denne uken.";
+                    return $"Kaloriene dine ligger stabilt nær målet denne uken.{incompleteText}";
             }
 
-            return "Matloggen gir nok data til en forsiktig vurdering av neste uke.";
+            return $"Matloggen gir nok data til en forsiktig vurdering av neste uke.{incompleteText}";
         }
     }
 }

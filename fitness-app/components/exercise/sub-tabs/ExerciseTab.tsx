@@ -1,7 +1,7 @@
 import { generalStyles } from "@/config/styles";
 import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { CreateExercisePayload, Exercise } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -14,12 +14,11 @@ import {
   type ViewToken,
 } from "react-native";
 
-import { fetchMyUser } from "@/api/user";
-import { useAuth } from "@/context/AuthProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useAllExerciseSetsHistory } from "@/hooks/useAllExerciseSetsHistory";
 import { useCreateExercise } from "@/hooks/useCreateExercise";
 import { useExercises } from "@/hooks/useExercises";
+import { useMyUser } from "@/hooks/useMyUser";
 import { MuscleFilterValue } from "@/types/muscles";
 import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { sortExercisesByPopularity } from "@/utils/exercise/sortExercisesByPopularity";
@@ -50,14 +49,14 @@ export default function ExerciseTab({ onPressExercise }: Props) {
   const [muscleFilter, setMuscleFilter] = useState<MuscleFilterValue>("ALL");
   const [openAdd, setOpenAdd] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [visibleExerciseIds, setVisibleExerciseIds] = useState<string[]>([]);
   const searchInputRef = useRef<TextInput | null>(null);
   const createExerciseMutation = useCreateExercise();
 
-  const { token, authReady } = useAuth();
   const { userSettings } = useUserSettings();
   const { data, isLoading, error } = useExercises();
+  const { data: me } = useMyUser();
+  const isAdmin = !!me?.isAdmin;
 
   const exercises = useMemo(() => {
     const allExercises = data ?? [];
@@ -66,30 +65,6 @@ export default function ExerciseTab({ onPressExercise }: Props) {
       : allExercises;
     return sortExercisesByPopularity(visible);
   }, [data, userSettings.showOnlyCustomTrainingContent]);
-
-  useEffect(() => {
-    if (!authReady || !token) {
-      setIsAdmin(false);
-      return;
-    }
-
-    let alive = true;
-
-    (async () => {
-      try {
-        const me = await fetchMyUser(token);
-        if (!alive) return;
-        setIsAdmin(!!me?.isAdmin);
-      } catch {
-        if (!alive) return;
-        setIsAdmin(false);
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [authReady, token]);
 
   const filteredExercises = useMemo(() => {
     const s = search.toLowerCase().trim();

@@ -15,6 +15,7 @@ import ProgressTab from "@/components/exercise/sub-tabs/ProgressTab";
 import { WorkoutTab } from "@/components/exercise/sub-tabs/WorkoutTab";
 import { useAuth } from "@/context/AuthProvider";
 import { TrainingTabsProvider } from "@/context/trainingTabsContext";
+import { useTranslation } from "@/i18n/translations";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -38,6 +39,7 @@ function ExerciseContent() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { authReady, token } = useAuth();
+  const { t } = useTranslation();
   const [page, setPage] = useState<PageKey>("overview");
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(
     null
@@ -181,7 +183,9 @@ function ExerciseContent() {
               style={styles.returnButton}
             >
               <Ionicons name="chevron-back" size={18} color="#ffffff" />
-              <Text style={styles.returnLabel}>Til ovelser</Text>
+              <Text style={styles.returnLabel}>
+                {t("navExercises")}
+              </Text>
             </Pressable>
           )}
         </View>

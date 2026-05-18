@@ -5,6 +5,7 @@ const MAX_RECENT_SESSIONS = 6;
 const TARGET_WINDOW = 3;
 const PLATEAU_WINDOW = 5;
 const REENTRY_DAYS = 21;
+const LOAD_INCREASE_MIN_SESSIONS = 5;
 const MIN_SETS = 1;
 const MAX_SETS = 6;
 const MIN_REPS = 3;
@@ -18,6 +19,7 @@ export type WorkoutCoachStatus =
   | "reentry";
 
 export type WorkoutCoachMode = "load" | "reps";
+export type WorkoutCoachConfidence = "low" | "medium" | "high";
 
 export type WorkoutCoachSetPlan = {
   reps: number;
@@ -34,7 +36,11 @@ export type WorkoutCoachRecommendation = {
   plan: WorkoutCoachSetPlan[];
   recommendedSets: number;
   recommendedReps: number;
+  recommendedTotalReps: number;
   recommendedWeightKg: number | null;
+  stretchPlan: WorkoutCoachSetPlan[] | null;
+  stretchSummary: string | null;
+  stretchReason: string | null;
   stepKg: number | null;
   lastPerformedAtUtc: string;
   daysSinceLastSession: number;
@@ -43,6 +49,9 @@ export type WorkoutCoachRecommendation = {
   lastSessionSetLabel: string;
   lastSessionDetailLabel: string;
   historySampleSize: number;
+  confidence: WorkoutCoachConfidence;
+  confidenceLabel: string;
+  dataSummary: string;
 };
 
 export type WorkoutCoachProgress = {
@@ -64,6 +73,7 @@ type NormalizedSession = {
   totalRepsAtWorkingWeight: number;
   referenceSetCount: number;
   referenceReps: number;
+  referenceRepsList: number[];
   referenceTotalReps: number;
 };
 
@@ -130,24 +140,57 @@ function formatCompactLoad(weightKg: number | null) {
   return `${formatNumber(weightKg)}kg`;
 }
 
-function buildSummaryParts(
-  setCount: number,
-  reps: number,
-  weightKg: number | null,
+function isWarmupSet(setType: string | null | undefined) {
+  const normalized = String(setType ?? "").trim().toLowerCase();
+  return (
+    normalized.includes("warm") ||
+    normalized.includes("oppvarm") ||
+    normalized.includes("varm")
+  );
+}
+
+function sumPlanReps(plan: WorkoutCoachSetPlan[]) {
+  return plan.reduce((sum, set) => sum + set.reps, 0);
+}
+
+function getPlanRepsLabel(plan: WorkoutCoachSetPlan[]) {
+  if (plan.length === 0) return "0 reps";
+
+  const reps = plan.map((set) => set.reps);
+  const allSame = reps.every((value) => value === reps[0]);
+  return allSame ? `${reps[0]} reps` : `${reps.join("/")} reps`;
+}
+
+function getPlanWeightLabel(plan: WorkoutCoachSetPlan[]) {
+  const weights = plan.map((set) => set.weightKg);
+  const first = weights[0] ?? null;
+  const allSame = weights.every((value) => value === first);
+  return allSame ? formatCompactLoad(first) : null;
+}
+
+function getPlanSummaryParts(
+  plan: WorkoutCoachSetPlan[],
   options?: {
     useAtLeastLabel?: boolean;
   }
 ) {
+  const setCount = plan.length;
   const setLabel =
     options?.useAtLeastLabel && setCount === 1
       ? "minst 1 sett"
       : `${setCount} sett`;
-  const compactLoad = formatCompactLoad(weightKg);
+  const repsLabel = getPlanRepsLabel(plan);
+  const loadLabel = getPlanWeightLabel(plan);
 
   return {
     setLabel,
-    detailLabel: compactLoad ? `${reps} reps x ${compactLoad}` : `${reps} reps`,
+    detailLabel: loadLabel ? `${repsLabel} x ${loadLabel}` : repsLabel,
   };
+}
+
+function formatPlanSummary(plan: WorkoutCoachSetPlan[]) {
+  const parts = getPlanSummaryParts(plan, { useAtLeastLabel: true });
+  return `${parts.setLabel} -> ${parts.detailLabel}`;
 }
 
 function hasSameLoad(
@@ -193,9 +236,14 @@ function pickWorkingWeightKg(
 }
 
 function normalizeSession(session: ExerciseSessionSetsDto): NormalizedSession | null {
-  const sets = (session.sets ?? []).filter(
-    (set) => Number.isFinite(set.reps) && (set.reps ?? 0) > 0
-  );
+  const sets = [...(session.sets ?? [])]
+    .sort((a, b) => a.setNumber - b.setNumber)
+    .filter(
+      (set) =>
+        !isWarmupSet(set.setType) &&
+        Number.isFinite(set.reps) &&
+        (set.reps ?? 0) > 0
+    );
 
   if (sets.length === 0) return null;
 
@@ -227,6 +275,9 @@ function normalizeSession(session: ExerciseSessionSetsDto): NormalizedSession | 
     useWorkingWeightAsReference
       ? repsAtWorkingWeight
       : sets.map((set) => Number(set.reps ?? 0));
+  const referenceRepsList = referenceRepsSource.map((reps) =>
+    clamp(Math.round(reps), MIN_REPS, MAX_REPS)
+  );
   const referenceSetCount =
     useWorkingWeightAsReference ? repsAtWorkingWeight.length : sets.length;
   const referenceReps = clamp(
@@ -254,6 +305,7 @@ function normalizeSession(session: ExerciseSessionSetsDto): NormalizedSession | 
     ),
     referenceSetCount,
     referenceReps,
+    referenceRepsList,
     referenceTotalReps,
   };
 }
@@ -262,25 +314,106 @@ function getRepScore(session: NormalizedSession, weighted: boolean) {
   return session.referenceTotalReps;
 }
 
-function buildSessionSummary(session: NormalizedSession, weighted: boolean) {
-  const parts = buildSummaryParts(
-    session.referenceSetCount,
-    session.referenceReps,
-    weighted ? session.workingWeightKg ?? session.topWeightKg : null
-  );
+function normalizeRepsList(
+  repsList: number[],
+  setCount: number,
+  fallbackReps: number
+) {
+  const normalized = repsList
+    .slice(0, setCount)
+    .map((reps) => clamp(Math.round(reps), MIN_REPS, MAX_REPS));
 
-  return `${parts.setLabel} -> ${parts.detailLabel}`;
+  while (normalized.length < setCount) {
+    normalized.push(clamp(fallbackReps, MIN_REPS, MAX_REPS));
+  }
+
+  return normalized;
 }
 
-function buildPlan(
+function buildPlanFromTotalReps(
   setCount: number,
-  reps: number,
-  weightKg: number | null
-): WorkoutCoachSetPlan[] {
-  return Array.from({ length: setCount }, () => ({
-    reps,
+  targetTotalReps: number,
+  weightKg: number | null,
+  sourceReps: number[],
+  fallbackReps: number
+) {
+  const minTotal = setCount * MIN_REPS;
+  const maxTotal = setCount * MAX_REPS;
+  const normalizedTarget = clamp(
+    Math.round(targetTotalReps),
+    minTotal,
+    maxTotal
+  );
+  const reps = normalizeRepsList(sourceReps, setCount, fallbackReps);
+
+  let delta = normalizedTarget - reps.reduce((sum, value) => sum + value, 0);
+
+  while (delta > 0) {
+    const index = reps.reduce((bestIndex, value, currentIndex) => {
+      if (value >= MAX_REPS) return bestIndex;
+      if (bestIndex === -1) return currentIndex;
+      return value < reps[bestIndex] ? currentIndex : bestIndex;
+    }, -1);
+
+    if (index === -1) break;
+    reps[index] += 1;
+    delta -= 1;
+  }
+
+  while (delta < 0) {
+    const index = reps.reduce((bestIndex, value, currentIndex) => {
+      if (value <= MIN_REPS) return bestIndex;
+      if (bestIndex === -1) return currentIndex;
+      return value > reps[bestIndex] ? currentIndex : bestIndex;
+    }, -1);
+
+    if (index === -1) break;
+    reps[index] -= 1;
+    delta += 1;
+  }
+
+  return reps.map((repsValue) => ({
+    reps: repsValue,
     weightKg,
   }));
+}
+
+function getPlanMedianReps(plan: WorkoutCoachSetPlan[]) {
+  return clamp(
+    Math.round(median(plan.map((set) => set.reps))),
+    MIN_REPS,
+    MAX_REPS
+  );
+}
+
+function getCoachConfidence(
+  historySampleSize: number,
+  daysSinceLastSession: number
+): WorkoutCoachConfidence {
+  if (daysSinceLastSession >= REENTRY_DAYS) return "low";
+  if (historySampleSize >= 5) return "high";
+  if (historySampleSize >= 3) return "medium";
+  return "low";
+}
+
+function getConfidenceLabel(confidence: WorkoutCoachConfidence) {
+  if (confidence === "high") return "Høy sikkerhet";
+  if (confidence === "medium") return "Middels sikkerhet";
+  return "Lav sikkerhet";
+}
+
+function buildDataSummary(
+  confidence: WorkoutCoachConfidence,
+  historySampleSize: number
+) {
+  const sessionLabel =
+    historySampleSize === 1 ? "1 logget økt" : `${historySampleSize} loggede økter`;
+
+  if (confidence === "low") {
+    return `Basert på ${sessionLabel}. Bruk som et tidlig forslag, ikke en hard fasit.`;
+  }
+
+  return `Basert på ${sessionLabel}. Coachen prioriterer små steg og stabil utførelse.`;
 }
 
 function getStrongThreshold(targetTotalReps: number) {
@@ -335,10 +468,18 @@ function isSessionDeclining(
 
     if (currentLoad == null || previousLoad == null) return false;
 
-    return (
+    if (
       currentLoad <
       previousLoad - Math.max((stepKg ?? 1) * 0.35, 0.25)
-    );
+    ) {
+      return true;
+    }
+
+    if (hasSameLoad(currentLoad, previousLoad, stepKg)) {
+      return getRepScore(current, weighted) < getRepScore(previous, weighted);
+    }
+
+    return false;
   }
 
   return getRepScore(current, weighted) < getRepScore(previous, weighted);
@@ -415,10 +556,17 @@ function detectPlateau(
   sessions: NormalizedSession[],
   weighted: boolean,
   stepKg: number | null,
-  _targetTotalReps: number
+  targetTotalReps: number
 ) {
   const window = sessions.slice(0, PLATEAU_WINDOW);
   if (window.length < PLATEAU_WINDOW) return false;
+  if (hasRecentIncreaseTrend(window, weighted, stepKg)) return false;
+
+  const repScores = window.map((session) => getRepScore(session, weighted));
+  const bestScore = Math.max(...repScores);
+  const worstScore = Math.min(...repScores);
+  const repSpread = bestScore - worstScore;
+  const allowedRepSpread = Math.max(1, Math.ceil(window[0].referenceSetCount / 2));
 
   if (weighted) {
     const loads = window.map(getSessionLoad);
@@ -431,18 +579,44 @@ function detectPlateau(
 
     return (
       !hasRecentDecreaseTrend(window, weighted, stepKg) &&
+      repSpread <= allowedRepSpread &&
+      window[0].referenceTotalReps <= getStrongThreshold(targetTotalReps) &&
       numericLoads.every(
         (load) => load <= bestLoad + 0.01 && load >= bestLoad - allowedDip
       )
     );
   }
 
-  const repScores = window.map((session) => getRepScore(session, weighted));
-  const bestScore = Math.max(...repScores);
-
   return (
     !hasRecentDecreaseTrend(window, weighted, stepKg) &&
-    repScores.every((score) => score >= bestScore - 1)
+    repSpread <= allowedRepSpread &&
+    window[0].referenceTotalReps <= getStrongThreshold(targetTotalReps)
+  );
+}
+
+function isReadyForLoadIncrease(
+  sessions: NormalizedSession[],
+  recommendedTotalReps: number,
+  recommendedSets: number,
+  stepKg: number | null
+) {
+  if (sessions.length < LOAD_INCREASE_MIN_SESSIONS) return false;
+
+  const latest = sessions[0];
+  const previous = sessions[1];
+  const latestLoad = getSessionLoad(latest);
+  const previousLoad = getSessionLoad(previous);
+
+  if (latestLoad == null || previousLoad == null) return false;
+  if (!hasSameLoad(latestLoad, previousLoad, stepKg)) return false;
+
+  const stableHighThreshold =
+    recommendedTotalReps + Math.max(1, Math.ceil(recommendedSets / 2));
+
+  return (
+    latest.referenceTotalReps >= stableHighThreshold &&
+    previous.referenceTotalReps >= getStrongThreshold(recommendedTotalReps) &&
+    !hasRecentDecreaseTrend(sessions, true, stepKg)
   );
 }
 
@@ -493,12 +667,9 @@ function buildStatusCopy(
 export function formatWorkoutCoachPlanSummary(
   recommendation: WorkoutCoachRecommendation
 ) {
-  const parts = buildSummaryParts(
-    recommendation.recommendedSets,
-    recommendation.recommendedReps,
-    recommendation.recommendedWeightKg,
-    { useAtLeastLabel: true }
-  );
+  const parts = getPlanSummaryParts(recommendation.plan, {
+    useAtLeastLabel: true,
+  });
 
   return `${parts.setLabel} -> ${parts.detailLabel}`;
 }
@@ -506,12 +677,7 @@ export function formatWorkoutCoachPlanSummary(
 export function getWorkoutCoachPlanSummaryParts(
   recommendation: WorkoutCoachRecommendation
 ) {
-  return buildSummaryParts(
-    recommendation.recommendedSets,
-    recommendation.recommendedReps,
-    recommendation.recommendedWeightKg,
-    { useAtLeastLabel: true }
-  );
+  return getPlanSummaryParts(recommendation.plan, { useAtLeastLabel: true });
 }
 
 export function buildWorkoutCoachRecommendation(
@@ -534,26 +700,39 @@ export function buildWorkoutCoachRecommendation(
   const weighted = targetPool.some(
     (session) => (session.workingWeightKg ?? session.topWeightKg ?? 0) > 0
   );
-  const recommendedSets = clamp(
+  const typicalSets = clamp(
     Math.round(median(targetPool.map((session) => session.referenceSetCount))),
     MIN_SETS,
     MAX_SETS
   );
-  const recommendedReps = clamp(
+  const recommendedSets = clamp(latest.referenceSetCount || typicalSets, MIN_SETS, MAX_SETS);
+  const medianReps = clamp(
     Math.round(median(targetPool.map((session) => session.referenceReps))),
     MIN_REPS,
     MAX_REPS
   );
-  const targetTotalReps = recommendedSets * recommendedReps;
+  const medianTotalReps = clamp(
+    Math.round(median(targetPool.map((session) => session.referenceTotalReps))),
+    recommendedSets * MIN_REPS,
+    recommendedSets * MAX_REPS
+  );
+  const latestTotalReps = clamp(
+    latest.referenceTotalReps,
+    recommendedSets * MIN_REPS,
+    recommendedSets * MAX_REPS
+  );
   const latestLoad = getSessionLoad(latest);
   const stepKg =
     weighted && latestLoad != null ? getLoadStepKg(latestLoad) : null;
   const daysSinceLastSession = getDaysSince(latest.performedAtUtc);
+  const confidence = getCoachConfidence(normalized.length, daysSinceLastSession);
+  const confidenceLabel = getConfidenceLabel(confidence);
+  const dataSummary = buildDataSummary(confidence, normalized.length);
   const plateauDetected = detectPlateau(
     normalized,
     weighted,
     stepKg,
-    targetTotalReps
+    medianTotalReps
   );
   const increasingTrendDetected = hasRecentIncreaseTrend(
     normalized,
@@ -565,17 +744,22 @@ export function buildWorkoutCoachRecommendation(
     weighted,
     stepKg
   );
-  const lastSessionSummary = buildSessionSummary(latest, weighted);
-  const lastSessionSummaryParts = buildSummaryParts(
+  const lastSessionPlan = buildPlanFromTotalReps(
     latest.referenceSetCount,
-    latest.referenceReps,
-    weighted ? getSessionLoad(latest) : null
+    latest.referenceTotalReps,
+    weighted ? getSessionLoad(latest) : null,
+    latest.referenceRepsList,
+    latest.referenceReps
   );
+  const lastSessionSummary = formatPlanSummary(lastSessionPlan);
+  const lastSessionSummaryParts = getPlanSummaryParts(lastSessionPlan);
 
   let mode: WorkoutCoachMode = weighted ? "load" : "reps";
   let status: WorkoutCoachStatus = "hold";
   let nextWeightKg = latestLoad;
-  let nextReps = recommendedReps;
+  let targetTotalReps = latestTotalReps;
+  let stretchPlan: WorkoutCoachSetPlan[] | null = null;
+  let stretchReason: string | null = null;
   let reason = "";
 
   if (daysSinceLastSession >= REENTRY_DAYS) {
@@ -584,77 +768,177 @@ export function buildWorkoutCoachRecommendation(
       weighted && latestLoad != null && stepKg != null
         ? roundToStep(Math.max(latestLoad * 0.92, stepKg), stepKg)
         : null;
-    nextReps = weighted
-      ? recommendedReps
-      : clamp(recommendedReps - 1, MIN_REPS, MAX_REPS);
+    targetTotalReps = Math.max(
+      recommendedSets * MIN_REPS,
+      latestTotalReps - Math.max(1, recommendedSets)
+    );
     reason =
       "Det har gått en stund siden sist. Start litt lettere og bygg rytmen opp igjen.";
   } else if (weighted) {
-    const shouldIncreaseLoad = normalized.length >= 4 && latestLoad != null;
-    const loadProgressPercent = getLoadProgressPercent(normalized.length);
+    const readyForLoadIncrease =
+      latestLoad != null &&
+      isReadyForLoadIncrease(normalized, medianTotalReps, recommendedSets, stepKg);
 
     if (decreasingTrendDetected && latestLoad != null) {
       status = "decrease";
       mode = "load";
       nextWeightKg = getDecreasedLoad(latestLoad, normalized.length, stepKg);
+      targetTotalReps = Math.max(
+        recommendedSets * MIN_REPS,
+        Math.min(latestTotalReps, medianTotalReps)
+      );
       reason =
-        "Vekten har vært lavere gjennom minst tre økter på rad. Ta et tydelig steg ned og bygg opp igjen med ren utførelse.";
+        "Belastning eller reps har falt gjennom flere økter. Ta et lite steg ned og bygg opp igjen med ren utførelse.";
     } else if (plateauDetected) {
       status = "plateau";
       mode = "load";
       nextWeightKg = latestLoad;
+      targetTotalReps = latestTotalReps;
+      if (confidence !== "low" && latestTotalReps < recommendedSets * MAX_REPS) {
+        stretchPlan = buildPlanFromTotalReps(
+          recommendedSets,
+          latestTotalReps + 1,
+          nextWeightKg,
+          latest.referenceRepsList,
+          medianReps
+        );
+        stretchReason = "Valgfritt hvis første del av økten føles lett.";
+      }
       reason =
-        "Belastningen har vært lik eller litt lavere gjennom de siste fem øktene. Det er et tydelig plateau akkurat nå.";
+        "Belastning og reps har stått nesten stille. Hold samme vekt og jakt en liten kvalitetsrep, ikke et stort hopp.";
     } else if (increasingTrendDetected) {
       status = "increase";
 
-      if (shouldIncreaseLoad && latestLoad != null) {
+      if (readyForLoadIncrease && latestLoad != null) {
         mode = "load";
         nextWeightKg = getIncreasedLoad(latestLoad, normalized.length, stepKg);
-        reason = `Du har hatt en stigende trend de siste to øktene. Neste steg er en kontrollert vektøkning på omtrent ${formatNumber(loadProgressPercent * 100)} %.`;
+        targetTotalReps = Math.max(
+          recommendedSets * MIN_REPS,
+          latestTotalReps - Math.max(1, recommendedSets)
+        );
+        reason =
+          "Du har vist nok reps på samme vekt over flere økter. Neste steg er en liten vektøkning med litt lavere repmål.";
       } else {
         mode = "reps";
         nextWeightKg = latestLoad;
-        nextReps = clamp(recommendedReps + 1, MIN_REPS, MAX_REPS);
+        targetTotalReps = Math.min(
+          recommendedSets * MAX_REPS,
+          latestTotalReps + 1
+        );
+        if (confidence !== "low" && targetTotalReps < recommendedSets * MAX_REPS) {
+          stretchPlan = buildPlanFromTotalReps(
+            recommendedSets,
+            targetTotalReps + 1,
+            nextWeightKg,
+            latest.referenceRepsList,
+            medianReps
+          );
+          stretchReason = "Kun hvis teknikken fortsatt er ren etter hovedmålet.";
+        }
         reason =
-          "Du har hatt en stigende trend de siste to øktene. Prioriter én ekstra rep før du øker vekten.";
+          "Du har hatt en stigende trend, men signalet peker fortsatt på reps før vekt. Hovedmålet er bare én rep mer enn sist.";
       }
     } else {
       status = "hold";
       mode = "load";
       nextWeightKg = latestLoad;
+      targetTotalReps = latestTotalReps;
+      if (
+        confidence !== "low" &&
+        latestTotalReps >= getStrongThreshold(medianTotalReps) &&
+        latestTotalReps < recommendedSets * MAX_REPS
+      ) {
+        stretchPlan = buildPlanFromTotalReps(
+          recommendedSets,
+          latestTotalReps + 1,
+          nextWeightKg,
+          latest.referenceRepsList,
+          medianReps
+        );
+        stretchReason = "Valgfritt hvis oppvarmingen og første arbeidssett føles lett.";
+      }
       reason =
-        "Trendene er ikke tydelige nok ennå. Hold deg på samme belastning til du har et klarere signal.";
+        "Trendene er ikke tydelige nok for et hardt hopp. Gjenta samme belastning og la kvaliteten avgjøre om du tar stretch-målet.";
     }
   } else {
     if (decreasingTrendDetected) {
       status = "decrease";
       mode = "reps";
-      nextReps = clamp(recommendedReps - 1, MIN_REPS, MAX_REPS);
+      targetTotalReps = Math.max(
+        recommendedSets * MIN_REPS,
+        Math.min(latestTotalReps, medianTotalReps) - Math.max(1, Math.ceil(recommendedSets / 2))
+      );
       reason =
         "Repnivået har vært lavere gjennom minst tre økter på rad. Gå litt ned og bygg stabilitet igjen.";
     } else if (plateauDetected) {
       status = "plateau";
       mode = "reps";
-      nextReps = recommendedReps;
+      targetTotalReps = latestTotalReps;
+      if (confidence !== "low" && latestTotalReps < recommendedSets * MAX_REPS) {
+        stretchPlan = buildPlanFromTotalReps(
+          recommendedSets,
+          latestTotalReps + 1,
+          null,
+          latest.referenceRepsList,
+          medianReps
+        );
+        stretchReason = "Valgfritt hvis hovedmålet er kontrollert.";
+      }
       reason =
-        "Repnivået har ligget flatt eller litt lavere gjennom de siste fem øktene. Det ser ut som et plateau akkurat nå.";
+        "Repnivået har ligget flatt. Hold hovedmålet realistisk og bruk bare en ekstra rep hvis det er god kontroll.";
     } else if (increasingTrendDetected) {
       status = "increase";
       mode = "reps";
-      nextReps = clamp(recommendedReps + 1, MIN_REPS, MAX_REPS);
+      targetTotalReps = Math.min(
+        recommendedSets * MAX_REPS,
+        latestTotalReps + 1
+      );
+      if (confidence !== "low" && targetTotalReps < recommendedSets * MAX_REPS) {
+        stretchPlan = buildPlanFromTotalReps(
+          recommendedSets,
+          targetTotalReps + 1,
+          null,
+          latest.referenceRepsList,
+          medianReps
+        );
+        stretchReason = "Kun hvis hovedmålet føles klart og kontrollert.";
+      }
       reason =
-        "Du har hatt en stigende trend de siste to øktene. Neste naturlige steg er å legge på én rep.";
+        "Du har hatt en stigende trend. Neste naturlige steg er én rep mer totalt, ikke et større hopp.";
     } else {
       status = "hold";
       mode = "reps";
+      targetTotalReps = latestTotalReps;
+      if (
+        confidence !== "low" &&
+        latestTotalReps >= getStrongThreshold(medianTotalReps) &&
+        latestTotalReps < recommendedSets * MAX_REPS
+      ) {
+        stretchPlan = buildPlanFromTotalReps(
+          recommendedSets,
+          latestTotalReps + 1,
+          null,
+          latest.referenceRepsList,
+          medianReps
+        );
+        stretchReason = "Valgfritt hvis du har god margin.";
+      }
       reason =
-        "Trendene er ikke tydelige nok ennå. Hold deg på samme reps til du får et klarere signal.";
+        "Trendene er ikke tydelige nok ennå. Gjenta samme nivå og bruk stretch-målet bare hvis dagsformen er god.";
     }
 
     nextWeightKg = null;
   }
 
+  const plan = buildPlanFromTotalReps(
+    recommendedSets,
+    targetTotalReps,
+    nextWeightKg,
+    latest.referenceRepsList,
+    medianReps
+  );
+  const recommendedReps = getPlanMedianReps(plan);
+  const recommendedTotalReps = sumPlanReps(plan);
   const copy = buildStatusCopy(status, mode, daysSinceLastSession);
   const recommendation: WorkoutCoachRecommendation = {
     status,
@@ -676,10 +960,14 @@ export function buildWorkoutCoachRecommendation(
         ? "Bygg deg rolig tilbake etter pausen."
         : "En ny kontrollert økt på samme oppsett er det sterkeste signalet akkurat nå.",
     reason,
-    plan: buildPlan(recommendedSets, nextReps, nextWeightKg),
+    plan,
     recommendedSets,
-    recommendedReps: nextReps,
+    recommendedReps,
+    recommendedTotalReps,
     recommendedWeightKg: nextWeightKg,
+    stretchPlan,
+    stretchSummary: stretchPlan ? formatPlanSummary(stretchPlan) : null,
+    stretchReason,
     stepKg,
     lastPerformedAtUtc: latest.performedAtUtc,
     daysSinceLastSession,
@@ -688,6 +976,9 @@ export function buildWorkoutCoachRecommendation(
     lastSessionSetLabel: lastSessionSummaryParts.setLabel,
     lastSessionDetailLabel: lastSessionSummaryParts.detailLabel,
     historySampleSize: normalized.length,
+    confidence,
+    confidenceLabel,
+    dataSummary,
   };
 
   return recommendation;
@@ -708,8 +999,7 @@ export function buildWorkoutCoachProgress(
     completedSets: completedSets.length,
     targetSets: recommendation.recommendedSets,
     completedReps,
-    targetReps:
-      recommendation.recommendedSets * recommendation.recommendedReps,
+    targetReps: recommendation.recommendedTotalReps,
   };
 }
 

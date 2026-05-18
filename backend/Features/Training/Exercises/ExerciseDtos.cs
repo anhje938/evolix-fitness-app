@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using backend.Common.Validation;
 
 namespace backend.Features.Training.Exercises
 {
@@ -22,7 +23,7 @@ namespace backend.Features.Training.Exercises
         public bool IsBodyweight { get; set; }
         public bool IsIsolation { get; set; }
         public bool IsCompound { get; set; }
-        [Range(typeof(decimal), "0.01", "100")]
+        [InvariantDecimalRange("0.01", "100")]
         public decimal? DefaultProgressionStepKg { get; set; }
         [MaxLength(20)]
         public List<ExerciseMuscleDto> Muscles { get; set; } = [];
@@ -69,7 +70,7 @@ namespace backend.Features.Training.Exercises
         public bool? IsBodyweight { get; set; }
         public bool? IsIsolation { get; set; }
         public bool? IsCompound { get; set; }
-        [Range(typeof(decimal), "0.01", "100")]
+        [InvariantDecimalRange("0.01", "100")]
         public decimal? DefaultProgressionStepKg { get; set; }
         [MaxLength(20)]
         public List<ExerciseMuscleDto>? Muscles { get; set; }
@@ -81,7 +82,7 @@ namespace backend.Features.Training.Exercises
         [MaxLength(80)]
         public string Muscle { get; set; } = "";
         public MuscleRole Role { get; set; }
-        [Range(typeof(decimal), "0.1", "1")]
+        [InvariantDecimalRange("0.1", "1")]
         public decimal Contribution { get; set; }
     }
 }

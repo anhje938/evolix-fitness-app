@@ -72,11 +72,23 @@ namespace backend.Data
 
             modelBuilder.Entity<WorkoutProgram>(b =>
             {
+                b.Property(x => x.Name).IsRequired().HasMaxLength(120);
+                b.Property(x => x.Goal).HasMaxLength(200);
+                b.Property(x => x.Level).HasMaxLength(80);
+                b.Property(x => x.EnglishName).HasMaxLength(120);
+                b.Property(x => x.EnglishGoal).HasMaxLength(200);
+                b.Property(x => x.EnglishLevel).HasMaxLength(80);
                 b.Property(x => x.IsPremium).HasDefaultValue(false);
             });
 
             modelBuilder.Entity<Workout>(b =>
             {
+                b.Property(x => x.Name).IsRequired().HasMaxLength(120);
+                b.Property(x => x.DayLabel).HasMaxLength(80);
+                b.Property(x => x.Description).HasMaxLength(1000);
+                b.Property(x => x.EnglishName).HasMaxLength(120);
+                b.Property(x => x.EnglishDayLabel).HasMaxLength(80);
+                b.Property(x => x.EnglishDescription).HasMaxLength(1000);
                 b.Property(x => x.IsPremium).HasDefaultValue(false);
             });
 

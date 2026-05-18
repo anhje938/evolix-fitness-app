@@ -1,4 +1,5 @@
 import { typography } from "@/config/typography";
+import { useTranslation } from "@/i18n/translations";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -36,34 +37,36 @@ const pageIcons: Record<PageKey, keyof typeof Ionicons.glyphMap> = {
 };
 
 export default function NavButtons({ page, setPage }: NavButtonsProps) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.wrapper}>
       <NavButton
-        label="Oversikt"
+        label={t("navOverview")}
         icon={pageIcons.overview}
         active={page === "overview"}
         onPress={() => setPage("overview")}
       />
       <NavButton
-        label="Program"
+        label={t("navPrograms")}
         icon={pageIcons.programs}
         active={page === "programs"}
         onPress={() => setPage("programs")}
       />
       <NavButton
-        label="Økter"
+        label={t("navWorkouts")}
         icon={pageIcons.workouts}
         active={page === "workouts"}
         onPress={() => setPage("workouts")}
       />
       <NavButton
-        label="Øvelser"
+        label={t("navExercises")}
         icon={pageIcons.exercises}
         active={page === "exercises"}
         onPress={() => setPage("exercises")}
       />
       <NavButton
-        label="Progresjon"
+        label={t("navProgression")}
         icon={pageIcons.progression}
         active={page === "progression"}
         onPress={() => setPage("progression")}

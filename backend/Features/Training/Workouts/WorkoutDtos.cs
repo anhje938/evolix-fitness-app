@@ -11,6 +11,12 @@ namespace backend.Features.Training.Workouts
         public string? DayLabel { get; set; }
         [MaxLength(1000)]
         public string? Description { get; set; }
+        [MaxLength(120)]
+        public string? EnglishName { get; set; }
+        [MaxLength(80)]
+        public string? EnglishDayLabel { get; set; }
+        [MaxLength(1000)]
+        public string? EnglishDescription { get; set; }
         public Guid? WorkoutProgramId { get; set; }
         public bool IsPremium { get; set; }
         [MaxLength(120)]
@@ -23,6 +29,9 @@ namespace backend.Features.Training.Workouts
         public string Name { get; set; } = null!;
         public string Description { get; set; } = null!;
         public string DayLabel { get; set; } = null!;
+        public string? EnglishName { get; set; }
+        public string? EnglishDayLabel { get; set; }
+        public string? EnglishDescription { get; set; }
         public Guid? WorkoutProgramId { get; set; }
         public bool IsPremium { get; set; }
         public bool WorkoutProgramIsPremium { get; set; }
@@ -40,6 +49,12 @@ namespace backend.Features.Training.Workouts
         public string? DayLabel { get; set; }
         [MaxLength(1000)]
         public string? Description { get; set; }
+        [MaxLength(120)]
+        public string? EnglishName { get; set; }
+        [MaxLength(80)]
+        public string? EnglishDayLabel { get; set; }
+        [MaxLength(1000)]
+        public string? EnglishDescription { get; set; }
         public Guid? WorkoutProgramId { get; set; }
         public bool? IsPremium { get; set; }
         [MaxLength(120)]

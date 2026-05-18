@@ -28,6 +28,17 @@ function qualityLabel(value: DataQualityLevel): string {
   return "Trenger mer data";
 }
 
+function foodCoachQuality(foodCoach: BodyGoalCoachRecommendation | null) {
+  if (!foodCoach?.confidence) return DataQualityLevel.Low;
+  if (foodCoach.confidence === "high") return DataQualityLevel.High;
+  if (foodCoach.confidence === "medium") return DataQualityLevel.Medium;
+  return DataQualityLevel.Low;
+}
+
+function lowerQuality(left: DataQualityLevel, right: DataQualityLevel) {
+  return Math.min(left, right) as DataQualityLevel;
+}
+
 function buildCoachCopy(
   focus: TodayFocus,
   foodCoach: BodyGoalCoachRecommendation | null
@@ -37,6 +48,8 @@ function buildCoachCopy(
       title: focus.mainAction,
       why: focus.why,
       nutrition: focus.nutrition,
+      quality: focus.dataQuality,
+      dataLine: "Planen bruker siste ukes adaptive rapport.",
     };
   }
 
@@ -44,19 +57,39 @@ function buildCoachCopy(
     foodCoach.recommendedCaloriesMin,
     foodCoach.recommendedCaloriesMax
   );
-  const needsData = foodCoach.status === "insufficientData";
-  const missingFoodDays = Math.max(0, 7 - foodCoach.consecutiveCalorieDays);
-  const dataNeed =
-    missingFoodDays > 0
-      ? `${missingFoodDays} flere gode matdager`
-      : "mer vektlogg";
+  const quality = lowerQuality(focus.dataQuality, foodCoachQuality(foodCoach));
+  const hasActionableFood =
+    foodCoach.canRecommendCalories &&
+    (foodCoach.status === "increaseCalories" ||
+      foodCoach.status === "decreaseCalories" ||
+      foodCoach.status === "deadlineRisk");
+
+  if (foodCoach.isPreview) {
+    return {
+      title:
+        focus.dataQuality === DataQualityLevel.Low
+          ? "Bygg datagrunnlaget for neste justering"
+          : focus.mainAction,
+      why: `${foodCoach.statusLabel}. ${foodCoach.dataSummary}`,
+      nutrition:
+        foodCoach.recentAverageCalories === null
+          ? focus.nutrition
+          : `Foreløpig matsnitt: ${foodCoach.recentAverageCalories} kcal`,
+      quality,
+      dataLine: foodCoach.note,
+    };
+  }
 
   return {
-    title: foodCoach.headline,
-    why: needsData
-      ? `Matcoach trenger ${dataNeed} før den anbefaler en endring.`
-      : `${foodCoach.statusLabel}. Bruk ${range} som rolig startområde.`,
-    nutrition: needsData ? focus.nutrition : `Matområde: ${range}`,
+    title: hasActionableFood ? foodCoach.headline : focus.mainAction,
+    why: hasActionableFood
+      ? `${foodCoach.statusLabel}. Bruk ${range} som rolig startområde.`
+      : `${focus.why} ${foodCoach.statusLabel}: ${foodCoach.summary}`,
+    nutrition: foodCoach.canRecommendCalories
+      ? `Matområde: ${range}`
+      : focus.nutrition,
+    quality,
+    dataLine: foodCoach.dataSummary,
   };
 }
 
@@ -87,7 +120,7 @@ function MainContent({
         <View style={styles.headerActions}>
           <View style={styles.qualityPill}>
             <Text style={styles.qualityText}>
-              {qualityLabel(focus.dataQuality)}
+              {qualityLabel(copy.quality)}
             </Text>
           </View>
           <Pressable
@@ -121,6 +154,10 @@ function MainContent({
 
       <Text style={styles.why} numberOfLines={3}>
         {copy.why}
+      </Text>
+
+      <Text style={styles.dataLine} numberOfLines={3}>
+        {copy.dataLine}
       </Text>
 
       <View style={styles.metricGrid}>
@@ -338,6 +375,12 @@ const styles = StyleSheet.create({
     color: "rgba(203,213,225,0.93)",
     fontSize: 12.5,
     lineHeight: 18,
+  },
+  dataLine: {
+    marginTop: 8,
+    color: "rgba(253,230,138,0.74)",
+    fontSize: 11.5,
+    lineHeight: 16,
   },
   metricGrid: {
     marginTop: 14,

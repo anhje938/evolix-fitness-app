@@ -340,6 +340,12 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
             </Text>
           </View>
         </View>
+        <View style={styles.coachConfidenceBadge}>
+          <Ionicons name="analytics-outline" size={11} color={tone.tint} />
+          <Text style={[styles.coachConfidenceText, { color: tone.tint }]}>
+            {recommendation.confidenceLabel}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.coachSectionBlock}>
@@ -364,6 +370,34 @@ const WorkoutCoachCard = memo(function WorkoutCoachCard({
         <Text style={[typography.body, styles.coachReason]}>
           {recommendation.reason}
         </Text>
+
+        {recommendation.stretchSummary ? (
+          <View style={styles.coachStretchBox}>
+            <View style={styles.coachStretchHeader}>
+              <Ionicons name="flash-outline" size={12} color={tone.tint} />
+              <Text style={styles.coachStretchLabel}>Stretch</Text>
+            </View>
+            <Text style={styles.coachStretchValue}>
+              {recommendation.stretchSummary}
+            </Text>
+            {recommendation.stretchReason ? (
+              <Text style={styles.coachStretchNote}>
+                {recommendation.stretchReason}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View style={styles.coachDataBox}>
+          <Ionicons
+            name="information-circle-outline"
+            size={13}
+            color={overlayColors.muted2}
+          />
+          <Text style={styles.coachDataText}>
+            {recommendation.dataSummary}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.coachHistoryPill}>
@@ -1301,6 +1335,24 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
+  coachConfidenceBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.20)",
+    backgroundColor: "rgba(2,6,23,0.26)",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    flexShrink: 0,
+  },
+
+  coachConfidenceText: {
+    fontSize: 10,
+    fontWeight: "800",
+  },
+
   coachCardStatusBadge: {
     borderRadius: 999,
     borderWidth: 1,
@@ -1358,6 +1410,60 @@ const styles = StyleSheet.create({
     color: overlayColors.muted,
     fontSize: 12,
     lineHeight: 18,
+  },
+
+  coachStretchBox: {
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.18)",
+    backgroundColor: "rgba(2,6,23,0.24)",
+    paddingHorizontal: 11,
+    paddingVertical: 10,
+    gap: 5,
+  },
+
+  coachStretchHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  coachStretchLabel: {
+    color: overlayColors.muted2,
+    fontSize: 10,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+
+  coachStretchValue: {
+    color: overlayColors.text,
+    fontSize: 12.5,
+    fontWeight: "800",
+  },
+
+  coachStretchNote: {
+    color: overlayColors.muted,
+    fontSize: 11.5,
+    lineHeight: 16,
+  },
+
+  coachDataBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.12)",
+    backgroundColor: "rgba(2,6,23,0.20)",
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+
+  coachDataText: {
+    flex: 1,
+    color: overlayColors.muted,
+    fontSize: 11.5,
+    lineHeight: 16,
   },
 
   coachHistoryPill: {

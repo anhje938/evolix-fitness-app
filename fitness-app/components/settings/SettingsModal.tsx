@@ -8,6 +8,7 @@ import { AppDateTimePicker } from "@/components/date/AppDateTimePicker";
 import { MODAL_MAX_HEIGHT, modalTheme } from "@/config/modalTheme";
 import { typography } from "@/config/typography";
 import { useSubscription } from "@/context/SubscriptionProvider";
+import { useTranslation } from "@/i18n/translations";
 import {
   ADVANCED_MUSCLE_FILTERS,
   type AdvancedMuscleFilterValue,
@@ -100,10 +101,6 @@ const ALL_RECOVERY_MUSCLES: RecoveryMapMuscleKey[] =
   ADVANCED_MUSCLE_FILTERS.filter((item) => item.value !== "ALL").map(
     (item) => item.value as RecoveryMapMuscleKey
   );
-const GENDER_OPTIONS: { value: UserGender; label: string }[] = [
-  { value: "male", label: "Mann" },
-  { value: "female", label: "Kvinne" },
-];
 const LANGUAGE_OPTIONS: { value: AppLanguage; label: string }[] = [
   { value: "nb", label: "Norsk" },
   { value: "en", label: "English" },
@@ -229,11 +226,19 @@ export default function SettingsModal({
   const [isRefreshingSubscription, setIsRefreshingSubscription] =
     useState(false);
   const subscription = useSubscription();
+  const { t } = useTranslation();
 
   const isControlled = !!userSettings && !!onChangeUserSettings;
 
   const [localSettings, setLocalSettings] = useState<UserSettings>(
     userSettings ?? INITIAL_SETTINGS
+  );
+  const genderOptions = useMemo(
+    () => [
+      { value: "male" as const, label: t("settingsGenderMale") },
+      { value: "female" as const, label: t("settingsGenderFemale") },
+    ],
+    [t]
   );
 
   useEffect(() => {
@@ -268,23 +273,23 @@ export default function SettingsModal({
   const tileLabels = useMemo(
     () =>
       [
-        { key: "calories" as const, label: "Kalorier" },
-        { key: "protein" as const, label: "Protein" },
-        { key: "carbs" as const, label: "Karbo" },
-        { key: "fat" as const, label: "Fett" },
+        { key: "calories" as const, label: t("homeCalories") },
+        { key: "protein" as const, label: t("homeProtein") },
+        { key: "carbs" as const, label: t("homeCarbsShort") },
+        { key: "fat" as const, label: t("homeFat") },
       ] satisfies { key: HomeGoalTile; label: string }[],
-    []
+    [t]
   );
 
   const sectionLabels = useMemo(
     () =>
       ({
-        quickStart: "Hurtigstart",
-        goals: "Dagens mål",
-        weight: "Vektoversikt",
-        recoveryMap: "Restitusjonskart",
+        quickStart: t("settingsQuickStart"),
+        goals: t("settingsTodayGoals"),
+        weight: t("settingsWeightOverview"),
+        recoveryMap: t("homeRecoveryMap"),
       } satisfies Record<HomeSectionKey, string>),
-    []
+    [t]
   );
 
   const sectionOrderItems = useMemo(
@@ -298,10 +303,10 @@ export default function SettingsModal({
 
   const appVersion = Constants.expoConfig?.version ?? "1.0.0";
   const subscriptionStatusText = subscription.isPremium
-    ? "Premium aktiv"
+    ? t("settingsPremiumActive")
     : subscription.isLoading
-    ? "Sjekker status"
-    : "Premium inaktiv";
+    ? t("settingsPremiumChecking")
+    : t("settingsPremiumInactive");
   const showDeleteSubscriptionWarning = subscription.isPremium;
 
   const hiddenRecoveryMuscles = useMemo(
@@ -328,12 +333,12 @@ export default function SettingsModal({
     if (isDeletingAccount) return;
 
     Alert.alert(
-      "Logg ut",
-      "Vil du logge ut av kontoen din?",
+      t("settingsLogout"),
+      t("settingsLogoutBody"),
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t("commonCancel"), style: "cancel" },
         {
-          text: "Logg ut",
+          text: t("settingsLogout"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -362,18 +367,18 @@ export default function SettingsModal({
     if (isDeletingAccount) return;
 
     Alert.alert(
-      "Slett konto",
-      "Er du sikker? Dette sletter kontoen og dataene dine permanent.",
+      t("settingsDeleteAccount"),
+      t("settingsDeleteBody"),
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t("commonCancel"), style: "cancel" },
         {
-          text: "Slett konto",
+          text: t("settingsDeleteAccount"),
           style: "destructive",
           onPress: async () => {
             if (!onDeleteAccount) {
               Alert.alert(
-                "Feil",
-                "Sletting av konto er ikke tilgjengelig ennå."
+                t("commonError"),
+                t("settingsDeleteNotAvailable")
               );
               return;
             }
@@ -386,8 +391,8 @@ export default function SettingsModal({
               const message =
                 error instanceof Error && error.message.trim().length > 0
                   ? error.message
-                  : "Kunne ikke slette konto. Prøv igjen.";
-              Alert.alert("Kunne ikke slette konto", message);
+                  : t("settingsDeleteFailedBody");
+              Alert.alert(t("settingsDeleteFailed"), message);
             } finally {
               setIsDeletingAccount(false);
             }
@@ -401,11 +406,11 @@ export default function SettingsModal({
   const handleDeleteAccountWithText = () => {
     if (isDeletingAccount) return;
 
-    const buttons: AlertButton[] = [{ text: "Avbryt", style: "cancel" }];
+    const buttons: AlertButton[] = [{ text: t("commonCancel"), style: "cancel" }];
 
     if (showDeleteSubscriptionWarning) {
       buttons.push({
-        text: "Administrer abonnement",
+        text: t("settingsManageSubscription"),
         onPress: () => {
           void handleManageSubscription();
         },
@@ -413,7 +418,7 @@ export default function SettingsModal({
     }
 
     buttons.push({
-      text: "Fortsett",
+      text: t("commonContinue"),
       style: "destructive",
       onPress: () => {
         setDeleteConfirmInput("");
@@ -422,10 +427,10 @@ export default function SettingsModal({
     });
 
     Alert.alert(
-      "Slett konto",
+      t("settingsDeleteAccount"),
       showDeleteSubscriptionWarning
-        ? "Du har et aktivt Premium-abonnement. Sletting av konto stopper ikke nødvendigvis Apple-fakturering. Administrer eller avslutt abonnementet hos Apple før du fortsetter hvis du vil stoppe fornyelse."
-        : "Er du sikker?",
+        ? t("settingsDeleteWarning")
+        : t("settingsDeleteWarningShort"),
       buttons,
       { cancelable: true }
     );
@@ -435,14 +440,14 @@ export default function SettingsModal({
     if (isDeletingAccount) return;
 
     if (!onDeleteAccount) {
-      Alert.alert("Feil", "Sletting av konto er ikke tilgjengelig ennå.");
+      Alert.alert(t("commonError"), t("settingsDeleteNotAvailable"));
       return;
     }
 
     if (deleteConfirmInput.trim().toUpperCase() !== DELETE_CONFIRM_WORD) {
       Alert.alert(
-        "Feil bekreftelse",
-        `Skriv ${DELETE_CONFIRM_WORD} for å fortsette.`
+        t("settingsDeleteInvalidTitle"),
+        t("settingsDeleteInvalidBody", { word: DELETE_CONFIRM_WORD })
       );
       return;
     }
@@ -457,8 +462,8 @@ export default function SettingsModal({
       const message =
         error instanceof Error && error.message.trim().length > 0
           ? error.message
-          : "Kunne ikke slette konto. Prøv igjen.";
-      Alert.alert("Kunne ikke slette konto", message);
+          : t("settingsDeleteFailedBody");
+      Alert.alert(t("settingsDeleteFailed"), message);
     } finally {
       setIsDeletingAccount(false);
     }
@@ -472,14 +477,14 @@ export default function SettingsModal({
       const result = await subscription.restorePurchases();
       Alert.alert(
         result.status === "restored"
-          ? "Premium er aktiv"
-          : "Fant ingen aktive kjøp",
+          ? t("settingsRestoreActiveTitle")
+          : t("settingsRestoreEmptyTitle"),
         result.status === "restored"
-          ? "Kjøpene dine er gjenopprettet."
-          : "Vi fant ingen aktive kjøp på denne kontoen."
+          ? t("settingsRestoreActiveBody")
+          : t("settingsRestoreEmptyBody")
       );
     } catch {
-      Alert.alert("Kunne ikke gjenopprette kjøp", "Prøv igjen om litt.");
+      Alert.alert(t("settingsRestoreFailedTitle"), t("settingsTryAgainLater"));
     } finally {
       setIsRestoringPurchases(false);
     }
@@ -492,7 +497,7 @@ export default function SettingsModal({
       setIsRefreshingSubscription(true);
       await subscription.refreshCustomerInfo();
     } catch {
-      Alert.alert("Kunne ikke oppdatere status", "Prøv igjen om litt.");
+      Alert.alert(t("settingsRefreshFailedTitle"), t("settingsTryAgainLater"));
     } finally {
       setIsRefreshingSubscription(false);
     }
@@ -525,9 +530,8 @@ export default function SettingsModal({
           style={styles.kb}
         >
           <View style={styles.container}>
-            {/* HEADER */}
             <View style={styles.headerRow}>
-              <Text style={[typography.h2, styles.title]}>Innstillinger</Text>
+              <Text style={[typography.h2, styles.title]}>{t("settingsTitle")}</Text>
 
               <TouchableOpacity
                 onPress={() => setVisible(false)}
@@ -539,7 +543,6 @@ export default function SettingsModal({
               </TouchableOpacity>
             </View>
 
-            {/* TABS */}
             <View style={styles.tabRow}>
               <Pressable
                 onPress={() => setActiveTab("general")}
@@ -556,7 +559,7 @@ export default function SettingsModal({
                     activeTab === "general" && styles.tabTextActive,
                   ]}
                 >
-                  Generelt
+                  {t("settingsGeneral")}
                 </Text>
               </Pressable>
 
@@ -575,12 +578,11 @@ export default function SettingsModal({
                     activeTab === "user" && styles.tabTextActive,
                   ]}
                 >
-                  Brukerinnstillinger
+                  {t("settingsUser")}
                 </Text>
               </Pressable>
             </View>
 
-            {/* INNHOLD */}
             <ScrollView
               style={styles.scroll}
               contentContainerStyle={styles.scrollContent}
@@ -589,10 +591,9 @@ export default function SettingsModal({
             >
               {activeTab === "general" ? (
                 <>
-                  {/* PERSONVERN */}
                   <View style={styles.section}>
                     <Text style={[typography.bodyBold, styles.sectionTitle]}>
-                      Personvern
+                      {t("settingsPrivacy")}
                     </Text>
 
                     <TouchableOpacity
@@ -605,10 +606,10 @@ export default function SettingsModal({
                     >
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Personvernerklæring
+                          {t("settingsPrivacyPolicy")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Les hvordan dataene dine behandles
+                          {t("settingsPrivacyDescription")}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -623,10 +624,10 @@ export default function SettingsModal({
                     >
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Vilkår for bruk
+                          {t("settingsTerms")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Les de offisielle vilkårene på evolix.no
+                          {t("settingsTermsDescription")}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -634,14 +635,14 @@ export default function SettingsModal({
 
                   <View style={styles.section}>
                     <Text style={[typography.bodyBold, styles.sectionTitle]}>
-                      Abonnement
+                      {t("settingsSubscription")}
                     </Text>
 
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.subscriptionStatusRow}>
                         <View style={styles.itemTextBox}>
                           <Text style={[typography.body, styles.itemText]}>
-                            Premiumstatus
+                            {t("settingsPremiumStatus")}
                           </Text>
                           <Text style={[typography.body, styles.itemSubtext]}>
                             {subscriptionStatusText}
@@ -662,7 +663,9 @@ export default function SettingsModal({
                                 styles.subscriptionBadgeTextActive,
                             ]}
                           >
-                            {subscription.isPremium ? "Aktiv" : "Inaktiv"}
+                            {subscription.isPremium
+                              ? t("settingsActive")
+                              : t("settingsInactive")}
                           </Text>
                         </View>
                       </View>
@@ -679,8 +682,8 @@ export default function SettingsModal({
                         >
                           <Text style={styles.subscriptionActionText}>
                             {isRestoringPurchases
-                              ? "Gjenoppretter..."
-                              : "Gjenopprett kjøp"}
+                              ? t("premiumRestoring")
+                              : t("settingsRestorePurchases")}
                           </Text>
                         </Pressable>
 
@@ -692,7 +695,7 @@ export default function SettingsModal({
                           ]}
                         >
                           <Text style={styles.subscriptionActionText}>
-                            Administrer
+                            {t("settingsManageSubscription")}
                           </Text>
                         </Pressable>
                       </View>
@@ -708,32 +711,31 @@ export default function SettingsModal({
                       >
                         <Text style={styles.subscriptionRefreshText}>
                           {isRefreshingSubscription
-                            ? "Oppdaterer..."
-                            : "Oppdater abonnementsstatus"}
+                            ? t("commonLoading")
+                            : t("settingsRefreshStatus")}
                         </Text>
                       </Pressable>
 
                       <Text style={[typography.body, styles.supportInfoText]}>
                         {`Support: userId ${
-                          subscription.appUserId ?? "ukjent"
+                          subscription.appUserId ?? t("settingsUnknown")
                         }  `}
                       </Text>
                     </View>
                   </View>
 
-                  {/* OM APPEN */}
                   <View style={styles.section}>
                     <Text style={[typography.bodyBold, styles.sectionTitle]}>
-                      Om appen
+                      {t("settingsAboutApp")}
                     </Text>
 
                     <TouchableOpacity style={styles.settingsItemBox}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Om EvoliX
+                          {t("settingsAboutEvolix")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Kort om appen og formålet
+                          {t("settingsAboutDescription")}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -741,10 +743,10 @@ export default function SettingsModal({
                     <TouchableOpacity style={styles.settingsItemBox}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Versjon
+                          {t("settingsVersion")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Nåværende appversjon
+                          {t("settingsCurrentVersion")}
                         </Text>
                       </View>
                       <Text style={[typography.body, styles.valueText]}>
@@ -753,10 +755,9 @@ export default function SettingsModal({
                     </TouchableOpacity>
                   </View>
 
-                  {/* HJELP & SUPPORT */}
                   <View style={styles.section}>
                     <Text style={[typography.bodyBold, styles.sectionTitle]}>
-                      Hjelp og support
+                      {t("settingsHelpSupport")}
                     </Text>
 
                     <TouchableOpacity
@@ -767,10 +768,10 @@ export default function SettingsModal({
                     >
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Nettside
+                          {t("settingsWebsite")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Åpne evolix.no
+                          {t("settingsOpenWebsite")}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -783,16 +784,15 @@ export default function SettingsModal({
                     >
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Kontakt support
+                          {t("settingsContactSupport")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Send e-post til evolixfitness@hotmail.com
+                          {t("settingsContactSupportDescription")}
                         </Text>
                       </View>
                     </TouchableOpacity>
                   </View>
 
-                  {/* LOGG UT */}
                   <View style={styles.section}>
                     <TouchableOpacity
                       style={styles.logoutBox}
@@ -800,7 +800,7 @@ export default function SettingsModal({
                       disabled={isDeletingAccount}
                     >
                       <Text style={[typography.bodyBold, styles.logoutText]}>
-                        Logg ut
+                          {t("settingsLogout")}
                       </Text>
                     </TouchableOpacity>
 
@@ -815,12 +815,14 @@ export default function SettingsModal({
                       <Text
                         style={[typography.bodyBold, styles.deleteAccountText]}
                       >
-                        {isDeletingAccount ? "Sletter konto..." : "Slett konto"}
+                        {isDeletingAccount
+                          ? t("settingsDeletingAccount")
+                          : t("settingsDeleteAccount")}
                       </Text>
                       <Text
                         style={[typography.body, styles.deleteAccountSubtext]}
                       >
-                        Dette kan ikke angres
+                        {t("settingsDeleteCannotUndo")}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -842,32 +844,31 @@ export default function SettingsModal({
                         ]}
                       >
                         {userSettingsError
-                          ? "Kunne ikke synkronisere innstillinger."
-                          : "Henter brukerinnstillinger..."}
+                          ? t("settingsSyncFailed")
+                          : t("settingsLoadingUserSettings")}
                       </Text>
                     </View>
                   )}
                   {!isLoadingUserSettings && !userSettingsError && (
                     <View style={styles.syncHintBox}>
                       <Text style={[typography.body, styles.syncHintText]}>
-                        Endringer lagres automatisk.
+                        {t("settingsAutoSave")}
                       </Text>
                     </View>
                   )}
 
-                  {/* BRUKERINNSTILLINGER */}
                   <View style={styles.section}>
                     <Text style={[typography.bodyBold, styles.sectionTitle]}>
-                      Brukerinnstillinger
+                      {t("settingsUser")}
                     </Text>
 
                     <View style={styles.settingsItemBox}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Alder
+                          {t("onboardingAgeLabel")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Brukes til mer presis tilpasning. Minst 18 år.
+                          {t("settingsAgeDescription")}
                         </Text>
                       </View>
 
@@ -894,15 +895,15 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Kjønn
+                          {t("settingsGender")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Kan endres når som helst
+                          {t("settingsCanChangeAnytime")}
                         </Text>
                       </View>
 
                       <View style={styles.chipRow}>
-                        {GENDER_OPTIONS.map((option) => {
+                        {genderOptions.map((option) => {
                           const active = settings.gender === option.value;
                           return (
                             <Pressable
@@ -934,10 +935,10 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Språk
+                          {t("settingsLanguage")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Lagres i profilen din
+                          {t("settingsSavedInProfile")}
                         </Text>
                       </View>
 
@@ -971,11 +972,10 @@ export default function SettingsModal({
                       </View>
                     </View>
 
-                    {/* Goals */}
                     <View style={styles.settingsItemBox}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Kalorimål
+                          {t("settingsCalorieGoal")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
                           Daglig mål (kcal)
@@ -1000,7 +1000,7 @@ export default function SettingsModal({
                     <View style={styles.settingsItemBox}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Proteinmål
+                          {t("settingsProteinGoal")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
                           Daglig mål (g)
@@ -1025,7 +1025,7 @@ export default function SettingsModal({
                     <View style={styles.settingsItemBox}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Fettmål
+                          {t("settingsFatGoal")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
                           Daglig mål (g)
@@ -1050,7 +1050,7 @@ export default function SettingsModal({
                     <View style={styles.settingsItemBox}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Karbomål
+                          {t("settingsCarbGoal")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
                           Daglig mål (g)
@@ -1075,10 +1075,10 @@ export default function SettingsModal({
                     <View style={styles.settingsItemBox}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Vektmål
+                          {t("settingsWeightGoal")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Målvekt (kg)
+                          {t("settingsTargetWeightKg")}
                         </Text>
                       </View>
 
@@ -1124,14 +1124,13 @@ export default function SettingsModal({
                       />
                     </View>
 
-                    {/* Muscle filter */}
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
                           Muskel-filter
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Velg detaljeringsnivå på muskelgrupper
+                          {t("settingsMuscleFilterDescription")}
                         </Text>
                       </View>
 
@@ -1251,7 +1250,7 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Matcoach
+                          {t("settingsFoodCoach")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
                           {
@@ -1457,7 +1456,6 @@ export default function SettingsModal({
                       </View>
                     </View>
 
-                    {/* Home tiles */}
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
@@ -1527,7 +1525,6 @@ export default function SettingsModal({
                     </View>
                   </View>
 
-                  {/* LOGG UT - nederst i scrollen */}
                   <View style={styles.section}>
                     <TouchableOpacity
                       style={[
@@ -1538,7 +1535,7 @@ export default function SettingsModal({
                       disabled={isDeletingAccount}
                     >
                       <Text style={[typography.bodyBold, styles.logoutText]}>
-                        Logg ut
+                        {t("settingsLogout")}
                       </Text>
                     </TouchableOpacity>
 
@@ -1553,12 +1550,14 @@ export default function SettingsModal({
                       <Text
                         style={[typography.bodyBold, styles.deleteAccountText]}
                       >
-                        {isDeletingAccount ? "Sletter konto..." : "Slett konto"}
+                        {isDeletingAccount
+                          ? t("settingsDeletingAccount")
+                          : t("settingsDeleteAccount")}
                       </Text>
                       <Text
                         style={[typography.body, styles.deleteAccountSubtext]}
                       >
-                        Dette kan ikke angres
+                        {t("settingsDeleteCannotUndo")}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -1581,10 +1580,12 @@ export default function SettingsModal({
           <View style={styles.overlay}>
             <View style={[styles.container, styles.deleteConfirmContainer]}>
               <Text style={[typography.h2, styles.title]}>
-                Bekreft sletting
+                {t("settingsDeleteConfirmTitle")}
               </Text>
               <Text style={[typography.body, styles.deleteConfirmBody]}>
-                Skriv {DELETE_CONFIRM_WORD} for å slette kontoen permanent.
+                {t("settingsDeleteConfirmBody", {
+                  word: DELETE_CONFIRM_WORD,
+                })}
               </Text>
 
               {showDeleteSubscriptionWarning && (
@@ -1595,7 +1596,7 @@ export default function SettingsModal({
                       styles.deleteSubscriptionWarningTitle,
                     ]}
                   >
-                    Premium-abonnement
+                    {t("settingsDeleteSubscriptionTitle")}
                   </Text>
                   <Text
                     style={[
@@ -1603,9 +1604,7 @@ export default function SettingsModal({
                       styles.deleteSubscriptionWarningText,
                     ]}
                   >
-                    Sletting av konto avslutter ikke automatisk abonnementet hos
-                    Apple. Apple-fakturering kan fortsette til du administrerer
-                    og avslutter abonnementet i Apple-kontoen din.
+                    {t("settingsDeleteSubscriptionBody")}
                   </Text>
                   <TouchableOpacity
                     style={[
@@ -1623,7 +1622,7 @@ export default function SettingsModal({
                         styles.deleteSubscriptionManageText,
                       ]}
                     >
-                      Administrer eller avslutt abonnement
+                      {t("settingsDeleteSubscriptionAction")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1661,7 +1660,7 @@ export default function SettingsModal({
                       styles.deleteConfirmCancelText,
                     ]}
                   >
-                    Avbryt
+                    {t("commonCancel")}
                   </Text>
                 </TouchableOpacity>
 
@@ -1687,7 +1686,9 @@ export default function SettingsModal({
                       styles.deleteConfirmSubmitText,
                     ]}
                   >
-                    {isDeletingAccount ? "Sletter..." : "Slett konto"}
+                    {isDeletingAccount
+                      ? t("settingsDeletingAccount")
+                      : t("settingsDeleteAccount")}
                   </Text>
                 </TouchableOpacity>
               </View>

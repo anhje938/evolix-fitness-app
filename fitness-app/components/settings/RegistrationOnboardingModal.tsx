@@ -2,6 +2,7 @@ import { GLOBAL_IOS_KEYBOARD_ACCESSORY_ID } from "@/components/common/GlobalKeyb
 import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
+import { useTranslation } from "@/i18n/translations";
 import type { AppLanguage, UserGender } from "@/types/userSettings";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -16,21 +17,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const GENDER_OPTIONS: { value: UserGender; label: string; hint: string }[] = [
-  { value: "male", label: "Mann", hint: "Brukes kun til tilpasning i appen" },
-  {
-    value: "female",
-    label: "Kvinne",
-    hint: "Brukes kun til tilpasning i appen",
-  },
-];
-
-const LANGUAGE_OPTIONS: { value: AppLanguage; label: string; hint: string }[] =
-  [
-    { value: "nb", label: "Norsk", hint: "Appen vises på norsk bokmål" },
-    { value: "en", label: "English", hint: "The app will use English text" },
-  ];
 
 const inputProps = {
   inputAccessoryViewID: GLOBAL_IOS_KEYBOARD_ACCESSORY_ID,
@@ -59,6 +45,7 @@ export function RegistrationOnboardingModal() {
     isSavingUserSettings,
     userSettingsError,
   } = useUserSettings();
+  const { t } = useTranslation();
 
   const visible =
     authReady &&
@@ -85,6 +72,24 @@ export function RegistrationOnboardingModal() {
   const age = useMemo(() => parseAge(ageText), [ageText]);
   const step = STEP_ORDER[stepIndex];
   const isLastStep = stepIndex === STEP_ORDER.length - 1;
+  const genderOptions = useMemo(
+    () => [
+      { value: "male" as const, label: t("onboardingMale"), hint: t("onboardingGenderHint") },
+      {
+        value: "female" as const,
+        label: t("onboardingFemale"),
+        hint: t("onboardingGenderHint"),
+      },
+    ],
+    [t]
+  );
+  const languageOptions = useMemo(
+    () => [
+      { value: "nb" as const, label: "Norsk", hint: t("onboardingNorwegianHint") },
+      { value: "en" as const, label: "English", hint: t("onboardingEnglishHint") },
+    ],
+    [t]
+  );
 
   const canContinue =
     (step === "age" && !!age) ||
@@ -134,10 +139,13 @@ export function RegistrationOnboardingModal() {
           <View style={styles.header}>
             <View style={styles.progressMeta}>
               <Text style={[typography.h2, styles.eyebrow]}>
-                Første oppsett
+                {t("onboardingEyebrow")}
               </Text>
               <Text style={styles.progressLabel}>
-                {stepIndex + 1} av {STEP_ORDER.length}
+                {t("onboardingStep", {
+                  current: stepIndex + 1,
+                  total: STEP_ORDER.length,
+                })}
               </Text>
             </View>
 
@@ -155,25 +163,23 @@ export function RegistrationOnboardingModal() {
 
           <View style={styles.hero}>
             <Text style={styles.title}>
-              {step === "age" && "Hvor gammel er du?"}
-              {step === "gender" && "Hvilket kjønn vil du bruke i appen?"}
-              {step === "language" && "Hvilket språk vil du bruke?"}
+              {step === "age" && t("onboardingAgeTitle")}
+              {step === "gender" && t("onboardingGenderTitle")}
+              {step === "language" && t("onboardingLanguageTitle")}
             </Text>
 
             <Text style={styles.subtitle}>
               {step === "age" &&
-                "Dette hjelper oss med å tilpasse mål og anbefalinger. Du må være minst 18 år."}
-              {step === "gender" &&
-                "Valget brukes kun for å gjøre anbefalingene mer relevante."}
-              {step === "language" &&
-                "Du kan når som helst endre språk senere i innstillinger."}
+                t("onboardingAgeSubtitle")}
+              {step === "gender" && t("onboardingGenderSubtitle")}
+              {step === "language" && t("onboardingLanguageSubtitle")}
             </Text>
           </View>
 
           <View style={styles.content}>
             {step === "age" ? (
               <View style={styles.ageCard}>
-                <Text style={styles.ageLabel}>Alder</Text>
+                <Text style={styles.ageLabel}>{t("onboardingAgeLabel")}</Text>
                 <TextInput
                   {...inputProps}
                   value={ageText}
@@ -184,7 +190,7 @@ export function RegistrationOnboardingModal() {
                   keyboardType="number-pad"
                   returnKeyType="done"
                   onSubmitEditing={handleContinue}
-                  placeholder="Skriv alder"
+                  placeholder={t("onboardingAgePlaceholder")}
                   placeholderTextColor="rgba(148,163,184,0.7)"
                   style={[
                     styles.ageInput,
@@ -197,7 +203,7 @@ export function RegistrationOnboardingModal() {
 
             {step === "gender" ? (
               <View style={styles.optionList}>
-                {GENDER_OPTIONS.map((option) => {
+                {genderOptions.map((option) => {
                   const active = gender === option.value;
                   return (
                     <Pressable
@@ -236,7 +242,7 @@ export function RegistrationOnboardingModal() {
 
             {step === "language" ? (
               <View style={styles.optionList}>
-                {LANGUAGE_OPTIONS.map((option) => {
+                {languageOptions.map((option) => {
                   const active = language === option.value;
                   return (
                     <Pressable
@@ -275,15 +281,15 @@ export function RegistrationOnboardingModal() {
 
             {showValidation && !canContinue ? (
               <Text style={styles.errorText}>
-                {step === "age" && "Du må være minst 18 år for å fortsette."}
-                {step === "gender" && "Velg kjønn for å fortsette."}
-                {step === "language" && "Velg språk for å fortsette."}
+                {step === "age" && t("onboardingAgeError")}
+                {step === "gender" && t("onboardingGenderError")}
+                {step === "language" && t("onboardingLanguageError")}
               </Text>
             ) : null}
 
             {userSettingsError ? (
               <Text style={styles.errorText}>
-                Kunne ikke lagre innstillingene akkurat nå.
+                {t("onboardingSaveError")}
               </Text>
             ) : null}
           </View>
@@ -301,7 +307,7 @@ export function RegistrationOnboardingModal() {
                   pressed && styles.pressed,
                 ]}
               >
-                <Text style={styles.secondaryButtonText}>Tilbake</Text>
+                <Text style={styles.secondaryButtonText}>{t("commonBack")}</Text>
               </Pressable>
             ) : (
               <View style={styles.secondaryPlaceholder} />
@@ -318,10 +324,10 @@ export function RegistrationOnboardingModal() {
             >
               <Text style={styles.primaryButtonText}>
                 {isSavingUserSettings
-                  ? "Lagrer..."
+                  ? t("commonSaving")
                   : isLastStep
-                  ? "Fullfør"
-                  : "Videre"}
+                  ? t("commonComplete")
+                  : t("commonContinue")}
               </Text>
             </Pressable>
           </View>

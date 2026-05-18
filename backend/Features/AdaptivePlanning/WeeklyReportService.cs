@@ -6,7 +6,7 @@ namespace backend.Features.AdaptivePlanning
 {
     public class WeeklyReportService
     {
-        public const string AlgorithmVersion = "adaptive-plan-v1.1";
+        public const string AlgorithmVersion = "adaptive-plan-v1.2";
         private const double KcalPerKg = 7700;
 
         private readonly AppDbContext _db;
@@ -146,7 +146,7 @@ namespace backend.Features.AdaptivePlanning
                 ct);
             var recovery = _recovery.Analyze(recoveryTraining);
             var dataQuality = CombineQuality(weight.Confidence, nutrition.Confidence);
-            int? score = CalculateScore(weight, nutrition);
+            int? score = CalculateScore(weight, nutrition, training, recovery);
 
             var report = new WeeklyReport
             {
@@ -234,7 +234,7 @@ namespace backend.Features.AdaptivePlanning
 
         private static WeekWindow GetCurrentWeek()
         {
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = AdaptivePlanningClock.Today();
             var dayOffset = ((int)today.DayOfWeek + 6) % 7;
             var start = today.AddDays(-dayOffset);
             return new WeekWindow(start, start.AddDays(6));
@@ -262,17 +262,17 @@ namespace backend.Features.AdaptivePlanning
 
         private static DataQualityLevel CombineQuality(params DataQualityLevel[] levels)
         {
-            var usable = levels.Count(x => x != DataQualityLevel.Low);
-            if (usable == 0) return DataQualityLevel.Low;
+            if (levels.Length == 0) return DataQualityLevel.Low;
             if (levels.All(x => x == DataQualityLevel.High)) return DataQualityLevel.High;
-            if (usable >= 2) return DataQualityLevel.Medium;
-            if (levels.Any(x => x == DataQualityLevel.High)) return DataQualityLevel.Medium;
-            return DataQualityLevel.Medium;
+            if (levels.All(x => x != DataQualityLevel.Low)) return DataQualityLevel.Medium;
+            return DataQualityLevel.Low;
         }
 
         private static int? CalculateScore(
             WeightTrendAnalysis weight,
-            NutritionAnalysis nutrition)
+            NutritionAnalysis nutrition,
+            TrainingAnalysis training,
+            RecoveryAnalysis recovery)
         {
             double weightedScore = 0;
             double availableWeight = 0;
@@ -305,6 +305,23 @@ namespace backend.Features.AdaptivePlanning
                 availableWeight += 65;
             }
 
+            if (training.Confidence != DataQualityLevel.Low)
+            {
+                var trainingScore = training.CompletedWorkouts >= 3 ? 15 :
+                    training.CompletedWorkouts == 2 ? 12 : 8;
+                if (training.ExercisesDecreased > training.ExercisesImproved)
+                    trainingScore -= 3;
+                weightedScore += Math.Clamp(trainingScore, 0, 15);
+                availableWeight += 15;
+            }
+
+            if (recovery.Confidence != DataQualityLevel.Low)
+            {
+                var recoveryScore = recovery.RestMusclesText == "Ingen tydelige begrensninger" ? 10 : 7;
+                weightedScore += recoveryScore;
+                availableWeight += 10;
+            }
+
             if (availableWeight <= 0) return null;
 
             return Math.Clamp((int)Math.Round(weightedScore / availableWeight * 100), 0, 100);
@@ -318,7 +335,7 @@ namespace backend.Features.AdaptivePlanning
             if (dataQuality == DataQualityLevel.Low)
             {
                 if (nutrition.LoggedDays > 0 || weight.RecentLogsCount > 0)
-                    return "EvoliX har foreløpige signaler, men trenger mer dekning før planen bør justeres.";
+                    return "EvoliX har foreløpige signaler, men trenger bedre dekning i både mat og vekt før planen bør justeres.";
                 return "EvoliX trenger litt mer data for planen kan justeres trygt.";
             }
 
@@ -347,6 +364,8 @@ namespace backend.Features.AdaptivePlanning
                 actions.Add(("Weight", "Vurder en liten kaloriendring, ikke et stort hopp."));
             else if (weight.Status is "tooAggressive")
                 actions.Add(("Weight", "Øk handlingsrommet litt hvis tempoet blir for hardt."));
+            else if (weight.GoalPaceClipped)
+                actions.Add(("Weight", "Måldatoen ser stram ut. Flytt datoen heller enn å presse kaloriene hardt."));
             else
                 actions.Add(("Weight", "Hold vektmålingene jevne, helst 3 ganger i uken."));
 
@@ -378,19 +397,16 @@ namespace backend.Features.AdaptivePlanning
                     SourceReport = report,
                     Type = AdaptiveRecommendationType.NeedMoreData,
                     Title = "Logg litt mer før EvoliX justerer planen",
-                    Explanation = "EvoliX trenger minst 5 matdager og 3 vektmålinger for høy sikkerhet.",
+                    Explanation = "EvoliX trenger minst 5 matdager for rolige råd og 8 vektmålinger fordelt over to uker for høy sikkerhet. Før det vises bare tidlige signaler.",
                     Confidence = RecommendationConfidence.Low,
                     AppliesFromDate = appliesFrom,
                     ExpiresAtUtc = DateTime.UtcNow.AddDays(7)
                 });
-                if (weight.Confidence == DataQualityLevel.Low &&
-                    nutrition.Confidence == DataQualityLevel.Low)
-                {
-                    return recommendations;
-                }
             }
 
-            if (nutrition.AverageProtein.HasValue && nutrition.AverageProtein.Value < nutrition.TargetProtein * 0.9)
+            if (nutrition.Confidence != DataQualityLevel.Low &&
+                nutrition.AverageProtein.HasValue &&
+                nutrition.AverageProtein.Value < nutrition.TargetProtein * 0.9)
             {
                 recommendations.Add(new AdaptiveRecommendation
                 {
@@ -405,10 +421,33 @@ namespace backend.Features.AdaptivePlanning
                 });
             }
 
-            var calorieAdjustment = CalculateDailyCalorieAdjustment(settings, weight);
+            if (weight.Confidence == DataQualityLevel.Low ||
+                nutrition.Confidence == DataQualityLevel.Low)
+            {
+                return recommendations;
+            }
+
+            if (weight.GoalPaceClipped)
+            {
+                var targetDateChange = BuildTargetDateChange(settings, weight);
+                recommendations.Add(new AdaptiveRecommendation
+                {
+                    UserId = userId,
+                    SourceReport = report,
+                    Type = AdaptiveRecommendationType.AdjustTargetDate,
+                    Title = "Gjør måldatoen roligere",
+                    Explanation = "Måldatoen krever høyere fart enn EvoliX vil anbefale. Bruk en roligere kaloriplan eller flytt datoen litt ut.",
+                    Confidence = confidence,
+                    AppliesFromDate = appliesFrom,
+                    ExpiresAtUtc = DateTime.UtcNow.AddDays(7),
+                    TargetDateChange = targetDateChange
+                });
+            }
+
+            var suggestedCalories = CalculateSuggestedCalories(settings, weight, nutrition);
+            var calorieAdjustment = suggestedCalories - settings.CalorieGoal;
             if (calorieAdjustment < 0)
             {
-                var suggested = Math.Max(1600, settings.CalorieGoal + calorieAdjustment);
                 recommendations.Add(new AdaptiveRecommendation
                 {
                     UserId = userId,
@@ -422,7 +461,7 @@ namespace backend.Features.AdaptivePlanning
                     NutritionChange = new RecommendationNutritionChange
                     {
                         CurrentCalories = settings.CalorieGoal,
-                        SuggestedCalories = suggested,
+                        SuggestedCalories = suggestedCalories,
                         CurrentProtein = settings.ProteinGoal,
                         SuggestedProtein = settings.ProteinGoal,
                         CurrentCarbs = settings.CarbGoal,
@@ -432,7 +471,6 @@ namespace backend.Features.AdaptivePlanning
             }
             else if (calorieAdjustment > 0)
             {
-                var suggested = settings.CalorieGoal + calorieAdjustment;
                 recommendations.Add(new AdaptiveRecommendation
                 {
                     UserId = userId,
@@ -446,7 +484,7 @@ namespace backend.Features.AdaptivePlanning
                     NutritionChange = new RecommendationNutritionChange
                     {
                         CurrentCalories = settings.CalorieGoal,
-                        SuggestedCalories = suggested
+                        SuggestedCalories = suggestedCalories
                     }
                 });
             }
@@ -473,33 +511,63 @@ namespace backend.Features.AdaptivePlanning
             return recommendations;
         }
 
-        private static int CalculateDailyCalorieAdjustment(
+        private static int CalculateSuggestedCalories(
+            UserSettings settings,
+            WeightTrendAnalysis weight,
+            NutritionAnalysis nutrition)
+        {
+            if (!weight.WeeklyChangeKg.HasValue ||
+                !weight.ExpectedWeeklyChangeKg.HasValue ||
+                !nutrition.AverageCalories.HasValue)
+                return settings.CalorieGoal;
+            if (settings.WeightDirection == WeightDirection.Maintain)
+                return settings.CalorieGoal;
+            if (weight.Status is not ("behind" or "slightlyBehind" or "tooAggressive"))
+                return settings.CalorieGoal;
+
+            var estimatedMaintenance =
+                nutrition.AverageCalories.Value -
+                weight.WeeklyChangeKg.Value * KcalPerKg / 7.0;
+            var targetCalories =
+                estimatedMaintenance +
+                weight.ExpectedWeeklyChangeKg.Value * KcalPerKg / 7.0;
+            var rawGapFromCurrentGoal = targetCalories - settings.CalorieGoal;
+
+            if (Math.Abs(rawGapFromCurrentGoal) < 50)
+                return settings.CalorieGoal;
+
+            var cappedGap = Math.Clamp(rawGapFromCurrentGoal, -150, 150);
+            var suggested = settings.CalorieGoal + cappedGap;
+            return Math.Max(
+                1200,
+                (int)(Math.Round(suggested / 25.0, MidpointRounding.AwayFromZero) * 25));
+        }
+
+        private static RecommendationTargetDateChange? BuildTargetDateChange(
             UserSettings settings,
             WeightTrendAnalysis weight)
         {
-            if (!weight.WeeklyChangeKg.HasValue || !weight.ExpectedWeeklyChangeKg.HasValue)
-                return 0;
-            if (settings.WeightDirection == WeightDirection.Maintain)
-                return 0;
-            if (weight.Status is not ("behind" or "slightlyBehind" or "tooAggressive"))
-                return 0;
+            if (!weight.RecentAverageKg.HasValue ||
+                !weight.ExpectedWeeklyChangeKg.HasValue ||
+                Math.Abs(weight.ExpectedWeeklyChangeKg.Value) < 0.01)
+                return null;
 
-            var rawDailyGap = EstimateDailyEnergyGap(weight);
-            if (Math.Abs(rawDailyGap) < 50)
-                return 0;
+            var remainingKg = (double)settings.WeightGoalKg - weight.RecentAverageKg.Value;
+            if (Math.Sign(remainingKg) != Math.Sign(weight.ExpectedWeeklyChangeKg.Value))
+                return null;
 
-            var capped = Math.Clamp(rawDailyGap, -150, 150);
-            return (int)(Math.Round(capped / 25.0, MidpointRounding.AwayFromZero) * 25);
-        }
+            var weeks = remainingKg / weight.ExpectedWeeklyChangeKg.Value;
+            if (!double.IsFinite(weeks) || weeks <= 0 || weeks > 260)
+                return null;
 
-        private static double EstimateDailyEnergyGap(WeightTrendAnalysis weight)
-        {
-            if (!weight.WeeklyChangeKg.HasValue || !weight.ExpectedWeeklyChangeKg.HasValue)
-                return 0;
-
-            return (weight.ExpectedWeeklyChangeKg.Value - weight.WeeklyChangeKg.Value) *
-                KcalPerKg /
-                7.0;
+            var suggestedDate = AdaptivePlanningClock.Today().AddDays((int)Math.Ceiling(weeks * 7));
+            return new RecommendationTargetDateChange
+            {
+                CurrentTargetDateUtc = settings.WeightGoalTimeUtc,
+                SuggestedTargetDateUtc = AdaptivePlanningClock.ToUtc(suggestedDate, new TimeOnly(12, 0)),
+                CurrentWeeklyPaceKg = weight.RawExpectedWeeklyChangeKg ?? weight.ExpectedWeeklyChangeKg.Value,
+                SuggestedWeeklyPaceKg = weight.ExpectedWeeklyChangeKg.Value
+            };
         }
 
         private static RecommendationConfidence ToRecommendationConfidence(DataQualityLevel quality)

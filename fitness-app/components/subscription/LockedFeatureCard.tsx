@@ -1,4 +1,5 @@
 import { typography } from "@/config/typography";
+import { useTranslation } from "@/i18n/translations";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
@@ -15,11 +16,14 @@ type Props = {
 export function LockedFeatureCard({
   title,
   description,
-  ctaLabel = "Lås opp Premium",
+  ctaLabel,
   isLoading = false,
   compact = false,
   onPress,
 }: Props) {
+  const { t } = useTranslation();
+  const resolvedCtaLabel = ctaLabel ?? t("premiumUnlock");
+
   return (
     <View style={[styles.card, compact && styles.cardCompact]}>
       <LinearGradient
@@ -74,7 +78,7 @@ export function LockedFeatureCard({
         ) : (
           <>
             <Ionicons name="sparkles-outline" size={15} color="#02111f" />
-            <Text style={styles.ctaText}>{ctaLabel}</Text>
+            <Text style={styles.ctaText}>{resolvedCtaLabel}</Text>
           </>
         )}
       </Pressable>

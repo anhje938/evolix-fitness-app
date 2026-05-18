@@ -2,6 +2,8 @@ import { Paywall } from "@/components/subscription/Paywall";
 import { useSubscription } from "@/context/SubscriptionProvider";
 import { typography } from "@/config/typography";
 import type { Exercise, Workout } from "@/types/exercise";
+import type { AppLanguage } from "@/types/userSettings";
+import { getWorkoutDisplay } from "@/utils/exercise/localizedTraining";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { memo, useCallback, useMemo, useState } from "react";
@@ -29,6 +31,12 @@ const colors = {
   pillText: "rgba(226,232,240,0.82)",
   cyanDot: "#22d3ee",
   emeraldDot: "#2dd4bf",
+  premiumBg: "rgba(251,191,36,0.12)",
+  premiumBorder: "rgba(251,191,36,0.22)",
+  premiumText: "#FDE68A",
+  premiumCard: "rgba(44,34,18,0.94)",
+  premiumGlow: "rgba(251,191,36,0.22)",
+  premiumStroke: "rgba(251,191,36,0.34)",
   actionStroke: "rgba(96,165,250,0.18)",
   startStroke: "rgba(255,255,255,0.16)",
 };
@@ -43,6 +51,7 @@ type StartWorkoutPayload = {
 type Props = {
   workouts: Workout[];
   exercises: Exercise[];
+  language: AppLanguage;
   onEdit: (workout: Workout) => void;
   onStart: (payload: StartWorkoutPayload) => void;
 };
@@ -77,6 +86,7 @@ function getExerciseAccent(index: number) {
 export const WorkoutList = memo(function WorkoutList({
   workouts,
   exercises,
+  language,
   onEdit,
   onStart,
 }: Props) {
@@ -126,11 +136,12 @@ export const WorkoutList = memo(function WorkoutList({
           workout.isPremium === true ||
           workout.workoutProgramIsPremium === true;
         const isWorkoutLocked = requiresPremium && !isPremium;
+        const display = getWorkoutDisplay(workout, language);
 
         const startPayload: StartWorkoutPayload = {
           workoutProgramId: workout.workoutProgramId ?? null,
           workoutId: workout.id,
-          name: workout.name,
+          name: display.name,
           exercises: exercisesInWorkout.map((exercise) => ({
             exerciseId: exercise.id,
             name: exercise.name,
@@ -148,8 +159,14 @@ export const WorkoutList = memo(function WorkoutList({
         };
 
         return (
-          <View key={workout.id} style={styles.cardOuter}>
-            <View pointerEvents="none" style={styles.base} />
+          <View
+            key={workout.id}
+            style={[styles.cardOuter, requiresPremium && styles.cardOuterPremium]}
+          >
+            <View
+              pointerEvents="none"
+              style={[styles.base, requiresPremium && styles.basePremium]}
+            />
 
             <LinearGradient
               colors={[colors.glassTop, colors.glassMid, colors.glassNone]}
@@ -160,18 +177,29 @@ export const WorkoutList = memo(function WorkoutList({
             />
 
             <LinearGradient
-              colors={[
-                "rgba(59,130,246,0.24)",
-                "rgba(34,211,238,0.14)",
-                "rgba(255,255,255,0.00)",
-              ]}
+              colors={
+                requiresPremium
+                  ? [
+                      "rgba(251,191,36,0.26)",
+                      "rgba(245,158,11,0.12)",
+                      "rgba(255,255,255,0.00)",
+                    ]
+                  : [
+                      "rgba(59,130,246,0.24)",
+                      "rgba(34,211,238,0.14)",
+                      "rgba(255,255,255,0.00)",
+                    ]
+              }
               start={{ x: 1, y: 0 }}
               end={{ x: 0.2, y: 1 }}
               style={styles.accentSheen}
               pointerEvents="none"
             />
 
-            <View pointerEvents="none" style={styles.outerStroke} />
+            <View
+              pointerEvents="none"
+              style={[styles.outerStroke, requiresPremium && styles.outerStrokePremium]}
+            />
             <View pointerEvents="none" style={styles.innerInset} />
 
             <View style={styles.cardInner}>
@@ -185,11 +213,16 @@ export const WorkoutList = memo(function WorkoutList({
                   hitSlop={8}
                 >
                   <View style={styles.headerMainRow}>
-                    <View style={styles.iconCircle}>
+                    <View
+                      style={[
+                        styles.iconCircle,
+                        requiresPremium && styles.iconCirclePremium,
+                      ]}
+                    >
                       <Ionicons
                         name="barbell-outline"
                         size={15}
-                        color={colors.cyanDot}
+                        color={requiresPremium ? colors.premiumText : colors.cyanDot}
                       />
                     </View>
 
@@ -199,7 +232,7 @@ export const WorkoutList = memo(function WorkoutList({
                           style={[typography.bodyBold, styles.title]}
                           numberOfLines={1}
                         >
-                          {workout.name}
+                          {display.name}
                         </Text>
 
                         {requiresPremium ? (
@@ -207,7 +240,7 @@ export const WorkoutList = memo(function WorkoutList({
                             <Ionicons
                               name="lock-closed"
                               size={10}
-                              color="#FDE68A"
+                              color={colors.premiumText}
                             />
                             <Text style={styles.premiumBadgeText}>Premium</Text>
                           </View>
@@ -392,7 +425,11 @@ export const WorkoutList = memo(function WorkoutList({
                   ]}
                 >
                   <LinearGradient
-                    colors={["rgba(99,102,241,0.96)", "rgba(6,182,212,0.92)"]}
+                    colors={
+                      requiresPremium
+                        ? ["rgba(180,83,9,0.98)", "rgba(251,191,36,0.92)"]
+                        : ["rgba(99,102,241,0.96)", "rgba(6,182,212,0.92)"]
+                    }
                     start={{ x: 0, y: 0.1 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.primary}
@@ -456,9 +493,19 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     overflow: "hidden",
   },
+  cardOuterPremium: {
+    shadowColor: colors.premiumGlow,
+    shadowOpacity: 0.24,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 5,
+  },
   base: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.cardSolid,
+  },
+  basePremium: {
+    backgroundColor: colors.premiumCard,
   },
   accentSheen: {
     position: "absolute",
@@ -474,6 +521,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.borderSoft,
+  },
+  outerStrokePremium: {
+    borderColor: colors.premiumStroke,
   },
   innerInset: {
     position: "absolute",
@@ -517,6 +567,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.iconBg,
     borderWidth: 1,
     borderColor: colors.iconStroke,
+  },
+  iconCirclePremium: {
+    backgroundColor: "rgba(120,83,18,0.42)",
+    borderColor: "rgba(251,191,36,0.32)",
   },
   headerTextWrap: {
     flex: 1,

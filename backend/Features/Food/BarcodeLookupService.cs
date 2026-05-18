@@ -1,5 +1,6 @@
 namespace backend.Features.Food
 {
+    using backend.Features.Monitoring;
     using Microsoft.Extensions.Caching.Memory;
     using System.Net.Http.Json;
     using System.Text.Json;
@@ -17,11 +18,19 @@ namespace backend.Features.Food
 
         private readonly HttpClient _http;
         private readonly IMemoryCache _cache;
+        private readonly ILogger<BarcodeLookupService> _logger;
+        private readonly MonitoringAlertService _monitoring;
 
-        public BarcodeLookupService(HttpClient http, IMemoryCache cache)
+        public BarcodeLookupService(
+            HttpClient http,
+            IMemoryCache cache,
+            ILogger<BarcodeLookupService> logger,
+            MonitoringAlertService monitoring)
         {
             _http = http;
             _cache = cache;
+            _logger = logger;
+            _monitoring = monitoring;
         }
 
         public async Task<OpenFoodFactsResponse?> LookupAsync(
@@ -90,22 +99,49 @@ namespace backend.Features.Food
             {
                 return await _http.GetFromJsonAsync<OpenFoodFactsResponse>(url, ct);
             }
-            catch (HttpRequestException)
+            catch (HttpRequestException ex)
             {
+                await AlertLookupFailureAsync("http_request_failed", url, ex, ct);
                 return null;
             }
-            catch (TaskCanceledException)
+            catch (TaskCanceledException ex)
             {
+                await AlertLookupFailureAsync("lookup_timed_out", url, ex, ct);
                 return null;
             }
-            catch (NotSupportedException)
+            catch (NotSupportedException ex)
             {
+                await AlertLookupFailureAsync("unsupported_response", url, ex, ct);
                 return null;
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
+                await AlertLookupFailureAsync("invalid_json", url, ex, ct);
                 return null;
             }
+        }
+
+        private async Task AlertLookupFailureAsync(
+            string eventName,
+            string url,
+            Exception exception,
+            CancellationToken ct)
+        {
+            _logger.LogWarning(
+                exception,
+                "Barcode lookup failed. event={EventName}",
+                eventName);
+            await _monitoring.AlertAsync(
+                MonitoringAreas.BarcodeLookup,
+                eventName,
+                "Barcode lookup failed.",
+                LogLevel.Warning,
+                properties: new Dictionary<string, string?>
+                {
+                    ["host"] = new Uri(url).Host
+                },
+                exception: exception,
+                ct: ct);
         }
 
         private static bool IsUsableResponse(OpenFoodFactsResponse? response)

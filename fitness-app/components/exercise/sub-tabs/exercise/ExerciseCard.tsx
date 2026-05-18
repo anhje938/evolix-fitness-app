@@ -18,8 +18,8 @@ type MiniHistoryPoint = {
 };
 
 const ui = {
-  cardBg: "rgba(1,6,16,0.985)",
-  cardStroke: "rgba(96,165,250,0.08)",
+  cardBg: "rgba(10, 36, 88, 0.98)",
+  cardStroke: "rgba(2, 13, 27, 0.08)",
   cardStrokeInner: "rgba(255,255,255,0.02)",
   divider: "rgba(148,163,184,0.14)",
   text: "rgba(241,245,249,0.97)",
@@ -149,10 +149,12 @@ export default function ExerciseCard({
           pressed && styles.cardPressed,
         ]}
       >
+        <View style={styles.topHighlight} />
+        {/* LIST ITEM STYLE */}
         <LinearGradient
           colors={[
-            "rgba(255,255,255,0.05)",
-            "rgba(255,255,255,0.015)",
+            "rgba(144, 151, 253, 0.1)",
+            "rgba(8, 122, 167, 0.11)",
             "rgba(255,255,255,0.00)",
           ]}
           start={{ x: 0.06, y: 0 }}
@@ -160,8 +162,9 @@ export default function ExerciseCard({
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
+        {/* BUBBLE */}
         <LinearGradient
-          colors={[ui.sheenA, ui.sheenB, "rgba(255,255,255,0.00)"]}
+          colors={[ui.sheenA, ui.sheenB, "rgba(67, 120, 235, 0.1)"]}
           start={{ x: 1, y: 0 }}
           end={{ x: 0.25, y: 1 }}
           style={styles.accentGlow}
@@ -302,18 +305,26 @@ export default function ExerciseCard({
 const styles = StyleSheet.create({
   cardOuter: {
     marginTop: 10,
-    borderRadius: 18,
+    borderRadius: 13,
     overflow: "hidden",
     backgroundColor: ui.cardBg,
     borderWidth: 1,
     borderColor: ui.cardStroke,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    shadowColor: "#020617",
-    shadowOpacity: 0.26,
+    shadowColor: "rgb(0, 153, 255)",
+    shadowOpacity: 0.36,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
     elevation: 6,
+  },
+  topHighlight: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 65,
+    backgroundColor: "rgba(4, 1, 37, 0.28)",
   },
   cardPressed: {
     opacity: 0.96,
@@ -329,8 +340,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -34,
     right: -60,
-    width: 210,
-    height: 160,
+    width: 220,
+    height: 190,
     borderRadius: 999,
     opacity: 0.95,
   },
@@ -447,8 +458,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 10,
     paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: ui.divider,
   },
   statsRow: {
     flex: 1,

@@ -1,6 +1,6 @@
 import { useSubscription } from "@/context/SubscriptionProvider";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { LockedFeatureCard } from "./LockedFeatureCard";
 import { Paywall } from "./Paywall";
@@ -24,6 +24,12 @@ export function PremiumGate({
 }: Props) {
   const { isPremium, isLoading } = useSubscription();
   const [paywallVisible, setPaywallVisible] = useState(false);
+
+  useEffect(() => {
+    if (!isPremium || !paywallVisible) return;
+    setPaywallVisible(false);
+    onUnlocked?.();
+  }, [isPremium, onUnlocked, paywallVisible]);
 
   if (isPremium) {
     return style ? <View style={style}>{children}</View> : <>{children}</>;

@@ -72,6 +72,9 @@ namespace backend.Features.Training.Workouts
                 Name = req.Name,
                 Description = req.Description,
                 DayLabel = req.DayLabel,
+                EnglishName = req.EnglishName,
+                EnglishDescription = req.EnglishDescription,
+                EnglishDayLabel = req.EnglishDayLabel,
                 WorkoutProgramId = req.WorkoutProgramId,
                 IsPremium = isAdmin && req.IsPremium,
                 UserId = isAdmin ? null : userId,
@@ -93,6 +96,9 @@ namespace backend.Features.Training.Workouts
                 Name = workout.Name,
                 Description = workout.Description ?? string.Empty,
                 DayLabel = workout.DayLabel ?? string.Empty,
+                EnglishName = workout.EnglishName,
+                EnglishDescription = workout.EnglishDescription,
+                EnglishDayLabel = workout.EnglishDayLabel,
                 WorkoutProgramId = workout.WorkoutProgramId,
                 IsPremium = workout.IsPremium,
                 WorkoutProgramIsPremium = linkedProgram?.IsPremium ?? false,
@@ -129,6 +135,9 @@ namespace backend.Features.Training.Workouts
                     Name = w.Name,
                     Description = w.Description ?? string.Empty,
                     DayLabel = w.DayLabel ?? string.Empty,
+                    EnglishName = w.EnglishName,
+                    EnglishDescription = w.EnglishDescription,
+                    EnglishDayLabel = w.EnglishDayLabel,
                     WorkoutProgramId = w.WorkoutProgramId,
                     IsPremium = w.IsPremium,
                     WorkoutProgramIsPremium = w.WorkoutProgram != null && w.WorkoutProgram.IsPremium,
@@ -202,6 +211,9 @@ namespace backend.Features.Training.Workouts
             existing.Name = req.Name;
             existing.Description = req.Description;
             existing.DayLabel = req.DayLabel;
+            existing.EnglishName = req.EnglishName;
+            existing.EnglishDescription = req.EnglishDescription;
+            existing.EnglishDayLabel = req.EnglishDayLabel;
             existing.WorkoutProgramId = linkedProgram?.Id;
             if (isAdmin && req.IsPremium.HasValue)
                 existing.IsPremium = req.IsPremium.Value;

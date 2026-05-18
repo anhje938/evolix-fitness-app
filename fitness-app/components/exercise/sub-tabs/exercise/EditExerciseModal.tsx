@@ -27,6 +27,7 @@ import XIcon from "../../../../assets/icons/white-x.svg";
 import { MuscleFilterBar } from "../../MuscleFilterBar";
 import { newColors } from "@/config/theme";
 import { DeleteExercise, UpdateExercise } from "@/api/exercise/exercise";
+import type { Exercise as ExerciseModel } from "@/types/exercise";
 
 type Props = {
   visible: boolean;
@@ -96,10 +97,29 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
           : "",
       });
 
+      queryClient.setQueryData<ExerciseModel[] | undefined>(
+        ["exercises"],
+        (current) => {
+          if (!current) return current;
+
+          return current.map((item) =>
+            item.id === exercise.id
+              ? {
+                  ...item,
+                  ...updatedExercise,
+                  id: item.id,
+                }
+              : item
+          );
+        }
+      );
+
       updateExerciseDetails({
         exerciseId: exercise.id,
         name: updatedExercise.name ?? name.trim(),
-        muscle: updatedExercise.muscle ?? (muscle === "ALL" ? null : muscle),
+        muscle:
+          updatedExercise.muscle ??
+          (muscle === "ALL" ? null : muscle),
       });
 
       await Promise.all([

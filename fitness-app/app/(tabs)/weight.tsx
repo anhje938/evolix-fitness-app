@@ -15,6 +15,7 @@ import { useAuth } from "@/context/AuthProvider";
 import { useFoodContext } from "@/context/FoodProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useWeightContext } from "@/context/WeightProvider";
+import { useTranslation } from "@/i18n/translations";
 import { buildBodyGoalCoach } from "@/utils/coaching/bodyGoalCoach";
 import { getWeeklySummary } from "@/utils/groupListByWeek";
 import type { Weight } from "@/types/weight";
@@ -26,6 +27,7 @@ export default function WeightPage() {
 
   const { token } = useAuth();
   const { userSettings } = useUserSettings();
+  const { t } = useTranslation();
   const { foodList } = useFoodContext();
   const { weightList, refetch } = useWeightContext();
 
@@ -58,7 +60,7 @@ export default function WeightPage() {
       setIsOpen(false);
     } catch (error) {
       if (__DEV__) console.log(error);
-      Alert.alert("Kunne ikke lagre vekt", "Prøv igjen om et øyeblikk.");
+      Alert.alert(t("weightSaveFailedTitle"), t("settingsTryAgainLater"));
     }
   };
 
@@ -72,12 +74,12 @@ export default function WeightPage() {
     options?: { closeSheet?: boolean }
   ) => {
     Alert.alert(
-      "Slette vekt?",
-      `${weight.weightKg.toFixed(1)} kg fjernes fra historikken.`,
+      t("weightDeleteTitle"),
+      t("weightDeleteBody", { weight: weight.weightKg.toFixed(1) }),
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t("commonCancel"), style: "cancel" },
         {
-          text: "Slett",
+          text: t("commonDelete"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -90,7 +92,7 @@ export default function WeightPage() {
               }
             } catch (error) {
               if (__DEV__) console.log(error);
-              Alert.alert("Kunne ikke slette vekt", "Prøv igjen om et øyeblikk.");
+              Alert.alert(t("weightDeleteFailedTitle"), t("settingsTryAgainLater"));
             }
           },
         },
@@ -118,8 +120,8 @@ export default function WeightPage() {
         />
 
         <PremiumGate
-          featureTitle="Vektcoach"
-          description="Få roligere og mer presise justeringer basert på trendvekt, mål og logging."
+          featureTitle={t("weightCoachTitle")}
+          description={t("weightCoachDescription")}
           style={styles.coachSection}
         >
           <BodyGoalCoachCard recommendation={weightCoach} variant="weight" />

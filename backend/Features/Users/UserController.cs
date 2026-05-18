@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using backend.Common;
 using backend.Features.AuthAuth;
+using backend.Features.Monitoring;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,15 +15,18 @@ namespace backend.Features.Users
         private readonly UserService _userService;
         private readonly IAppleTokenService _appleTokenService;
         private readonly ILogger<UserController> _logger;
+        private readonly MonitoringAlertService _monitoring;
 
         public UserController(
             UserService userService,
             IAppleTokenService appleTokenService,
-            ILogger<UserController> logger)
+            ILogger<UserController> logger,
+            MonitoringAlertService monitoring)
         {
             _userService = userService;
             _appleTokenService = appleTokenService;
             _logger = logger;
+            _monitoring = monitoring;
         }
 
         [Authorize]
@@ -67,14 +71,47 @@ namespace backend.Features.Users
                 _logger.LogWarning(
                     "DeleteMe unauthorized because no user id claim was found. traceId={TraceId}",
                     traceId);
+                await _monitoring.AlertAsync(
+                    MonitoringAreas.AccountDeletion,
+                    "missing_user_claim",
+                    "Account deletion request had no user id claim.",
+                    LogLevel.Warning,
+                    traceId,
+                    ct: ct);
                 return Unauthorized();
             }
 
-            await _appleTokenService.RevokeAuthorizationAsync(
-                request?.AuthorizationCode,
-                ct);
+            try
+            {
+                await _appleTokenService.RevokeAuthorizationAsync(
+                    request?.AuthorizationCode,
+                    ct);
+            }
+            catch (Exception ex)
+            {
+                await _monitoring.AlertAsync(
+                    MonitoringAreas.AppleAuth,
+                    "authorization_revoke_failed",
+                    "Apple authorization revoke failed during account deletion.",
+                    LogLevel.Error,
+                    traceId,
+                    exception: ex,
+                    ct: ct);
+                throw;
+            }
 
             var deleted = await _userService.DeleteUserAsync(userId, traceId, ct);
+
+            if (!deleted)
+            {
+                await _monitoring.AlertAsync(
+                    MonitoringAreas.AccountDeletion,
+                    "user_not_found",
+                    "Account deletion did not find the user row.",
+                    LogLevel.Warning,
+                    traceId,
+                    ct: ct);
+            }
 
             _logger.LogInformation(
                 "DeleteMe completed. traceId={TraceId} deleted={Deleted}",

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using backend.Common.Validation;
 
 namespace backend.Features.Users
 {
@@ -26,7 +27,7 @@ namespace backend.Features.Users
         public int? FatGoal { get; set; }
         [Range(0, 2000)]
         public int? CarbGoal { get; set; }
-        [Range(typeof(decimal), "20", "500")]
+        [InvariantDecimalRange("20", "500")]
         public decimal? WeightGoalKg { get; set; }
         public DateTime? WeightGoalTimeUtc { get; set; }
         public WeightDirection? WeightDirection { get; set; }

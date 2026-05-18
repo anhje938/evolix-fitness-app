@@ -37,6 +37,22 @@ function getActionCopy(
   const hasRecommendedCalories = recommendation.recommendedCaloriesMin !== null;
   const isFood = variant === "food";
 
+  if (!recommendation.canRecommendCalories) {
+    return {
+      label: isFood ? "Tidlig estimat" : "Datagrunnlag",
+      value:
+        !isFood
+          ? `${recommendation.trackedWeightDays} målinger`
+          : recommendation.recentAverageCalories !== null
+          ? formatBodyGoalCoachCalories(recommendation.recentAverageCalories)
+          : "Bygger data",
+      note:
+        recommendation.status === "earlySignal"
+          ? "Synlig nå, men ikke presist nok til en kaloriendring."
+          : "Logg flere hele matdager og vektmålinger før coachen justerer.",
+    };
+  }
+
   if (
     recommendation.status === "onTrack" ||
     recommendation.status === "goalReached"
@@ -57,10 +73,10 @@ function getActionCopy(
       label: isFood ? "Kaloriområde" : "Coachområde",
       value: hasRecommendedCalories ? recommendedRange : "Logg mer data",
       note: isFood
-        ? "7 hele dager på rad låser opp rådene."
+        ? "Flere hele matdager låser opp rådene."
         : hasRecommendedCalories
         ? "Mer vektlogg vil gjøre rådet skarpere."
-        : `Du har ${recommendation.consecutiveCalorieDays} gyldige kalori-dager på rad. Coachen låses opp ved 7 hele dager på rad.`,
+        : `Du har ${recommendation.trackedCalorieDays} brukbare matdager og ${recommendation.trackedWeightDays} vektmålinger.`,
     };
   }
 
@@ -78,6 +94,10 @@ function getActionCopy(
 }
 
 function getWeightCoachSummary(recommendation: BodyGoalCoachRecommendation) {
+  if (recommendation.status === "earlySignal") {
+    return "Coachen viser tidlige signaler allerede nå, men venter med konkrete endringer til datagrunnlaget er mer stabilt.";
+  }
+
   if (recommendation.status === "insufficientData") {
     return recommendation.latestMeasuredWeightKg === null
       ? "Logg vekt og mat noen dager til, så kan coachen skille trend fra normal variasjon."
@@ -352,6 +372,17 @@ export function BodyGoalCoachCard({ recommendation, variant }: Props) {
               {recommendation.confidenceLabel}. Juster bare når trenden holder seg over flere målinger.
             </Text>
           )}
+
+          <View style={[styles.dataQualityBox, isFood && styles.dataQualityBoxFood]}>
+            <Ionicons
+              name="information-circle-outline"
+              size={13}
+              color={isFood ? "rgba(253,230,138,0.76)" : "rgba(191,219,254,0.78)"}
+            />
+            <Text style={[styles.dataQualityText, isFood && styles.dataQualityTextFood]}>
+              {recommendation.dataSummary}
+            </Text>
+          </View>
 
           <NonMedicalDisclaimer compact={isFood} />
         </>
@@ -635,5 +666,32 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: "rgba(148,163,184,0.92)",
     fontFamily: "Inter_400Regular",
+  },
+  dataQualityBox: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.14)",
+    backgroundColor: "rgba(15,23,42,0.42)",
+    paddingHorizontal: 11,
+    paddingVertical: 10,
+  },
+  dataQualityBoxFood: {
+    borderColor: "rgba(251,191,36,0.12)",
+    backgroundColor: "rgba(34,24,10,0.24)",
+  },
+  dataQualityText: {
+    flex: 1,
+    color: "rgba(203,213,225,0.84)",
+    fontSize: 11.5,
+    lineHeight: 16,
+    fontFamily: "Inter_400Regular",
+  },
+  dataQualityTextFood: {
+    color: "rgba(226,232,240,0.74)",
+    fontSize: 11,
   },
 });

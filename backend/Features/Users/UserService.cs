@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using backend.Data;
+using backend.Features.Monitoring;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Features.Users
@@ -43,13 +44,16 @@ namespace backend.Features.Users
 
         private readonly AppDbContext _db;
         private readonly ILogger<UserService> _logger;
+        private readonly MonitoringAlertService _monitoring;
 
         public UserService(
             AppDbContext db,
-            ILogger<UserService> logger)
+            ILogger<UserService> logger,
+            MonitoringAlertService monitoring)
         {
             _db = db;
             _logger = logger;
+            _monitoring = monitoring;
         }
 
         // Called from Auth
@@ -587,6 +591,18 @@ namespace backend.Features.Users
                     "DeleteUserAsync failed. traceId={TraceId} elapsedMs={ElapsedMs}",
                     traceId,
                     stopwatch.ElapsedMilliseconds);
+                await _monitoring.AlertAsync(
+                    MonitoringAreas.AccountDeletion,
+                    "delete_failed",
+                    "Account deletion failed and was rolled back.",
+                    LogLevel.Error,
+                    traceId,
+                    new Dictionary<string, string?>
+                    {
+                        ["elapsedMs"] = stopwatch.ElapsedMilliseconds.ToString()
+                    },
+                    ex,
+                    ct);
 
                 try
                 {
@@ -601,6 +617,14 @@ namespace backend.Features.Users
                         rollbackEx,
                         "DeleteUserAsync rollback failed. traceId={TraceId}",
                         traceId);
+                    await _monitoring.AlertAsync(
+                        MonitoringAreas.AccountDeletion,
+                        "rollback_failed",
+                        "Account deletion rollback failed.",
+                        LogLevel.Critical,
+                        traceId,
+                        exception: rollbackEx,
+                        ct: ct);
                 }
 
                 throw;

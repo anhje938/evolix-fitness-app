@@ -36,15 +36,22 @@ namespace backend.Features.AdaptivePlanning
                 .Where(x => x.StartedAtUtc >= week.StartUtc && x.StartedAtUtc < week.EndExclusiveUtc)
                 .ToList();
 
-            var totalSets = weekSessions.SelectMany(x => x.ExerciseLogs).SelectMany(x => x.Sets).Count();
+            var weekSets = weekSessions
+                .SelectMany(x => x.ExerciseLogs)
+                .SelectMany(x => x.Sets)
+                .Where(IsHardTrainingSet)
+                .ToList();
+            var totalSets = weekSets.Count;
             var totalReps = weekSessions
                 .SelectMany(x => x.ExerciseLogs)
                 .SelectMany(x => x.Sets)
+                .Where(IsHardTrainingSet)
                 .Where(x => x.Reps.HasValue)
                 .Sum(x => x.Reps!.Value);
             var totalVolume = weekSessions
                 .SelectMany(x => x.ExerciseLogs)
                 .SelectMany(x => x.Sets)
+                .Where(IsHardTrainingSet)
                 .Where(x => x.WeightKg.HasValue && x.Reps.HasValue)
                 .Sum(x => x.WeightKg!.Value * x.Reps!.Value);
 
@@ -73,7 +80,7 @@ namespace backend.Features.AdaptivePlanning
                 BestProgressExerciseName = best?.ExerciseName ?? "",
                 BestProgressText = best == null
                     ? "Ingen tydelig øvelsesprogresjon denne uken."
-                    : $"{best.ExerciseName}: estimert 1RM {best.PreviousBestOneRmKg:0.#} → {best.CurrentBestOneRmKg:0.#} kg",
+                    : $"{best.ExerciseName}: estimert 1RM fra {best.PreviousBestOneRmKg:0.#} til {best.CurrentBestOneRmKg:0.#} kg",
                 SuggestedBestProgressWeightKg = best?.SuggestedNextWeightKg,
                 MuscleLoads = muscleLoads,
                 Confidence = confidence,
@@ -101,15 +108,20 @@ namespace backend.Features.AdaptivePlanning
                 .OrderBy(x => x.StartedAtUtc)
                 .ToListAsync(ct);
 
-            var totalSets = sessions.SelectMany(x => x.ExerciseLogs).SelectMany(x => x.Sets).Count();
+            var totalSets = sessions
+                .SelectMany(x => x.ExerciseLogs)
+                .SelectMany(x => x.Sets)
+                .Count(IsHardTrainingSet);
             var totalReps = sessions
                 .SelectMany(x => x.ExerciseLogs)
                 .SelectMany(x => x.Sets)
+                .Where(IsHardTrainingSet)
                 .Where(x => x.Reps.HasValue)
                 .Sum(x => x.Reps!.Value);
             var totalVolume = sessions
                 .SelectMany(x => x.ExerciseLogs)
                 .SelectMany(x => x.Sets)
+                .Where(IsHardTrainingSet)
                 .Where(x => x.WeightKg.HasValue && x.Reps.HasValue)
                 .Sum(x => x.WeightKg!.Value * x.Reps!.Value);
             var muscleLoads = BuildMuscleLoads(sessions);
@@ -152,12 +164,14 @@ namespace backend.Features.AdaptivePlanning
                     .Where(x => x.Session.StartedAtUtc >= week.StartUtc &&
                                 x.Session.StartedAtUtc < week.EndExclusiveUtc)
                     .SelectMany(x => x.Log.Sets.Select(set => new { Set = set, x.Exercise }))
+                    .Where(x => IsHardTrainingSet(x.Set))
                     .ToList();
                 if (currentSets.Count == 0) continue;
 
                 var previousSets = group
                     .Where(x => x.Session.StartedAtUtc < week.StartUtc)
                     .SelectMany(x => x.Log.Sets.Select(set => new { Set = set, x.Exercise }))
+                    .Where(x => IsHardTrainingSet(x.Set))
                     .ToList();
 
                 var currentBest = currentSets.Max(x => EstimateOneRm(x.Set.WeightKg, x.Set.Reps, x.Set.SetType));
@@ -170,10 +184,21 @@ namespace backend.Features.AdaptivePlanning
                 var progressPercent = previousBest > 0
                     ? (currentBest - previousBest) / previousBest * 100
                     : 0;
-                var topWeight = currentSets
+                var weightedCurrentSets = currentSets
                     .Where(x => x.Set.WeightKg.HasValue)
-                    .Max(x => x.Set.WeightKg ?? 0);
+                    .ToList();
+                var topWeight = weightedCurrentSets.Count > 0
+                    ? weightedCurrentSets.Max(x => x.Set.WeightKg ?? 0)
+                    : 0;
                 var step = GetStepKg(exercise, topWeight);
+                var topWeightSets = weightedCurrentSets
+                    .Where(x => x.Set.WeightKg.HasValue &&
+                                Math.Abs((x.Set.WeightKg ?? 0) - topWeight) <= Math.Max(step * 0.35, 0.25))
+                    .ToList();
+                var shouldSuggestWeight =
+                    progressPercent >= 3 &&
+                    topWeightSets.Count >= 2 &&
+                    topWeightSets.Sum(x => x.Set.Reps ?? 0) >= topWeightSets.Count * 5;
 
                 result.Add(new ExerciseProgress
                 {
@@ -182,7 +207,7 @@ namespace backend.Features.AdaptivePlanning
                     PreviousBestOneRmKg = previousBest,
                     CurrentBestOneRmKg = currentBest,
                     ProgressPercent = progressPercent,
-                    SuggestedNextWeightKg = topWeight > 0
+                    SuggestedNextWeightKg = topWeight > 0 && shouldSuggestWeight
                         ? (decimal)Math.Round((topWeight + step) / step) * (decimal)step
                         : null
                 });
@@ -200,9 +225,10 @@ namespace backend.Features.AdaptivePlanning
             {
                 foreach (var log in session.ExerciseLogs)
                 {
-                    var sets = log.Sets.Count;
+                    var hardSets = log.Sets.Where(IsHardTrainingSet).ToList();
+                    var sets = hardSets.Count;
                     if (sets == 0) continue;
-                    var volume = log.Sets
+                    var volume = hardSets
                         .Where(x => x.WeightKg.HasValue && x.Reps.HasValue)
                         .Sum(x => x.WeightKg!.Value * x.Reps!.Value);
 
@@ -216,6 +242,7 @@ namespace backend.Features.AdaptivePlanning
 
                         load.Sets += sets * muscle.Contribution;
                         load.VolumeKg += volume * (double)muscle.Contribution;
+                        load.HardSets += sets * muscle.Contribution;
                         if (load.LastStimulusAtUtc == null || session.StartedAtUtc > load.LastStimulusAtUtc)
                             load.LastStimulusAtUtc = session.StartedAtUtc;
                     }
@@ -279,6 +306,14 @@ namespace backend.Features.AdaptivePlanning
             if (!weightKg.HasValue || !reps.HasValue || weightKg.Value <= 0 || reps.Value <= 0) return 0;
             if (reps.Value > 15) return 0;
             return weightKg.Value * (1 + reps.Value / 30.0);
+        }
+
+        private static bool IsHardTrainingSet(SetLog set)
+        {
+            if (set.SetType?.Contains("warm", StringComparison.OrdinalIgnoreCase) == true) return false;
+            if (set.SetType?.Contains("oppvarm", StringComparison.OrdinalIgnoreCase) == true) return false;
+            if (!set.Reps.HasValue || set.Reps.Value <= 0) return false;
+            return !set.Rir.HasValue || set.Rir.Value <= 4;
         }
 
         private static double GetStepKg(Exercise exercise, double topWeightKg)

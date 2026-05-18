@@ -53,6 +53,9 @@ export async function UpdateProgramForUser(
     workoutIds: string[];
     goal?: string | null;
     level?: string | null;
+    englishName?: string | null;
+    englishGoal?: string | null;
+    englishLevel?: string | null;
     isPremium?: boolean;
   }
 ) {
@@ -61,6 +64,9 @@ export async function UpdateProgramForUser(
     workoutIds: string[];
     goal?: string | null;
     level?: string | null;
+    englishName?: string | null;
+    englishGoal?: string | null;
+    englishLevel?: string | null;
     isPremium?: boolean;
   } = {
     name: data.name,
@@ -73,6 +79,18 @@ export async function UpdateProgramForUser(
 
   if (data.level !== undefined) {
     body.level = data.level;
+  }
+
+  if (data.englishName !== undefined) {
+    body.englishName = data.englishName;
+  }
+
+  if (data.englishGoal !== undefined) {
+    body.englishGoal = data.englishGoal;
+  }
+
+  if (data.englishLevel !== undefined) {
+    body.englishLevel = data.englishLevel;
   }
 
   if (data.isPremium !== undefined) {

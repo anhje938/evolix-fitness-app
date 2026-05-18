@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using backend.Common;
+using backend.Features.Monitoring;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -13,17 +14,20 @@ namespace backend.Features.Auth
         private readonly AuthService _auth;
         private readonly ILogger<AuthController> _logger;
         private readonly IHostEnvironment _env;
+        private readonly MonitoringAlertService _monitoring;
 
         private bool ReturnDebugDetails => _env.IsDevelopment();
 
         public AuthController(
             AuthService auth,
             ILogger<AuthController> logger,
-            IHostEnvironment env)
+            IHostEnvironment env,
+            MonitoringAlertService monitoring)
         {
             _auth = auth;
             _logger = logger;
             _env = env;
+            _monitoring = monitoring;
         }
 
         [HttpPost("apple")]
@@ -48,6 +52,13 @@ namespace backend.Features.Auth
             }
             else if (!looksLikeJwt)
             {
+                await _monitoring.AlertAsync(
+                    MonitoringAreas.AppleAuth,
+                    "invalid_token_format",
+                    "Apple login request had an invalid token format.",
+                    LogLevel.Warning,
+                    reqId,
+                    ct: ct);
                 return BadRequest(new { error = "Invalid token format", traceId = reqId });
             }
 
@@ -66,6 +77,14 @@ namespace backend.Features.Auth
                 _logger.LogWarning(
                     "Apple token validation failed. traceId={traceId}",
                     reqId);
+                await _monitoring.AlertAsync(
+                    MonitoringAreas.AppleAuth,
+                    "token_validation_failed",
+                    "Apple token validation failed.",
+                    LogLevel.Warning,
+                    reqId,
+                    exception: ex,
+                    ct: ct);
 
                 if (ReturnDebugDetails)
                 {
@@ -83,6 +102,14 @@ namespace backend.Features.Auth
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled error during Apple login. traceId={traceId}", reqId);
+                await _monitoring.AlertAsync(
+                    MonitoringAreas.AppleAuth,
+                    "login_failed",
+                    "Unhandled Apple login error.",
+                    LogLevel.Error,
+                    reqId,
+                    exception: ex,
+                    ct: ct);
 
                 if (ReturnDebugDetails)
                 {

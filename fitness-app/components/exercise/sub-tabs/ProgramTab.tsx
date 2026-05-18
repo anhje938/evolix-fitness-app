@@ -1,4 +1,3 @@
-// components/exercise/sub-tabs/ProgramTab.tsx
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,12 +12,13 @@ import {
   PostProgramForUser,
   UpdateProgramForUser,
 } from "@/api/exercise/program";
-import { PostWorkoutForUser } from "@/api/exercise/workout"; // ✅ NEW
+import { PostWorkoutForUser } from "@/api/exercise/workout";
 import { queryClient } from "@/config/queryClient";
 import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
 import { useSubscription } from "@/context/SubscriptionProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
+import { useTranslation } from "@/i18n/translations";
 import { useExercises } from "@/hooks/useExercises";
 import { usePrograms } from "@/hooks/usePrograms";
 import { useWorkouts } from "@/hooks/useWorkouts";
@@ -41,8 +41,8 @@ export default function ProgramTab() {
   const [paywallVisible, setPaywallVisible] = useState(false);
   const { userSettings } = useUserSettings();
   const { isPremium, isLoading: isSubscriptionLoading } = useSubscription();
+  const { t } = useTranslation();
 
-  // UI states for mutations (bug-proof)
   const [busy, setBusy] = useState<"create" | "edit" | "delete" | null>(null);
   const [uiError, setUiError] = useState<string | null>(null);
 
@@ -83,12 +83,11 @@ export default function ProgramTab() {
       await Promise.all([refetchPrograms(), refetchWorkouts()]);
     } catch (e) {
       setUiError(
-        e instanceof Error ? e.message : "Ukjent feil ved oppdatering."
+        e instanceof Error ? e.message : t("programRefreshError")
       );
     }
   };
 
-  // CREATE
   const handleCreate = async (name: string) => {
     setUiError(null);
     setBusy("create");
@@ -98,14 +97,13 @@ export default function ProgramTab() {
       setOpenCreate(false);
     } catch (error) {
       setUiError(
-        error instanceof Error ? error.message : "Kunne ikke opprette program."
+        error instanceof Error ? error.message : t("programCreateError")
       );
     } finally {
       setBusy(null);
     }
   };
 
-  // EDIT SAVE
   const handleEditSave = async (payload: {
     name: string;
     workoutIds: string[];
@@ -122,14 +120,13 @@ export default function ProgramTab() {
       setEditingProgram(null);
     } catch (error) {
       setUiError(
-        error instanceof Error ? error.message : "Kunne ikke lagre endringer."
+        error instanceof Error ? error.message : t("programSaveError")
       );
     } finally {
       setBusy(null);
     }
   };
 
-  // DELETE
   const handleDelete = async () => {
     if (!editingProgram) return;
     setUiError(null);
@@ -143,14 +140,13 @@ export default function ProgramTab() {
       setEditingProgram(null);
     } catch (error) {
       setUiError(
-        error instanceof Error ? error.message : "Kunne ikke slette program."
+        error instanceof Error ? error.message : t("programDeleteError")
       );
     } finally {
       setBusy(null);
     }
   };
 
-  // Derived: workouts per program
   const workoutsByProgramId = useMemo(() => {
     const map = new Map<string, Workout[]>();
     for (const w of workouts) {
@@ -186,7 +182,7 @@ export default function ProgramTab() {
             { color: newColors.text.primary, marginTop: 10 },
           ]}
         >
-          Laster programmer og økter...
+          {t("programLoading")}
         </Text>
       </View>
     );
@@ -201,7 +197,7 @@ export default function ProgramTab() {
             { color: newColors.text.primary, marginBottom: 8 },
           ]}
         >
-          Klarte ikke å hente data
+          {t("programFetchError")}
         </Text>
 
         {!!programsError && (
@@ -211,7 +207,7 @@ export default function ProgramTab() {
               { color: newColors.text.secondary, opacity: 0.9 },
             ]}
           >
-            Programmer: {(programsError as Error).message}
+            {t("programProgramsLabel")}: {(programsError as Error).message}
           </Text>
         )}
         {!!workoutsError && (
@@ -221,7 +217,7 @@ export default function ProgramTab() {
               { color: newColors.text.secondary, opacity: 0.9 },
             ]}
           >
-            Økter: {(workoutsError as Error).message}
+            {t("programWorkoutsLabel")}: {(workoutsError as Error).message}
           </Text>
         )}
 
@@ -243,7 +239,7 @@ export default function ProgramTab() {
             { color: newColors.text.primary, marginTop: 14, opacity: 0.9 },
           ]}
         >
-          Trykk for å prøve igjen
+          {t("programRetry")}
         </Text>
       </View>
     );
@@ -255,11 +251,10 @@ export default function ProgramTab() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* HEADER */}
       <View style={styles.headerRow}>
         <View>
           <Text style={[typography.h2, styles.heading]}>
-            Treningsprogrammer
+            {t("programHeading")}
           </Text>
         </View>
 
@@ -279,23 +274,22 @@ export default function ProgramTab() {
         </View>
       )}
 
-      {/* LISTE */}
       {shouldShowPremiumProgramTeaser && (
         <LockedFeatureCard
-          title="Premiumprogrammer"
-          description="Subscriber-programmer vises her når de er lagt inn. Lås opp Premium for å starte dem når de er tilgjengelige."
+          title={t("programPremiumTitle")}
+          description={t("programPremiumDescription")}
           isLoading={isSubscriptionLoading}
           compact
           onPress={() => setPaywallVisible(true)}
         />
       )}
 
-      {/* LISTE */}
       <View style={{ marginTop: 15 }}>
         <ProgramList
           programs={programs}
           workoutsByProgramId={workoutsByProgramId}
           exerciseMap={exerciseMap}
+          language={userSettings.language}
           onEdit={(programId) => {
             const p = programs.find((x) => x.id === programId);
             if (p) setEditingProgram(p);
@@ -310,14 +304,12 @@ export default function ProgramTab() {
         source="premium-program-empty"
       />
 
-      {/* CREATE MODAL */}
       <CreateProgramModal
         onSubmit={handleCreate}
         visible={openCreate}
         onClose={() => setOpenCreate(false)}
       />
 
-      {/* EDIT MODAL */}
       {editingProgram && (
         <EditProgramModal
           visible={!!editingProgram}
@@ -327,10 +319,9 @@ export default function ProgramTab() {
           availableWorkouts={workouts}
           onSubmit={handleEditSave}
           onDelete={handleDelete}
-          // ✅ NOW CREATES REAL WORKOUT + links it to this program + returns created workout
           onCreateWorkout={async (data) => {
             if (!editingProgram) {
-              throw new Error("Ingen valgt program.");
+              throw new Error(t("programMissingSelected"));
             }
 
             const created = await PostWorkoutForUser({

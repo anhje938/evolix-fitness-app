@@ -2,6 +2,7 @@ import { AuthRequestError, loginWithApple } from "@/api/auth";
 import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
 import { useAuth } from "@/context/AuthProvider";
+import { useTranslation } from "@/i18n/translations";
 import * as AppleAuthentication from "expo-apple-authentication";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
@@ -43,6 +44,7 @@ function decodeAppleJwtPayload(token: string): Record<string, unknown> | null {
 
 export default function SignIn() {
   const { setAuthSession } = useAuth();
+  const { t } = useTranslation();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -83,8 +85,8 @@ export default function SignIn() {
     try {
       if (Platform.OS !== "ios") {
         Alert.alert(
-          "Ikke tilgjengelig",
-          "Apple-innlogging er kun tilgjengelig på iPhone/iPad."
+          t("signInAppleUnavailableTitle"),
+          t("signInAppleUnavailableBody")
         );
         return;
       }
@@ -105,7 +107,7 @@ export default function SignIn() {
         await AppleAuthentication.isAvailableAsync();
 
       if (!isAppleAuthAvailable) {
-        throw new Error("Apple Sign-In er ikke tilgjengelig på denne enheten.");
+        throw new Error(t("signInAppleUnavailableDevice"));
       }
 
       let identityToken: string | null | undefined;
@@ -151,11 +153,11 @@ export default function SignIn() {
       }
 
       if (!identityToken) {
-        throw new Error("Apple Sign-In returnerte ikke identity token.");
+        throw new Error(t("signInMissingIdentityToken"));
       }
 
       if (!authorizationCode) {
-        throw new Error("Apple Sign-In returnerte ikke authorization code.");
+        throw new Error(t("signInMissingAuthorizationCode"));
       }
 
       if (__DEV__ && tokenAudience === "host.exp.Exponent") {
@@ -177,12 +179,12 @@ export default function SignIn() {
           ? `API ${error.status}: ${error.message}`
           : error instanceof Error
             ? error.message
-            : "Ukjent feil";
+            : t("commonUnknownError");
 
       if (__DEV__) console.log("Login error:", detail, error);
       Alert.alert(
-        "Innlogging feilet",
-        __DEV__ ? detail : "Kunne ikke logge inn med Apple. Prøv igjen."
+        t("signInFailedTitle"),
+        __DEV__ ? detail : t("signInFailedBody")
       );
     } finally {
       setIsLoggingIn(false);
@@ -195,11 +197,11 @@ export default function SignIn() {
   });
 
   const features = [
-    { Icon: Apple, text: "Spor mat og kalorier", color: "#4ade80" },
-    { Icon: Bicep, text: "Administrer treningsprogram", color: "#06b6d4" },
-    { Icon: Scale, text: "Følg din vektutvikling", color: "#8b5cf6" },
-    { Icon: Graph, text: "Mål fremgangen din", color: "#f97316" },
-    { Icon: Fire, text: "Få smarte mål og anbefalinger", color: "#f59e0b" },
+    { Icon: Apple, text: t("signInFeatureFood"), color: "#4ade80" },
+    { Icon: Bicep, text: t("signInFeatureWorkout"), color: "#06b6d4" },
+    { Icon: Scale, text: t("signInFeatureWeight"), color: "#8b5cf6" },
+    { Icon: Graph, text: t("signInFeatureProgress"), color: "#f97316" },
+    { Icon: Fire, text: t("signInFeatureCoach"), color: "#f59e0b" },
   ];
 
   return (
@@ -246,7 +248,7 @@ export default function SignIn() {
           <View style={styles.subtitleBadge}>
             <View style={styles.badgeGlow} />
             <Text style={[typography.h2, styles.subtitle]}>
-              Din personlige treningspartner
+              {t("signInSubtitle")}
             </Text>
           </View>
         </Animated.View>
@@ -343,7 +345,7 @@ export default function SignIn() {
           </View>
 
           {isLoggingIn ? (
-            <Text style={styles.loginStatus}>Logger inn...</Text>
+            <Text style={styles.loginStatus}>{t("signInStatus")}</Text>
           ) : null}
         </Animated.View>
 
@@ -359,23 +361,23 @@ export default function SignIn() {
           ]}
         >
           <Text style={[typography.body, styles.termsText]}>
-            Ved å fortsette godtar du våre{" "}
+            {t("signInTermsPrefix")}
             <Text
               style={styles.termsLink}
               onPress={() => {
                 void Linking.openURL(TERMS_URL);
               }}
             >
-              vilkår for bruk
+              {t("signInTerms")}
             </Text>{" "}
-            og{" "}
+            {t("signInAnd")}
             <Text
               style={styles.termsLink}
               onPress={() => {
                 void Linking.openURL(PRIVACY_URL);
               }}
             >
-              personvernregler
+              {t("signInPrivacy")}
             </Text>
           </Text>
         </Animated.View>

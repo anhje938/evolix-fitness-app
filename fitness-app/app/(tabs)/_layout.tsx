@@ -10,6 +10,7 @@ import ExerciseIcon from "../../assets/icons/dumbbell-white.svg";
 import { newColors } from "@/config/theme";
 import { FoodProvider } from "@/context/FoodProvider";
 import { WeightProvider } from "@/context/WeightProvider";
+import { useTranslation } from "@/i18n/translations";
 
 const ACTIVE_COLOR = "rgb(0, 162, 255)";
 const INACTIVE_COLOR = "#A0A0A0";
@@ -17,6 +18,7 @@ const ACTIVE_BG = "rgba(0, 162, 255, 0.47)";
 
 export default function TabsLayout() {
   const { token, authReady } = useAuth();
+  const { t } = useTranslation();
 
   if (!authReady) return <View style={{ flex: 1 }} />;
   if (!token) return <Redirect href="/(auth)/sign-in" />;
@@ -47,7 +49,7 @@ export default function TabsLayout() {
                       { color: focused ? ACTIVE_COLOR : INACTIVE_COLOR },
                     ]}
                   >
-                    Hjem
+                    {t("tabHome")}
                   </Text>
                 </View>
               ),
@@ -70,7 +72,7 @@ export default function TabsLayout() {
                       { color: focused ? ACTIVE_COLOR : INACTIVE_COLOR },
                     ]}
                   >
-                    Mat
+                    {t("tabFood")}
                   </Text>
                 </View>
               ),
@@ -93,7 +95,7 @@ export default function TabsLayout() {
                       { color: focused ? ACTIVE_COLOR : INACTIVE_COLOR },
                     ]}
                   >
-                    Vekt
+                    {t("tabWeight")}
                   </Text>
                 </View>
               ),
@@ -116,7 +118,7 @@ export default function TabsLayout() {
                       { color: focused ? ACTIVE_COLOR : INACTIVE_COLOR },
                     ]}
                   >
-                    Trening
+                    {t("tabTraining")}
                   </Text>
                 </View>
               ),

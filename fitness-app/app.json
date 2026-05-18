@@ -36,7 +36,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/evolix_logo.png",
+          "image": "./assets/images/evolix_splash_logo.png",
           "imageWidth": 300,
           "resizeMode": "contain",
           "backgroundColor": "#081E36",
