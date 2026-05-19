@@ -673,7 +673,7 @@ namespace backend.Features.CutIntelligence
                     "high",
                     "nutrition",
                     $"Vekttapet er ca. {Round(lossRate) ?? lossRate:F1} % per uke, som er aggressivt for styrke og muskelbevaring.",
-                    "Øk inntaket med 150–250 kcal per dag neste uke og vurder trenden på nytt.",
+                    "Øk kalorimålet med 150–250 kcal per dag neste uke og vurder trenden på nytt.",
                     report.Confidence,
                     "calories",
                     suggestedCalories: Math.Min(currentCalorieGoal + 200, currentCalorieGoal + 250))));
@@ -687,7 +687,7 @@ namespace backend.Features.CutIntelligence
                     "high",
                     "training",
                     $"Nøkkelstyrken er ned ca. {Round(strength.AverageStrengthChangePercent) ?? strength.AverageStrengthChangePercent:F1} %.",
-                    "Hold belastningen teknisk solid, unngå ekstra failure-sett og vurder én roligere uke før du kutter mer kalorier.",
+                    "Hold belastningen teknisk solid, unngå ekstra failure-sett og vurder én roligere uke før kalorimålet senkes videre.",
                     report.Confidence)));
             }
 
@@ -698,7 +698,7 @@ namespace backend.Features.CutIntelligence
                     "Øk protein",
                     "high",
                     "nutrition",
-                    $"Proteininntaket er ca. {Round(proteinPerKg) ?? proteinPerKg:F1} g/kg i en cut.",
+                    $"Protein ligger på ca. {Round(proteinPerKg) ?? proteinPerKg:F1} g/kg i en cut.",
                     "Øk protein med 25–40 g per dag.",
                     report.Confidence,
                     "protein",
@@ -738,7 +738,7 @@ namespace backend.Features.CutIntelligence
                     "medium",
                     "nutrition",
                     "Vekttrenden har gått tregt i to uker, og loggingen er god nok til å justere forsiktig.",
-                    "Reduser inntaket med 100–200 kcal per dag neste uke.",
+                    "Senk kalorimålet med 100–200 kcal per dag neste uke.",
                     report.Confidence,
                     "calories",
                     suggestedCalories: Math.Max(currentCalorieGoal - 150, currentCalorieGoal - 250))));
@@ -752,7 +752,7 @@ namespace backend.Features.CutIntelligence
                     "medium",
                     "training",
                     $"Treningsvolumet er opp ca. {Round(training.VolumeChangePercent) ?? training.VolumeChangePercent:F0} % mens styrken faller.",
-                    "Kutt 10–20 % av settene i én uke og behold de viktigste tunge toppsettene.",
+                    "Reduser 10–20 % av settene i én uke og behold de viktigste tunge toppsettene.",
                     report.Confidence)));
             }
             else if (training.VolumeChangePercent < -25 && strengthFalling)
@@ -783,11 +783,11 @@ namespace backend.Features.CutIntelligence
             {
                 items.Add((9, Rec(
                     "keep_fat_from_dropping_lower",
-                    "Ikke kutt fett mer nå",
+                    "Ikke senk fett mer nå",
                     "low",
                     "nutrition",
-                    "Fettinntaket ligger lavt i forhold til kroppsvekt eller kalorier.",
-                    "Hold fett minst rundt 0,5 g/kg og finn eventuelt underskudd fra andre steder.",
+                    "Fett ligger lavt i forhold til kroppsvekt eller kalorier.",
+                    "Hold fett minst på ca. 0,5 g/kg og finn eventuelt underskudd fra andre steder.",
                     report.Confidence)));
             }
 
@@ -883,7 +883,7 @@ namespace backend.Features.CutIntelligence
             };
 
             var carbText = carbsPerKg < 2 ? " Karbohydrater er lave for hard styrketrening." : "";
-            var fatText = fatPerKg < 0.5 || fatPercent < 20 ? " Fett ligger lavt, så ikke kutt det mer først." : "";
+            var fatText = fatPerKg < 0.5 || fatPercent < 20 ? " Fett ligger lavt, så ikke senk det mer først." : "";
             return $"{proteinText}{carbText}{fatText}";
         }
 

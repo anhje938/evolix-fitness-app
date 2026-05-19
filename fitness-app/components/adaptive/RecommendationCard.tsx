@@ -28,7 +28,7 @@ type Props = {
 function confidenceLabel(value: RecommendationConfidence): string {
   if (value === RecommendationConfidence.High) return "Høy sikkerhet";
   if (value === RecommendationConfidence.Medium) return "Middels sikkerhet";
-  return "Trenger mer data";
+  return "Tidlig signal";
 }
 
 function recommendationAccent(type: AdaptiveRecommendation["type"]) {

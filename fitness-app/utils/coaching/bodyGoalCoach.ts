@@ -415,7 +415,7 @@ function buildEarlySignalRecommendation(args: {
     summary:
       args.recentAverageCalories === null && args.currentTrendKgPerWeek === null
         ? "Coachen ser de første loggene dine, men trenger mer sammenheng før den kan tolke retningen."
-        : `Foreløpig matnivå er ${caloriesText}, og vekttrenden ser ut som ${trendText}. Dette er et tidlig estimat med høy usikkerhet.`,
+        : `Foreløpig kalorinivå er ${caloriesText}, og vekttrenden ser ut som ${trendText}. Dette er et tidlig estimat med høy usikkerhet.`,
     note:
       "Bruk dette som en pekepinn, ikke som en kaloriendring. Når flere hele matdager og vektmålinger er inne, låses et tryggere område opp.",
     goalDateUtc: args.goalDateUtc,
@@ -654,7 +654,7 @@ export function buildBodyGoalCoach({
   if (goalReached) {
     status = "goalReached";
     statusLabel = "Ved mål";
-    headline = "Trendvekten ligger rundt målet";
+    headline = "Trendvekten er nær målet";
   } else if (daysRemaining !== null && daysRemaining <= 0) {
     status = "deadlineRisk";
     statusLabel = "Frist passert";
@@ -669,12 +669,12 @@ export function buildBodyGoalCoach({
     headline = "Kaloriene og trendvekten peker riktig vei";
   } else if ((calorieAdjustment ?? 0) > 0) {
     status = "increaseCalories";
-    statusLabel = "Øk litt";
-    headline = "Du bør spise litt mer";
+    statusLabel = "Øk kalorier";
+    headline = "Kaloriområdet kan økes litt";
   } else {
     status = "decreaseCalories";
-    statusLabel = "Kutt litt";
-    headline = "Du bør spise litt mindre";
+    statusLabel = "Senk kalorier";
+    headline = "Kaloriområdet kan senkes litt";
   }
 
   const goalDateLabel = formatDateLongNO(goalDateUtc);
@@ -683,12 +683,12 @@ export function buildBodyGoalCoach({
       ? `${trackedCalorieDays} brukbare matdager på rad`
       : `${trackedCalorieDays} brukbare matdager`;
   const summary = goalReached
-    ? `Basert på trendvekten fra målingene dine ligger du omtrent ved mål. Hold deg rundt ${formatCaloriesRange(recommendedCaloriesMin, recommendedCaloriesMax)} hvis du vil stabilisere vekten videre.`
-    : `Basert på ${calorieBasisLabel} og trendvekten fra ${trackedWeightDays} måledager estimerer coachen vedlikeholdet ditt rundt ${formatCalories(maintenanceCalories)}. For å nå ${formatWeight(goalWeightKg)} innen ${goalDateLabel} ser et realistisk startområde ut til å være ${formatCaloriesRange(recommendedCaloriesMin, recommendedCaloriesMax)}.`;
+    ? `Basert på trendvekten fra målingene dine er du nær målet. Bruk ${formatCaloriesRange(recommendedCaloriesMin, recommendedCaloriesMax)} hvis du vil stabilisere vekten videre.`
+    : `Basert på ${calorieBasisLabel} og trendvekten fra ${trackedWeightDays} måledager beregner coachen et estimert vedlikehold på ca. ${formatCalories(maintenanceCalories)}. For å nå ${formatWeight(goalWeightKg)} innen ${goalDateLabel} ser et realistisk startområde ut til å være ${formatCaloriesRange(recommendedCaloriesMin, recommendedCaloriesMax)}.`;
   const note = goalReached
     ? `${confidenceMeta.confidenceLabel}. Rådet bygger kun på loggede kalorier og vektmålinger, og bør justeres først når 1-2 nye uker peker samme vei. Skippede dager teller aldri som 0 kcal.`
     : isAggressiveGoal
-    ? `${confidenceMeta.confidenceLabel}. Nåværende frist krever omtrent ${formatTrend(rawRequiredTrendKgPerWeek)}. Coachen har derfor klippet rådet til en mer realistisk fart rundt ${formatTrend(requiredTrendKgPerWeek)}. Skippede dager teller aldri som 0 kcal.`
+    ? `${confidenceMeta.confidenceLabel}. Nåværende frist krever ca. ${formatTrend(rawRequiredTrendKgPerWeek)}. Coachen har derfor satt rådet til en mer realistisk fart på ca. ${formatTrend(requiredTrendKgPerWeek)}. Skippede dager teller aldri som 0 kcal.`
     : `${confidenceMeta.confidenceLabel}. Coachens retning styres bare av loggede kalorier og trendvekt fra målinger, ikke av kalori-målet i settings. Skippede eller manglende dager teller ikke og erstattes aldri av 0.`;
   const dataSummary =
     consecutiveCalorieDays >= MIN_CONSECUTIVE_CALORIE_DAYS

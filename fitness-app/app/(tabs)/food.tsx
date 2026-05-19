@@ -617,7 +617,7 @@ export default function FoodPage() {
         {userSettings.useFoodCoach && foodCoach ? (
           <PremiumGate
             featureTitle="Matcoach"
-            description="Få kaloriråd mot vektmålet basert på matloggen og vekttrenden din."
+            description="Få forslag til kalorijusteringer basert på loggen og vekttrenden din."
             style={styles.coachSection}
           >
             <BodyGoalCoachCard recommendation={foodCoach} variant="food" />

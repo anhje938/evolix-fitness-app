@@ -123,7 +123,9 @@ namespace backend.Features.AdaptivePlanning
             WeeklyReport report)
         {
             if (report.DataQuality == DataQualityLevel.Low)
-                return "Bygg nok data før planen justeres";
+                return IsEarlyInReportWeek(report)
+                    ? "Start uken rolig og logg jevnt"
+                    : "Hold planen stabil mens grunnlaget bygges";
 
             if (report.WeightSummary?.Status is "behind" or "slightlyBehind")
                 return "Vurder en liten justering, ikke et stort hopp";
@@ -144,6 +146,10 @@ namespace backend.Features.AdaptivePlanning
 
         private static string BuildSecondaryLine(WeeklyReport report)
         {
+            if (IsEarlyInReportWeek(report) &&
+                (report.NutritionSummary?.LoggedDays ?? 0) < 3)
+                return "Tidlig uke: de første loggene setter retningen.";
+
             if (report.RecoverySummary != null)
                 return $"{report.RecoverySummary.RecommendedNextSession}: {report.RecoverySummary.IntensityRecommendation}.";
 
@@ -153,6 +159,13 @@ namespace backend.Features.AdaptivePlanning
             return report.NutritionSummary.LoggedDays >= 5
                 ? "God matdekning denne uken."
                 : $"Matlogg: {report.NutritionSummary.LoggedDays} av 7 dager.";
+        }
+
+        private static bool IsEarlyInReportWeek(WeeklyReport report)
+        {
+            var today = AdaptivePlanningClock.Today();
+            if (today < report.WeekStart || today > report.WeekEnd) return false;
+            return today.DayNumber - report.WeekStart.DayNumber <= 1;
         }
 
         private static DataQualityLevel CombineTodayQuality(

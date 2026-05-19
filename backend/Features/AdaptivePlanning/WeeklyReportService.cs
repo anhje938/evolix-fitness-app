@@ -6,7 +6,7 @@ namespace backend.Features.AdaptivePlanning
 {
     public class WeeklyReportService
     {
-        public const string AlgorithmVersion = "adaptive-plan-v1.2";
+        public const string AlgorithmVersion = "adaptive-plan-v1.3";
         private const double KcalPerKg = 7700;
 
         private readonly AppDbContext _db;
@@ -156,7 +156,7 @@ namespace backend.Features.AdaptivePlanning
                 GeneratedAtUtc = DateTime.UtcNow,
                 DataQuality = dataQuality,
                 OverallScore = score,
-                SummaryText = BuildSummary(dataQuality, weight, nutrition),
+                SummaryText = BuildSummary(week, dataQuality, weight, nutrition),
                 AlgorithmVersion = AlgorithmVersion,
                 WeightSummary = new WeeklyReportWeightSummary
                 {
@@ -238,6 +238,20 @@ namespace backend.Features.AdaptivePlanning
             var dayOffset = ((int)today.DayOfWeek + 6) % 7;
             var start = today.AddDays(-dayOffset);
             return new WeekWindow(start, start.AddDays(6));
+        }
+
+        private static bool IsEarlyInCurrentWeek(WeekWindow week)
+        {
+            var today = AdaptivePlanningClock.Today();
+            if (today < week.Start || today > week.End) return false;
+            return today.DayNumber - week.Start.DayNumber <= 1;
+        }
+
+        private static bool IsEarlyInReportWeek(WeeklyReport report)
+        {
+            var generatedDate = AdaptivePlanningClock.ToLocalDate(report.GeneratedAtUtc);
+            if (generatedDate < report.WeekStart || generatedDate > report.WeekEnd) return false;
+            return generatedDate.DayNumber - report.WeekStart.DayNumber <= 1;
         }
 
         private static IQueryable<WeeklyReport> IncludeReportGraph(IQueryable<WeeklyReport> query)
@@ -328,20 +342,24 @@ namespace backend.Features.AdaptivePlanning
         }
 
         private static string BuildSummary(
+            WeekWindow week,
             DataQualityLevel dataQuality,
             WeightTrendAnalysis weight,
             NutritionAnalysis nutrition)
         {
             if (dataQuality == DataQualityLevel.Low)
             {
+                if (IsEarlyInCurrentWeek(week))
+                    return "Uken er i gang. EvoliX bruker de første loggene som tidlige signaler og venter med justeringer til grunnlaget er tydeligere.";
+
                 if (nutrition.LoggedDays > 0 || weight.RecentLogsCount > 0)
-                    return "EvoliX har foreløpige signaler, men trenger bedre dekning i både mat og vekt før planen bør justeres.";
-                return "EvoliX trenger litt mer data for planen kan justeres trygt.";
+                    return "EvoliX har foreløpige signaler fra mat og vekt. Planen holdes rolig til trenden er tydeligere.";
+                return "EvoliX bygger grunnlag for en trygg vurdering av uken.";
             }
 
             if (nutrition.AverageProtein.HasValue &&
                 nutrition.AverageProtein.Value < nutrition.TargetProtein)
-                return "Protein ligger litt lavt. Prioriter protein og jevn logging før kaloriene justeres hardere.";
+                return "Protein ligger litt lavt. Prioriter protein og jevn logging før kalorimålet justeres videre.";
 
             if (weight.Status is "onTrack" or "maintaining")
                 return "Du er nær riktig spor. Hold målene stabile og vurder på nytt etter neste uke.";
@@ -357,15 +375,15 @@ namespace backend.Features.AdaptivePlanning
             {
                 ("Nutrition", nutrition.AverageProtein.HasValue && nutrition.AverageProtein < nutrition.TargetProtein
                     ? $"Løft protein mot {nutrition.TargetProtein} g per dag."
-                    : $"Hold kalorimålet rundt {nutrition.TargetCalories} kcal.")
+                    : $"Hold kalorimålet nær {nutrition.TargetCalories} kcal.")
             };
 
             if (weight.Status is "behind" or "slightlyBehind")
-                actions.Add(("Weight", "Vurder en liten kaloriendring, ikke et stort hopp."));
+                actions.Add(("Weight", "Vurder en liten justering av kalorimålet, ikke et stort hopp."));
             else if (weight.Status is "tooAggressive")
                 actions.Add(("Weight", "Øk handlingsrommet litt hvis tempoet blir for hardt."));
             else if (weight.GoalPaceClipped)
-                actions.Add(("Weight", "Måldatoen ser stram ut. Flytt datoen heller enn å presse kaloriene hardt."));
+                actions.Add(("Weight", "Måldatoen ser stram ut. Flytt datoen heller enn å bruke en for aggressiv kaloriplan."));
             else
                 actions.Add(("Weight", "Hold vektmålingene jevne, helst 3 ganger i uken."));
 
@@ -391,13 +409,19 @@ namespace backend.Features.AdaptivePlanning
 
             if (dataQuality == DataQualityLevel.Low)
             {
+                var earlyWeek = IsEarlyInReportWeek(report);
+
                 recommendations.Add(new AdaptiveRecommendation
                 {
                     UserId = userId,
                     SourceReport = report,
                     Type = AdaptiveRecommendationType.NeedMoreData,
-                    Title = "Logg litt mer før EvoliX justerer planen",
-                    Explanation = "EvoliX trenger minst 5 matdager for rolige råd og 8 vektmålinger fordelt over to uker for høy sikkerhet. Før det vises bare tidlige signaler.",
+                    Title = earlyWeek
+                        ? "Tidlige signaler fra uken"
+                        : "Tidlige signaler, ingen hard justering",
+                    Explanation = earlyWeek
+                        ? "Tidlig i uken vurderes roligere. Logg mat og vekt som vanlig, så bruker EvoliX de første signalene uten å presse en justering."
+                        : "EvoliX ser noen signaler, men grunnlaget er ikke tydelig nok for en konkret justering. Hold planen stabil og vurder igjen når flere logger er inne.",
                     Confidence = RecommendationConfidence.Low,
                     AppliesFromDate = appliesFrom,
                     ExpiresAtUtc = DateTime.UtcNow.AddDays(7)
@@ -414,7 +438,7 @@ namespace backend.Features.AdaptivePlanning
                     SourceReport = report,
                     Type = AdaptiveRecommendationType.IncreaseProtein,
                     Title = "Øk proteinmålet i praksis",
-                    Explanation = $"Du lå i snitt {nutrition.TargetProtein - nutrition.AverageProtein.Value} g under proteinmålet. Få protein nærmere målet før kaloriene kuttes mer.",
+                    Explanation = $"Du lå i snitt {nutrition.TargetProtein - nutrition.AverageProtein.Value} g under proteinmålet. Få protein nærmere målet før kalorimålet senkes videre.",
                     Confidence = confidence,
                     AppliesFromDate = appliesFrom,
                     ExpiresAtUtc = DateTime.UtcNow.AddDays(7)
@@ -436,7 +460,7 @@ namespace backend.Features.AdaptivePlanning
                     SourceReport = report,
                     Type = AdaptiveRecommendationType.AdjustTargetDate,
                     Title = "Gjør måldatoen roligere",
-                    Explanation = "Måldatoen krever høyere fart enn EvoliX vil anbefale. Bruk en roligere kaloriplan eller flytt datoen litt ut.",
+                    Explanation = "Måldatoen krever høyere fart enn EvoliX vil anbefale. Bruk en mer moderat kaloriplan eller flytt datoen litt ut.",
                     Confidence = confidence,
                     AppliesFromDate = appliesFrom,
                     ExpiresAtUtc = DateTime.UtcNow.AddDays(7),

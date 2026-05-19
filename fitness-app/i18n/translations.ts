@@ -83,7 +83,7 @@ const translations = {
     onboardingGenderError: "Velg kjønn for å fortsette.",
     onboardingLanguageError: "Velg språk for å fortsette.",
     onboardingSaveError: "Kunne ikke lagre innstillingene akkurat nå.",
-    homePlanTitle: "EvoliX Plan",
+    homePlanTitle: "EvolIX Week Plan",
     homePlanDescription:
       "Lås opp dagens coachplan, ukesrapport og anbefalinger som følger progresjonen din.",
     homeCalories: "Kalorier",
@@ -294,7 +294,7 @@ const translations = {
     cutReportNutrition: "Ernæring",
     cutReportCalories: "Kalorier",
     cutReportCarbs: "Karbohydrater",
-    cutReportTrainingCarbs: "Karbohydrater rundt økt",
+    cutReportTrainingCarbs: "Karbohydrater ved økt",
     cutReportFat: "Fett",
     cutReportLogging: "Logging",
     cutReportStrengthRetention: "Styrkebevaring",
@@ -341,7 +341,7 @@ const translations = {
     mealDelete: "Slett måltid",
     mealTipTitle: "Tips for nøyaktig logging",
     mealTipBody:
-      "Vei maten for mest nøyaktige resultater. Logg måltidet tett på når du spiser for en renere historikk.",
+      "Vei maten for mest nøyaktige resultater. Registrer måltidet tett på tidspunktet for en renere historikk.",
     mealEmptyTodayTitle: "Ingen måltider registrert i dag",
     mealEmptyTodayBody: "Logg et måltid for å se kalorier og makroer her.",
     mealTodayTitle: "Dagens måltider",
@@ -582,7 +582,7 @@ const translations = {
     onboardingGenderError: "Choose gender to continue.",
     onboardingLanguageError: "Choose language to continue.",
     onboardingSaveError: "Could not save settings right now.",
-    homePlanTitle: "EvoliX Plan",
+    homePlanTitle: "EvolIX Week Plan",
     homePlanDescription:
       "Unlock today's coach plan, weekly report and recommendations that follow your progress.",
     homeCalories: "Calories",
@@ -792,7 +792,7 @@ const translations = {
     cutReportNutrition: "Nutrition",
     cutReportCalories: "Calories",
     cutReportCarbs: "Carbohydrates",
-    cutReportTrainingCarbs: "Carbs around training",
+    cutReportTrainingCarbs: "Carbs near training",
     cutReportFat: "Fat",
     cutReportLogging: "Logging",
     cutReportStrengthRetention: "Strength retention",
@@ -839,7 +839,7 @@ const translations = {
     mealDelete: "Delete meal",
     mealTipTitle: "Tips for accurate logging",
     mealTipBody:
-      "Weigh food for the most accurate results. Log the meal close to when you eat for cleaner history.",
+      "Weigh food for the most accurate results. Log the meal close to its timing for cleaner history.",
     mealEmptyTodayTitle: "No meals logged today",
     mealEmptyTodayBody: "Log a meal to see calories and macros here.",
     mealTodayTitle: "Today's meals",

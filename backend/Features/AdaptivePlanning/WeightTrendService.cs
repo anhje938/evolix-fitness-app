@@ -79,7 +79,7 @@ namespace backend.Features.AdaptivePlanning
                 TotalLogsCount = filtered.Count,
                 Confidence = confidence,
                 Status = status,
-                Insight = BuildInsight(status, weeklyChange, expectedWeeklyChange, expected.Clipped, confidence)
+                Insight = BuildInsight(week, status, weeklyChange, expectedWeeklyChange, expected.Clipped, confidence)
             };
         }
 
@@ -192,6 +192,7 @@ namespace backend.Features.AdaptivePlanning
         }
 
         private static string BuildInsight(
+            WeekWindow week,
             string status,
             double? weeklyChange,
             double? expectedWeeklyChange,
@@ -199,7 +200,12 @@ namespace backend.Features.AdaptivePlanning
             DataQualityLevel confidence)
         {
             if (confidence == DataQualityLevel.Low)
+            {
+                if (IsEarlyInCurrentWeek(week))
+                    return "Vektgrunnlaget er tidlig denne uken. EvoliX bruker målingene som signal og venter med justeringer til trenden er tydeligere.";
+
                 return "EvoliX trenger flere vektmålinger før vekttrenden kan brukes trygt.";
+            }
 
             var trend = weeklyChange.HasValue ? $"{weeklyChange.Value:+0.0;-0.0;0.0} kg/uke" : "ukjent";
             var expected = expectedWeeklyChange.HasValue ? $"{expectedWeeklyChange.Value:+0.0;-0.0;0.0} kg/uke" : "ukjent";
@@ -218,6 +224,13 @@ namespace backend.Features.AdaptivePlanning
                 "losing" => $"Vekttrenden peker nedover ({trend}).{clippedText}",
                 _ => "Vekttrenden trenger mer data."
             };
+        }
+
+        private static bool IsEarlyInCurrentWeek(WeekWindow week)
+        {
+            var today = AdaptivePlanningClock.Today();
+            if (today < week.Start || today > week.End) return false;
+            return today.DayNumber - week.Start.DayNumber <= 1;
         }
 
         private sealed record WeightPoint(DateOnly Date, double WeightKg);

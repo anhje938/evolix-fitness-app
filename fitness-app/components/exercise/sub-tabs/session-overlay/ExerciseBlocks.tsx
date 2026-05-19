@@ -297,6 +297,45 @@ function workoutCoachDataSummary(
   return `Based on ${recommendation.historySampleSize} recent sessions.`;
 }
 
+function workoutCoachBriefReason(
+  recommendation: WorkoutCoachRecommendation,
+  language: "nb" | "en"
+) {
+  if (language === "en") {
+    if (recommendation.status === "reentry") {
+      return `Because it has been ${recommendation.daysSinceLastSession} days since last time.`;
+    }
+    if (recommendation.status === "increase") {
+      return recommendation.mode === "load"
+        ? "Because recent sessions show enough reps at the same weight."
+        : "Because the trend is moving up, but load is not ready yet.";
+    }
+    if (recommendation.status === "decrease") {
+      return "Because load or reps have dropped across recent sessions.";
+    }
+    if (recommendation.status === "plateau") {
+      return "Because recent sessions have been almost flat.";
+    }
+    return "Because the trend is not clear enough for a jump.";
+  }
+
+  if (recommendation.status === "reentry") {
+    return `Fordi det er ${recommendation.daysSinceLastSession} dager siden sist.`;
+  }
+  if (recommendation.status === "increase") {
+    return recommendation.mode === "load"
+      ? "Fordi nylige økter viser nok reps på samme vekt."
+      : "Fordi trenden peker opp, men vektøkning ikke er klar ennå.";
+  }
+  if (recommendation.status === "decrease") {
+    return "Fordi belastning eller reps har falt i nylige økter.";
+  }
+  if (recommendation.status === "plateau") {
+    return "Fordi nylige økter har stått nesten stille.";
+  }
+  return "Fordi trenden ikke er tydelig nok for et hopp.";
+}
+
 const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
   recommendation,
   isVisible,
@@ -336,13 +375,23 @@ const WorkoutCoachToggle = memo(function WorkoutCoachToggle({
           <Ionicons name={tone.icon} size={15} color={tone.tint} />
         </View>
 
-        <Text style={[typography.body, styles.coachToggleLabel]}>Coach</Text>
-        {isLocked ? (
-          <View style={styles.coachPremiumBadge}>
-            <Ionicons name="lock-closed" size={10} color="#FDE68A" />
-            <Text style={styles.coachPremiumBadgeText}>Premium</Text>
+        <View style={styles.coachToggleCopy}>
+          <View style={styles.coachToggleTitleRow}>
+            <Text style={[typography.body, styles.coachToggleLabel]}>Coach</Text>
+            {isLocked ? (
+              <View style={styles.coachPremiumBadge}>
+                <Ionicons name="lock-closed" size={10} color="#FDE68A" />
+                <Text style={styles.coachPremiumBadgeText}>Premium</Text>
+              </View>
+            ) : null}
           </View>
-        ) : null}
+          <Text style={styles.coachToggleHeadline} numberOfLines={1}>
+            {workoutCoachHeadline(recommendation, language)}
+          </Text>
+          <Text style={styles.coachToggleReason} numberOfLines={2}>
+            {workoutCoachBriefReason(recommendation, language)}
+          </Text>
+        </View>
       </View>
 
       <View
@@ -612,6 +661,15 @@ export const ExerciseBlock = memo(function ExerciseBlock({
     setIsCoachVisible(false);
     setIsCollapsed(false);
   }, [exercise.id]);
+
+  useEffect(() => {
+    setIsCoachVisible(false);
+  }, [
+    coachRecommendation?.status,
+    coachRecommendation?.recommendedSets,
+    coachRecommendation?.recommendedReps,
+    coachRecommendation?.recommendedWeightKg,
+  ]);
 
   const compactSummary = useMemo(() => {
     const completed = exercise.sets.filter((set) => set.completed).length;
@@ -1323,7 +1381,7 @@ const styles = StyleSheet.create({
 
   coachToggleButton: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 12,
     borderRadius: 18,
@@ -1335,11 +1393,10 @@ const styles = StyleSheet.create({
 
   coachToggleLeft: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 8,
     flex: 1,
     minWidth: 0,
-    flexWrap: "wrap",
   },
 
   coachToggleIconWrap: {
@@ -1356,6 +1413,32 @@ const styles = StyleSheet.create({
     fontSize: coachCompactText.body,
     fontWeight: "500",
     letterSpacing: 0,
+  },
+
+  coachToggleCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+
+  coachToggleTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+
+  coachToggleHeadline: {
+    color: coachVisualTheme.text,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: "600",
+  },
+
+  coachToggleReason: {
+    color: coachVisualTheme.textMuted,
+    fontSize: 10.5,
+    lineHeight: 14,
   },
 
   coachPremiumBadge: {

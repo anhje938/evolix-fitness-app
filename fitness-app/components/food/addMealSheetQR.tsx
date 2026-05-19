@@ -548,8 +548,8 @@ export function AddMealSheetQR({
                         Tips for scanning og gram
                       </Text>
                       <Text style={styles.tipText}>
-                        Skann først, juster deretter gram etter hvor mye du
-                        faktisk spiste. Det gir en langt renere logg.
+                        Skann først, juster deretter gram etter mengden du vil
+                        registrere. Det gir en langt renere logg.
                       </Text>
                     </View>
                   </View>

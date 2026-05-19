@@ -60,7 +60,7 @@ function formatNumber(value: number | null | undefined, suffix = "") {
 function qualityLabel(value: DataQualityLevel) {
   if (value === DataQualityLevel.High) return "Godt datagrunnlag";
   if (value === DataQualityLevel.Medium) return "Middels datagrunnlag";
-  return "Trenger mer data";
+  return "Tidlig signal";
 }
 
 function scoreLabel(score: number | null) {

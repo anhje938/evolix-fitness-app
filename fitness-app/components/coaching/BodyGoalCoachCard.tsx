@@ -14,8 +14,9 @@ import {
 } from "@/utils/coaching/bodyGoalCoach";
 import { useTranslation } from "@/i18n/translations";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type Props = {
@@ -85,11 +86,14 @@ function getActionCopy(
         ? localizedRange
         : text("Logg mer data", "Log more data"),
       note: isFood
-        ? null
+        ? text(
+            "Fordi trendvekten følger målet godt nok akkurat nå.",
+            "Because trend weight is close enough to the goal right now."
+          )
         : hasRecommendedCalories
         ? text(
-            `Hold deg omtrent innenfor ${localizedRange} per dag.`,
-            `Stay roughly within ${localizedRange} per day.`
+            `Bruk ${localizedRange} per dag som stabilt område.`,
+            `Use ${localizedRange} per day as a stable range.`
           )
         : text(
             "Fortsett å logge jevnt, så blir kalorinivået mer presist.",
@@ -157,6 +161,57 @@ function localizeUnitText(value: string, language: "nb" | "en") {
   return value.replaceAll("kg/uke", "kg/week").replaceAll("på rad", "in a row");
 }
 
+function getBriefReason(
+  recommendation: BodyGoalCoachRecommendation,
+  language: "nb" | "en"
+) {
+  const text = (nb: string, en: string) => (language === "en" ? en : nb);
+  const dataText = text(
+    `${recommendation.trackedCalorieDays} matdager og ${recommendation.trackedWeightDays} vektmålinger`,
+    `${recommendation.trackedCalorieDays} food days and ${recommendation.trackedWeightDays} weight logs`
+  );
+
+  if (recommendation.status === "insufficientData") {
+    return text(
+      `Fordi grunnlaget har ${dataText}.`,
+      `Because the data foundation has ${dataText}.`
+    );
+  }
+
+  if (recommendation.status === "earlySignal") {
+    return text(
+      "Fordi signalet fortsatt bygger på få sammenhengende logger.",
+      "Because the signal still uses limited connected logs."
+    );
+  }
+
+  if (recommendation.status === "goalReached") {
+    return text(
+      "Fordi trendvekten er nær målvekten.",
+      "Because trend weight is close to the target weight."
+    );
+  }
+
+  if (recommendation.status === "onTrack") {
+    return text(
+      "Fordi trendvekten følger målfarten godt nok.",
+      "Because trend weight is close enough to the target pace."
+    );
+  }
+
+  if (recommendation.status === "deadlineRisk") {
+    return text(
+      "Fordi måldatoen krever en strammere fart enn anbefalt.",
+      "Because the target date requires a tighter pace than recommended."
+    );
+  }
+
+  return text(
+    "Trend og logg peker mot en liten justering.",
+    "Trend and logs point toward a small adjustment."
+  );
+}
+
 function getCoachHeadline(
   recommendation: BodyGoalCoachRecommendation,
   language: "nb" | "en"
@@ -168,7 +223,7 @@ function getCoachHeadline(
     return "Log a little more before the coach gives advice";
   }
   if (recommendation.status === "goalReached") {
-    return "Trend weight is around your goal";
+    return "Trend weight is close to your goal";
   }
   if (recommendation.status === "onTrack") {
     return "Calories and trend weight point the right way";
@@ -244,8 +299,8 @@ function getWeightCoachSummary(
 
   if (recommendation.status === "goalReached") {
     return text(
-      "Trendvekten ligger rundt målet. Hold området stabilt og se etter ro over flere målinger.",
-      "Trend weight is around the goal. Keep the range stable and look for calm across several measurements."
+      "Trendvekten er nær målet. Hold området stabilt og se etter ro over flere målinger.",
+      "Trend weight is close to the goal. Keep the range stable and look for calm across several measurements."
     );
   }
 
@@ -264,18 +319,19 @@ function getWeightCoachSummary(
   }
 
   return text(
-    "Trendvekten peker på en liten justering. Gjør endringen rolig og vurder igjen etter 7-14 dager.",
-    "Trend weight points to a small adjustment. Make the change calmly and review again after 7-14 days."
+    "Trend og logg peker mot en liten justering. Gjør endringen rolig og vurder igjen etter 7-14 dager.",
+    "Trend and logs point toward a small adjustment. Make the change calmly and review again after 7-14 days."
   );
 }
 
 export function BodyGoalCoachCard({ recommendation, variant }: Props) {
   const { t, language } = useTranslation();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const isFood = variant === "food";
-  const isCollapsed = isFood && collapsed;
+  const isCollapsed = collapsed;
   const tone = getTone();
   const action = getActionCopy(recommendation, variant, language);
+  const briefReason = getBriefReason(recommendation, language);
   const title = variant === "weight" ? t("weightCoachTitle") : t("settingsFoodCoach");
   const iconName =
     variant === "weight" ? "analytics-outline" : "restaurant-outline";
@@ -306,8 +362,8 @@ export function BodyGoalCoachCard({ recommendation, variant }: Props) {
                   ? "Weight logs"
                   : "Vektmålinger"
                 : language === "en"
-                ? "Maintenance"
-                : "Vedlikehold",
+                ? "Estimated maintenance"
+                : "Beregnet vedlikehold",
             value:
               recommendation.maintenanceCalories === null
                 ? `${recommendation.trackedWeightDays}`
@@ -323,6 +379,12 @@ export function BodyGoalCoachCard({ recommendation, variant }: Props) {
                 : `${recommendation.consecutiveCalorieDays} på rad`,
           },
         ];
+
+  useFocusEffect(
+    useCallback(() => {
+      setCollapsed(true);
+    }, [])
+  );
 
   return (
     <View
@@ -396,32 +458,30 @@ export function BodyGoalCoachCard({ recommendation, variant }: Props) {
             </Text>
           </View>
 
-          {isFood ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                isCollapsed
-                  ? language === "en"
-                    ? "Show food coach"
-                    : "Vis matcoach"
-                  : language === "en"
-                  ? "Minimize food coach"
-                  : "Minimer matcoach"
-              }
-              onPress={() => setCollapsed((prev) => !prev)}
-              style={({ pressed }) => [
-                styles.collapseBtn,
-                styles.collapseBtnFood,
-                pressed && styles.collapseBtnPressed,
-              ]}
-            >
-              <Ionicons
-                name={isCollapsed ? "chevron-down" : "chevron-up"}
-                size={14}
-                color={tone.accent}
-              />
-            </Pressable>
-          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              isCollapsed
+                ? language === "en"
+                  ? `Show ${title}`
+                  : `Vis ${title}`
+                : language === "en"
+                ? `Minimize ${title}`
+                : `Minimer ${title}`
+            }
+            onPress={() => setCollapsed((prev) => !prev)}
+            style={({ pressed }) => [
+              styles.collapseBtn,
+              styles.collapseBtnFood,
+              pressed && styles.collapseBtnPressed,
+            ]}
+          >
+            <Ionicons
+              name={isCollapsed ? "chevron-down" : "chevron-up"}
+              size={14}
+              color={tone.accent}
+            />
+          </Pressable>
         </View>
       </View>
 
@@ -452,6 +512,9 @@ export function BodyGoalCoachCard({ recommendation, variant }: Props) {
             ]}
           >
             {action.value}
+          </Text>
+          <Text style={styles.collapsedReason} numberOfLines={2}>
+            {briefReason}
           </Text>
         </View>
       ) : (
@@ -491,6 +554,11 @@ export function BodyGoalCoachCard({ recommendation, variant }: Props) {
                 style={[styles.actionNote, styles.actionNoteCompact]}
               >
                 {action.note}
+              </Text>
+            ) : null}
+            {isFood ? (
+              <Text style={styles.actionReason} numberOfLines={2}>
+                {briefReason}
               </Text>
             ) : null}
           </View>
@@ -707,6 +775,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: "400",
   },
+  collapsedReason: {
+    marginTop: 4,
+    color: coachVisualTheme.textMuted,
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontFamily: "Inter_400Regular",
+  },
   summary: {
     marginTop: 14,
     fontSize: 14,
@@ -764,6 +839,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
     color: coachVisualTheme.textMuted,
+  },
+  actionReason: {
+    marginTop: 6,
+    color: "rgba(253,230,138,0.74)",
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontFamily: "Inter_400Regular",
   },
   metricsGrid: {
     flexDirection: "row",

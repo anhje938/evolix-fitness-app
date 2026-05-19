@@ -5,7 +5,7 @@ import {
   GlobalKeyboardAccessory,
 } from "@/components/common/GlobalKeyboardAccessory";
 import { AppDateTimePicker } from "@/components/date/AppDateTimePicker";
-import { MODAL_MAX_HEIGHT, modalTheme } from "@/config/modalTheme";
+import { MODAL_MAX_HEIGHT } from "@/config/modalTheme";
 import { typography } from "@/config/typography";
 import { useSubscription } from "@/context/SubscriptionProvider";
 import { useTranslation } from "@/i18n/translations";
@@ -44,7 +44,6 @@ import DraggableFlatList, {
 } from "react-native-draggable-flatlist";
 
 type TabKey = "general" | "user";
-const WEBSITE_URL = "https://evolix.no";
 const TERMS_URL = "https://evolix.no/terms";
 const PRIVACY_URL = "https://evolix.no/privacy";
 const SUPPORT_EMAIL = "evolixfitness@hotmail.com";
@@ -112,6 +111,25 @@ const settingsInputProps = {
   returnKeyType: "done" as const,
   submitBehavior: "blurAndSubmit" as const,
   onSubmitEditing: () => Keyboard.dismiss(),
+};
+
+const settingsLightTheme = {
+  backdrop: "rgba(15,23,42,0.42)",
+  surface: "#F8FAFC",
+  surfaceSoft: "#EEF4FA",
+  item: "#FFFFFF",
+  itemSoft: "#F1F5F9",
+  border: "rgba(148,163,184,0.34)",
+  borderSoft: "rgba(148,163,184,0.22)",
+  text: "#0F172A",
+  textSoft: "#334155",
+  muted: "#64748B",
+  accent: "#2563EB",
+  accentSoft: "rgba(37,99,235,0.10)",
+  success: "#15803D",
+  successSoft: "rgba(34,197,94,0.10)",
+  danger: "#DC2626",
+  dangerSoft: "rgba(248,113,113,0.10)",
 };
 
 function clampInt(value: string, fallback: number) {
@@ -768,22 +786,6 @@ export default function SettingsModal({
                     <Text style={[typography.bodyBold, styles.sectionTitle]}>
                       {t("settingsHelpSupport")}
                     </Text>
-
-                    <TouchableOpacity
-                      style={styles.settingsItemBox}
-                      onPress={() => {
-                        void openExternalUrl(WEBSITE_URL);
-                      }}
-                    >
-                      <View style={styles.itemTextBox}>
-                        <Text style={[typography.body, styles.itemText]}>
-                          {t("settingsWebsite")}
-                        </Text>
-                        <Text style={[typography.body, styles.itemSubtext]}>
-                          {t("settingsOpenWebsite")}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.settingsItemBox}
@@ -1818,7 +1820,7 @@ export default function SettingsModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: modalTheme.backdrop,
+    backgroundColor: settingsLightTheme.backdrop,
     justifyContent: "center",
     paddingHorizontal: 14,
     paddingVertical: 24,
@@ -1828,7 +1830,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   container: {
-    backgroundColor: modalTheme.surface,
+    backgroundColor: settingsLightTheme.surface,
     width: "100%",
     maxWidth: 640,
     borderRadius: 28,
@@ -1836,10 +1838,10 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 16,
     borderWidth: 1,
-    borderColor: modalTheme.border,
+    borderColor: settingsLightTheme.border,
     maxHeight: MODAL_MAX_HEIGHT,
-    shadowColor: modalTheme.shadow,
-    shadowOpacity: 0.28,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.16,
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 10 },
     elevation: 6,
@@ -1859,13 +1861,14 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     marginRight: 12,
+    color: settingsLightTheme.text,
   },
   closeButton: {
     padding: 6,
     borderRadius: 999,
-    backgroundColor: modalTheme.surfaceSoft,
+    backgroundColor: "#0F172A",
     borderWidth: 1,
-    borderColor: modalTheme.borderSoft,
+    borderColor: "rgba(15,23,42,0.12)",
   },
 
   tabRow: {
@@ -1873,9 +1876,9 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 6,
     borderRadius: 14,
-    backgroundColor: modalTheme.surfaceSoft,
+    backgroundColor: settingsLightTheme.surfaceSoft,
     borderWidth: 1,
-    borderColor: modalTheme.borderSoft,
+    borderColor: settingsLightTheme.borderSoft,
   },
   tabPill: {
     flex: 1,
@@ -1883,20 +1886,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.02)",
+    backgroundColor: "rgba(255,255,255,0.78)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.04)",
+    borderColor: settingsLightTheme.borderSoft,
   },
   tabPillActive: {
-    backgroundColor: "rgba(59,130,246,0.14)",
-    borderColor: "rgba(96,165,250,0.28)",
+    backgroundColor: settingsLightTheme.accentSoft,
+    borderColor: "rgba(37,99,235,0.28)",
   },
   tabText: {
     fontSize: 13,
     opacity: 0.85,
+    color: settingsLightTheme.muted,
   },
   tabTextActive: {
     opacity: 1,
+    color: settingsLightTheme.accent,
   },
   pressed: {
     opacity: 0.9,
@@ -1916,45 +1921,49 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontSize: 12,
     opacity: 0.75,
+    color: settingsLightTheme.muted,
   },
   legalSection: {
     marginTop: 10,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: "rgba(15,23,42,0.92)",
+    backgroundColor: settingsLightTheme.item,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.18)",
+    borderColor: settingsLightTheme.borderSoft,
     gap: 8,
   },
   legalSectionTitle: {
     fontSize: 14,
+    color: settingsLightTheme.text,
   },
   legalParagraph: {
     fontSize: 13,
     lineHeight: 20,
     opacity: 0.92,
+    color: settingsLightTheme.textSoft,
   },
   deleteConfirmBody: {
     marginTop: 4,
     marginBottom: 12,
     lineHeight: 20,
     opacity: 0.9,
+    color: settingsLightTheme.textSoft,
   },
   deleteSubscriptionWarning: {
     marginBottom: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(251,191,36,0.32)",
-    backgroundColor: "rgba(120,53,15,0.18)",
+    borderColor: "rgba(217,119,6,0.24)",
+    backgroundColor: "rgba(245,158,11,0.10)",
     padding: 12,
     gap: 8,
   },
   deleteSubscriptionWarningTitle: {
-    color: "#FDE68A",
+    color: "#92400E",
     fontSize: 14,
   },
   deleteSubscriptionWarningText: {
-    color: "rgba(254,243,199,0.92)",
+    color: "#78350F",
     fontSize: 12.5,
     lineHeight: 18,
   },
@@ -1962,23 +1971,23 @@ const styles = StyleSheet.create({
     minHeight: 40,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "rgba(251,191,36,0.35)",
-    backgroundColor: "rgba(251,191,36,0.12)",
+    borderColor: "rgba(217,119,6,0.24)",
+    backgroundColor: "rgba(245,158,11,0.10)",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 10,
   },
   deleteSubscriptionManageText: {
-    color: "#FEF3C7",
+    color: "#92400E",
     fontSize: 12.5,
     textAlign: "center",
   },
   deleteConfirmInput: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(252,165,165,0.28)",
-    backgroundColor: "rgba(127,29,29,0.14)",
-    color: "rgba(255,255,255,0.94)",
+    borderColor: "rgba(248,113,113,0.28)",
+    backgroundColor: settingsLightTheme.dangerSoft,
+    color: settingsLightTheme.text,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 12,
@@ -1997,20 +2006,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   deleteConfirmCancelBtn: {
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderColor: "rgba(148,163,184,0.18)",
+    backgroundColor: settingsLightTheme.itemSoft,
+    borderColor: settingsLightTheme.borderSoft,
   },
   deleteConfirmSubmitBtn: {
-    backgroundColor: "rgba(185,28,28,0.28)",
-    borderColor: "rgba(252,165,165,0.35)",
+    backgroundColor: settingsLightTheme.dangerSoft,
+    borderColor: "rgba(248,113,113,0.32)",
   },
   deleteConfirmCancelText: {
     fontSize: 14,
-    color: "rgba(226,232,240,0.95)",
+    color: settingsLightTheme.textSoft,
   },
   deleteConfirmSubmitText: {
     fontSize: 14,
-    color: "#FECACA",
+    color: settingsLightTheme.danger,
   },
 
   syncInfoBox: {
@@ -2019,19 +2028,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: "rgba(56,189,248,0.3)",
-    backgroundColor: "rgba(56,189,248,0.08)",
+    borderColor: "rgba(14,165,233,0.24)",
+    backgroundColor: "rgba(14,165,233,0.08)",
   },
   syncInfoBoxError: {
-    borderColor: "rgba(248,113,113,0.35)",
-    backgroundColor: "rgba(248,113,113,0.08)",
+    borderColor: "rgba(248,113,113,0.28)",
+    backgroundColor: settingsLightTheme.dangerSoft,
   },
   syncInfoText: {
     fontSize: 12,
-    color: "rgba(186,230,253,0.95)",
+    color: "#0369A1",
   },
   syncInfoTextError: {
-    color: "rgba(254,202,202,0.98)",
+    color: settingsLightTheme.danger,
   },
   syncHintBox: {
     marginTop: 12,
@@ -2039,12 +2048,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.2)",
-    backgroundColor: "rgba(148,163,184,0.08)",
+    borderColor: settingsLightTheme.borderSoft,
+    backgroundColor: settingsLightTheme.itemSoft,
   },
   syncHintText: {
     fontSize: 12,
-    color: "rgba(226,232,240,0.88)",
+    color: settingsLightTheme.muted,
   },
 
   section: {
@@ -2054,6 +2063,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     marginBottom: 8,
     fontSize: 14,
+    color: settingsLightTheme.textSoft,
   },
 
   settingsItemBox: {
@@ -2062,9 +2072,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginBottom: 8,
     borderRadius: 12,
-    backgroundColor: "rgba(15,23,42,0.92)",
+    backgroundColor: settingsLightTheme.item,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.18)",
+    borderColor: settingsLightTheme.borderSoft,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -2079,22 +2089,22 @@ const styles = StyleSheet.create({
   subscriptionBadge: {
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.22)",
-    backgroundColor: "rgba(148,163,184,0.08)",
+    borderColor: settingsLightTheme.borderSoft,
+    backgroundColor: settingsLightTheme.itemSoft,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   subscriptionBadgeActive: {
-    borderColor: "rgba(74,222,128,0.32)",
-    backgroundColor: "rgba(34,197,94,0.12)",
+    borderColor: "rgba(34,197,94,0.24)",
+    backgroundColor: settingsLightTheme.successSoft,
   },
   subscriptionBadgeText: {
-    color: "rgba(203,213,225,0.92)",
+    color: settingsLightTheme.muted,
     fontSize: 12,
     fontWeight: "800",
   },
   subscriptionBadgeTextActive: {
-    color: "#BBF7D0",
+    color: settingsLightTheme.success,
   },
   subscriptionActions: {
     width: "100%",
@@ -2106,14 +2116,14 @@ const styles = StyleSheet.create({
     minHeight: 40,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(125,211,252,0.2)",
-    backgroundColor: "rgba(8,47,73,0.34)",
+    borderColor: "rgba(37,99,235,0.20)",
+    backgroundColor: settingsLightTheme.accentSoft,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 10,
   },
   subscriptionActionText: {
-    color: "rgba(226,232,240,0.95)",
+    color: settingsLightTheme.accent,
     fontSize: 12.5,
     fontWeight: "800",
   },
@@ -2121,19 +2131,19 @@ const styles = StyleSheet.create({
     minHeight: 38,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.18)",
-    backgroundColor: "rgba(255,255,255,0.035)",
+    borderColor: settingsLightTheme.borderSoft,
+    backgroundColor: settingsLightTheme.itemSoft,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 10,
   },
   subscriptionRefreshText: {
-    color: "rgba(203,213,225,0.92)",
+    color: settingsLightTheme.textSoft,
     fontSize: 12,
     fontWeight: "700",
   },
   supportInfoText: {
-    color: "rgba(148,163,184,0.82)",
+    color: settingsLightTheme.muted,
     fontSize: 11,
     lineHeight: 16,
   },
@@ -2150,15 +2160,18 @@ const styles = StyleSheet.create({
   itemText: {
     fontSize: 15,
     marginBottom: 2,
+    color: settingsLightTheme.text,
   },
   itemSubtext: {
     fontSize: 12,
     opacity: 0.7,
+    color: settingsLightTheme.muted,
   },
 
   valueText: {
     fontSize: 14,
     opacity: 0.9,
+    color: settingsLightTheme.textSoft,
   },
 
   inputValue: {
@@ -2167,10 +2180,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: settingsLightTheme.itemSoft,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-    color: "rgba(255,255,255,0.92)",
+    borderColor: settingsLightTheme.borderSoft,
+    color: settingsLightTheme.text,
     fontSize: 13,
   },
   inlineInputRow: {
@@ -2182,7 +2195,7 @@ const styles = StyleSheet.create({
   },
   inlineLabel: {
     flex: 1,
-    color: "rgba(226,232,240,0.9)",
+    color: settingsLightTheme.textSoft,
     fontSize: 13,
   },
 
@@ -2196,20 +2209,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.02)",
+    backgroundColor: settingsLightTheme.itemSoft,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    borderColor: settingsLightTheme.borderSoft,
   },
   segmentBtnActive: {
-    backgroundColor: "rgba(34,197,94,0.12)",
-    borderColor: "rgba(74,222,128,0.26)",
+    backgroundColor: settingsLightTheme.successSoft,
+    borderColor: "rgba(34,197,94,0.26)",
   },
   segmentText: {
     fontSize: 13,
     opacity: 0.85,
+    color: settingsLightTheme.muted,
   },
   segmentTextActive: {
     opacity: 1,
+    color: settingsLightTheme.success,
   },
 
   chipRow: {
@@ -2226,42 +2241,44 @@ const styles = StyleSheet.create({
     minHeight: 38,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.25)",
-    backgroundColor: "rgba(255,255,255,0.03)",
+    borderColor: settingsLightTheme.borderSoft,
+    backgroundColor: settingsLightTheme.itemSoft,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 10,
   },
   recoveryActionText: {
     fontSize: 12,
-    color: "rgba(226,232,240,0.9)",
+    color: settingsLightTheme.textSoft,
   },
   chip: {
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.02)",
+    backgroundColor: settingsLightTheme.itemSoft,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: settingsLightTheme.borderSoft,
   },
   chipActive: {
-    backgroundColor: "rgba(59,130,246,0.14)",
-    borderColor: "rgba(96,165,250,0.30)",
+    backgroundColor: settingsLightTheme.accentSoft,
+    borderColor: "rgba(37,99,235,0.30)",
   },
   chipText: {
     fontSize: 12,
     opacity: 0.85,
+    color: settingsLightTheme.muted,
   },
   chipTextActive: {
     opacity: 1,
+    color: settingsLightTheme.accent,
   },
 
   orderRow: {
     minHeight: 44,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
-    backgroundColor: "rgba(255,255,255,0.02)",
+    borderColor: settingsLightTheme.borderSoft,
+    backgroundColor: settingsLightTheme.item,
     paddingHorizontal: 12,
     marginBottom: 8,
     flexDirection: "row",
@@ -2269,16 +2286,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   orderRowActive: {
-    backgroundColor: "rgba(59,130,246,0.12)",
-    borderColor: "rgba(96,165,250,0.32)",
+    backgroundColor: settingsLightTheme.accentSoft,
+    borderColor: "rgba(37,99,235,0.32)",
   },
   orderLabel: {
     fontSize: 13,
-    color: "rgba(229,236,255,0.95)",
+    color: settingsLightTheme.text,
   },
   orderHandle: {
     fontSize: 18,
-    color: "rgba(148,163,184,0.92)",
+    color: settingsLightTheme.muted,
     lineHeight: 20,
   },
 
@@ -2287,20 +2304,20 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: "rgba(34,197,94,0.1)",
+    backgroundColor: settingsLightTheme.successSoft,
     borderWidth: 1,
-    borderColor: "rgba(74,222,128,0.3)",
+    borderColor: "rgba(34,197,94,0.28)",
     alignItems: "center",
     justifyContent: "center",
   },
   developmentActionText: {
     fontSize: 15,
-    color: "#BBF7D0",
+    color: settingsLightTheme.success,
   },
   developmentActionSubtext: {
     marginTop: 2,
     fontSize: 12,
-    color: "rgba(220,252,231,0.82)",
+    color: "#166534",
   },
 
   logoutBox: {
@@ -2309,15 +2326,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginTop: 4,
     borderRadius: 12,
-    backgroundColor: "rgba(30,64,175,0.06)",
+    backgroundColor: settingsLightTheme.item,
     borderWidth: 1,
-    borderColor: "rgba(248,113,113,0.35)",
+    borderColor: "rgba(248,113,113,0.32)",
     alignItems: "center",
     justifyContent: "center",
   },
   logoutText: {
     fontSize: 15,
-    color: "#F97373",
+    color: settingsLightTheme.danger,
   },
   deleteAccountBox: {
     width: "100%",
@@ -2325,20 +2342,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginTop: 10,
     borderRadius: 12,
-    backgroundColor: "rgba(127,29,29,0.22)",
+    backgroundColor: settingsLightTheme.dangerSoft,
     borderWidth: 1,
-    borderColor: "rgba(252,165,165,0.35)",
+    borderColor: "rgba(248,113,113,0.32)",
     alignItems: "center",
     justifyContent: "center",
   },
   deleteAccountText: {
     fontSize: 15,
-    color: "#FCA5A5",
+    color: settingsLightTheme.danger,
   },
   deleteAccountSubtext: {
     marginTop: 2,
     fontSize: 12,
-    color: "rgba(254,226,226,0.82)",
+    color: "#991B1B",
   },
   disabledAction: {
     opacity: 0.65,

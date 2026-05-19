@@ -76,7 +76,7 @@ namespace backend.Features.AdaptivePlanning
                 TargetFat = settings.FatGoal,
                 Confidence = confidence,
                 Status = status,
-                Insight = BuildInsight(avgCalories, avgProtein, settings, loggedDays, incompleteDays, confidence)
+                Insight = BuildInsight(week, avgCalories, avgProtein, settings, loggedDays, incompleteDays, confidence)
             };
         }
 
@@ -89,6 +89,7 @@ namespace backend.Features.AdaptivePlanning
         }
 
         private static string BuildInsight(
+            WeekWindow week,
             int? avgCalories,
             int? avgProtein,
             UserSettings settings,
@@ -101,7 +102,12 @@ namespace backend.Features.AdaptivePlanning
                 : "";
 
             if (confidence == DataQualityLevel.Low)
+            {
+                if (IsEarlyInCurrentWeek(week))
+                    return $"Uken har startet med {loggedDays} brukbare matdager. EvoliX bruker dette som tidlig signal og venter med justeringer til flere dager er logget.{incompleteText}";
+
                 return $"Du logget {loggedDays} brukbare matdager. EvoliX trenger minst 3 dager for rolige råd og helst 5+ for høy sikkerhet.{incompleteText}";
+            }
 
             var proteinGap = avgProtein.HasValue ? settings.ProteinGoal - avgProtein.Value : 0;
             if (proteinGap > 15)
@@ -115,6 +121,13 @@ namespace backend.Features.AdaptivePlanning
             }
 
             return $"Matloggen gir nok data til en forsiktig vurdering av neste uke.{incompleteText}";
+        }
+
+        private static bool IsEarlyInCurrentWeek(WeekWindow week)
+        {
+            var today = AdaptivePlanningClock.Today();
+            if (today < week.Start || today > week.End) return false;
+            return today.DayNumber - week.Start.DayNumber <= 1;
         }
     }
 }

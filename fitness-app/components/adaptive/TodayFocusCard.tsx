@@ -15,9 +15,10 @@ import {
   type BodyGoalCoachRecommendation,
 } from "@/utils/coaching/bodyGoalCoach";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -26,10 +27,12 @@ import {
   View,
 } from "react-native";
 
+const PLAN_NAME = "EvolIX Week Plan";
+
 function qualityLabel(value: DataQualityLevel): string {
   if (value === DataQualityLevel.High) return "Høy sikkerhet";
   if (value === DataQualityLevel.Medium) return "Middels sikkerhet";
-  return "Trenger mer data";
+  return "Tidlig signal";
 }
 
 function foodCoachQuality(foodCoach: BodyGoalCoachRecommendation | null) {
@@ -51,6 +54,7 @@ function buildCoachCopy(
     return {
       title: focus.mainAction,
       why: focus.why,
+      briefWhy: focus.why,
       nutrition: focus.nutrition,
       quality: focus.dataQuality,
       dataLine: "Planen bruker siste ukes adaptive rapport.",
@@ -72,9 +76,13 @@ function buildCoachCopy(
     return {
       title:
         focus.dataQuality === DataQualityLevel.Low
-          ? "Bygg datagrunnlaget for neste justering"
+          ? "Tidlig uke, hold planen rolig"
           : focus.mainAction,
       why: `${foodCoach.statusLabel}. ${foodCoach.dataSummary}`,
+      briefWhy:
+        foodCoach.status === "insufficientData"
+          ? `Fordi grunnlaget har ${foodCoach.trackedCalorieDays} matdager og ${foodCoach.trackedWeightDays} vektmålinger.`
+          : "Fordi signalet fortsatt trenger mer sammenhengende logging.",
       nutrition:
         foodCoach.recentAverageCalories === null
           ? focus.nutrition
@@ -89,6 +97,9 @@ function buildCoachCopy(
     why: hasActionableFood
       ? `${foodCoach.statusLabel}. Bruk ${range} som rolig startområde.`
       : `${focus.why} ${foodCoach.statusLabel}: ${foodCoach.summary}`,
+    briefWhy: hasActionableFood
+      ? `Trend og logg peker mot ${range}.`
+      : `Fordi grunnlaget har ${foodCoach.trackedCalorieDays} matdager og ${foodCoach.trackedWeightDays} vektmålinger.`,
     nutrition: foodCoach.canRecommendCalories
       ? `Matområde: ${range}`
       : focus.nutrition,
@@ -119,7 +130,7 @@ function MainContent({
             size={13}
             color={coachVisualTheme.accent}
           />
-          <Text style={styles.badgeText}>EvoliX Plan</Text>
+          <Text style={styles.badgeText}>{PLAN_NAME}</Text>
         </View>
         <View style={styles.headerActions}>
           <View style={styles.qualityPill}>
@@ -130,7 +141,7 @@ function MainContent({
           <Pressable
             onPress={onToggleCollapsed}
             accessibilityRole="button"
-            accessibilityLabel={collapsed ? "Vis Evolix Plan" : "Minimer Evolix Plan"}
+            accessibilityLabel={collapsed ? `Vis ${PLAN_NAME}` : `Minimer ${PLAN_NAME}`}
             style={({ pressed }) => [
               styles.collapseButton,
               pressed && styles.reportButtonPressed,
@@ -146,9 +157,14 @@ function MainContent({
       </View>
 
       {collapsed ? (
-        <Text style={styles.collapsedText} numberOfLines={1}>
-          {copy.title}
-        </Text>
+        <View style={styles.collapsedBody}>
+          <Text style={styles.collapsedText} numberOfLines={1}>
+            {copy.title}
+          </Text>
+          <Text style={styles.collapsedWhy} numberOfLines={2}>
+            {copy.briefWhy}
+          </Text>
+        </View>
       ) : (
         <>
 
@@ -210,7 +226,7 @@ function MainContent({
 }
 
 export function TodayFocusCard() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const { data, error, isLoading, isError, refetch } = useTodayFocus();
   const { userSettings } = useUserSettings();
   const { foodList } = useFoodContext();
@@ -225,6 +241,12 @@ export function TodayFocusCard() {
     });
   }, [foodList, userSettings, weightList]);
   const errorCopy = getAdaptiveErrorCopy(error, "plan", userSettings.language);
+
+  useFocusEffect(
+    useCallback(() => {
+      setCollapsed(true);
+    }, [])
+  );
 
   return (
     <LinearGradient
@@ -258,7 +280,7 @@ export function TodayFocusCard() {
                 size={13}
                 color={coachVisualTheme.accent}
               />
-              <Text style={styles.badgeText}>EvoliX Plan</Text>
+              <Text style={styles.badgeText}>{PLAN_NAME}</Text>
             </View>
           </View>
           <Text style={styles.mainAction}>{errorCopy.title}</Text>
@@ -360,12 +382,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: coachVisualTheme.accentSoft,
   },
-  collapsedText: {
+  collapsedBody: {
     marginTop: 10,
+    gap: 4,
+  },
+  collapsedText: {
     color: coachVisualTheme.text,
     fontSize: coachCompactText.value,
     lineHeight: coachCompactText.valueLine,
     fontWeight: "400",
+  },
+  collapsedWhy: {
+    color: coachVisualTheme.textMuted,
+    fontSize: 10.5,
+    lineHeight: 14,
   },
   mainAction: {
     marginTop: 14,
