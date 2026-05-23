@@ -46,7 +46,9 @@ namespace backend.Features.Users
             {
                 userId = user.Id,
                 email = user.Email,
-                displayName = BuildDisplayName(user.Email),
+                username = user.Username,
+                authProvider = user.AuthProvider,
+                displayName = user.Username ?? BuildDisplayName(user.Email),
                 isAdmin = user.IsAdmin
             });
         }
@@ -81,23 +83,30 @@ namespace backend.Features.Users
                 return Unauthorized();
             }
 
-            try
+            var user = await _userService.GetUserAsync(userId, ct);
+            if (user == null)
+                return NotFound();
+
+            if (user.AuthProvider == "apple")
             {
-                await _appleTokenService.RevokeAuthorizationAsync(
-                    request?.AuthorizationCode,
-                    ct);
-            }
-            catch (Exception ex)
-            {
-                await _monitoring.AlertAsync(
-                    MonitoringAreas.AppleAuth,
-                    "authorization_revoke_failed",
-                    "Apple authorization revoke failed during account deletion.",
-                    LogLevel.Error,
-                    traceId,
-                    exception: ex,
-                    ct: ct);
-                throw;
+                try
+                {
+                    await _appleTokenService.RevokeAuthorizationAsync(
+                        request?.AuthorizationCode,
+                        ct);
+                }
+                catch (Exception ex)
+                {
+                    await _monitoring.AlertAsync(
+                        MonitoringAreas.AppleAuth,
+                        "authorization_revoke_failed",
+                        "Apple authorization revoke failed during account deletion.",
+                        LogLevel.Error,
+                        traceId,
+                        exception: ex,
+                        ct: ct);
+                    throw;
+                }
             }
 
             var deleted = await _userService.DeleteUserAsync(userId, traceId, ct);

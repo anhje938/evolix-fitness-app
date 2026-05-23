@@ -45,13 +45,47 @@ const translations = {
       "Apple-innlogging er kun tilgjengelig på iPhone eller iPad.",
     signInAppleUnavailableDevice:
       "Apple Sign-In er ikke tilgjengelig på denne enheten.",
-    signInMissingIdentityToken:
-      "Apple Sign-In returnerte ikke identity token.",
+    signInMissingIdentityToken: "Apple Sign-In returnerte ikke identity token.",
     signInMissingAuthorizationCode:
       "Apple Sign-In returnerte ikke authorization code.",
     signInFailedTitle: "Innlogging feilet",
     signInFailedBody: "Kunne ikke logge inn med Apple. Prøv igjen.",
     signInStatus: "Logger inn...",
+    signInAppleButton: "Logg inn med Apple",
+    signInChooseTitle: "Velg hvordan du vil starte",
+    signInChooseBody:
+      "Logg inn hvis du allerede har konto, eller registrer deg for å opprette en ny EvoliX-profil.",
+    signInModeLogin: "Logg inn",
+    signInModeRegister: "Ny konto",
+    signInEmail: "E-post",
+    signInEmailPlaceholder: "navn@epost.no",
+    signInUsername: "Brukernavn",
+    signInUsernamePlaceholder: "dittnavn",
+    signInPassword: "Passord",
+    signInPasswordPlaceholder: "Minst 8 tegn",
+    signInConfirmPassword: "Bekreft passord",
+    signInConfirmPasswordPlaceholder: "Skriv passordet på nytt",
+    signInLogin: "Logg inn",
+    signInRegister: "Registrer deg",
+    signInCreateAccount: "Opprett konto",
+    signInOr: "eller",
+    signInLoginHint: "Bruk e-post og passord, eller fortsett med Apple.",
+    signInRegisterHint: "Passordet må ha minst 8 tegn, én bokstav og ett tall.",
+    signInEmailError: "Skriv en gyldig e-postadresse.",
+    signInUsernameError: "Brukernavn må ha minst 3 tegn.",
+    signInPasswordError:
+      "Passordet må ha minst 8 tegn, én bokstav og ett tall.",
+    signInPasswordMatchError: "Passordene må være like.",
+    signInPasswordAuthFailed: "Kunne ikke fullføre innloggingen.",
+    signInRegisterUnavailable:
+      "Registrering er ikke tilgjengelig akkurat nå. Prøv igjen om litt.",
+    signInRegisterAccountExists: "E-post eller brukernavn er allerede i bruk.",
+    signInRegisterNetworkError:
+      "Kunne ikke koble til serveren. Sjekk nettverket og prøv igjen.",
+    signInRegisterServerError:
+      "Vi klarte ikke å opprette kontoen akkurat nå. Prøv igjen om litt.",
+    signInRegisterSubmitting: "Oppretter konto...",
+    signInRegisterReady: "Klar til å opprette konto",
     signInFeatureFood: "Spor mat og kalorier",
     signInFeatureWorkout: "Administrer treningsprogram",
     signInFeatureWeight: "Følg vektutviklingen din",
@@ -107,8 +141,7 @@ const translations = {
     deleteAccountNotSignedIn: "Du er ikke logget inn.",
     deleteAccountAppleDevice:
       "Kontosletting med Apple må bekreftes på iPhone eller iPad.",
-    deleteAccountMissingAppleUser:
-      "Fant ikke Apple-brukeren som skal slettes.",
+    deleteAccountMissingAppleUser: "Fant ikke Apple-brukeren som skal slettes.",
     deleteAccountAppleUnavailable:
       "Apple Sign-In er ikke tilgjengelig på denne enheten.",
     deleteAccountCancelled: "Kontosletting ble avbrutt.",
@@ -126,8 +159,7 @@ const translations = {
     premiumRenewal:
       "{price} per {period}. Abonnementet fornyes automatisk til det avsluttes minst 24 timer før utløpet av gjeldende periode. Administrer eller avslutt abonnementet i Apple-kontoinnstillingene dine.",
     premiumTitle: "EvoliX Premium",
-    premiumBody:
-      "Lås opp alle coacher, ukesrapport og premiumprogrammer.",
+    premiumBody: "Lås opp alle coacher, ukesrapport og premiumprogrammer.",
     premiumBenefitFoodWeight: "Matcoach og vektcoach",
     premiumBenefitWorkout: "Treningscoach i øktloggingen",
     premiumBenefitPrograms: "Premium treningsprogrammer",
@@ -196,6 +228,16 @@ const translations = {
     settingsCutStartDescription:
       "Brukes av Cut Rapport for en mer presis rapport.",
     settingsMuscleFilterDescription: "Velg detaljeringsnivå på muskelgrupper",
+    settingsSimple: "Enkelt",
+    settingsAdvanced: "Avansert",
+    settingsTrainingContent: "Egne treningsdata",
+    settingsTrainingContentDescription:
+      "Vis alle eller bare selvlagde øvelser, økter og programmer.",
+    settingsShowAll: "Vis alle",
+    settingsHideAll: "Skjul alle",
+    settingsHomeNutritionGoals: "Næringsmål på hjemskjermen",
+    settingsHomeNutritionGoalsDescription:
+      "Velg hvilke mål som vises på hjemskjermen",
     settingsFoodCoach: "Matcoach",
     settingsManageSubscription: "Administrer abonnement",
     settingsRefreshStatus: "Oppdater status",
@@ -208,28 +250,24 @@ const translations = {
     settingsDeleteCannotUndo: "Dette kan ikke angres",
     settingsDeleteBody:
       "Er du sikker? Dette sletter kontoen og dataene dine permanent.",
-    settingsDeleteNotAvailable:
-      "Sletting av konto er ikke tilgjengelig ennå.",
+    settingsDeleteNotAvailable: "Sletting av konto er ikke tilgjengelig ennå.",
     settingsDeleteFailed: "Kunne ikke slette konto",
     settingsDeleteFailedBody: "Kunne ikke slette konto. Prøv igjen.",
     settingsDeleteWarning:
       "Du har et aktivt Premium-abonnement. Sletting av konto stopper ikke nødvendigvis Apple-fakturering. Administrer eller avslutt abonnementet hos Apple før du fortsetter hvis du vil stoppe fornyelse.",
     settingsDeleteWarningShort: "Er du sikker?",
     settingsDeleteConfirmTitle: "Bekreft sletting",
-    settingsDeleteConfirmBody:
-      "Skriv {word} for å slette kontoen permanent.",
+    settingsDeleteConfirmBody: "Skriv {word} for å slette kontoen permanent.",
     settingsDeleteInvalidTitle: "Feil bekreftelse",
     settingsDeleteInvalidBody: "Skriv {word} for å fortsette.",
     settingsDeleteSubscriptionTitle: "Premium-abonnement",
     settingsDeleteSubscriptionBody:
       "Sletting av konto avslutter ikke automatisk abonnementet hos Apple. Apple-fakturering kan fortsette til du administrerer og avslutter abonnementet i Apple-kontoen din.",
-    settingsDeleteSubscriptionAction:
-      "Administrer eller avslutt abonnement",
+    settingsDeleteSubscriptionAction: "Administrer eller avslutt abonnement",
     settingsRestoreActiveTitle: "Premium er aktiv",
     settingsRestoreEmptyTitle: "Fant ingen aktive kjøp",
     settingsRestoreActiveBody: "Kjøpene dine er gjenopprettet.",
-    settingsRestoreEmptyBody:
-      "Vi fant ingen aktive kjøp på denne kontoen.",
+    settingsRestoreEmptyBody: "Vi fant ingen aktive kjøp på denne kontoen.",
     settingsRestoreFailedTitle: "Kunne ikke gjenopprette kjøp",
     settingsRefreshFailedTitle: "Kunne ikke oppdatere status",
     settingsTryAgainLater: "Prøv igjen om litt.",
@@ -306,6 +344,25 @@ const translations = {
     cutReportWeeklyVolume: "Ukentlig volum",
     cutReportVolumeChange: "Volumendring",
     cutReportNextWeek: "Neste uke",
+    cutReportWhyStatus: "Hvorfor denne statusen",
+    cutReportEstimatedSurplus: "Estimert overskudd",
+    cutReportEstimatedMaintenance: "Estimert vedlikehold",
+    cutReportAdherence: "Etterlevelse",
+    cutReportMealLogging: "Matlogging",
+    cutReportWeighIn: "Veiing",
+    cutReportProteinTarget: "Proteinmål",
+    cutReportCalorieTarget: "Kalorimål",
+    cutReportWorkoutTarget: "Treningsmål",
+    cutReportTimeline: "Tidslinje",
+    cutReportTargetWeight: "Målvekt",
+    cutReportStableWeeks: "Stabile uker",
+    cutReportWeeksToGoal: "Uker til mål",
+    cutReportPreviousReport: "Forrige rapport",
+    cutReportScoreChange: "Scoreendring",
+    cutReportStatusChanged: "Status endret",
+    cutReportRepeated: "Gjentatt",
+    cutReportYes: "Ja",
+    cutReportNo: "Nei",
     cutReportApplyRecommendation: "Bruk anbefaling",
     cutReportReadinessFallback:
       "Datagrunnlaget må oppdateres fra serveren før rapporten kan vurderes sikkert.",
@@ -355,8 +412,7 @@ const translations = {
     mealSourceManual: "Manuell registrering",
     mealPortions: "porsjoner",
     mealDishesTitle: "Matretter",
-    mealDishesSubtitle:
-      "Favoritter og ferdige retter for rask, presis logging",
+    mealDishesSubtitle: "Favoritter og ferdige retter for rask, presis logging",
     mealNewDish: "Ny rett",
     mealEditDish: "Rediger rett",
     mealSaveDish: "Lagre rett",
@@ -379,7 +435,7 @@ const translations = {
     mealDishSaveFailedTitle: "Kunne ikke lagre rett",
     mealDishSaveFailedBody: "Sjekk ingrediensene og prøv igjen.",
     mealDishDeleteTitle: "Slette retten?",
-    mealDishDeleteBody: "Rett \"{dish}\" blir slettet permanent.",
+    mealDishDeleteBody: 'Rett "{dish}" blir slettet permanent.',
     mealDishEditorSubtitle:
       "Legg inn ingredienser med gram for realistisk logging",
     mealDishNameLabel: "Navn på rett",
@@ -422,6 +478,19 @@ const translations = {
     exerciseListHint: "Trykk på en øvelse for detaljer og historikk.",
     exerciseLoading: "Laster øvelser...",
     exerciseSearchPlaceholder: "Søk etter øvelser...",
+    exerciseNoResultsTitle: "Ingen treff",
+    exerciseNoResultsBody: "Prøv et annet søk eller bytt muskel-filter.",
+    exerciseNoResultsShort: "Ingen øvelser funnet.",
+    progressMaxWeight: "Maks vekt",
+    progressVolume: "Volum",
+    progressBoth: "Begge",
+    progressVolumeKg: "Volum (kg)",
+    progressVolumeSets: "Volum (sett)",
+    progressLatest: "Siste",
+    progressToPr: "Til PR",
+    progressEstimatedOneRm: "Estimert 1RM",
+    progressTrainingVolumeSets: "Treningsvolum (sett)",
+    progressTrainingVolume: "Treningsvolum",
     exerciseEditTitle: "Rediger øvelse",
     exerciseNamePlaceholder: "F.eks. Skrå benkpress",
     exercisePrimaryMuscle: "Primær muskelgruppe",
@@ -444,6 +513,7 @@ const translations = {
     workoutEditTitle: "Rediger økt",
     workoutCreate: "Opprett økt",
     workoutDelete: "Slett økt",
+    workoutNamePlaceholder: "F.eks. Push A",
     workoutDayLabel: "Dag / etikett",
     workoutDayPlaceholder: "F.eks. mandag, Pull B...",
     workoutDescriptionPlaceholder: "Kort beskrivelse av økten...",
@@ -459,6 +529,9 @@ const translations = {
     workoutSaveTraining: "Lagre trening",
     workoutSummaryTitle: "Sammendrag av økt",
     workoutSummarySubtitle: "Se over dette før du lagrer.",
+    workoutStartTime: "Starttidspunkt",
+    workoutCustomExercise: "Egendefinert øvelse",
+    workoutSetCountLabel: "Sett",
     workoutAddExercise: "Legg til øvelse",
     workoutAddSet: "Legg til sett",
     workoutCreateExercise: "Opprett ny øvelse",
@@ -466,15 +539,14 @@ const translations = {
     workoutExercisesSaved: "Øvelser som lagres",
     workoutAddExerciseToStart: "Legg til øvelse for å starte økten.",
     workoutAddExercisesToStart: "Legg til øvelser for å starte økten",
-    workoutValidationNeedExercise:
-      "Legg til minst én øvelse før du fullfører.",
+    workoutChooseFirstExercise: "Velg første øvelse",
+    workoutValidationNeedExercise: "Legg til minst én øvelse før du fullfører.",
     workoutValidationNeedSets:
       "En eller flere øvelser mangler sett. Legg til minst ett sett på alle øvelser før du fullfører.",
     workoutAutosaveHint:
       "Dra øvelser for å endre rekkefølge. Endringer lagres automatisk.",
     workoutDiscardTitle: "Forkast endringer?",
-    workoutNameRequiredToSave:
-      "Navn må fylles ut før endringene kan lagres.",
+    workoutNameRequiredToSave: "Navn må fylles ut før endringene kan lagres.",
     workoutSelectedExercises: "Øvelser i denne økten",
     workoutAvailableExercises: "Tilgjengelige øvelser",
     workoutNoSelectedExercises:
@@ -483,8 +555,7 @@ const translations = {
       "Du har ingen øvelser enda. Opprett dem under Øvelser-fanen.",
     workoutNoExerciseSearchResults:
       "Ingen flere øvelser matcher søket akkurat nå.",
-    workoutSearchExercisesPlaceholder:
-      "Søk etter navn, muskel eller utstyr...",
+    workoutSearchExercisesPlaceholder: "Søk etter navn, muskel eller utstyr...",
     workoutNoCompletedTitle: "Ingen fullførte økter enda",
     workoutNoCompletedBody: "Fullfør en økt for å se historikk her.",
     programNewTitle: "Nytt program",
@@ -532,7 +603,8 @@ const translations = {
     navExercises: "Exercises",
     navProgression: "Progress",
     progressionTitle: "Progress",
-    progressionSubtitle: "Choose an exercise and follow your development over time.",
+    progressionSubtitle:
+      "Choose an exercise and follow your development over time.",
     progressionSearchPlaceholder: "Search for exercise...",
     progressionNoData: "No data available yet",
     progressionNoHistory: "No history yet",
@@ -551,6 +623,42 @@ const translations = {
     signInFailedTitle: "Sign-in failed",
     signInFailedBody: "Could not sign in with Apple. Try again.",
     signInStatus: "Signing in...",
+    signInAppleButton: "Sign in with Apple",
+    signInChooseTitle: "Choose how to start",
+    signInChooseBody:
+      "Sign in if you already have an account, or register to create a new EvoliX profile.",
+    signInModeLogin: "Sign in",
+    signInModeRegister: "New account",
+    signInEmail: "Email",
+    signInEmailPlaceholder: "name@email.com",
+    signInUsername: "Username",
+    signInUsernamePlaceholder: "yourname",
+    signInPassword: "Password",
+    signInPasswordPlaceholder: "At least 8 characters",
+    signInConfirmPassword: "Confirm password",
+    signInConfirmPasswordPlaceholder: "Repeat your password",
+    signInLogin: "Sign in",
+    signInRegister: "Register",
+    signInCreateAccount: "Create account",
+    signInOr: "or",
+    signInLoginHint: "Use email and password, or continue with Apple.",
+    signInRegisterHint:
+      "Password must have at least 8 characters, one letter and one number.",
+    signInEmailError: "Enter a valid email address.",
+    signInUsernameError: "Username must have at least 3 characters.",
+    signInPasswordError:
+      "Password must have at least 8 characters, one letter and one number.",
+    signInPasswordMatchError: "Passwords must match.",
+    signInPasswordAuthFailed: "Could not complete sign-in.",
+    signInRegisterUnavailable:
+      "Registration is not available right now. Try again shortly.",
+    signInRegisterAccountExists: "Email or username is already in use.",
+    signInRegisterNetworkError:
+      "Could not connect to the server. Check your connection and try again.",
+    signInRegisterServerError:
+      "We could not create the account right now. Try again shortly.",
+    signInRegisterSubmitting: "Creating account...",
+    signInRegisterReady: "Ready to create account",
     signInFeatureFood: "Track food and calories",
     signInFeatureWorkout: "Manage training programs",
     signInFeatureWeight: "Follow your weight trend",
@@ -569,8 +677,7 @@ const translations = {
       "This helps us tailor goals and recommendations. You must be at least 18.",
     onboardingGenderSubtitle:
       "This is only used to make recommendations more relevant.",
-    onboardingLanguageSubtitle:
-      "You can change language later in settings.",
+    onboardingLanguageSubtitle: "You can change language later in settings.",
     onboardingAgeLabel: "Age",
     onboardingAgePlaceholder: "Enter age",
     onboardingMale: "Male",
@@ -606,8 +713,7 @@ const translations = {
     deleteAccountNotSignedIn: "You are not signed in.",
     deleteAccountAppleDevice:
       "Account deletion with Apple must be confirmed on iPhone or iPad.",
-    deleteAccountMissingAppleUser:
-      "Could not find the Apple user to delete.",
+    deleteAccountMissingAppleUser: "Could not find the Apple user to delete.",
     deleteAccountAppleUnavailable:
       "Apple Sign-In is not available on this device.",
     deleteAccountCancelled: "Account deletion was cancelled.",
@@ -625,8 +731,7 @@ const translations = {
     premiumRenewal:
       "{price} per {period}. The subscription renews automatically until it is cancelled at least 24 hours before the end of the current period. Manage or cancel the subscription in your Apple account settings.",
     premiumTitle: "EvoliX Premium",
-    premiumBody:
-      "Unlock all coaches, weekly reports and premium programs.",
+    premiumBody: "Unlock all coaches, weekly reports and premium programs.",
     premiumBenefitFoodWeight: "Food coach and weight coach",
     premiumBenefitWorkout: "Workout coach during session logging",
     premiumBenefitPrograms: "Premium training programs",
@@ -639,8 +744,7 @@ const translations = {
     premiumPurchaseFailed: "The purchase could not be completed. Try again.",
     premiumNoPurchases: "No active purchases found.",
     premiumRestoreFailed: "Could not restore purchases. Try again.",
-    premiumLegal:
-      "By purchasing, you agree to our terms and privacy policy.",
+    premiumLegal: "By purchasing, you agree to our terms and privacy policy.",
     premiumContinueWith: "Continue with {price}",
     premiumRestore: "Restore purchases",
     premiumRestoring: "Restoring...",
@@ -695,6 +799,16 @@ const translations = {
     settingsCutStartDescription:
       "Used by Cut Report for a more precise report.",
     settingsMuscleFilterDescription: "Choose muscle group detail level",
+    settingsSimple: "Simple",
+    settingsAdvanced: "Advanced",
+    settingsTrainingContent: "Your training data",
+    settingsTrainingContentDescription:
+      "Show all exercises, workouts and programs, or only your own.",
+    settingsShowAll: "Show all",
+    settingsHideAll: "Hide all",
+    settingsHomeNutritionGoals: "Nutrition goals on home",
+    settingsHomeNutritionGoalsDescription:
+      "Choose which goals are shown on the home screen",
     settingsFoodCoach: "Food coach",
     settingsManageSubscription: "Manage subscription",
     settingsRefreshStatus: "Refresh status",
@@ -714,8 +828,7 @@ const translations = {
       "You have an active Premium subscription. Deleting your account does not necessarily stop Apple billing. Manage or cancel the subscription with Apple before continuing if you want to stop renewal.",
     settingsDeleteWarningShort: "Are you sure?",
     settingsDeleteConfirmTitle: "Confirm deletion",
-    settingsDeleteConfirmBody:
-      "Type {word} to permanently delete the account.",
+    settingsDeleteConfirmBody: "Type {word} to permanently delete the account.",
     settingsDeleteInvalidTitle: "Invalid confirmation",
     settingsDeleteInvalidBody: "Type {word} to continue.",
     settingsDeleteSubscriptionTitle: "Premium subscription",
@@ -725,8 +838,7 @@ const translations = {
     settingsRestoreActiveTitle: "Premium is active",
     settingsRestoreEmptyTitle: "No active purchases found",
     settingsRestoreActiveBody: "Your purchases have been restored.",
-    settingsRestoreEmptyBody:
-      "We found no active purchases on this account.",
+    settingsRestoreEmptyBody: "We found no active purchases on this account.",
     settingsRestoreFailedTitle: "Could not restore purchases",
     settingsRefreshFailedTitle: "Could not refresh status",
     settingsTryAgainLater: "Try again soon.",
@@ -742,7 +854,8 @@ const translations = {
     settingsSyncFailed: "Could not sync settings.",
     settingsLoadingUserSettings: "Loading user settings...",
     settingsAutoSave: "Changes are saved automatically.",
-    settingsAgeDescription: "Used for more precise personalization. Minimum 18 years.",
+    settingsAgeDescription:
+      "Used for more precise personalization. Minimum 18 years.",
     settingsCanChangeAnytime: "Can be changed at any time",
     settingsSavedInProfile: "Saved to your profile",
     settingsUnknown: "unknown",
@@ -804,6 +917,25 @@ const translations = {
     cutReportWeeklyVolume: "Weekly volume",
     cutReportVolumeChange: "Volume change",
     cutReportNextWeek: "Next week",
+    cutReportWhyStatus: "Why this status",
+    cutReportEstimatedSurplus: "Estimated surplus",
+    cutReportEstimatedMaintenance: "Estimated maintenance",
+    cutReportAdherence: "Adherence",
+    cutReportMealLogging: "Meal logging",
+    cutReportWeighIn: "Weigh-ins",
+    cutReportProteinTarget: "Protein target",
+    cutReportCalorieTarget: "Calorie target",
+    cutReportWorkoutTarget: "Workout target",
+    cutReportTimeline: "Timeline",
+    cutReportTargetWeight: "Target weight",
+    cutReportStableWeeks: "Stable weeks",
+    cutReportWeeksToGoal: "Weeks to goal",
+    cutReportPreviousReport: "Previous report",
+    cutReportScoreChange: "Score change",
+    cutReportStatusChanged: "Status changed",
+    cutReportRepeated: "Repeated",
+    cutReportYes: "Yes",
+    cutReportNo: "No",
     cutReportApplyRecommendation: "Apply recommendation",
     cutReportReadinessFallback:
       "The data foundation must be refreshed from the server before the report can be assessed safely.",
@@ -815,7 +947,8 @@ const translations = {
     cutReportUnitMeasurements: "measurements",
     cutReportUnitSessions: "sessions",
     cutReportWeightTrendMissing: "Weight trend is missing from the response.",
-    cutReportNutritionMissing: "Nutrition analysis is missing from the response.",
+    cutReportNutritionMissing:
+      "Nutrition analysis is missing from the response.",
     cutReportStrengthMissing: "Strength analysis is missing from the response.",
     cutReportTrainingMissing: "Training load is missing from the response.",
     modalName: "Name",
@@ -863,8 +996,7 @@ const translations = {
     mealFavorites: "favorites",
     mealLoadingDishes: "Loading dishes...",
     mealNoDishesTitle: "No dishes yet",
-    mealNoDishesBody:
-      "Create a dish with ingredients, then log it in seconds.",
+    mealNoDishesBody: "Create a dish with ingredients, then log it in seconds.",
     mealDishList: "Dish list",
     mealScanFetchingProduct: "Fetching product...",
     mealScanProductFirst: "Scan a product first",
@@ -877,9 +1009,8 @@ const translations = {
     mealDishSaveFailedTitle: "Could not save dish",
     mealDishSaveFailedBody: "Check the ingredients and try again.",
     mealDishDeleteTitle: "Delete dish?",
-    mealDishDeleteBody: "Dish \"{dish}\" will be permanently deleted.",
-    mealDishEditorSubtitle:
-      "Add ingredients with grams for realistic logging",
+    mealDishDeleteBody: 'Dish "{dish}" will be permanently deleted.',
+    mealDishEditorSubtitle: "Add ingredients with grams for realistic logging",
     mealDishNameLabel: "Dish name",
     mealIngredientCount: "{count} ingredients",
     mealIngredients: "Ingredients",
@@ -920,6 +1051,19 @@ const translations = {
     exerciseListHint: "Tap an exercise for details and history.",
     exerciseLoading: "Loading exercises...",
     exerciseSearchPlaceholder: "Search exercises...",
+    exerciseNoResultsTitle: "No results",
+    exerciseNoResultsBody: "Try another search or switch muscle filter.",
+    exerciseNoResultsShort: "No exercises found.",
+    progressMaxWeight: "Max weight",
+    progressVolume: "Volume",
+    progressBoth: "Both",
+    progressVolumeKg: "Volume (kg)",
+    progressVolumeSets: "Volume (sets)",
+    progressLatest: "Latest",
+    progressToPr: "To PR",
+    progressEstimatedOneRm: "Estimated 1RM",
+    progressTrainingVolumeSets: "Training volume (sets)",
+    progressTrainingVolume: "Training volume",
     exerciseEditTitle: "Edit exercise",
     exerciseNamePlaceholder: "E.g. incline bench press",
     exercisePrimaryMuscle: "Primary muscle group",
@@ -934,7 +1078,8 @@ const translations = {
     exerciseMissingNameTitle: "Missing name",
     exerciseMissingNameBody: "Enter a name for the exercise.",
     exerciseDeleteTitle: "Delete exercise?",
-    exerciseDeleteBody: "This cannot be undone. Do you want to delete the exercise?",
+    exerciseDeleteBody:
+      "This cannot be undone. Do you want to delete the exercise?",
     exerciseSaveFailedTitle: "Something went wrong",
     exerciseSaveFailedBody: "Could not save the changes.",
     exerciseDeleteFailedBody: "Could not delete the exercise.",
@@ -942,12 +1087,14 @@ const translations = {
     workoutEditTitle: "Edit workout",
     workoutCreate: "Create workout",
     workoutDelete: "Delete workout",
+    workoutNamePlaceholder: "E.g. Push A",
     workoutDayLabel: "Day / label",
     workoutDayPlaceholder: "E.g. Monday, Pull B...",
     workoutDescriptionPlaceholder: "Short description of the workout...",
     workoutNeedName: "Enter a name to create it.",
     workoutDeleteTitle: "Delete workout?",
-    workoutDeleteBody: "This cannot be undone. Do you want to delete the workout?",
+    workoutDeleteBody:
+      "This cannot be undone. Do you want to delete the workout?",
     workoutFreeSession: "Free workout",
     workoutPlannedSession: "Planned workout",
     workoutSaved: "Workout saved",
@@ -957,6 +1104,9 @@ const translations = {
     workoutSaveTraining: "Save training",
     workoutSummaryTitle: "Workout summary",
     workoutSummarySubtitle: "Review this before saving.",
+    workoutStartTime: "Start time",
+    workoutCustomExercise: "Custom exercise",
+    workoutSetCountLabel: "Sets",
     workoutAddExercise: "Add exercise",
     workoutAddSet: "Add set",
     workoutCreateExercise: "Create new exercise",
@@ -964,6 +1114,7 @@ const translations = {
     workoutExercisesSaved: "Exercises to save",
     workoutAddExerciseToStart: "Add an exercise to start the workout.",
     workoutAddExercisesToStart: "Add exercises to start the workout",
+    workoutChooseFirstExercise: "Choose first exercise",
     workoutValidationNeedExercise:
       "Add at least one exercise before finishing.",
     workoutValidationNeedSets:
@@ -981,8 +1132,7 @@ const translations = {
       "You have no exercises yet. Create them in the Exercises tab.",
     workoutNoExerciseSearchResults:
       "No more exercises match the search right now.",
-    workoutSearchExercisesPlaceholder:
-      "Search by name, muscle or equipment...",
+    workoutSearchExercisesPlaceholder: "Search by name, muscle or equipment...",
     workoutNoCompletedTitle: "No completed workouts yet",
     workoutNoCompletedBody: "Finish a workout to see history here.",
     programNewTitle: "New program",
@@ -992,12 +1142,14 @@ const translations = {
     programNameLabel: "Program name",
     programNameRequired: "Program name cannot be empty.",
     programDeleteTitle: "Delete program?",
-    programDeleteBody: "This cannot be undone. Do you want to delete the program?",
+    programDeleteBody:
+      "This cannot be undone. Do you want to delete the program?",
     programSelectedWorkouts: "Workouts in the program",
     programAvailableWorkouts: "Available workouts",
     programNoSelectedWorkouts:
       "No workouts selected yet. Tap workouts below to add them.",
-    programNoWorkouts: "You have no workouts yet. Create them in the Workouts tab.",
+    programNoWorkouts:
+      "You have no workouts yet. Create them in the Workouts tab.",
     programNoWorkoutSearchResults:
       "No more workouts match the search right now.",
     programSearchWorkoutsPlaceholder: "Search workouts...",
@@ -1013,9 +1165,10 @@ export function localeForLanguage(language: AppLanguage) {
 export function translate(
   language: AppLanguage,
   key: TranslationKey,
-  params?: TranslationParams
+  params?: TranslationParams,
 ) {
-  let value: string = translations[language]?.[key] ?? translations.nb[key] ?? key;
+  let value: string =
+    translations[language]?.[key] ?? translations.nb[key] ?? key;
 
   if (params) {
     for (const [paramKey, paramValue] of Object.entries(params)) {
@@ -1033,7 +1186,7 @@ export function useTranslation() {
   const t = useCallback(
     (key: TranslationKey, params?: TranslationParams) =>
       translate(language, key, params),
-    [language]
+    [language],
   );
 
   return useMemo(
@@ -1042,6 +1195,6 @@ export function useTranslation() {
       locale: localeForLanguage(language),
       t,
     }),
-    [language, t]
+    [language, t],
   );
 }

@@ -12,6 +12,7 @@ import {
 import { parseNullableFloat } from "@/utils/session-overlay/parseNullableFloat";
 import { parseNullableInt } from "@/utils/session-overlay/parseNullableInt";
 import { useTranslation } from "@/i18n/translations";
+import { getMuscleLabel } from "@/types/muscles";
 import { Ionicons } from "@expo/vector-icons";
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { TextInput as RNTextInput } from "react-native";
@@ -630,7 +631,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
   onRemoveSet,
   onInputFocus,
 }: ExerciseBlockProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const repsRefs = useRef<(RNTextInput | null)[]>([]);
   const weightRefs = useRef<(RNTextInput | null)[]>([]);
   const [focusedWeightSetId, setFocusedWeightSetId] = useState<string | null>(
@@ -778,11 +779,11 @@ export const ExerciseBlock = memo(function ExerciseBlock({
 
     if (nextCompleted) {
       if (!isPositiveInt(set.reps)) {
-        Alert.alert("Mangler reps");
+        Alert.alert(language === "en" ? "Missing reps" : "Mangler reps");
         return;
       }
       if (set.weight != null && !isNonNegativeNumber(set.weight)) {
-        Alert.alert("Ugyldig vekt");
+        Alert.alert(language === "en" ? "Invalid weight" : "Ugyldig vekt");
         return;
       }
     }
@@ -792,13 +793,15 @@ export const ExerciseBlock = memo(function ExerciseBlock({
 
   const canCompleteSet = (set: SessionSet, setIndex: number) => {
     if (!isPositiveInt(set.reps)) {
-      Alert.alert("Mangler reps");
+      Alert.alert(language === "en" ? "Missing reps" : "Mangler reps");
       return false;
     }
     if (set.weight != null && !isNonNegativeNumber(set.weight)) {
       Alert.alert(
-        "Ugyldig vekt",
-        `${exercise.name} - sett ${setIndex}: vekt kan ikke være negativ`
+        language === "en" ? "Invalid weight" : "Ugyldig vekt",
+        language === "en"
+          ? `${exercise.name} - set ${setIndex}: weight cannot be negative`
+          : `${exercise.name} - sett ${setIndex}: vekt kan ikke være negativ`
       );
       return false;
     }
@@ -834,7 +837,7 @@ export const ExerciseBlock = memo(function ExerciseBlock({
           </Text>
           {!!exercise.muscle && (
             <Text style={[typography.body, styles.exerciseSubtitle]}>
-              {exercise.muscle}
+              {getMuscleLabel(exercise.muscle, language)}
             </Text>
           )}
         </View>

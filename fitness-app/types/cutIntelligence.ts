@@ -1,3 +1,5 @@
+export type GoalReportType = "cut" | "leanBulk" | "maintenance";
+
 export type CutReportStatus =
   | "excellent"
   | "onTrack"
@@ -5,22 +7,40 @@ export type CutReportStatus =
   | "tooAggressive"
   | "tooSlow"
   | "strengthRisk"
+  | "fatigueRisk"
   | "inconsistentData"
-  | "notEnoughData";
+  | "limitedData"
+  | "notEnoughData"
+  | "tooFast"
+  | "dirtyBulkRisk"
+  | "poorTrainingResponse"
+  | "strengthProgressing"
+  | "stable"
+  | "driftingUp"
+  | "driftingDown"
+  | "recompProgress"
+  | "maintenanceFound";
 
 export type CutReportConfidence = "high" | "medium" | "low";
 
 export type CutReport = {
+  goalType: GoalReportType;
   score: number;
   scoreLabel: string;
   status: CutReportStatus;
   confidence: CutReportConfidence;
+  isLimitedReport: boolean;
+  notEnoughData: boolean;
   readiness: CutReadiness;
   scoreBreakdown: CutScoreFactor[];
+  statusReasons: string[];
   weightTrend: CutWeightTrend;
   nutritionSummary: CutNutritionSummary;
   strengthSummary: CutStrengthSummary;
   trainingLoadSummary: CutTrainingLoadSummary;
+  adherenceSummary: CutAdherenceSummary;
+  timelineSummary: CutTimelineSummary;
+  previousComparison: CutPreviousReportComparison;
   recommendations: CutRecommendation[];
   warnings: string[];
   generatedAt: string;
@@ -47,6 +67,8 @@ export type CutReadinessItem = {
 export type CutScoreFactor = {
   id: string;
   label: string;
+  score: number;
+  weightPercent: number;
   pointsLost: number;
   reason: string;
 };
@@ -56,7 +78,13 @@ export type CutWeightTrend = {
   averageWeightPrevious7d: number | null;
   weeklyWeightChangeKg: number | null;
   weeklyWeightChangePercent: number | null;
+  previousWeeklyWeightChangePercent: number | null;
+  weightLossPercent: number | null;
+  weightGainPercent: number | null;
+  weightDriftPercent: number | null;
   estimatedDailyDeficit: number | null;
+  estimatedDailySurplus: number | null;
+  possibleWaterWeight: boolean;
   weightLogsLast7d: number;
   daysSinceEstimatedCutStart: number;
   points: CutWeightPoint[];
@@ -82,6 +110,11 @@ export type CutNutritionSummary = {
   fatCaloriesPercent: number | null;
   loggedDaysLast7d: number;
   loggingAdherencePercent: number;
+  proteinTargetAdherencePercent: number;
+  calorieTargetAdherencePercent: number;
+  averageCalorieTargetDelta: number | null;
+  estimatedMaintenanceCalories: number | null;
+  maintenanceEstimateConfidence: CutReportConfidence;
   summary: string;
 };
 
@@ -111,6 +144,37 @@ export type CutTrainingLoadSummary = {
   weeklyVolumeCurrent: number | null;
   weeklyVolumePrevious: number | null;
   volumeChangePercent: number | null;
+  fatigueRisk: boolean;
+  summary: string;
+};
+
+export type CutAdherenceSummary = {
+  mealLoggingAdherencePercent: number;
+  weighInAdherencePercent: number;
+  proteinTargetAdherencePercent: number;
+  calorieTargetAdherencePercent: number;
+  workoutAdherencePercent: number | null;
+  summary: string;
+};
+
+export type CutTimelineSummary = {
+  targetWeightKg: number | null;
+  estimatedWeeksToGoal: number | null;
+  maintenanceStabilityStreakWeeks: number;
+  summary: string;
+};
+
+export type CutPreviousReportComparison = {
+  hasPreviousReport: boolean;
+  previousScore: number | null;
+  scoreChange: number | null;
+  previousStatus: CutReportStatus | null;
+  statusChanged: boolean;
+  consecutiveWeeksOnTrack: number;
+  consecutiveWeeksOffTrack: number;
+  repeatedProblems: string[];
+  resolvedProblems: string[];
+  lastRecommendationIds: string[];
   summary: string;
 };
 
@@ -121,6 +185,7 @@ export type CutRecommendation = {
   category: string;
   reason: string;
   suggestedAction: string;
+  expectedOutcome: string;
   confidence: CutReportConfidence;
   canApply: boolean;
   applyKind: string | null;
@@ -133,4 +198,5 @@ export type ApplyCutRecommendationResult = {
   message: string;
   calorieGoal: number | null;
   proteinGoal: number | null;
+  canUndo: boolean;
 };

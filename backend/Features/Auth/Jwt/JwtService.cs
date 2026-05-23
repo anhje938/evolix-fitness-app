@@ -39,6 +39,8 @@ namespace backend.Features.Auth
                 // Simple role system
                 new Claim(ClaimTypes.Role, user.IsAdmin ? "Admin" : "User"),
 
+                new Claim("auth_provider", user.AuthProvider),
+
                 // Extra explicit flag (optional)
                 new Claim("is_admin", user.IsAdmin ? "true" : "false")
             };

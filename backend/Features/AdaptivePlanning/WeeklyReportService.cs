@@ -468,17 +468,37 @@ namespace backend.Features.AdaptivePlanning
                 });
             }
 
-            var suggestedCalories = CalculateSuggestedCalories(settings, weight, nutrition);
-            var calorieAdjustment = suggestedCalories - settings.CalorieGoal;
-            if (calorieAdjustment < 0)
+            if (!IsFollowingCalorieTarget(nutrition))
             {
                 recommendations.Add(new AdaptiveRecommendation
                 {
                     UserId = userId,
                     SourceReport = report,
+                    Type = AdaptiveRecommendationType.HoldCalories,
+                    Title = "Treff kalorimålet før målet endres",
+                    Explanation = "Snittinntaket ligger for langt unna kalorimålet til å vite om målet eller gjennomføringen bør justeres. Hold målet og logg nærmere planen én uke til.",
+                    Confidence = confidence,
+                    AppliesFromDate = appliesFrom,
+                    ExpiresAtUtc = DateTime.UtcNow.AddDays(7)
+                });
+
+                return recommendations;
+            }
+
+            var suggestedCalories = CalculateSuggestedCalories(settings, weight, nutrition);
+            var calorieAdjustment = suggestedCalories - settings.CalorieGoal;
+            if (calorieAdjustment < 0)
+            {
+                var isMaintenance = settings.WeightDirection == WeightDirection.Maintain;
+                recommendations.Add(new AdaptiveRecommendation
+                {
+                    UserId = userId,
+                    SourceReport = report,
                     Type = AdaptiveRecommendationType.ReduceCalories,
-                    Title = "Senk kalorimålet litt",
-                    Explanation = "Vekttrenden går litt tregere enn målet. EvoliX anbefaler en liten justering og ny vurdering etter 7 dager.",
+                    Title = isMaintenance ? "Brems vektoppgang rolig" : "Senk kalorimålet litt",
+                    Explanation = isMaintenance
+                        ? "Vekten driver oppover mens kalorimålet følges godt nok. EvoliX anbefaler en liten justering og ny vurdering etter 7 dager."
+                        : "Vekttrenden går litt tregere enn målet. EvoliX anbefaler en liten justering og ny vurdering etter 7 dager.",
                     Confidence = confidence,
                     AppliesFromDate = appliesFrom,
                     ExpiresAtUtc = DateTime.UtcNow.AddDays(7),
@@ -495,13 +515,16 @@ namespace backend.Features.AdaptivePlanning
             }
             else if (calorieAdjustment > 0)
             {
+                var isMaintenance = settings.WeightDirection == WeightDirection.Maintain;
                 recommendations.Add(new AdaptiveRecommendation
                 {
                     UserId = userId,
                     SourceReport = report,
                     Type = AdaptiveRecommendationType.IncreaseCalories,
-                    Title = "Øk kalorimålet litt",
-                    Explanation = "Vekttrenden går raskere enn planlagt. En liten økning kan gjøre planen mer bærekraftig.",
+                    Title = isMaintenance ? "Brems vektnedgang rolig" : "Øk kalorimålet litt",
+                    Explanation = isMaintenance
+                        ? "Vekten driver nedover mens kalorimålet følges godt nok. EvoliX anbefaler en liten justering og ny vurdering etter 7 dager."
+                        : "Vekttrenden går raskere enn planlagt. En liten økning kan gjøre planen mer bærekraftig.",
                     Confidence = confidence,
                     AppliesFromDate = appliesFrom,
                     ExpiresAtUtc = DateTime.UtcNow.AddDays(7),
@@ -545,7 +568,23 @@ namespace backend.Features.AdaptivePlanning
                 !nutrition.AverageCalories.HasValue)
                 return settings.CalorieGoal;
             if (settings.WeightDirection == WeightDirection.Maintain)
-                return settings.CalorieGoal;
+            {
+                if (weight.Status is not ("gaining" or "losing"))
+                    return settings.CalorieGoal;
+
+                var maintenanceEstimateForDrift =
+                    nutrition.AverageCalories.Value -
+                    weight.WeeklyChangeKg.Value * KcalPerKg / 7.0;
+                var driftGapFromCurrentGoal = maintenanceEstimateForDrift - settings.CalorieGoal;
+                if (Math.Abs(driftGapFromCurrentGoal) < 50)
+                    return settings.CalorieGoal;
+
+                var cappedDriftGap = Math.Clamp(driftGapFromCurrentGoal, -125, 125);
+                var suggestedMaintenance = settings.CalorieGoal + cappedDriftGap;
+                return Math.Max(
+                    1200,
+                    (int)(Math.Round(suggestedMaintenance / 25.0, MidpointRounding.AwayFromZero) * 25));
+            }
             if (weight.Status is not ("behind" or "slightlyBehind" or "tooAggressive"))
                 return settings.CalorieGoal;
 
@@ -565,6 +604,15 @@ namespace backend.Features.AdaptivePlanning
             return Math.Max(
                 1200,
                 (int)(Math.Round(suggested / 25.0, MidpointRounding.AwayFromZero) * 25));
+        }
+
+        private static bool IsFollowingCalorieTarget(NutritionAnalysis nutrition)
+        {
+            if (!nutrition.AverageCalories.HasValue || nutrition.TargetCalories <= 0)
+                return false;
+
+            var allowedGap = Math.Max(150, nutrition.TargetCalories * 0.08);
+            return Math.Abs(nutrition.AverageCalories.Value - nutrition.TargetCalories) <= allowedGap;
         }
 
         private static RecommendationTargetDateChange? BuildTargetDateChange(

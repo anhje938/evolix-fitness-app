@@ -87,6 +87,15 @@ export function getAccessTokenUserId(
   ]);
 }
 
+export function getAccessTokenAuthProvider(
+  token: string | null | undefined
+): string | null {
+  if (!token) return null;
+
+  const payload = parseJwtPayload(token);
+  return readStringClaim(payload, ["auth_provider", "authProvider"]);
+}
+
 function isAccessTokenFresh(session: StoredAuthSession | null): boolean {
   if (!session?.accessToken) return false;
   const expiresAt = normalizeIso(session.accessTokenExpiresAtUtc);

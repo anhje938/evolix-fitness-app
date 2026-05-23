@@ -30,6 +30,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import DumbbellIcon from "../../../../assets/icons/dumbbell-white.svg";
 import XIcon from "../../../../assets/icons/white-x.svg";
 import { useTranslation } from "@/i18n/translations";
+import { getMuscleLabel } from "@/types/muscles";
 
 type Props = {
   visible: boolean;
@@ -121,7 +122,7 @@ export function EditWorkoutModal({
   onSubmit,
   onDelete,
 }: Props) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [name, setName] = useState(initialName);
   const [dayLabel, setDayLabel] = useState(initialDayLabel ?? "");
   const [description, setDescription] = useState(initialDescription ?? "");
@@ -240,14 +241,19 @@ export function EditWorkoutModal({
     return availableExercises.filter((exercise) => {
       const exerciseName = (exercise.name ?? "").toLowerCase();
       const muscle = (exercise.muscle ?? "").toLowerCase();
+      const localizedMuscle = getMuscleLabel(
+        exercise.muscle,
+        language
+      ).toLowerCase();
       const equipment = (exercise.equipment ?? "").toLowerCase();
       return (
         exerciseName.includes(query) ||
         muscle.includes(query) ||
+        localizedMuscle.includes(query) ||
         equipment.includes(query)
       );
     });
-  }, [availableExercises, search]);
+  }, [availableExercises, language, search]);
 
   const availableVisibleExercises = useMemo(() => {
     return filteredExercises.filter(
@@ -375,7 +381,7 @@ export function EditWorkoutModal({
                     style={[typography.bodyBlack, styles.metaChipText]}
                     numberOfLines={1}
                   >
-                    {exercise.muscle}
+                    {getMuscleLabel(exercise.muscle, language)}
                   </Text>
                 </View>
               )}
@@ -476,7 +482,7 @@ export function EditWorkoutModal({
               >
                 <TextInput
                   style={styles.input}
-                  placeholder="F.eks. Push A"
+                  placeholder={t("workoutNamePlaceholder")}
                   placeholderTextColor="rgba(148,163,184,0.8)"
                   value={name}
                   onChangeText={setName}
@@ -647,7 +653,7 @@ export function EditWorkoutModal({
                                     ]}
                                     numberOfLines={1}
                                   >
-                                    {exercise.muscle}
+                                    {getMuscleLabel(exercise.muscle, language)}
                                   </Text>
                                 </View>
                               )}

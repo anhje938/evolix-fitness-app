@@ -45,6 +45,7 @@ import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { estimate1RMFromTopSet } from "@/utils/exercise/oneRepMax";
 import { sortExercisesByPopularity } from "@/utils/exercise/sortExercisesByPopularity";
 import { type ProgressTimeRange } from "@/utils/exercise/progressChart";
+import { getMuscleLabel } from "@/types/muscles";
 
 type ProgressTabProps = {
   selectedExerciseId: string | null;
@@ -131,7 +132,7 @@ export default function ProgressTab({
   selectedExerciseId,
   onSelectExercise,
 }: ProgressTabProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { userSettings } = useUserSettings();
   const { data: exerciseData } = useExercises();
   const searchInputRef = useRef<TextInput | null>(null);
@@ -171,9 +172,10 @@ export default function ProgressTab({
     return sortExercisesByPopularity(exercises.filter(
       (ex) =>
         ex.name.toLowerCase().includes(s) ||
-        (ex.muscle ?? "").toLowerCase().includes(s)
+        (ex.muscle ?? "").toLowerCase().includes(s) ||
+        getMuscleLabel(ex.muscle, language).toLowerCase().includes(s)
     ));
-  }, [exercises, search]);
+  }, [exercises, language, search]);
 
   const selectedExercise =
     exercises.find((ex) => ex.id === selectedExerciseId) ?? null;
@@ -309,10 +311,10 @@ export default function ProgressTab({
 
   const chartTitle =
     metric === "weight"
-      ? "Estimert 1RM"
+      ? t("progressEstimatedOneRm")
       : volumeMetric === "sets"
-      ? "Treningsvolum (sett)"
-      : "Treningsvolum";
+      ? t("progressTrainingVolumeSets")
+      : t("progressTrainingVolume");
 
   const showResults = searchFocused || search.trim().length > 0;
 
@@ -431,7 +433,9 @@ export default function ProgressTab({
                 size={18}
                 color={ui.muted}
               />
-              <Text style={styles.resultsEmptyText}>Ingen øvelser funnet.</Text>
+              <Text style={styles.resultsEmptyText}>
+                {t("exerciseNoResultsShort")}
+              </Text>
             </View>
           ) : (
             filteredExercises.slice(0, 7).map((ex, idx) => (
@@ -453,7 +457,7 @@ export default function ProgressTab({
                   </Text>
                   {!!ex.muscle && (
                     <Text style={styles.resultMuscle} numberOfLines={1}>
-                      {ex.muscle}
+                      {getMuscleLabel(ex.muscle, language)}
                     </Text>
                   )}
                 </View>
@@ -497,7 +501,7 @@ export default function ProgressTab({
 
       {metric === "both" ? (
         <CombinedExerciseChart
-          title="1RM & volume"
+          title={language === "en" ? "1RM & volume" : "1RM og volum"}
           metric={metric}
           volumeMetric={volumeMetric}
           range={timeRange}

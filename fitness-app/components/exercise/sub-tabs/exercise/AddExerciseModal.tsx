@@ -5,7 +5,11 @@ import {
   modalTheme,
 } from "@/config/modalTheme";
 import { useTranslation } from "@/i18n/translations";
-import { ADVANCED_MUSCLE_FILTERS } from "@/types/muscles";
+import {
+  ADVANCED_MUSCLE_FILTERS,
+  getLocalizedMuscleFilters,
+  getMuscleLabel,
+} from "@/types/muscles";
 import type { CreateExercisePayload } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -57,7 +61,7 @@ export function AddExerciseModal({
   isSubmitting = false,
   useModal = true,
 }: Props) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedMuscle, setSelectedMuscle] = useState<string>("ALL");
@@ -65,8 +69,11 @@ export function AddExerciseModal({
   const [specificGroups, setSpecificGroups] = useState<string[]>([]);
 
   const advancedSpecificList = useMemo(
-    () => ADVANCED_MUSCLE_FILTERS.filter((x) => x.value !== "ALL"),
-    []
+    () =>
+      getLocalizedMuscleFilters(ADVANCED_MUSCLE_FILTERS, language).filter(
+        (x) => x.value !== "ALL"
+      ),
+    [language]
   );
 
   function toggleSpecific(value: string) {
@@ -211,7 +218,10 @@ export function AddExerciseModal({
 
             {!!specificGroups.length && (
               <Text style={styles.selectedHint}>
-                {t("exerciseSelected")}: {specificGroups.join(", ")}
+                {t("exerciseSelected")}:{" "}
+                {specificGroups
+                  .map((group) => getMuscleLabel(group, language))
+                  .join(", ")}
               </Text>
             )}
           </>

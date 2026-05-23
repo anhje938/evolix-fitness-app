@@ -5,13 +5,17 @@ import {
   GlobalKeyboardAccessory,
 } from "@/components/common/GlobalKeyboardAccessory";
 import { AppDateTimePicker } from "@/components/date/AppDateTimePicker";
-import { MODAL_MAX_HEIGHT } from "@/config/modalTheme";
+import {
+  MODAL_MAX_HEIGHT,
+  modalGradientColors,
+  modalTheme,
+} from "@/config/modalTheme";
 import { typography } from "@/config/typography";
 import { useSubscription } from "@/context/SubscriptionProvider";
 import { useTranslation } from "@/i18n/translations";
 import {
   ADVANCED_MUSCLE_FILTERS,
-  type AdvancedMuscleFilterValue,
+  getMuscleLabel,
 } from "@/types/muscles";
 import {
   type AppLanguage,
@@ -22,6 +26,7 @@ import {
 } from "@/types/userSettings";
 import { getFutureUtcNoonIsoDate, toUtcNoonIsoDate } from "@/utils/date";
 import Constants from "expo-constants";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -105,6 +110,23 @@ const LANGUAGE_OPTIONS: { value: AppLanguage; label: string }[] = [
   { value: "nb", label: "Norsk" },
   { value: "en", label: "English" },
 ];
+const PROGRESSION_THEME_OPTIONS = [
+  {
+    value: "lose" as const,
+    label: "Cut",
+    description: "Ned i vekt med styrkebevaring",
+  },
+  {
+    value: "gain" as const,
+    label: "Bulk",
+    description: "Opp i vekt med god treningsrespons",
+  },
+  {
+    value: "maintain" as const,
+    label: "Maintenance",
+    description: "Stabil vekt og vedlikeholdskalorier",
+  },
+];
 
 const settingsInputProps = {
   inputAccessoryViewID: GLOBAL_IOS_KEYBOARD_ACCESSORY_ID,
@@ -114,22 +136,22 @@ const settingsInputProps = {
 };
 
 const settingsLightTheme = {
-  backdrop: "rgba(15,23,42,0.42)",
-  surface: "#F8FAFC",
-  surfaceSoft: "#EEF4FA",
-  item: "#FFFFFF",
-  itemSoft: "#F1F5F9",
-  border: "rgba(148,163,184,0.34)",
-  borderSoft: "rgba(148,163,184,0.22)",
-  text: "#0F172A",
-  textSoft: "#334155",
-  muted: "#64748B",
-  accent: "#2563EB",
-  accentSoft: "rgba(37,99,235,0.10)",
-  success: "#15803D",
-  successSoft: "rgba(34,197,94,0.10)",
-  danger: "#DC2626",
-  dangerSoft: "rgba(248,113,113,0.10)",
+  backdrop: modalTheme.backdrop,
+  surface: modalTheme.surface,
+  surfaceSoft: modalTheme.surfaceSoft,
+  item: "rgba(15,23,42,0.72)",
+  itemSoft: modalTheme.surfaceMuted,
+  border: modalTheme.border,
+  borderSoft: modalTheme.borderSoft,
+  text: modalTheme.text,
+  textSoft: modalTheme.textStrong,
+  muted: modalTheme.muted,
+  accent: "rgba(103,232,249,0.96)",
+  accentSoft: "rgba(34,211,238,0.12)",
+  success: "rgba(74,222,128,0.96)",
+  successSoft: "rgba(34,197,94,0.12)",
+  danger: "rgba(248,113,113,0.96)",
+  dangerSoft: "rgba(127,29,29,0.32)",
 };
 
 function clampInt(value: string, fallback: number) {
@@ -137,6 +159,13 @@ function clampInt(value: string, fallback: number) {
   const n = Number(cleaned);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.round(n));
+}
+
+function clampWeightValue(value: string, fallback: number) {
+  const cleaned = value.replace(",", ".").trim();
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(20, Math.min(500, Number(n.toFixed(1))));
 }
 
 function clampOptionalWeight(value: string): number | null {
@@ -225,13 +254,6 @@ function toggleRecoveryMuscleVisibility(
   return [...hidden, muscle];
 }
 
-function toRecoveryMuscleLabel(value: AdvancedMuscleFilterValue): string {
-  const fromConfig = ADVANCED_MUSCLE_FILTERS.find(
-    (item) => item.value === value
-  );
-  return fromConfig?.label ?? String(value);
-}
-
 export default function SettingsModal({
   visible,
   setVisible,
@@ -253,7 +275,7 @@ export default function SettingsModal({
   const [isRefreshingSubscription, setIsRefreshingSubscription] =
     useState(false);
   const subscription = useSubscription();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const isControlled = !!userSettings && !!onChangeUserSettings;
 
@@ -285,6 +307,18 @@ export default function SettingsModal({
     const next = { ...settings, ...patch };
     if (isControlled) onChangeUserSettings?.(next);
     else setLocalSettings(next);
+  };
+
+  const selectProgressionTheme = (
+    weightDirection: NonNullable<UserSettings["weightDirection"]>
+  ) => {
+    updateSettings({
+      weightDirection,
+      cutStartDateUtc:
+        settings.cutStartDateUtc ?? toUtcNoonIsoDate(new Date()),
+      cutStartWeightKg:
+        settings.cutStartWeightKg ?? settings.weightGoalKg,
+    });
   };
 
   const saveSettingsNow = (patch: Partial<UserSettings>) => {
@@ -557,6 +591,14 @@ export default function SettingsModal({
           style={styles.kb}
         >
           <View style={styles.container}>
+            <LinearGradient
+              colors={modalGradientColors}
+              start={{ x: 0.1, y: 0 }}
+              end={{ x: 0.95, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <View pointerEvents="none" style={styles.orbTop} />
+            <View pointerEvents="none" style={styles.orbBottom} />
             <View style={styles.headerRow}>
               <Text style={[typography.h2, styles.title]}>{t("settingsTitle")}</Text>
 
@@ -665,7 +707,13 @@ export default function SettingsModal({
                       {t("settingsSubscription")}
                     </Text>
 
-                    <View style={[styles.settingsItemBox, styles.stackItem]}>
+                    <View
+                      style={[
+                        styles.settingsItemBox,
+                        styles.stackItem,
+                        styles.progressionPanel,
+                      ]}
+                    >
                       <View style={styles.subscriptionStatusRow}>
                         <View style={styles.itemTextBox}>
                           <Text style={[typography.body, styles.itemText]}>
@@ -1083,25 +1131,222 @@ export default function SettingsModal({
                       />
                     </View>
 
+                    <View style={[styles.settingsItemBox, styles.stackItem]}>
+                      <View style={styles.itemTextBox}>
+                        <Text style={[typography.body, styles.itemText]}>
+                          Premium progresjon
+                        </Text>
+                        <Text style={[typography.body, styles.itemSubtext]}>
+                          Velg tema og koble det til målvekt, dato og startpunkt.
+                        </Text>
+                      </View>
+
+                      <View style={styles.progressionThemeList}>
+                        {PROGRESSION_THEME_OPTIONS.map((option) => {
+                          const active =
+                            settings.weightDirection === option.value;
+                          return (
+                            <Pressable
+                              key={option.value}
+                              onPress={() =>
+                                selectProgressionTheme(option.value)
+                              }
+                              style={({ pressed }) => [
+                                styles.progressionThemeButton,
+                                active && styles.progressionThemeButtonActive,
+                                pressed && styles.pressed,
+                              ]}
+                            >
+                              <View style={styles.progressionThemeCopy}>
+                                <Text
+                                  style={[
+                                    typography.bodyBold,
+                                    styles.progressionThemeTitle,
+                                    active &&
+                                      styles.progressionThemeTitleActive,
+                                  ]}
+                                >
+                                  {option.label}
+                                </Text>
+                                <Text
+                                  style={[
+                                    typography.body,
+                                    styles.progressionThemeDescription,
+                                  ]}
+                                >
+                                  {option.description}
+                                </Text>
+                              </View>
+                              <View
+                                style={[
+                                  styles.progressionThemeRadio,
+                                  active && styles.progressionThemeRadioActive,
+                                ]}
+                              >
+                                {active ? (
+                                  <View
+                                    style={styles.progressionThemeRadioDot}
+                                  />
+                                ) : null}
+                              </View>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+
+                      {!subscription.isPremium ? (
+                        <Text style={[typography.body, styles.itemSubtext]}>
+                          Selve rapporten er Premium-låst, men temaet brukes
+                          allerede av målvekt, dato og coachkort.
+                        </Text>
+                      ) : null}
+
+                      <View style={styles.progressionFields}>
+                        <View style={styles.progressionFieldRow}>
+                          <View style={styles.progressionFieldCopy}>
+                            <Text style={[typography.body, styles.itemText]}>
+                              {settings.weightDirection === "maintain"
+                                ? "Stabil vekt"
+                                : t("settingsWeightGoal")}
+                            </Text>
+                            <Text
+                              style={[typography.body, styles.itemSubtext]}
+                            >
+                              {settings.weightDirection === "gain"
+                                ? "Målvekt for bulk (kg)"
+                                : settings.weightDirection === "maintain"
+                                ? "Vekten du vil holde rundt (kg)"
+                                : "Målvekt for cut (kg)"}
+                            </Text>
+                          </View>
+
+                          <TextInput
+                            {...settingsInputProps}
+                            value={String(settings.weightGoalKg)}
+                            onChangeText={(value) =>
+                              updateSettings({
+                                weightGoalKg: clampWeightValue(
+                                  value,
+                                  settings.weightGoalKg
+                                ),
+                              })
+                            }
+                            keyboardType="decimal-pad"
+                            style={[typography.body, styles.inputValue]}
+                            placeholder="0"
+                            placeholderTextColor="rgba(148,163,184,0.6)"
+                          />
+                        </View>
+
+                        <View style={styles.progressionDateGrid}>
+                          <View style={styles.progressionDateItem}>
+                            <Text style={styles.progressionDateLabel}>
+                              {settings.weightDirection === "maintain"
+                                ? "Evalueringsdato"
+                                : "Måldato"}
+                            </Text>
+                            <AppDateTimePicker
+                              label={
+                                settings.weightDirection === "maintain"
+                                  ? "Evalueringsdato"
+                                  : "Måldato"
+                              }
+                              mode="date"
+                              compact
+                              value={toSafeDate(settings.weightGoalTimeUtc)}
+                              onChange={(date) =>
+                                updateSettings({
+                                  weightGoalTimeUtc:
+                                    toUtcNoonIsoDate(date ?? new Date()) ??
+                                    settings.weightGoalTimeUtc,
+                                })
+                              }
+                            />
+                          </View>
+
+                          <View style={styles.progressionDateItem}>
+                            <Text style={styles.progressionDateLabel}>
+                              Startdato
+                            </Text>
+                            <AppDateTimePicker
+                              label="Startdato"
+                              mode="date"
+                              compact
+                              value={toSafeDate(settings.cutStartDateUtc)}
+                              onChange={(date) =>
+                                updateSettings({
+                                  cutStartDateUtc: date
+                                    ? toUtcNoonIsoDate(date)
+                                    : settings.cutStartDateUtc,
+                                })
+                              }
+                            />
+                          </View>
+                        </View>
+
+                        <View style={styles.progressionFieldRow}>
+                          <View style={styles.progressionFieldCopy}>
+                            <Text style={[typography.body, styles.itemText]}>
+                              Startvekt
+                            </Text>
+                            <Text
+                              style={[typography.body, styles.itemSubtext]}
+                            >
+                              Brukes for historikk og rapporttempo.
+                            </Text>
+                          </View>
+
+                          <TextInput
+                            {...settingsInputProps}
+                            value={
+                              settings.cutStartWeightKg == null
+                                ? ""
+                                : String(settings.cutStartWeightKg)
+                            }
+                            onChangeText={(value) =>
+                              updateSettings({
+                                cutStartWeightKg: clampOptionalWeight(value),
+                              })
+                            }
+                            keyboardType="decimal-pad"
+                            style={[typography.body, styles.inputValue]}
+                            placeholder="kg"
+                            placeholderTextColor="rgba(148,163,184,0.6)"
+                          />
+                        </View>
+                      </View>
+                    </View>
+
+                    {false ? (
+                      <>
                     <View style={styles.settingsItemBox}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          {t("settingsWeightGoal")}
+                          {settings.weightDirection === "maintain"
+                            ? "Stabil vekt"
+                            : t("settingsWeightGoal")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          {t("settingsTargetWeightKg")}
+                          {settings.weightDirection === "gain"
+                            ? "Målvekt for bulk (kg)"
+                            : settings.weightDirection === "maintain"
+                            ? "Vekten du vil holde rundt (kg)"
+                            : "Målvekt for cut (kg)"}
                         </Text>
                       </View>
 
                       <TextInput
                         {...settingsInputProps}
                         value={String(settings.weightGoalKg)}
-                        onChangeText={(t) =>
+                        onChangeText={(value) =>
                           updateSettings({
-                            weightGoalKg: clampInt(t, settings.weightGoalKg),
+                            weightGoalKg: clampWeightValue(
+                              value,
+                              settings.weightGoalKg
+                            ),
                           })
                         }
-                        keyboardType="number-pad"
+                        keyboardType="decimal-pad"
                         style={[typography.body, styles.inputValue]}
                         placeholder="0"
                         placeholderTextColor="rgba(148,163,184,0.6)"
@@ -1111,17 +1356,23 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          {"Dato for vekt\u00e5l"}
+                          {settings.weightDirection === "maintain"
+                            ? "Evalueringsdato"
+                            : "Måldato"}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          {
-                            "N\u00e5r vil du at m\u00e5lvekten skal v\u00e6re n\u00e5dd?"
-                          }
+                          {settings.weightDirection === "maintain"
+                            ? "Når skal vedlikeholdsfasen vurderes på nytt?"
+                            : "Når vil du at målvekten skal være nådd?"}
                         </Text>
                       </View>
 
                       <AppDateTimePicker
-                        label={"M\u00e5ldato"}
+                        label={
+                          settings.weightDirection === "maintain"
+                            ? "Evalueringsdato"
+                            : "Måldato"
+                        }
                         mode="date"
                         compact
                         value={toSafeDate(settings.weightGoalTimeUtc)}
@@ -1138,67 +1389,12 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          {t("settingsCutStart")}
+                          Startpunkt for progresjon
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          {t("settingsCutStartDescription")}
+                          Brukes av Cut, Bulk og Maintenance Rapport for å tolke
+                          historikken riktig.
                         </Text>
-                      </View>
-
-                      <View style={styles.segment}>
-                        <Pressable
-                          onPress={() =>
-                            updateSettings({
-                              weightDirection: "lose",
-                              cutStartDateUtc:
-                                toUtcNoonIsoDate(new Date()) ??
-                                settings.cutStartDateUtc,
-                              cutStartWeightKg:
-                                settings.cutStartWeightKg ??
-                                settings.weightGoalKg,
-                            })
-                          }
-                          style={({ pressed }) => [
-                            styles.segmentBtn,
-                            settings.weightDirection === "lose" &&
-                              styles.segmentBtnActive,
-                            pressed && styles.pressed,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              typography.bodyBold,
-                              styles.segmentText,
-                              settings.weightDirection === "lose" &&
-                                styles.segmentTextActive,
-                            ]}
-                          >
-                            Aktiv cut
-                          </Text>
-                        </Pressable>
-
-                        <Pressable
-                          onPress={() =>
-                            updateSettings({ weightDirection: "maintain" })
-                          }
-                          style={({ pressed }) => [
-                            styles.segmentBtn,
-                            settings.weightDirection !== "lose" &&
-                              styles.segmentBtnActive,
-                            pressed && styles.pressed,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              typography.bodyBold,
-                              styles.segmentText,
-                              settings.weightDirection !== "lose" &&
-                                styles.segmentTextActive,
-                            ]}
-                          >
-                            Ikke cut
-                          </Text>
-                        </Pressable>
                       </View>
 
                       <AppDateTimePicker
@@ -1211,7 +1407,6 @@ export default function SettingsModal({
                             cutStartDateUtc: date
                               ? toUtcNoonIsoDate(date)
                               : settings.cutStartDateUtc,
-                            weightDirection: "lose",
                           })
                         }
                       />
@@ -1230,7 +1425,6 @@ export default function SettingsModal({
                           onChangeText={(value) =>
                             updateSettings({
                               cutStartWeightKg: clampOptionalWeight(value),
-                              weightDirection: "lose",
                             })
                           }
                           keyboardType="decimal-pad"
@@ -1240,6 +1434,8 @@ export default function SettingsModal({
                         />
                       </View>
                     </View>
+                      </>
+                    ) : null}
 
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
@@ -1271,7 +1467,7 @@ export default function SettingsModal({
                                 styles.segmentTextActive,
                             ]}
                           >
-                            Enkelt
+                            {t("settingsSimple")}
                           </Text>
                         </Pressable>
 
@@ -1294,7 +1490,7 @@ export default function SettingsModal({
                                 styles.segmentTextActive,
                             ]}
                           >
-                            Avansert
+                            {t("settingsAdvanced")}
                           </Text>
                         </Pressable>
                       </View>
@@ -1303,11 +1499,10 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Egne treningsdata
+                          {t("settingsTrainingContent")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Vis alle eller bare selvlagde øvelser, økter og
-                          program
+                          {t("settingsTrainingContentDescription")}
                         </Text>
                       </View>
 
@@ -1507,7 +1702,7 @@ export default function SettingsModal({
                               styles.recoveryActionText,
                             ]}
                           >
-                            Vis alle
+                            {t("settingsShowAll")}
                           </Text>
                         </Pressable>
 
@@ -1530,7 +1725,7 @@ export default function SettingsModal({
                               styles.recoveryActionText,
                             ]}
                           >
-                            Skjul alle
+                            {t("settingsHideAll")}
                           </Text>
                         </Pressable>
                       </View>
@@ -1565,7 +1760,7 @@ export default function SettingsModal({
                                   isVisible && styles.chipTextActive,
                                 ]}
                               >
-                                {toRecoveryMuscleLabel(muscle)}
+                                {getMuscleLabel(muscle, language)}
                               </Text>
                             </Pressable>
                           );
@@ -1576,10 +1771,10 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Næringsmål på hjemskjermen
+                          {t("settingsHomeNutritionGoals")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Velg hvilke mål som vises på hjemskjermen
+                          {t("settingsHomeNutritionGoalsDescription")}
                         </Text>
                       </View>
 
@@ -1845,6 +2040,25 @@ const styles = StyleSheet.create({
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 10 },
     elevation: 6,
+    overflow: "hidden",
+  },
+  orbTop: {
+    position: "absolute",
+    top: -56,
+    right: -30,
+    width: 160,
+    height: 160,
+    borderRadius: 999,
+    backgroundColor: modalTheme.orbTop,
+  },
+  orbBottom: {
+    position: "absolute",
+    left: -36,
+    bottom: -72,
+    width: 146,
+    height: 146,
+    borderRadius: 999,
+    backgroundColor: modalTheme.orbBottom,
   },
   legalContainer: {
     maxHeight: MODAL_MAX_HEIGHT,
@@ -1866,9 +2080,9 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 6,
     borderRadius: 999,
-    backgroundColor: "#0F172A",
+    backgroundColor: "rgba(15,23,42,0.54)",
     borderWidth: 1,
-    borderColor: "rgba(15,23,42,0.12)",
+    borderColor: settingsLightTheme.borderSoft,
   },
 
   tabRow: {
@@ -1886,7 +2100,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.78)",
+    backgroundColor: "rgba(15,23,42,0.48)",
     borderWidth: 1,
     borderColor: settingsLightTheme.borderSoft,
   },
@@ -2225,6 +2439,99 @@ const styles = StyleSheet.create({
   segmentTextActive: {
     opacity: 1,
     color: settingsLightTheme.success,
+  },
+  progressionThemeList: {
+    gap: 8,
+  },
+  progressionPanel: {
+    borderColor: "rgba(103,232,249,0.18)",
+    backgroundColor: "rgba(8,15,28,0.62)",
+  },
+  progressionThemeButton: {
+    minHeight: 56,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: settingsLightTheme.borderSoft,
+    backgroundColor: settingsLightTheme.itemSoft,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  progressionThemeButtonActive: {
+    backgroundColor: settingsLightTheme.accentSoft,
+    borderColor: "rgba(37,99,235,0.28)",
+  },
+  progressionThemeCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  progressionThemeTitle: {
+    color: settingsLightTheme.text,
+    fontSize: 13.5,
+  },
+  progressionThemeTitleActive: {
+    color: settingsLightTheme.accent,
+  },
+  progressionThemeDescription: {
+    marginTop: 3,
+    color: settingsLightTheme.muted,
+    fontSize: 11.5,
+    lineHeight: 15,
+  },
+  progressionThemeRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: settingsLightTheme.border,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: settingsLightTheme.item,
+  },
+  progressionThemeRadioActive: {
+    borderColor: settingsLightTheme.accent,
+    backgroundColor: settingsLightTheme.accentSoft,
+  },
+  progressionThemeRadioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: settingsLightTheme.accent,
+  },
+  progressionFields: {
+    marginTop: 2,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: settingsLightTheme.borderSoft,
+    paddingTop: 10,
+  },
+  progressionFieldRow: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  progressionFieldCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  progressionDateGrid: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  progressionDateItem: {
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
+  },
+  progressionDateLabel: {
+    color: settingsLightTheme.muted,
+    fontSize: 11,
+    fontWeight: "700",
   },
 
   chipRow: {

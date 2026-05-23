@@ -1,5 +1,6 @@
 
-//BASIC MUSCLE FILTERS 
+import type { AppLanguage } from "./userSettings";
+
 export type MuscleFilterValue =
   | "ALL"
   | "Bryst"
@@ -9,19 +10,21 @@ export type MuscleFilterValue =
   | "Armer"
   | "Core";
 
-export const MUSCLE_FILTERS: { label: string; value: MuscleFilterValue }[] = [
-  { label: "Alle", value: "ALL" },
-  { label: "Bryst", value: "Bryst" },
-  { label: "Rygg", value: "Rygg" },
-  { label: "Bein", value: "Bein" },
-  { label: "Skuldre", value: "Skuldre" },
-  { label: "Armer", value: "Armer" },
-  { label: "Core", value: "Core" },
+type LocalizedMuscleFilter<TValue extends string> = {
+  label: string;
+  labelEn: string;
+  value: TValue;
+};
+
+export const MUSCLE_FILTERS: LocalizedMuscleFilter<MuscleFilterValue>[] = [
+  { label: "Alle", labelEn: "All", value: "ALL" },
+  { label: "Bryst", labelEn: "Chest", value: "Bryst" },
+  { label: "Rygg", labelEn: "Back", value: "Rygg" },
+  { label: "Bein", labelEn: "Legs", value: "Bein" },
+  { label: "Skuldre", labelEn: "Shoulders", value: "Skuldre" },
+  { label: "Armer", labelEn: "Arms", value: "Armer" },
+  { label: "Core", labelEn: "Core", value: "Core" },
 ];
-
-//ADVANCED MUSCLE FILTERS
-
-// ADVANCED MUSCLE FILTERS
 
 export type AdvancedMuscleFilterValue =
   | "ALL"
@@ -60,44 +63,59 @@ export type AdvancedMuscleFilterValue =
   | "Bakside legg"
   | "Framside legg";
 
-  export const ADVANCED_MUSCLE_FILTERS: {
-    label: string;
-    value: AdvancedMuscleFilterValue;
-  }[] = [
-    { label: "Alle", value: "ALL" },
-  
-    // Bryst
-    { label: "Bryst", value: "Bryst" },
-  
-    // Skuldre
-    { label: "Fremre skulder", value: "Fremre skulder" },
-    { label: "Sideskulder", value: "Sideskulder" },
-    { label: "Bakre skulder", value: "Bakre skulder" },
-  
-    // Rygg
-    { label: "Øvre rygg", value: "Øvre rygg" },
-    { label: "Nedre rygg", value: "Nedre rygg" },
-    { label: "Lats", value: "Lats" },
-    { label: "Traps", value: "Traps" },
-  
-    // Armer
-    { label: "Biceps", value: "Biceps" },
-    { label: "Triceps", value: "Triceps" },
-    { label: "Brachialis", value: "Brachialis" },
-    { label: "Brachioradialis", value: "Brachioradialis" },
-    { label: "Underarm", value: "Underarm" },
-  
-    // Core
-    { label: "Mage", value: "Abs" },
-    { label: "Skrå magemuskler", value: "Obliques" },
-  
-    // Bein
-    { label: "Quadriceps", value: "Quadriceps" },
-    { label: "Hamstrings", value: "Hamstrings" },
-    { label: "Rumpe", value: "Rumpe" },
-    { label: "Innside lår", value: "Innside lår" },
-    { label: "Utside lår", value: "Utside lår" },
-    { label: "Bakside legg", value: "Bakside legg" },
-    { label: "Framside legg", value: "Framside legg" },
-  ];
-  
+export const ADVANCED_MUSCLE_FILTERS: LocalizedMuscleFilter<AdvancedMuscleFilterValue>[] = [
+  { label: "Alle", labelEn: "All", value: "ALL" },
+  { label: "Bryst", labelEn: "Chest", value: "Bryst" },
+  { label: "Fremre skulder", labelEn: "Front delts", value: "Fremre skulder" },
+  { label: "Sideskulder", labelEn: "Side delts", value: "Sideskulder" },
+  { label: "Bakre skulder", labelEn: "Rear delts", value: "Bakre skulder" },
+  { label: "Øvre rygg", labelEn: "Upper back", value: "Øvre rygg" },
+  { label: "Nedre rygg", labelEn: "Lower back", value: "Nedre rygg" },
+  { label: "Lats", labelEn: "Lats", value: "Lats" },
+  { label: "Traps", labelEn: "Traps", value: "Traps" },
+  { label: "Biceps", labelEn: "Biceps", value: "Biceps" },
+  { label: "Triceps", labelEn: "Triceps", value: "Triceps" },
+  { label: "Brachialis", labelEn: "Brachialis", value: "Brachialis" },
+  {
+    label: "Brachioradialis",
+    labelEn: "Brachioradialis",
+    value: "Brachioradialis",
+  },
+  { label: "Underarm", labelEn: "Forearms", value: "Underarm" },
+  { label: "Mage", labelEn: "Abs", value: "Abs" },
+  { label: "Skrå magemuskler", labelEn: "Obliques", value: "Obliques" },
+  { label: "Quadriceps", labelEn: "Quadriceps", value: "Quadriceps" },
+  { label: "Hamstrings", labelEn: "Hamstrings", value: "Hamstrings" },
+  { label: "Rumpe", labelEn: "Glutes", value: "Rumpe" },
+  { label: "Innside lår", labelEn: "Adductors", value: "Innside lår" },
+  { label: "Utside lår", labelEn: "Abductors", value: "Utside lår" },
+  { label: "Bakside legg", labelEn: "Calves", value: "Bakside legg" },
+  { label: "Framside legg", labelEn: "Tibialis", value: "Framside legg" },
+];
+
+const MUSCLE_LABEL_BY_VALUE = new Map<string, { nb: string; en: string }>(
+  [...MUSCLE_FILTERS, ...ADVANCED_MUSCLE_FILTERS].map((item) => [
+    item.value,
+    { nb: item.label, en: item.labelEn },
+  ])
+);
+
+export function getMuscleLabel(
+  value: string | null | undefined,
+  language: AppLanguage
+) {
+  if (!value) return "";
+  const labels = MUSCLE_LABEL_BY_VALUE.get(value);
+  if (!labels) return value;
+  return language === "en" ? labels.en : labels.nb;
+}
+
+export function getLocalizedMuscleFilters<TValue extends string>(
+  filters: LocalizedMuscleFilter<TValue>[],
+  language: AppLanguage
+) {
+  return filters.map((item) => ({
+    ...item,
+    label: language === "en" ? item.labelEn : item.label,
+  }));
+}

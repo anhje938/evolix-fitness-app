@@ -15,11 +15,21 @@ type ErrorResponse = {
 
 export class AuthRequestError extends Error {
   status: number;
+  code?: string;
+  detail?: string;
+  traceId?: string;
 
-  constructor(status: number, message: string) {
+  constructor(
+    status: number,
+    message: string,
+    options?: { code?: string; detail?: string; traceId?: string },
+  ) {
     super(message);
     this.name = "AuthRequestError";
     this.status = status;
+    this.code = options?.code;
+    this.detail = options?.detail;
+    this.traceId = options?.traceId;
   }
 }
 
@@ -29,20 +39,11 @@ export type AuthSessionPayload = {
   accessTokenExpiresAtUtc: string;
 };
 
-function toErrorMessage(errorText: string): string {
-  if (!errorText) return "";
-
+function parseErrorResponse(errorText: string): ErrorResponse {
   try {
-    const parsed = JSON.parse(errorText) as ErrorResponse;
-    return [
-      parsed.error,
-      parsed.detail,
-      parsed.traceId ? `traceId=${parsed.traceId}` : null,
-    ]
-      .filter(Boolean)
-      .join(" | ");
+    return JSON.parse(errorText) as ErrorResponse;
   } catch {
-    return errorText;
+    return { detail: errorText };
   }
 }
 
@@ -67,10 +68,19 @@ function normalizeAuthResponse(data: AuthResponse): AuthSessionPayload {
 async function parseAuthResponse(res: Response): Promise<AuthSessionPayload> {
   if (!res.ok) {
     const errorText = await res.text().catch(() => "");
-    throw new AuthRequestError(
-      res.status,
-      toErrorMessage(errorText) || `Auth request failed with status: ${res.status}`
-    );
+    const parsed = parseErrorResponse(errorText);
+    const message =
+      parsed.detail ||
+      parsed.error ||
+      (res.status === 404
+        ? "Auth endpoint was not found"
+        : `Auth request failed with status: ${res.status}`);
+
+    throw new AuthRequestError(res.status, message, {
+      code: parsed.error,
+      detail: parsed.detail,
+      traceId: parsed.traceId,
+    });
   }
 
   const data = (await res.json()) as AuthResponse;
@@ -79,7 +89,7 @@ async function parseAuthResponse(res: Response): Promise<AuthSessionPayload> {
 
 export async function loginWithApple(
   idToken: string,
-  authorizationCode?: string | null
+  authorizationCode?: string | null,
 ): Promise<AuthSessionPayload> {
   const normalizedToken = idToken.trim();
   const normalizedAuthorizationCode = authorizationCode?.trim() || null;
@@ -97,8 +107,42 @@ export async function loginWithApple(
   return parseAuthResponse(res);
 }
 
+export async function loginWithPassword(
+  email: string,
+  password: string,
+): Promise<AuthSessionPayload> {
+  const res = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: email.trim(),
+      password,
+    }),
+  });
+
+  return parseAuthResponse(res);
+}
+
+export async function registerWithPassword(
+  email: string,
+  username: string,
+  password: string,
+): Promise<AuthSessionPayload> {
+  const res = await fetch(`${API_BASE_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: email.trim(),
+      username: username.trim(),
+      password,
+    }),
+  });
+
+  return parseAuthResponse(res);
+}
+
 export async function refreshWithToken(
-  refreshToken: string
+  refreshToken: string,
 ): Promise<AuthSessionPayload> {
   const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
     method: "POST",
@@ -110,7 +154,7 @@ export async function refreshWithToken(
 }
 
 export async function logoutWithRefreshToken(
-  refreshToken: string
+  refreshToken: string,
 ): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/auth/logout`, {
     method: "POST",
@@ -121,7 +165,8 @@ export async function logoutWithRefreshToken(
   if (res.ok || res.status === 401) return;
 
   const errorText = await res.text().catch(() => "");
+  const parsed = parseErrorResponse(errorText);
   throw new Error(
-    toErrorMessage(errorText) || `Logout failed with status: ${res.status}`
+    parsed.detail || parsed.error || `Logout failed with status: ${res.status}`,
   );
 }

@@ -1,5 +1,6 @@
 // components/exercise/progress/StatRow.tsx
 import { generalStyles } from "@/config/styles";
+import { useTranslation } from "@/i18n/translations";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
@@ -12,17 +13,19 @@ type Props = {
 };
 
 export function StatRow({ pr, lastWeight, diffToPr }: Props) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.statsRow}>
       <StatCard label="PR" value={pr} unit="kg" accent icon="trophy-outline" />
       <StatCard
-        label="Siste"
+        label={t("progressLatest")}
         value={lastWeight}
         unit="kg"
         icon="time-outline"
       />
       <StatCard
-        label="Til PR"
+        label={t("progressToPr")}
         value={diffToPr}
         unit="kg"
         warning

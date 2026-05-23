@@ -3,7 +3,7 @@ import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
 import type { ExerciseSessionSetsDto } from "@/api/exercise/exerchiseHistory";
 import { Exercise } from "@/types/exercise";
-import { ADVANCED_MUSCLE_FILTERS } from "@/types/muscles";
+import { ADVANCED_MUSCLE_FILTERS, getMuscleLabel } from "@/types/muscles";
 import { useTranslation } from "@/i18n/translations";
 import { sessionBest1RmFromSets } from "@/utils/exercise/sessionBest1RmFromSets";
 import { Ionicons } from "@expo/vector-icons";
@@ -80,7 +80,7 @@ export default function ExerciseCard({
   isAdmin?: boolean;
   onPress: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [editOpen, setEditOpen] = useState(false);
 
   const isGlobal = exercise.userId == null;
@@ -242,7 +242,7 @@ export default function ExerciseCard({
                           style={[typography.bodyBlack, styles.pillText]}
                           numberOfLines={1}
                         >
-                          {muscle}
+                          {getMuscleLabel(muscle, language)}
                         </Text>
                       </View>
                     );

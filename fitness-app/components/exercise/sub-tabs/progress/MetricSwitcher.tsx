@@ -1,4 +1,5 @@
 import { newColors } from "@/config/theme";
+import { useTranslation } from "@/i18n/translations";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -18,21 +19,23 @@ export function MetricSwitcher({
   volumeMetric,
   onVolumeMetricChange,
 }: Props) {
+  const { t } = useTranslation();
+
   return (
     <>
       <View style={styles.modeRow}>
         <ToggleButton
-          label="Maks vekt"
+          label={t("progressMaxWeight")}
           selected={metric === "weight"}
           onPress={() => onMetricChange("weight")}
         />
         <ToggleButton
-          label="Volum"
+          label={t("progressVolume")}
           selected={metric === "volume"}
           onPress={() => onMetricChange("volume")}
         />
         <ToggleButton
-          label="Begge"
+          label={t("progressBoth")}
           selected={metric === "both"}
           onPress={() => onMetricChange("both")}
         />
@@ -41,12 +44,12 @@ export function MetricSwitcher({
       {metric !== "weight" && (
         <View style={styles.subModeRow}>
           <SubModeButton
-            label="Volum (kg)"
+            label={t("progressVolumeKg")}
             selected={volumeMetric === "kg"}
             onPress={() => onVolumeMetricChange("kg")}
           />
           <SubModeButton
-            label="Volum (sett)"
+            label={t("progressVolumeSets")}
             selected={volumeMetric === "sets"}
             onPress={() => onVolumeMetricChange("sets")}
           />

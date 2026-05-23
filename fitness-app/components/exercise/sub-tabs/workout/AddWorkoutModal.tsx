@@ -106,7 +106,7 @@ export function AddWorkoutModal({ visible, onClose, onSubmit }: Props) {
             <Text style={styles.label}>{t("modalName")}</Text>
             <TextInput
               style={styles.input}
-              placeholder="F.eks. Push A"
+              placeholder={t("workoutNamePlaceholder")}
               placeholderTextColor="rgba(148,163,184,0.8)"
               value={name}
               onChangeText={setName}

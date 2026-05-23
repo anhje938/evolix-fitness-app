@@ -4,6 +4,7 @@ import { typography } from "@/config/typography";
 import type { Exercise, Workout } from "@/types/exercise";
 import type { AppLanguage } from "@/types/userSettings";
 import { translate } from "@/i18n/translations";
+import { getMuscleLabel } from "@/types/muscles";
 import { getWorkoutDisplay } from "@/utils/exercise/localizedTraining";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -82,6 +83,11 @@ function getExerciseAccent(index: number) {
     bg: "rgba(45,212,191,0.08)",
     border: "rgba(45,212,191,0.16)",
   };
+}
+
+function exerciseCountLabel(count: number, language: AppLanguage) {
+  if (language === "en") return `${count} exercise${count === 1 ? "" : "s"}`;
+  return `${count} øvelse${count === 1 ? "" : "r"}`;
 }
 
 export const WorkoutList = memo(function WorkoutList({
@@ -257,8 +263,7 @@ export const WorkoutList = memo(function WorkoutList({
                             color={colors.muted2}
                           />
                           <Text style={styles.metaInlineText}>
-                            {exerciseCount} øvelse
-                            {exerciseCount === 1 ? "" : "r"}
+                            {exerciseCountLabel(exerciseCount, language)}
                           </Text>
                         </View>
 
@@ -336,7 +341,7 @@ export const WorkoutList = memo(function WorkoutList({
                 <View style={styles.dropdown}>
                   {exercisesInWorkout.length === 0 ? (
                     <Text style={[typography.body, styles.emptyText]}>
-                      Ingen øvelser lagt til ennå.
+                      {translate(language, "workoutNoSelectedExercises")}
                     </Text>
                   ) : (
                     <View style={styles.exerciseList}>
@@ -392,7 +397,7 @@ export const WorkoutList = memo(function WorkoutList({
                                     ]}
                                     numberOfLines={1}
                                   >
-                                    {exercise.muscle}
+                                    {getMuscleLabel(exercise.muscle, language)}
                                   </Text>
                                 </View>
                               )}

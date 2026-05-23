@@ -27,43 +27,61 @@ import {
 } from "react-native";
 import { useState, type ComponentProps, type ReactNode } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "@/i18n/translations";
+import type { AppLanguage } from "@/types/userSettings";
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "Ingen dato";
+function formatDate(value: string | null | undefined, language: AppLanguage) {
+  if (!value) return language === "en" ? "No date" : "Ingen dato";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return value;
-  return date.toLocaleDateString("nb-NO", {
+  return date.toLocaleDateString(language === "en" ? "en-US" : "nb-NO", {
     day: "2-digit",
     month: "short",
   });
 }
 
-function formatDateLong(value: string | null | undefined) {
-  if (!value) return "Ingen dato";
+function formatDateLong(value: string | null | undefined, language: AppLanguage) {
+  if (!value) return language === "en" ? "No date" : "Ingen dato";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return value;
-  return date.toLocaleDateString("nb-NO", {
+  return date.toLocaleDateString(language === "en" ? "en-US" : "nb-NO", {
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
 }
 
-function formatNumber(value: number | null | undefined, suffix = "") {
-  if (value === null || value === undefined) return "Ingen data";
-  if (!Number.isFinite(Number(value))) return "Ingen data";
-  return `${Number(value).toLocaleString("nb-NO", {
+function formatNumber(
+  value: number | null | undefined,
+  suffix = "",
+  language: AppLanguage
+) {
+  if (value === null || value === undefined) return language === "en" ? "No data" : "Ingen data";
+  if (!Number.isFinite(Number(value))) return language === "en" ? "No data" : "Ingen data";
+  return `${Number(value).toLocaleString(language === "en" ? "en-US" : "nb-NO", {
     maximumFractionDigits: 1,
   })}${suffix}`;
 }
 
-function qualityLabel(value: DataQualityLevel) {
+function qualityLabel(value: DataQualityLevel, language: AppLanguage) {
+  if (language === "en") {
+    if (value === DataQualityLevel.High) return "Strong data foundation";
+    if (value === DataQualityLevel.Medium) return "Medium data foundation";
+    return "Early signal";
+  }
   if (value === DataQualityLevel.High) return "Godt datagrunnlag";
   if (value === DataQualityLevel.Medium) return "Middels datagrunnlag";
   return "Tidlig signal";
 }
 
-function scoreLabel(score: number | null) {
+function scoreLabel(score: number | null, language: AppLanguage) {
+  if (language === "en") {
+    if (score === null) return "Building data";
+    if (score >= 90) return "Strong week";
+    if (score >= 75) return "On track";
+    if (score >= 60) return "Useful week";
+    return "Uneven week";
+  }
   if (score === null) return "Data bygges";
   if (score >= 90) return "Sterk uke";
   if (score >= 75) return "På god vei";
@@ -125,6 +143,7 @@ function MetricRow({
 
 function ReportContent({ report }: { report: WeeklyReport }) {
   const { refreshUserSettings } = useUserSettings();
+  const { t, language } = useTranslation();
   const score = report.overallScore;
   const bodyRecommendations = report.recommendations.filter((item) =>
     isBodyPlanRecommendation(item.type)
@@ -159,10 +178,13 @@ function ReportContent({ report }: { report: WeeklyReport }) {
               size={14}
               color="rgba(103,232,249,0.98)"
             />
-            <Text style={styles.heroBadgeText}>Ukesrapport</Text>
+            <Text style={styles.heroBadgeText}>
+              {language === "en" ? "Weekly report" : "Ukesrapport"}
+            </Text>
           </View>
           <Text style={styles.weekText}>
-            {formatDate(report.weekStart)} - {formatDate(report.weekEnd)}
+            {formatDate(report.weekStart, language)} -{" "}
+            {formatDate(report.weekEnd, language)}
           </Text>
         </View>
 
@@ -172,10 +194,10 @@ function ReportContent({ report }: { report: WeeklyReport }) {
             <Text style={styles.scoreMax}>/100</Text>
           </View>
           <View style={styles.scoreCopy}>
-            <Text style={styles.scoreLabel}>{scoreLabel(score)}</Text>
+            <Text style={styles.scoreLabel}>{scoreLabel(score, language)}</Text>
             <Text style={styles.summaryText}>{report.summaryText}</Text>
             <Text style={styles.dataQuality}>
-              {qualityLabel(report.dataQuality)}
+              {qualityLabel(report.dataQuality, language)}
             </Text>
           </View>
         </View>
@@ -189,65 +211,85 @@ function ReportContent({ report }: { report: WeeklyReport }) {
             color="rgba(251,191,36,0.96)"
           />
           <Text style={styles.staleText}>
-            {report.staleReason || "Rapporten har nyere data tilgjengelig."}
+            {report.staleReason ||
+              (language === "en"
+                ? "The report has newer data available."
+                : "Rapporten har nyere data tilgjengelig.")}
           </Text>
         </View>
       )}
 
-      <SectionCard title="Vekt" icon="scale-outline">
+      <SectionCard title={t("tabWeight")} icon="scale-outline">
         <MetricRow
-          label="Trend"
-          value={`${formatNumber(report.weight?.startTrendWeightKg, " kg")} → ${formatNumber(
+          label={language === "en" ? "Trend" : "Trend"}
+          value={`${formatNumber(report.weight?.startTrendWeightKg, " kg", language)} → ${formatNumber(
             report.weight?.endTrendWeightKg,
-            " kg"
+            " kg",
+            language
           )}`}
           accent
         />
         <MetricRow
-          label="Endring"
-          value={formatNumber(report.weight?.weeklyChangeKg, " kg")}
+          label={language === "en" ? "Change" : "Endring"}
+          value={formatNumber(report.weight?.weeklyChangeKg, " kg", language)}
         />
         <MetricRow
-          label="Måltempo"
-          value={formatNumber(report.weight?.expectedWeeklyChangeKg, " kg/uke")}
+          label={language === "en" ? "Target pace" : "Måltempo"}
+          value={formatNumber(
+            report.weight?.expectedWeeklyChangeKg,
+            language === "en" ? " kg/week" : " kg/uke",
+            language
+          )}
         />
         {report.weight?.estimatedGoalDate && (
           <MetricRow
-            label="Estimert måldato"
-            value={formatDateLong(report.weight.estimatedGoalDate)}
+            label={language === "en" ? "Estimated goal date" : "Estimert måldato"}
+            value={formatDateLong(report.weight.estimatedGoalDate, language)}
           />
         )}
         <Text style={styles.insightText}>
-          {report.weight?.insight ?? "EvoliX trenger flere vektmålinger."}
+          {report.weight?.insight ??
+            (language === "en"
+              ? "EvoliX needs more weight logs."
+              : "EvoliX trenger flere vektmålinger.")}
         </Text>
       </SectionCard>
 
-      <SectionCard title="Mat" icon="nutrition-outline">
+      <SectionCard title={t("tabFood")} icon="nutrition-outline">
         <MetricRow
-          label="Kalorier"
-          value={`${formatNumber(report.nutrition?.averageCalories, " kcal")} / ${formatNumber(
+          label={t("homeCalories")}
+          value={`${formatNumber(report.nutrition?.averageCalories, " kcal", language)} / ${formatNumber(
             report.nutrition?.targetCalories,
-            " kcal"
+            " kcal",
+            language
           )}`}
           accent
         />
         <MetricRow
-          label="Protein"
-          value={`${formatNumber(report.nutrition?.averageProtein, " g")} / ${formatNumber(
+          label={t("homeProtein")}
+          value={`${formatNumber(report.nutrition?.averageProtein, " g", language)} / ${formatNumber(
             report.nutrition?.targetProtein,
-            " g"
+            " g",
+            language
           )}`}
         />
         <MetricRow
-          label="Logging"
-          value={`${report.nutrition?.loggedDays ?? 0} av 7 dager`}
+          label={t("cutReportLogging")}
+          value={
+            language === "en"
+              ? `${report.nutrition?.loggedDays ?? 0} of 7 days`
+              : `${report.nutrition?.loggedDays ?? 0} av 7 dager`
+          }
         />
         <Text style={styles.insightText}>
-          {report.nutrition?.insight ?? "Logg mat for tryggere anbefalinger."}
+          {report.nutrition?.insight ??
+            (language === "en"
+              ? "Log food for safer recommendations."
+              : "Logg mat for tryggere anbefalinger.")}
         </Text>
       </SectionCard>
 
-      <SectionCard title="Neste steg" icon="calendar-outline">
+      <SectionCard title={t("cutReportNextWeek")} icon="calendar-outline">
         <View style={styles.actionList}>
           {(nextActions.length > 0 ? nextActions : report.nextWeekActions.slice(0, 2)).map((action) => (
             <View key={`${action.sortOrder}-${action.text}`} style={styles.actionRow}>
@@ -261,7 +303,9 @@ function ReportContent({ report }: { report: WeeklyReport }) {
       </SectionCard>
 
       <View style={styles.recommendationsHeader}>
-        <Text style={styles.recommendationsTitle}>Anbefalinger</Text>
+        <Text style={styles.recommendationsTitle}>
+          {language === "en" ? "Recommendations" : "Anbefalinger"}
+        </Text>
         <Text style={styles.recommendationsCount}>
           {bodyRecommendations.length}
         </Text>
@@ -270,9 +314,13 @@ function ReportContent({ report }: { report: WeeklyReport }) {
       <View style={styles.recommendationList}>
         {bodyRecommendations.length === 0 ? (
           <View style={styles.emptyRecommendations}>
-            <Text style={styles.emptyTitle}>Ingen nye endringer</Text>
+            <Text style={styles.emptyTitle}>
+              {language === "en" ? "No new changes" : "Ingen nye endringer"}
+            </Text>
             <Text style={styles.emptyText}>
-              Planen ser stabil ut for denne uken.
+              {language === "en"
+                ? "The plan looks stable for this week."
+                : "Planen ser stabil ut for denne uken."}
             </Text>
           </View>
         ) : (
@@ -319,7 +367,9 @@ function WeeklyReportPremiumScreen() {
         >
           <Ionicons name="chevron-back" size={20} color="rgba(226,232,240,0.96)" />
         </Pressable>
-        <Text style={styles.headerTitle}>Rapport</Text>
+        <Text style={styles.headerTitle}>
+          {userSettings.language === "en" ? "Report" : "Rapport"}
+        </Text>
         <Pressable
           disabled={regenerateReport.isPending}
           style={({ pressed }) => [
@@ -347,7 +397,11 @@ function WeeklyReportPremiumScreen() {
         {reportQuery.isLoading ? (
           <View style={styles.loadingCard}>
             <ActivityIndicator size="small" color="rgba(103,232,249,0.98)" />
-            <Text style={styles.loadingText}>Lager ukesrapport</Text>
+            <Text style={styles.loadingText}>
+              {userSettings.language === "en"
+                ? "Building weekly report"
+                : "Lager ukesrapport"}
+            </Text>
           </View>
         ) : reportQuery.isError || !reportQuery.data ? (
           <View style={styles.loadingCard}>
@@ -365,7 +419,9 @@ function WeeklyReportPremiumScreen() {
               ]}
               onPress={() => reportQuery.refetch()}
             >
-              <Text style={styles.retryText}>Prøv igjen</Text>
+              <Text style={styles.retryText}>
+                {userSettings.language === "en" ? "Try again" : "Prøv igjen"}
+              </Text>
             </Pressable>
           </View>
         ) : (
@@ -379,6 +435,7 @@ function WeeklyReportPremiumScreen() {
 export default function WeeklyReportScreen() {
   const insets = useSafeAreaInsets();
   const { isPremium, isLoading } = useSubscription();
+  const { userSettings } = useUserSettings();
   const [paywallVisible, setPaywallVisible] = useState(false);
 
   if (isPremium) return <WeeklyReportPremiumScreen />;
@@ -397,7 +454,9 @@ export default function WeeklyReportScreen() {
         >
           <Ionicons name="chevron-back" size={20} color="rgba(226,232,240,0.96)" />
         </Pressable>
-        <Text style={styles.headerTitle}>Rapport</Text>
+        <Text style={styles.headerTitle}>
+          {userSettings.language === "en" ? "Report" : "Rapport"}
+        </Text>
         <View style={styles.headerButtonPlaceholder} />
       </View>
 
@@ -409,8 +468,14 @@ export default function WeeklyReportScreen() {
         ]}
       >
         <LockedFeatureCard
-          title="Ukesrapport"
-          description="Premium gir deg ukesrapport, anbefalinger og neste steg basert på mat, vekt og trening."
+          title={
+            userSettings.language === "en" ? "Weekly report" : "Ukesrapport"
+          }
+          description={
+            userSettings.language === "en"
+              ? "Premium gives you weekly reports, recommendations and next steps based on food, weight and training."
+              : "Premium gir deg ukesrapport, anbefalinger og neste steg basert på mat, vekt og trening."
+          }
           isLoading={isLoading}
           onPress={() => setPaywallVisible(true)}
         />

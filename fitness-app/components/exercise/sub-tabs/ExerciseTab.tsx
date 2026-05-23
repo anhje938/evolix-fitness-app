@@ -252,10 +252,10 @@ export default function ExerciseTab({ onPressExercise }: Props) {
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <Text style={[typography.bodyBold, styles.emptyTitle]}>
-              Ingen treff
+              {t("exerciseNoResultsTitle")}
             </Text>
             <Text style={[typography.body, styles.emptySub]}>
-              Prøv et annet søk eller bytt muskel-filter.
+              {t("exerciseNoResultsBody")}
             </Text>
           </View>
         }

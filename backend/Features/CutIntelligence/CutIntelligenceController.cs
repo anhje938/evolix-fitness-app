@@ -68,5 +68,21 @@ namespace backend.Features.CutIntelligence
                 request.RecommendationId,
                 ct));
         }
+
+        [HttpPost("recommendations/undo-last")]
+        public async Task<ActionResult<ApplyCutRecommendationResultDto>> UndoLastRecommendation(
+            CancellationToken ct)
+        {
+            var userId = GetUserId();
+            if (!await _subscriptionService.HasPremiumAccessAsync(userId, ct))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    error = "upgrade_required"
+                });
+            }
+
+            return Ok(await _cutIntelligenceService.UndoLastRecommendationAsync(userId, ct));
+        }
     }
 }

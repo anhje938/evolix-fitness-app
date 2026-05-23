@@ -178,6 +178,7 @@ public class RefreshTokenService
         {
             UserId = user.Id,
             Email = user.Email,
+            AuthProvider = user.AuthProvider,
             Jwt = access.Token,
             AccessToken = access.Token,
             RefreshToken = refreshToken,

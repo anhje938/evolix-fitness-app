@@ -18,7 +18,10 @@ import React, {
 type UserSettingsCtx = {
   userSettings: UserSettings;
   setUserSettings: (next: UserSettings) => void;
-  saveUserSettingsNow: (next: UserSettings) => Promise<void>;
+  saveUserSettingsNow: (
+    next: UserSettings,
+    options?: { requireRemoteSuccess?: boolean }
+  ) => Promise<void>;
   refreshUserSettings: () => Promise<void>;
   isLoadingUserSettings: boolean;
   isSavingUserSettings: boolean;
@@ -267,18 +270,29 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
   );
 
   const saveUserSettingsNow = useCallback(
-    async (next: UserSettings) => {
+    async (
+      next: UserSettings,
+      options?: { requireRemoteSuccess?: boolean }
+    ) => {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
       }
 
-      setUserSettingsState(next);
+      const requireRemoteSuccess = options?.requireRemoteSuccess === true;
       queuedSaveRef.current = next;
       setUserSettingsError(null);
-      await persistLocal(next);
 
-      if (!token) return;
+      if (!token) {
+        setUserSettingsState(next);
+        await persistLocal(next);
+        return;
+      }
+
+      if (!requireRemoteSuccess) {
+        setUserSettingsState(next);
+        await persistLocal(next);
+      }
 
       setIsSavingUserSettings(true);
 
@@ -296,9 +310,11 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
         if (isUnauthorizedError(error)) {
           setUserSettingsError(null);
           void setToken(null);
+          if (requireRemoteSuccess) throw error;
           return;
         }
         setUserSettingsError(toErrorMessage(error));
+        if (requireRemoteSuccess) throw error;
       } finally {
         if (mountedRef.current) setIsSavingUserSettings(false);
       }

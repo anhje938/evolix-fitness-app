@@ -23,9 +23,9 @@ export async function getCurrentCutReport(): Promise<CutReport> {
 
   const text = await res.text().catch(() => "");
   if (!res.ok) {
-    throw new Error(text || `Cut Rapport feilet med status ${res.status}`);
+    throw new Error(text || `Målrapport feilet med status ${res.status}`);
   }
-  if (!text.trim()) throw new Error("Cut Rapport returnerte tom rapport");
+  if (!text.trim()) throw new Error("Målrapport returnerte tom rapport");
 
   return JSON.parse(text) as CutReport;
 }
@@ -75,6 +75,30 @@ export async function applyCutRecommendation(
   const text = await res.text().catch(() => "");
   if (!res.ok) {
     throw new Error(text || `Kunne ikke bruke anbefaling (${res.status})`);
+  }
+  if (!text.trim()) throw new Error("Serveren returnerte tom respons");
+
+  return JSON.parse(text) as ApplyCutRecommendationResult;
+}
+
+export async function undoLastCutRecommendation(): Promise<ApplyCutRecommendationResult> {
+  const token = await getValidAccessToken();
+  if (!token) throw new Error("Mangler auth-token");
+
+  const res = await authFetch(
+    `${API_BASE_URL}/cut-intelligence/recommendations/undo-last`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+    { token }
+  );
+
+  const text = await res.text().catch(() => "");
+  if (!res.ok) {
+    throw new Error(text || `Kunne ikke angre anbefaling (${res.status})`);
   }
   if (!text.trim()) throw new Error("Serveren returnerte tom respons");
 

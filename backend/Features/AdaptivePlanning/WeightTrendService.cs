@@ -7,6 +7,7 @@ namespace backend.Features.AdaptivePlanning
     public class WeightTrendService
     {
         private const double MaxWeeklyGainKg = 0.75;
+        private const double MaxWeeklyGainBodyweightFraction = 0.0025;
         private const double MaxWeeklyLossKg = 1.0;
         private const double MaxWeeklyLossBodyweightFraction = 0.01;
 
@@ -126,7 +127,8 @@ namespace backend.Features.AdaptivePlanning
 
         private static double GetSafeWeeklyRate(WeightDirection direction, double trendWeightKg)
         {
-            if (direction == WeightDirection.Gain) return MaxWeeklyGainKg;
+            if (direction == WeightDirection.Gain)
+                return Math.Min(MaxWeeklyGainKg, Math.Max(0.1, trendWeightKg * MaxWeeklyGainBodyweightFraction));
             if (direction == WeightDirection.Lose)
                 return Math.Min(
                     MaxWeeklyLossKg,

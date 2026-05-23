@@ -9,6 +9,7 @@ import {
   useApplyCutRecommendation,
   useCurrentCutReport,
   useCutReadiness,
+  useUndoLastCutRecommendation,
 } from "@/hooks/useCutIntelligence";
 import type {
   CutRecommendation,
@@ -16,6 +17,7 @@ import type {
   CutReport,
   CutReportConfidence,
   CutReportStatus,
+  GoalReportType,
 } from "@/types/cutIntelligence";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -23,6 +25,7 @@ import { router } from "expo-router";
 import { useState, type ComponentProps, type ReactNode } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -109,6 +112,12 @@ function normalizeReport(report: CutReport, t: TranslationFn): CutReport {
   return {
     ...report,
     warnings: Array.isArray(report.warnings) ? report.warnings : [],
+    goalType: report.goalType ?? "cut",
+    isLimitedReport: Boolean(report.isLimitedReport),
+    notEnoughData: Boolean(report.notEnoughData),
+    statusReasons: Array.isArray(report.statusReasons)
+      ? report.statusReasons
+      : [],
     recommendations: Array.isArray(report.recommendations)
       ? report.recommendations
       : [],
@@ -148,12 +157,39 @@ function normalizeReport(report: CutReport, t: TranslationFn): CutReport {
         report.trainingLoadSummary?.summary ??
         t("cutReportTrainingMissing"),
     },
+    adherenceSummary: report.adherenceSummary ?? {
+      mealLoggingAdherencePercent: report.nutritionSummary?.loggingAdherencePercent ?? 0,
+      weighInAdherencePercent: 0,
+      proteinTargetAdherencePercent: 0,
+      calorieTargetAdherencePercent: 0,
+      workoutAdherencePercent: null,
+      summary: "Adherence mangler i responsen.",
+    },
+    timelineSummary: report.timelineSummary ?? {
+      targetWeightKg: null,
+      estimatedWeeksToGoal: null,
+      maintenanceStabilityStreakWeeks: 0,
+      summary: "Timeline mangler i responsen.",
+    },
+    previousComparison: report.previousComparison ?? {
+      hasPreviousReport: false,
+      previousScore: null,
+      scoreChange: null,
+      previousStatus: null,
+      statusChanged: false,
+      consecutiveWeeksOnTrack: 0,
+      consecutiveWeeksOffTrack: 0,
+      repeatedProblems: [],
+      resolvedProblems: [],
+      lastRecommendationIds: [],
+      summary: "Ingen tidligere rapport å sammenligne med.",
+    },
   };
 }
 
 function formatNumber(value: number | null | undefined, suffix = "") {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) {
-    return "Ingen data";
+    return "--";
   }
 
   return `${Number(value).toLocaleString("nb-NO", {
@@ -161,7 +197,89 @@ function formatNumber(value: number | null | undefined, suffix = "") {
   })}${suffix}`;
 }
 
-function statusLabel(status: CutReportStatus) {
+function goalTitle(
+  goalType: GoalReportType | undefined,
+  language: "nb" | "en" = "nb"
+) {
+  if (language === "en") {
+    if (goalType === "leanBulk") return "Bulk Report";
+    if (goalType === "maintenance") return "Maintenance Report";
+    return "Cut Report";
+  }
+  if (goalType === "leanBulk") return "Bulk Rapport";
+  if (goalType === "maintenance") return "Maintenance Rapport";
+  return "Cut Rapport";
+}
+
+function goalTypeFromDirection(
+  direction: "gain" | "lose" | "maintain" | undefined
+): GoalReportType {
+  if (direction === "gain") return "leanBulk";
+  if (direction === "maintain") return "maintenance";
+  return "cut";
+}
+
+function goalPreviewTitle(
+  goalType: GoalReportType | undefined,
+  language: "nb" | "en" = "nb"
+) {
+  if (language === "en") {
+    if (goalType === "leanBulk") return "Bulk Report is locked";
+    if (goalType === "maintenance") return "Maintenance Report is locked";
+    return "Cut Report is locked";
+  }
+  if (goalType === "leanBulk") return "Bulk Rapport er låst";
+  if (goalType === "maintenance") return "Maintenance Rapport er låst";
+  return "Cut Rapport er låst";
+}
+
+function goalPreviewBody(
+  goalType: GoalReportType | undefined,
+  language: "nb" | "en" = "nb"
+) {
+  if (language === "en") {
+    if (goalType === "leanBulk") {
+      return "Pro analyzes weight gain, macros, strength response and bulk quality before suggesting next week.";
+    }
+    if (goalType === "maintenance") {
+      return "Pro analyzes weight stability, logging, training and real maintenance calories over time.";
+    }
+    return "Pro analyzes weight loss, macros, strength retention, logging and training load before suggesting next week.";
+  }
+  if (goalType === "leanBulk") {
+    return "Pro analyserer vektoppgang, makroer, styrkerespons og bulk-kvalitet før den foreslår neste uke.";
+  }
+  if (goalType === "maintenance") {
+    return "Pro analyserer vektstabilitet, logging, trening og faktisk vedlikeholdskalori over tid.";
+  }
+  return "Pro analyserer vekttap, makroer, styrkebevaring, logging og treningsbelastning før den foreslår neste uke.";
+}
+
+function statusLabel(status: CutReportStatus, language: "nb" | "en" = "nb") {
+  if (language === "en") {
+    const labels: Record<CutReportStatus, string> = {
+      excellent: "Excellent",
+      onTrack: "On track",
+      slightlyAggressive: "Slightly aggressive",
+      tooAggressive: "Too aggressive",
+      tooSlow: "Too slow",
+      strengthRisk: "Strength risk",
+      fatigueRisk: "Fatigue risk",
+      inconsistentData: "Inconsistent data",
+      limitedData: "Limited report",
+      notEnoughData: "Needs more data",
+      tooFast: "Too fast",
+      dirtyBulkRisk: "Dirty bulk risk",
+      poorTrainingResponse: "Weak training response",
+      strengthProgressing: "Strength improving",
+      stable: "Stable",
+      driftingUp: "Drifting up",
+      driftingDown: "Drifting down",
+      recompProgress: "Recomp signal",
+      maintenanceFound: "Maintenance found",
+    };
+    return labels[status] ?? status;
+  }
   const labels: Record<CutReportStatus, string> = {
     excellent: "Svært bra",
     onTrack: "På plan",
@@ -169,16 +287,52 @@ function statusLabel(status: CutReportStatus) {
     tooAggressive: "For aggressiv",
     tooSlow: "For treg",
     strengthRisk: "Styrkerisiko",
+    fatigueRisk: "Fatigue-risiko",
     inconsistentData: "Ujevn data",
+    limitedData: "Begrenset rapport",
     notEnoughData: "Trenger mer data",
+    tooFast: "For rask",
+    dirtyBulkRisk: "Dirty bulk-risiko",
+    poorTrainingResponse: "Svak treningsrespons",
+    strengthProgressing: "Styrke øker",
+    stable: "Stabil",
+    driftingUp: "Driver opp",
+    driftingDown: "Driver ned",
+    recompProgress: "Recomp-signal",
+    maintenanceFound: "Vedlikehold funnet",
   };
   return labels[status] ?? status;
 }
 
-function confidenceLabel(confidence: CutReportConfidence) {
+function confidenceLabel(
+  confidence: CutReportConfidence,
+  language: "nb" | "en" = "nb"
+) {
+  if (language === "en") {
+    if (confidence === "high") return "High confidence";
+    if (confidence === "medium") return "Medium confidence";
+    return "Low confidence";
+  }
   if (confidence === "high") return "Høy sikkerhet";
   if (confidence === "medium") return "Middels sikkerhet";
   return "Lav sikkerhet";
+}
+
+function problemLabel(problem: string) {
+  const labels: Record<string, string> = {
+    not_enough_data: "For lite data",
+    limited_training_data: "Begrenset treningsdata",
+    possible_water_weight: "Mulig vannvekt",
+    unsafe_weight_pace: "Utrygt vekttempo",
+    strength_response: "Styrkerespons",
+    fatigue_risk: "Fatigue-risiko",
+    low_protein: "Lavt protein",
+    low_logging: "Svak logging",
+    low_training_consistency: "Svak treningskonsistens",
+    low_carbs_strength_drop: "Lav karbo og styrkefall",
+    low_fat: "Lavt fett",
+  };
+  return labels[problem] ?? problem;
 }
 
 function SectionCard({
@@ -361,6 +515,11 @@ function RecommendationCard({
       <Text style={styles.recommendationAction}>
         {recommendation.suggestedAction}
       </Text>
+      {recommendation.expectedOutcome ? (
+        <Text style={styles.recommendationOutcome}>
+          {recommendation.expectedOutcome}
+        </Text>
+      ) : null}
       {recommendation.canApply && onApply ? (
         <Pressable
           disabled={isApplying}
@@ -391,7 +550,7 @@ function ReportContent({
   applyingRecommendationId: string | null;
   onApplyRecommendation: (id: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const safeReport = normalizeReport(report, t);
   const showScore = safeReport.status !== "notEnoughData";
 
@@ -413,10 +572,12 @@ function ReportContent({
         <View style={styles.heroTopRow}>
           <View style={styles.heroBadge}>
             <Ionicons name="analytics-outline" size={14} color={premiumBlue.soft} />
-            <Text style={styles.heroBadgeText}>{t("cutReportTitle")}</Text>
+            <Text style={styles.heroBadgeText}>
+              {goalTitle(safeReport.goalType, language)}
+            </Text>
           </View>
           <Text style={styles.confidenceText}>
-            {confidenceLabel(safeReport.confidence)}
+            {confidenceLabel(safeReport.confidence, language)}
           </Text>
         </View>
 
@@ -426,8 +587,13 @@ function ReportContent({
             <Text style={styles.scoreMax}>{showScore ? "/100" : "klar"}</Text>
           </View>
           <View style={styles.scoreCopy}>
-            <Text style={styles.statusText}>{statusLabel(safeReport.status)}</Text>
+            <Text style={styles.statusText}>
+              {statusLabel(safeReport.status, language)}
+            </Text>
             <Text style={styles.scoreLabel}>{safeReport.scoreLabel}</Text>
+            {safeReport.isLimitedReport ? (
+              <Text style={styles.scoreLabel}>Begrenset rapport</Text>
+            ) : null}
             <Text style={styles.heroSummary}>
               {safeReport.weightTrend.summary}
             </Text>
@@ -452,6 +618,22 @@ function ReportContent({
         </View>
       ) : null}
 
+      {safeReport.statusReasons.length > 0 ? (
+        <SectionCard
+          title={t("cutReportWhyStatus")}
+          icon="information-circle-outline"
+        >
+          <View style={styles.reasonList}>
+            {safeReport.statusReasons.map((reason) => (
+              <View key={reason} style={styles.reasonRow}>
+                <Ionicons name="ellipse" size={6} color={premiumBlue.soft} />
+                <Text style={styles.reasonText}>{reason}</Text>
+              </View>
+            ))}
+          </View>
+        </SectionCard>
+      ) : null}
+
       <SectionCard title={t("cutReportDataFoundation")} icon="checkmark-done-outline">
         <Text style={styles.insightText}>{safeReport.readiness.summary}</Text>
         <ReadinessChecklist readiness={safeReport.readiness} />
@@ -472,7 +654,10 @@ function ReportContent({
                     <Text style={styles.scoreFactorReason}>{factor.reason}</Text>
                   </View>
                   <Text style={styles.scoreFactorPoints}>
-                    -{factor.pointsLost}
+                    {factor.score}/100
+                  </Text>
+                  <Text style={styles.scoreFactorWeight}>
+                    {factor.weightPercent} %
                   </Text>
                 </View>
               ))}
@@ -506,8 +691,20 @@ function ReportContent({
         />
         <MetricRow
           label={t("cutReportEstimatedDeficit")}
-          value={formatNumber(safeReport.weightTrend.estimatedDailyDeficit, " kcal/dag")}
+          value={formatNumber(
+            safeReport.weightTrend.estimatedDailyDeficit,
+            language === "en" ? " kcal/day" : " kcal/dag"
+          )}
         />
+        {safeReport.goalType === "leanBulk" ? (
+          <MetricRow
+            label={t("cutReportEstimatedSurplus")}
+            value={formatNumber(
+              safeReport.weightTrend.estimatedDailySurplus,
+              language === "en" ? " kcal/day" : " kcal/dag"
+            )}
+          />
+        ) : null}
         <Text style={styles.insightText}>{safeReport.weightTrend.summary}</Text>
       </SectionCard>
 
@@ -518,7 +715,7 @@ function ReportContent({
           accent
         />
         <MetricRow
-          label="Protein"
+          label={t("homeProtein")}
           value={`${formatNumber(safeReport.nutritionSummary.averageProtein7d, " g")} · ${formatNumber(
             safeReport.nutritionSummary.proteinPerKg,
             " g/kg"
@@ -532,10 +729,10 @@ function ReportContent({
           label={t("cutReportTrainingCarbs")}
           value={`${formatNumber(
             safeReport.nutritionSummary.averagePreWorkoutCarbs,
-            " g før"
+            language === "en" ? " g pre" : " g før"
           )} · ${formatNumber(
             safeReport.nutritionSummary.averagePostWorkoutCarbs,
-            " g etter"
+            language === "en" ? " g post" : " g etter"
           )}`}
         />
         <MetricRow
@@ -547,8 +744,24 @@ function ReportContent({
         />
         <MetricRow
           label={t("cutReportLogging")}
-          value={`${safeReport.nutritionSummary.loggedDaysLast7d} av 7 dager`}
+          value={
+            language === "en"
+              ? `${safeReport.nutritionSummary.loggedDaysLast7d} of 7 days`
+              : `${safeReport.nutritionSummary.loggedDaysLast7d} av 7 dager`
+          }
         />
+        {safeReport.nutritionSummary.estimatedMaintenanceCalories ? (
+          <MetricRow
+            label={t("cutReportEstimatedMaintenance")}
+            value={`${formatNumber(
+              safeReport.nutritionSummary.estimatedMaintenanceCalories,
+              " kcal"
+            )} / ${confidenceLabel(
+              safeReport.nutritionSummary.maintenanceEstimateConfidence,
+              language
+            )}`}
+          />
+        ) : null}
         <Text style={styles.insightText}>{safeReport.nutritionSummary.summary}</Text>
       </SectionCard>
 
@@ -606,6 +819,113 @@ function ReportContent({
         </Text>
       </SectionCard>
 
+      <SectionCard title={t("cutReportAdherence")} icon="checkbox-outline">
+        <MetricRow
+          label={t("cutReportMealLogging")}
+          value={formatNumber(
+            safeReport.adherenceSummary.mealLoggingAdherencePercent,
+            " %"
+          )}
+          accent
+        />
+        <MetricRow
+          label={t("cutReportWeighIn")}
+          value={formatNumber(
+            safeReport.adherenceSummary.weighInAdherencePercent,
+            " %"
+          )}
+        />
+        <MetricRow
+          label={t("cutReportProteinTarget")}
+          value={formatNumber(
+            safeReport.adherenceSummary.proteinTargetAdherencePercent,
+            " %"
+          )}
+        />
+        <MetricRow
+          label={t("cutReportCalorieTarget")}
+          value={formatNumber(
+            safeReport.adherenceSummary.calorieTargetAdherencePercent,
+            " %"
+          )}
+        />
+        <MetricRow
+          label={t("cutReportWorkoutTarget")}
+          value={formatNumber(
+            safeReport.adherenceSummary.workoutAdherencePercent,
+            " %"
+          )}
+        />
+        <Text style={styles.insightText}>
+          {safeReport.adherenceSummary.summary}
+        </Text>
+      </SectionCard>
+
+      <SectionCard title={t("cutReportTimeline")} icon="time-outline">
+        <MetricRow
+          label={t("cutReportTargetWeight")}
+          value={formatNumber(safeReport.timelineSummary.targetWeightKg, " kg")}
+          accent
+        />
+        {safeReport.goalType === "maintenance" ? (
+          <MetricRow
+            label={t("cutReportStableWeeks")}
+            value={`${safeReport.timelineSummary.maintenanceStabilityStreakWeeks}`}
+          />
+        ) : (
+          <MetricRow
+            label={t("cutReportWeeksToGoal")}
+            value={
+              safeReport.timelineSummary.estimatedWeeksToGoal == null
+                ? t("homeNoData")
+                : `${safeReport.timelineSummary.estimatedWeeksToGoal}`
+            }
+          />
+        )}
+        <Text style={styles.insightText}>
+          {safeReport.timelineSummary.summary}
+        </Text>
+      </SectionCard>
+
+      <SectionCard title={t("cutReportPreviousReport")} icon="git-compare-outline">
+        <MetricRow
+          label={t("cutReportScoreChange")}
+          value={
+            safeReport.previousComparison.scoreChange == null
+              ? t("homeNoData")
+              : `${safeReport.previousComparison.scoreChange > 0 ? "+" : ""}${safeReport.previousComparison.scoreChange}`
+          }
+          accent
+        />
+        <MetricRow
+          label={t("cutReportStatusChanged")}
+          value={
+            safeReport.previousComparison.statusChanged
+              ? t("cutReportYes")
+              : t("cutReportNo")
+          }
+        />
+        {safeReport.previousComparison.repeatedProblems.length > 0 ? (
+          <Text style={styles.insightText}>
+            {t("cutReportRepeated")}:{" "}
+            {safeReport.previousComparison.repeatedProblems
+              .map(problemLabel)
+              .join(", ")}
+          </Text>
+        ) : null}
+        {safeReport.previousComparison.resolvedProblems.length > 0 ? (
+          <Text style={styles.insightText}>
+            Løst:{" "}
+            {safeReport.previousComparison.resolvedProblems
+              .map(problemLabel)
+              .join(", ")}
+          </Text>
+        ) : null}
+        <Text style={styles.insightText}>
+          {safeReport.previousComparison.summary}
+        </Text>
+      </SectionCard>
+
       <SectionCard title={t("cutReportNextWeek")} icon="calendar-outline">
         <View style={styles.recommendationList}>
           {safeReport.recommendations.map((recommendation) => (
@@ -628,7 +948,8 @@ function CutIntelligencePremiumScreen() {
   const { t } = useTranslation();
   const reportQuery = useCurrentCutReport(true);
   const applyRecommendation = useApplyCutRecommendation();
-  const { refreshUserSettings } = useUserSettings();
+  const undoRecommendation = useUndoLastCutRecommendation();
+  const { refreshUserSettings, userSettings } = useUserSettings();
   const [applyingRecommendationId, setApplyingRecommendationId] =
     useState<string | null>(null);
 
@@ -637,9 +958,29 @@ function CutIntelligencePremiumScreen() {
 
     try {
       setApplyingRecommendationId(id);
-      await applyRecommendation.mutateAsync(id);
+      const result = await applyRecommendation.mutateAsync(id);
       await refreshUserSettings();
       await reportQuery.refetch();
+      if (result.canUndo) {
+        Alert.alert(
+          userSettings.language === "en" ? "Goals updated" : "Mål oppdatert",
+          result.message ||
+            (userSettings.language === "en"
+              ? "The recommendation was applied to your goals."
+              : "Anbefalingen er brukt i målene dine."),
+          [
+            { text: "OK", style: "cancel" },
+            {
+              text: userSettings.language === "en" ? "Undo" : "Angre",
+              onPress: async () => {
+                await undoRecommendation.mutateAsync();
+                await refreshUserSettings();
+                await reportQuery.refetch();
+              },
+            },
+          ]
+        );
+      }
     } finally {
       setApplyingRecommendationId(null);
     }
@@ -659,7 +1000,12 @@ function CutIntelligencePremiumScreen() {
         >
           <Ionicons name="chevron-back" size={20} color="rgba(226,232,240,0.96)" />
         </Pressable>
-        <Text style={styles.headerTitle}>{t("cutReportTitle")}</Text>
+        <Text style={styles.headerTitle}>
+          {goalTitle(
+            reportQuery.data?.goalType ?? goalTypeFromDirection(userSettings.weightDirection),
+            userSettings.language
+          )}
+        </Text>
         <Pressable
           disabled={reportQuery.isFetching}
           style={({ pressed }) => [
@@ -725,9 +1071,10 @@ function CutIntelligencePremiumScreen() {
 export default function CutIntelligenceScreen() {
   const insets = useSafeAreaInsets();
   const { isPremium, isLoading } = useSubscription();
-  const { t } = useTranslation();
+  const { userSettings } = useUserSettings();
   const [paywallVisible, setPaywallVisible] = useState(false);
   const readinessQuery = useCutReadiness(!isPremium);
+  const activeGoalType = goalTypeFromDirection(userSettings.weightDirection);
 
   if (isPremium) return <CutIntelligencePremiumScreen />;
 
@@ -745,7 +1092,9 @@ export default function CutIntelligenceScreen() {
         >
           <Ionicons name="chevron-back" size={20} color="rgba(226,232,240,0.96)" />
         </Pressable>
-        <Text style={styles.headerTitle}>{t("cutReportTitle")}</Text>
+        <Text style={styles.headerTitle}>
+          {goalTitle(activeGoalType, userSettings.language)}
+        </Text>
         <View style={styles.headerButtonPlaceholder} />
       </View>
 
@@ -763,10 +1112,10 @@ export default function CutIntelligenceScreen() {
           style={styles.previewCard}
         >
           <Text style={[typography.h2, styles.previewTitle]}>
-            {t("cutReportPreviewTitle")}
+            {goalPreviewTitle(activeGoalType, userSettings.language)}
           </Text>
           <Text style={[typography.body, styles.previewText]}>
-            {t("cutReportPreviewBody")}
+            {goalPreviewBody(activeGoalType, userSettings.language)}
           </Text>
           {readinessQuery.data ? (
             <View style={styles.previewReadiness}>
@@ -779,8 +1128,8 @@ export default function CutIntelligenceScreen() {
         </LinearGradient>
 
         <LockedFeatureCard
-          title={t("cutReportProTitle")}
-          description={t("cutReportLockedDescription")}
+          title={`${goalTitle(activeGoalType, userSettings.language)} Pro`}
+          description={goalPreviewBody(activeGoalType, userSettings.language)}
           isLoading={isLoading}
           onPress={() => setPaywallVisible(true)}
         />
@@ -1137,6 +1486,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
   },
+  scoreFactorWeight: {
+    color: "rgba(148,163,184,0.88)",
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  reasonList: {
+    gap: 8,
+  },
+  reasonRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  reasonText: {
+    flex: 1,
+    color: "rgba(203,213,225,0.93)",
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "600",
+  },
   exerciseList: {
     marginTop: 12,
     gap: 8,
@@ -1210,6 +1579,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     fontWeight: "700",
+  },
+  recommendationOutcome: {
+    marginTop: 7,
+    color: "rgba(203,213,225,0.92)",
+    fontSize: 11.5,
+    lineHeight: 16,
+    fontWeight: "600",
   },
   applyButton: {
     marginTop: 11,

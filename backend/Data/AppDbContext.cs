@@ -1,4 +1,5 @@
 ﻿using backend.Features.Food;
+using backend.Features.CutIntelligence;
 using backend.Features.Training.Exercises;
 using backend.Features.AdaptivePlanning;
 using backend.Features.Training.WorkoutPrograms;
@@ -47,6 +48,7 @@ namespace backend.Data
         public DbSet<RecommendationExerciseTargetChange> RecommendationExerciseTargetChanges => Set<RecommendationExerciseTargetChange>();
         public DbSet<RecommendationRecoveryAction> RecommendationRecoveryActions => Set<RecommendationRecoveryAction>();
         public DbSet<RecommendationTargetDateChange> RecommendationTargetDateChanges => Set<RecommendationTargetDateChange>();
+        public DbSet<GoalReportSnapshot> GoalReportSnapshots => Set<GoalReportSnapshot>();
 
 
         // Logging
@@ -250,6 +252,25 @@ namespace backend.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            modelBuilder.Entity<User>(b =>
+            {
+                b.Property(x => x.Email).HasMaxLength(320);
+                b.Property(x => x.NormalizedEmail).HasMaxLength(320);
+                b.Property(x => x.Username).HasMaxLength(40);
+                b.Property(x => x.NormalizedUsername).HasMaxLength(40);
+                b.Property(x => x.AuthProvider)
+                    .IsRequired()
+                    .HasMaxLength(24)
+                    .HasDefaultValue("apple");
+                b.Property(x => x.PasswordHash).HasMaxLength(512);
+                b.HasIndex(x => x.NormalizedEmail)
+                    .IsUnique()
+                    .HasFilter("\"NormalizedEmail\" IS NOT NULL");
+                b.HasIndex(x => x.NormalizedUsername)
+                    .IsUnique()
+                    .HasFilter("\"NormalizedUsername\" IS NOT NULL");
+            });
+
             // ==============================
             // User 1 - 1 UserSettings
             // ==============================
@@ -313,6 +334,22 @@ namespace backend.Data
                     .WithMany()
                     .HasForeignKey(x => x.RecommendationId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<GoalReportSnapshot>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+                b.Property(x => x.GoalType).IsRequired().HasMaxLength(40);
+                b.Property(x => x.Status).IsRequired().HasMaxLength(80);
+                b.Property(x => x.Confidence).IsRequired().HasMaxLength(20);
+                b.Property(x => x.AlgorithmVersion).IsRequired().HasMaxLength(80);
+                b.Property(x => x.ProblemIdsJson).IsRequired();
+                b.Property(x => x.RecommendationIdsJson).IsRequired();
+                b.Property(x => x.ReportJson).IsRequired();
+                b.HasIndex(x => new { x.UserId, x.GoalType, x.WeekStart, x.AlgorithmVersion })
+                    .IsUnique();
+                b.HasIndex(x => new { x.UserId, x.GoalType, x.WeekStart });
             });
 
             modelBuilder.Entity<WeeklyReport>(b =>

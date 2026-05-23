@@ -126,6 +126,73 @@ namespace backend.Features.Auth
             }
         }
 
+        [HttpPost("register")]
+        public async Task<ActionResult<AuthResponse>> RegisterWithPassword(
+            [FromBody] PasswordRegisterRequest request,
+            CancellationToken ct = default)
+        {
+            if (request == null)
+                return BadRequest("body is required");
+
+            try
+            {
+                var result = await _auth.RegisterWithPasswordAsync(
+                    request.Email,
+                    request.Username,
+                    request.Password,
+                    BuildRequestContext(),
+                    ct);
+
+                return Ok(result);
+            }
+            catch (AuthInputException ex)
+            {
+                var status = ex.Code == "account_exists"
+                    ? StatusCodes.Status409Conflict
+                    : StatusCodes.Status400BadRequest;
+
+                return StatusCode(status, new
+                {
+                    error = ex.Code,
+                    detail = ex.Message,
+                    traceId = HttpContext.TraceIdentifier
+                });
+            }
+        }
+
+        [HttpPost("login")]
+        public async Task<ActionResult<AuthResponse>> LoginWithPassword(
+            [FromBody] PasswordLoginRequest request,
+            CancellationToken ct = default)
+        {
+            if (request == null)
+                return BadRequest("body is required");
+
+            try
+            {
+                var result = await _auth.LoginWithPasswordAsync(
+                    request.Email,
+                    request.Password,
+                    BuildRequestContext(),
+                    ct);
+
+                return Ok(result);
+            }
+            catch (AuthInputException ex)
+            {
+                var status = ex.Code == "invalid_credentials"
+                    ? StatusCodes.Status401Unauthorized
+                    : StatusCodes.Status400BadRequest;
+
+                return StatusCode(status, new
+                {
+                    error = ex.Code,
+                    detail = ex.Message,
+                    traceId = HttpContext.TraceIdentifier
+                });
+            }
+        }
+
         [HttpPost("refresh")]
         public async Task<ActionResult<AuthResponse>> Refresh(
             [FromBody] RefreshTokenRequest request,

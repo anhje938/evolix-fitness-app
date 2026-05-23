@@ -17,6 +17,7 @@ import { useAllExerciseSetsHistory } from "@/hooks/useAllExerciseSetsHistory";
 import { useLiveDurationLabel } from "@/hooks/useLiveDurationLabel";
 import { useExercises } from "@/hooks/useExercises";
 import { useTranslation } from "@/i18n/translations";
+import { getMuscleLabel } from "@/types/muscles";
 import { isUserCreatedExercise } from "@/utils/exercise/isUserCreated";
 import { estimate1RMFromTopSet } from "@/utils/exercise/oneRepMax";
 import { sortExercisesByPopularity } from "@/utils/exercise/sortExercisesByPopularity";
@@ -330,8 +331,9 @@ const LiveDurationStat = React.memo(function LiveDurationStat({
   finishedAtUtc?: string | null;
 }) {
   const durationLabel = useLiveDurationLabel(startedAtUtc, finishedAtUtc);
+  const { t } = useTranslation();
 
-  return <Stat icon="time-outline" label="Varighet" value={durationLabel} />;
+  return <Stat icon="time-outline" label={t("modalDuration")} value={durationLabel} />;
 });
 
 function validDateOrNow(value?: string | null) {
@@ -361,19 +363,21 @@ function SessionDateTimeControls({
   onChangeDate: (date: Date | null) => void;
   onChangeTime: (date: Date | null) => void;
 }) {
+  const { t, language } = useTranslation();
+
   return (
     <View style={styles.sessionDateCard}>
       <View style={styles.sessionDateHeader}>
         <Ionicons name="calendar-outline" size={15} color={overlayColors.muted2} />
         <Text style={[typography.bodyBold, styles.sessionDateTitle]}>
-          Starttidspunkt
+          {t("workoutStartTime")}
         </Text>
       </View>
 
       <View style={styles.sessionDatePickerRow}>
         <View style={styles.sessionDatePickerCol}>
           <AppDateTimePicker
-            label="Dato"
+            label={t("modalDate")}
             mode="date"
             value={value}
             onChange={onChangeDate}
@@ -382,7 +386,7 @@ function SessionDateTimeControls({
         </View>
         <View style={styles.sessionDatePickerCol}>
           <AppDateTimePicker
-            label="Tid"
+            label={t("modalTime")}
             mode="time"
             value={value}
             onChange={onChangeTime}
@@ -395,7 +399,7 @@ function SessionDateTimeControls({
 }
 
 export function WorkoutSessionOverlay() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const insets = useSafeAreaInsets();
   const {
     isOpen,
@@ -917,7 +921,12 @@ export function WorkoutSessionOverlay() {
       name: exercise.name,
       muscle: exercise.muscle ?? null,
     });
-    showPickerToast(successMessage ?? `${exercise.name} lagt til`);
+    showPickerToast(
+      successMessage ??
+        (language === "en"
+          ? `${exercise.name} added`
+          : `${exercise.name} lagt til`)
+    );
   };
 
   const handleCreateExerciseFromPicker = async (
@@ -932,14 +941,20 @@ export function WorkoutSessionOverlay() {
           name: createdExercise.name,
           muscle: createdExercise.muscle ?? null,
         },
-        `${createdExercise.name} opprettet og lagt til`
+        language === "en"
+          ? `${createdExercise.name} created and added`
+          : `${createdExercise.name} opprettet og lagt til`
       );
       setIsCreateExerciseOpen(false);
       setExerciseSearch("");
     } catch (error) {
       Alert.alert(
-        "Kunne ikke opprette øvelse",
-        error instanceof Error ? error.message : "Ukjent feil ved oppretting."
+        t("exerciseSaveFailedTitle"),
+        error instanceof Error
+          ? error.message
+          : language === "en"
+          ? "Unknown error while creating."
+          : "Ukjent feil ved oppretting."
       );
     }
   };
@@ -954,11 +969,17 @@ export function WorkoutSessionOverlay() {
       }
 
       Alert.alert(
-        "Forkaste endringer?",
-        "Endringer du har gjort i økten blir ikke lagret.",
+        t("workoutDiscardTitle"),
+        language === "en"
+          ? "Changes you made to the workout will not be saved."
+          : "Endringer du har gjort i økten blir ikke lagret.",
         [
-          { text: "Fortsett redigering", style: "cancel" },
-          { text: "Forkast", style: "destructive", onPress: closeSession },
+          { text: t("commonContinueEditing"), style: "cancel" },
+          {
+            text: t("commonDiscardChanges"),
+            style: "destructive",
+            onPress: closeSession,
+          },
         ]
       );
       return;
@@ -969,11 +990,13 @@ export function WorkoutSessionOverlay() {
       return;
     }
     Alert.alert(
-      "Avbryt økt?",
-      `Du har ${totals.completed} sett. Vil du avbryte økten?`,
+      t("workoutDiscardTitle"),
+      language === "en"
+        ? `You have ${totals.completed} completed sets. Do you want to leave the workout?`
+        : `Du har ${totals.completed} sett. Vil du avbryte økten?`,
       [
-        { text: "Fortsett", style: "cancel" },
-        { text: "Avbryt", style: "destructive", onPress: closeSession },
+        { text: t("commonContinueEditing"), style: "cancel" },
+        { text: t("commonCancel"), style: "destructive", onPress: closeSession },
       ]
     );
   };
@@ -993,14 +1016,20 @@ export function WorkoutSessionOverlay() {
 
     const message =
       totals.completed > 0
-        ? `Du har ${totals.completed} sett. Vil du avbryte økten?`
+        ? language === "en"
+          ? `You have ${totals.completed} completed sets. Do you want to leave the workout?`
+          : `Du har ${totals.completed} sett. Vil du avbryte økten?`
         : totals.sets > 0
-        ? "Du har lagt til øvelser eller sett som ikke er lagret. Vil du avbryte økten?"
+        ? language === "en"
+          ? "You have added exercises or sets that are not saved. Do you want to leave the workout?"
+          : "Du har lagt til øvelser eller sett som ikke er lagret. Vil du avbryte økten?"
+        : language === "en"
+        ? "Do you want to leave the workout?"
         : "Vil du avbryte økten?";
 
-    Alert.alert("Avbryt økt?", message, [
-      { text: "Fortsett", style: "cancel" },
-      { text: "Avbryt", style: "destructive", onPress: closeSession },
+    Alert.alert(t("workoutDiscardTitle"), message, [
+      { text: t("commonContinueEditing"), style: "cancel" },
+      { text: t("commonCancel"), style: "destructive", onPress: closeSession },
     ]);
   };
 
@@ -1011,15 +1040,32 @@ export function WorkoutSessionOverlay() {
     commitTitle();
 
     const beforeSaveAction = isEditingCompletedSession
-      ? "lagrer endringene"
+      ? language === "en"
+        ? "saving changes"
+        : "lagrer endringene"
+      : language === "en"
+      ? "finishing"
       : "fullfører";
 
     const issues = findInvalidCompletedSets(session.exercises);
     if (issues.length > 0) {
       const first = issues[0];
       Alert.alert(
-        "Ugyldige sett",
-        issues.length > 1
+        language === "en" ? "Invalid sets" : "Ugyldige sett",
+        language === "en"
+          ? issues.length > 1
+            ? `You have ${issues.length} completed sets with invalid values.
+
+Example:
+${first.exerciseName} - set ${first.setIndex}: ${first.reason}
+
+Fix this before ${beforeSaveAction}.`
+            : `You have one completed set with invalid values:
+
+${first.exerciseName} - set ${first.setIndex}: ${first.reason}
+
+Fix this before ${beforeSaveAction}.`
+          : issues.length > 1
           ? `Du har ${issues.length} ferdig-markerte sett med ugyldige verdier.
 
 Eksempel:
@@ -1043,7 +1089,11 @@ Rett opp før du ${beforeSaveAction}.`,
     if (!res.ok) {
       Alert.alert(
         isEditingCompletedSession
-          ? "Kan ikke lagre endringer"
+          ? language === "en"
+            ? "Cannot save changes"
+            : "Kan ikke lagre endringer"
+          : language === "en"
+          ? "Cannot finish"
           : "Kan ikke fullføre",
         res.message
       );
@@ -1056,10 +1106,23 @@ Rett opp før du ${beforeSaveAction}.`,
     );
     if (suspiciousWeights.length > 0) {
       const first = suspiciousWeights[0];
-      const shouldContinue = await new Promise<boolean>((resolve) => {
+        const shouldContinue = await new Promise<boolean>((resolve) => {
         Alert.alert(
-          "Uvanlig høy vekt",
-          suspiciousWeights.length > 1
+          language === "en" ? "Unusually high weight" : "Uvanlig høy vekt",
+          language === "en"
+            ? suspiciousWeights.length > 1
+              ? `We found ${suspiciousWeights.length} sets with at least ${SUSPICIOUS_WEIGHT_THRESHOLD_KG} kg.
+
+Example:
+${first.exerciseName} - set ${first.setIndex}: ${first.weight} kg
+
+Are you sure this is correct?`
+              : `This set is registered with ${first.weight} kg:
+
+${first.exerciseName} - set ${first.setIndex}
+
+Are you sure this is correct?`
+            : suspiciousWeights.length > 1
             ? `Vi fant ${suspiciousWeights.length} sett med minst ${SUSPICIOUS_WEIGHT_THRESHOLD_KG} kg.
 
 Eksempel:
@@ -1073,11 +1136,11 @@ ${first.exerciseName} - sett ${first.setIndex}
 Er du sikker på at dette stemmer?`,
           [
             {
-              text: "Gå tilbake",
+              text: t("commonBack"),
               style: "cancel",
               onPress: () => resolve(false),
             },
-            { text: "Ja, lagre", onPress: () => resolve(true) },
+            { text: t("commonSave"), onPress: () => resolve(true) },
           ]
         );
       });
@@ -1206,7 +1269,11 @@ Er du sikker på at dette stemmer?`,
     return (
       <DraggableMinimizedBar
         title={session.name}
-        subtitle={`${durationLabel} · ${totals.exercises} øvelser · ${totals.sets} sett`}
+        subtitle={
+          language === "en"
+            ? `${durationLabel} · ${totals.exercises} exercises · ${totals.sets} sets`
+            : `${durationLabel} · ${totals.exercises} øvelser · ${totals.sets} sett`
+        }
         onExpand={toggleMinimized}
       />
     );
@@ -1221,16 +1288,26 @@ Er du sikker på at dette stemmer?`,
     ? t("modalSaveChanges")
     : t("workoutSave");
   const summaryPrimaryMetricLabel =
-    savePreview?.totalVolumeKg != null ? "Volum" : "Reps";
+    savePreview?.totalVolumeKg != null
+      ? language === "en"
+        ? "Volume"
+        : "Volum"
+      : "Reps";
   const summaryPrimaryMetricValue =
     savePreview?.totalVolumeKg != null
       ? formatKg(savePreview.totalVolumeKg)
       : `${savePreview?.totalReps ?? 0}`;
   const skippedSetsMessage =
     savePreview && savePreview.skippedSetsCount > 0
-      ? savePreview.skippedExercisesCount > 0
+      ? language === "en"
+        ? savePreview.skippedExercisesCount > 0
+          ? `${savePreview.skippedSetsCount} unfinished sets and ${savePreview.skippedExercisesCount} exercises without completed sets will not be saved.`
+          : `${savePreview.skippedSetsCount} unfinished sets will not be saved.`
+        : savePreview.skippedExercisesCount > 0
         ? `${savePreview.skippedSetsCount} uferdige sett og ${savePreview.skippedExercisesCount} øvelser uten ferdige sett blir ikke lagret.`
         : `${savePreview.skippedSetsCount} uferdige sett blir ikke lagret.`
+      : language === "en"
+      ? "Only completed sets will be saved."
       : "Kun ferdig-markerte sett blir lagret.";
   const sessionDateTimeControls = (
     <SessionDateTimeControls
@@ -1260,7 +1337,7 @@ Er du sikker på at dette stemmer?`,
           />
         </View>
         <Text style={[typography.body, styles.emptyTitle]}>
-          Ingen øvelser lagt til
+          {t("workoutNoSelectedExercises")}
         </Text>
         <Text style={[typography.body, styles.emptySubtitle]}>
           {t("workoutAddExerciseToStart")}
@@ -1278,7 +1355,7 @@ Er du sikker på at dette stemmer?`,
             color={overlayColors.accent}
           />
           <Text style={[typography.body, styles.emptyActionText]}>
-            Velg første øvelse
+            {t("workoutChooseFirstExercise")}
           </Text>
         </Pressable>
       </View>
@@ -1480,7 +1557,7 @@ Er du sikker på at dette stemmer?`,
                           styles.saveSummaryStatLabel,
                         ]}
                       >
-                        Varighet
+                        {t("modalDuration")}
                       </Text>
                       <Text
                         style={[
@@ -1518,7 +1595,7 @@ Er du sikker på at dette stemmer?`,
                           styles.saveSummaryStatLabel,
                         ]}
                       >
-                        Ferdige sett
+                        {language === "en" ? "Completed sets" : "Ferdige sett"}
                       </Text>
                       <Text
                         style={[
@@ -1563,7 +1640,9 @@ Er du sikker på at dette stemmer?`,
                           styles.saveSummaryHighlightText,
                         ]}
                       >
-                        Toppvekt denne økten:{" "}
+                        {language === "en"
+                          ? "Top weight this workout:"
+                          : "Toppvekt denne økten:"}{" "}
                         {formatKg(savePreviewWithPr.bestWeightKg)}
                       </Text>
                     </View>
@@ -1615,9 +1694,13 @@ Er du sikker på at dette stemmer?`,
                           ]}
                           numberOfLines={1}
                         >
-                          {`${exercise.setsCount} sett · ${exercise.totalReps} reps`}
+                          {language === "en"
+                            ? `${exercise.setsCount} sets · ${exercise.totalReps} reps`
+                            : `${exercise.setsCount} sett · ${exercise.totalReps} reps`}
                           {exercise.bestWeightKg != null
-                            ? ` · Toppvekt ${formatKg(exercise.bestWeightKg)}`
+                            ? language === "en"
+                              ? ` · top weight ${formatKg(exercise.bestWeightKg)}`
+                              : ` · Toppvekt ${formatKg(exercise.bestWeightKg)}`
                             : ""}
                         </Text>
                       </View>
@@ -1821,18 +1904,22 @@ Er du sikker på at dette stemmer?`,
                 style={[typography.body, styles.pickerCreateSubtitle]}
                 numberOfLines={1}
               >
-                Lag en ny øvelse og legg den til i økten
+                {language === "en"
+                  ? "Create a new exercise and add it to the workout"
+                  : "Lag en ny øvelse og legg den til i økten"}
               </Text>
             </View>
           </TouchableOpacity>
 
           {isLoadingExercises ? (
             <Text style={[typography.body, styles.pickerEmptyText]}>
-              Laster øvelser...
+              {t("exerciseLoading")}
             </Text>
           ) : filteredPickerExercises.length === 0 ? (
             <Text style={[typography.body, styles.pickerEmptyText]}>
-              Ingen flere øvelser tilgjengelig for denne økten.
+              {language === "en"
+                ? "No more exercises available for this workout."
+                : "Ingen flere øvelser tilgjengelig for denne økten."}
             </Text>
           ) : (
             filteredPickerExercises.map((exercise) => (
@@ -1869,7 +1956,9 @@ Er du sikker på at dette stemmer?`,
                     style={[typography.body, styles.pickerRowSubtitle]}
                     numberOfLines={1}
                   >
-                    {exercise.muscle || "Egendefinert øvelse"}
+                    {exercise.muscle
+                      ? getMuscleLabel(exercise.muscle, language)
+                      : t("workoutCustomExercise")}
                   </Text>
                 </View>
 
@@ -2000,7 +2089,7 @@ Er du sikker på at dette stemmer?`,
                             Keyboard.dismiss();
                           }}
                           returnKeyType="done"
-                          placeholder="Navn på økt"
+                          placeholder={t("workoutNamePlaceholder")}
                           placeholderTextColor={overlayColors.muted2}
                           style={[typography.bodyBold, styles.headerTitleInput]}
                           maxLength={50}
@@ -2094,7 +2183,11 @@ Er du sikker på at dette stemmer?`,
                 value={`${totals.exercises}`}
               />
               <Divider />
-              <Stat icon="list-outline" label="Sett" value={`${totals.sets}`} />
+              <Stat
+                icon="list-outline"
+                label={t("workoutSetCountLabel")}
+                value={`${totals.sets}`}
+              />
             </View>
 
             <View style={styles.topActions}>
@@ -2215,7 +2308,7 @@ Er du sikker på at dette stemmer?`,
                     />
                   </View>
                   <Text style={[typography.body, styles.emptyTitle]}>
-                    Ingen øvelser lagt til
+                    {t("workoutNoSelectedExercises")}
                   </Text>
                   <Text style={[typography.body, styles.emptySubtitle]}>
                     {t("workoutAddExercisesToStart")}
@@ -2233,7 +2326,7 @@ Er du sikker på at dette stemmer?`,
                       color={overlayColors.accent}
                     />
                     <Text style={[typography.body, styles.emptyActionText]}>
-                      Velg første øvelse
+                      {t("workoutChooseFirstExercise")}
                     </Text>
                   </Pressable>
                 </View>
@@ -2502,7 +2595,7 @@ Er du sikker på at dette stemmer?`,
                             styles.saveSummaryStatLabel,
                           ]}
                         >
-                          Varighet
+                          {t("modalDuration")}
                         </Text>
                         <Text
                           style={[
@@ -2540,7 +2633,7 @@ Er du sikker på at dette stemmer?`,
                             styles.saveSummaryStatLabel,
                           ]}
                         >
-                          Ferdige sett
+                          {language === "en" ? "Completed sets" : "Ferdige sett"}
                         </Text>
                         <Text
                           style={[
@@ -2586,7 +2679,9 @@ Er du sikker på at dette stemmer?`,
                             styles.saveSummaryHighlightText,
                           ]}
                         >
-                          Tyngste registrerte sett:{" "}
+                          {language === "en"
+                            ? "Heaviest logged set:"
+                            : "Tyngste registrerte sett:"}{" "}
                           {formatKg(savePreviewWithPr.bestWeightKg)}
                         </Text>
                       </View>
@@ -2633,9 +2728,13 @@ Er du sikker på at dette stemmer?`,
                             ]}
                             numberOfLines={2}
                           >
-                          {`${exercise.setsCount} sett · ${exercise.totalReps} reps`}
+                          {language === "en"
+                            ? `${exercise.setsCount} sets · ${exercise.totalReps} reps`
+                            : `${exercise.setsCount} sett · ${exercise.totalReps} reps`}
                             {exercise.bestWeightKg != null
-                            ? ` · Toppvekt ${formatKg(exercise.bestWeightKg)}`
+                            ? language === "en"
+                              ? ` · top weight ${formatKg(exercise.bestWeightKg)}`
+                              : ` · Toppvekt ${formatKg(exercise.bestWeightKg)}`
                               : ""}
                           </Text>
                         </View>
@@ -2672,7 +2771,7 @@ Er du sikker på at dette stemmer?`,
                         styles.saveSummarySecondaryBtnText,
                       ]}
                     >
-                      Avbryt
+                      {t("commonCancel")}
                     </Text>
                   </Pressable>
 

@@ -2,16 +2,23 @@ namespace backend.Features.CutIntelligence
 {
     public class CutReportDto
     {
+        public string GoalType { get; set; } = "cut";
         public int Score { get; set; }
         public string ScoreLabel { get; set; } = "";
         public string Status { get; set; } = "";
         public string Confidence { get; set; } = "";
+        public bool IsLimitedReport { get; set; }
+        public bool NotEnoughData { get; set; }
         public CutReadinessDto Readiness { get; set; } = new();
         public List<CutScoreFactorDto> ScoreBreakdown { get; set; } = [];
+        public List<string> StatusReasons { get; set; } = [];
         public CutWeightTrendDto WeightTrend { get; set; } = new();
         public CutNutritionSummaryDto NutritionSummary { get; set; } = new();
         public CutStrengthSummaryDto StrengthSummary { get; set; } = new();
         public CutTrainingLoadSummaryDto TrainingLoadSummary { get; set; } = new();
+        public CutAdherenceSummaryDto AdherenceSummary { get; set; } = new();
+        public CutTimelineSummaryDto TimelineSummary { get; set; } = new();
+        public CutPreviousReportComparisonDto PreviousComparison { get; set; } = new();
         public List<CutRecommendationDto> Recommendations { get; set; } = [];
         public List<string> Warnings { get; set; } = [];
         public DateTime GeneratedAt { get; set; }
@@ -41,6 +48,8 @@ namespace backend.Features.CutIntelligence
     {
         public string Id { get; set; } = "";
         public string Label { get; set; } = "";
+        public int Score { get; set; }
+        public int WeightPercent { get; set; }
         public int PointsLost { get; set; }
         public string Reason { get; set; } = "";
     }
@@ -51,7 +60,13 @@ namespace backend.Features.CutIntelligence
         public double? AverageWeightPrevious7d { get; set; }
         public double? WeeklyWeightChangeKg { get; set; }
         public double? WeeklyWeightChangePercent { get; set; }
+        public double? PreviousWeeklyWeightChangePercent { get; set; }
+        public double? WeightLossPercent { get; set; }
+        public double? WeightGainPercent { get; set; }
+        public double? WeightDriftPercent { get; set; }
         public double? EstimatedDailyDeficit { get; set; }
+        public double? EstimatedDailySurplus { get; set; }
+        public bool PossibleWaterWeight { get; set; }
         public int WeightLogsLast7d { get; set; }
         public int DaysSinceEstimatedCutStart { get; set; }
         public List<CutWeightPointDto> Points { get; set; } = [];
@@ -79,6 +94,11 @@ namespace backend.Features.CutIntelligence
         public double? FatCaloriesPercent { get; set; }
         public int LoggedDaysLast7d { get; set; }
         public double LoggingAdherencePercent { get; set; }
+        public double ProteinTargetAdherencePercent { get; set; }
+        public double CalorieTargetAdherencePercent { get; set; }
+        public double? AverageCalorieTargetDelta { get; set; }
+        public int? EstimatedMaintenanceCalories { get; set; }
+        public string MaintenanceEstimateConfidence { get; set; } = "low";
         public string Summary { get; set; } = "";
     }
 
@@ -111,6 +131,40 @@ namespace backend.Features.CutIntelligence
         public double? WeeklyVolumeCurrent { get; set; }
         public double? WeeklyVolumePrevious { get; set; }
         public double? VolumeChangePercent { get; set; }
+        public bool FatigueRisk { get; set; }
+        public string Summary { get; set; } = "";
+    }
+
+    public class CutAdherenceSummaryDto
+    {
+        public double MealLoggingAdherencePercent { get; set; }
+        public double WeighInAdherencePercent { get; set; }
+        public double ProteinTargetAdherencePercent { get; set; }
+        public double CalorieTargetAdherencePercent { get; set; }
+        public double? WorkoutAdherencePercent { get; set; }
+        public string Summary { get; set; } = "";
+    }
+
+    public class CutTimelineSummaryDto
+    {
+        public double? TargetWeightKg { get; set; }
+        public int? EstimatedWeeksToGoal { get; set; }
+        public int MaintenanceStabilityStreakWeeks { get; set; }
+        public string Summary { get; set; } = "";
+    }
+
+    public class CutPreviousReportComparisonDto
+    {
+        public bool HasPreviousReport { get; set; }
+        public int? PreviousScore { get; set; }
+        public int? ScoreChange { get; set; }
+        public string? PreviousStatus { get; set; }
+        public bool StatusChanged { get; set; }
+        public int ConsecutiveWeeksOnTrack { get; set; }
+        public int ConsecutiveWeeksOffTrack { get; set; }
+        public List<string> RepeatedProblems { get; set; } = [];
+        public List<string> ResolvedProblems { get; set; } = [];
+        public List<string> LastRecommendationIds { get; set; } = [];
         public string Summary { get; set; } = "";
     }
 
@@ -122,6 +176,7 @@ namespace backend.Features.CutIntelligence
         public string Category { get; set; } = "";
         public string Reason { get; set; } = "";
         public string SuggestedAction { get; set; } = "";
+        public string ExpectedOutcome { get; set; } = "";
         public string Confidence { get; set; } = "";
         public bool CanApply { get; set; }
         public string? ApplyKind { get; set; }
@@ -140,5 +195,6 @@ namespace backend.Features.CutIntelligence
         public string Message { get; set; } = "";
         public int? CalorieGoal { get; set; }
         public int? ProteinGoal { get; set; }
+        public bool CanUndo { get; set; }
     }
 }

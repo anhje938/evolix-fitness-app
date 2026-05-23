@@ -4,7 +4,11 @@ import {
   modalGradientColors,
   modalTheme,
 } from "@/config/modalTheme";
-import { ADVANCED_MUSCLE_FILTERS } from "@/types/muscles";
+import {
+  ADVANCED_MUSCLE_FILTERS,
+  getLocalizedMuscleFilters,
+  getMuscleLabel,
+} from "@/types/muscles";
 import type { Exercise } from "@/types/exercise";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -36,7 +40,7 @@ type Props = {
 };
 
 export function EditExerciseModal({ visible, exercise, onClose }: Props) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [name, setName] = useState("");
@@ -47,8 +51,11 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
   const { updateExerciseDetails } = useWorkoutSession();
 
   const advancedSpecificList = useMemo(
-    () => ADVANCED_MUSCLE_FILTERS.filter((x) => x.value !== "ALL"),
-    []
+    () =>
+      getLocalizedMuscleFilters(ADVANCED_MUSCLE_FILTERS, language).filter(
+        (x) => x.value !== "ALL"
+      ),
+    [language]
   );
 
   useEffect(() => {
@@ -257,7 +264,10 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
             </View>
             {!!specificGroups.length && (
               <Text style={styles.selectedHint}>
-                {t("exerciseSelected")}: {specificGroups.join(", ")}
+                {t("exerciseSelected")}:{" "}
+                {specificGroups
+                  .map((group) => getMuscleLabel(group, language))
+                  .join(", ")}
               </Text>
             )}
 

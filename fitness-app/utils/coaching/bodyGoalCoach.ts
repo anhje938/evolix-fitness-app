@@ -93,6 +93,7 @@ const EMA_ALPHA = 0.2;
 const KCAL_PER_KG = 7700;
 const MIN_RECOMMENDED_CALORIES = 1200;
 const MAX_WEEKLY_GAIN_KG = 0.75;
+const MAX_WEEKLY_GAIN_BODYWEIGHT_FRACTION = 0.0025;
 const MAX_WEEKLY_LOSS_KG = 1.0;
 const MAX_WEEKLY_LOSS_BODYWEIGHT_FRACTION = 0.01;
 const MIN_WEEKLY_ADJUSTMENT_TO_SHOW = 25;
@@ -322,11 +323,26 @@ function getGoalDirection(deltaToGoalKg: number | null) {
   return "maintain" as const;
 }
 
+function getSelectedGoalDirection(
+  weightDirection: UserSettings["weightDirection"],
+  deltaToGoalKg: number | null
+) {
+  if (weightDirection === "gain") return "gain" as const;
+  if (weightDirection === "lose") return "lose" as const;
+  if (weightDirection === "maintain") return "maintain" as const;
+  return getGoalDirection(deltaToGoalKg);
+}
+
 function getSafeWeeklyRate(
   goalDirection: "gain" | "lose" | "maintain",
   trendWeightKg: number
 ) {
-  if (goalDirection === "gain") return MAX_WEEKLY_GAIN_KG;
+  if (goalDirection === "gain") {
+    return Math.min(
+      MAX_WEEKLY_GAIN_KG,
+      Math.max(0.1, trendWeightKg * MAX_WEEKLY_GAIN_BODYWEIGHT_FRACTION)
+    );
+  }
   if (goalDirection === "lose") {
     return Math.min(
       MAX_WEEKLY_LOSS_KG,
@@ -583,9 +599,17 @@ export function buildBodyGoalCoach({
   const goalEpochDay = getDateKeyEpochDay(getOsloDateKey(goalDateUtc));
   const daysRemaining =
     goalEpochDay === null ? null : goalEpochDay - todayEpochDay;
-  const goalDirection = getGoalDirection(deltaToGoalKg);
+  const goalDirection = getSelectedGoalDirection(
+    userSettings.weightDirection,
+    deltaToGoalKg
+  );
   const goalReached =
-    deltaToGoalKg !== null && Math.abs(deltaToGoalKg) <= 0.3;
+    deltaToGoalKg !== null &&
+    Math.abs(deltaToGoalKg) <= 0.3 &&
+    !(
+      goalDirection === "maintain" &&
+      Math.abs(currentTrendKgPerWeek) > 0.2
+    );
   const rawRequiredTrendKgPerWeek =
     deltaToGoalKg === null || daysRemaining === null
       ? null

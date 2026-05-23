@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Net.Mail;
 using System.Text.Json;
 using backend.Data;
 using backend.Features.Monitoring;
@@ -63,6 +64,7 @@ namespace backend.Features.Users
             string? email,
             CancellationToken ct = default)
         {
+            var normalizedEmail = NormalizeEmail(email);
             var user = await _db.Users
                 .Include(u => u.Settings)
                 .FirstOrDefaultAsync(u => u.Id == appleSub, ct);
@@ -87,8 +89,15 @@ namespace backend.Features.Users
                 // Backfill email (Apple may only send once)
                 if (user.Email == null && email != null)
                 {
-                    user.Email = email;
+                    user.Email = email.Trim();
+                    user.NormalizedEmail = normalizedEmail;
                     user.UpdatedAtUtc = DateTime.UtcNow;
+                    dirty = true;
+                }
+
+                if (string.IsNullOrWhiteSpace(user.AuthProvider))
+                {
+                    user.AuthProvider = "apple";
                     dirty = true;
                 }
 
@@ -106,7 +115,9 @@ namespace backend.Features.Users
             user = new User
             {
                 Id = appleSub,
-                Email = email,
+                Email = email?.Trim(),
+                NormalizedEmail = normalizedEmail,
+                AuthProvider = "apple",
                 CreatedAtUtc = DateTime.UtcNow,
                 UpdatedAtUtc = DateTime.UtcNow,
                 Settings = new UserSettings
@@ -119,6 +130,58 @@ namespace backend.Features.Users
             await _db.SaveChangesAsync(ct);
 
             return user;
+        }
+
+        public async Task<User> CreateUserWithPasswordAsync(
+            string email,
+            string username,
+            string passwordHash,
+            CancellationToken ct = default)
+        {
+            var normalizedEmail = NormalizeEmail(email)
+                ?? throw new ArgumentException("Ugyldig e-postadresse.");
+            var normalizedUsername = NormalizeUsername(username)
+                ?? throw new ArgumentException("Ugyldig brukernavn.");
+
+            var exists = await _db.Users.AnyAsync(
+                x => x.NormalizedEmail == normalizedEmail ||
+                     x.NormalizedUsername == normalizedUsername,
+                ct);
+            if (exists)
+                throw new InvalidOperationException("E-post eller brukernavn er allerede i bruk.");
+
+            var now = DateTime.UtcNow;
+            var user = new User
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Email = email.Trim(),
+                NormalizedEmail = normalizedEmail,
+                Username = username.Trim(),
+                NormalizedUsername = normalizedUsername,
+                AuthProvider = "password",
+                PasswordHash = passwordHash,
+                PasswordUpdatedAtUtc = now,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now,
+                Settings = new UserSettings()
+            };
+            user.Settings.UserId = user.Id;
+
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync(ct);
+            return user;
+        }
+
+        public async Task<User?> GetUserByEmailAsync(
+            string email,
+            CancellationToken ct = default)
+        {
+            var normalizedEmail = NormalizeEmail(email);
+            if (normalizedEmail == null) return null;
+
+            return await _db.Users
+                .Include(u => u.Settings)
+                .FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail, ct);
         }
 
         // Delete user
@@ -1168,6 +1231,43 @@ namespace backend.Features.Users
 
             var value = language.Trim().ToLowerInvariant();
             return AllowedLanguages.Contains(value) ? value : "nb";
+        }
+
+        public static string? NormalizeEmail(string? email)
+        {
+            if (string.IsNullOrWhiteSpace(email)) return null;
+
+            var trimmed = email.Trim();
+            if (trimmed.Length > 320) return null;
+
+            try
+            {
+                var address = new MailAddress(trimmed);
+                if (!string.Equals(address.Address, trimmed, StringComparison.OrdinalIgnoreCase))
+                    return null;
+                return address.Address.ToUpperInvariant();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public static string? NormalizeUsername(string? username)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return null;
+
+            var value = username.Trim();
+            if (value.Length is < 3 or > 24) return null;
+
+            foreach (var ch in value)
+            {
+                if (char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.')
+                    continue;
+                return null;
+            }
+
+            return value.ToUpperInvariant();
         }
     }
 }

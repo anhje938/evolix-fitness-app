@@ -1,7 +1,12 @@
 // components/exercise/MuscleFilterBar.tsx
 import { newColors } from "@/config/theme";
 import { typography } from "@/config/typography";
-import { ADVANCED_MUSCLE_FILTERS, MUSCLE_FILTERS } from "@/types/muscles";
+import { useTranslation } from "@/i18n/translations";
+import {
+  ADVANCED_MUSCLE_FILTERS,
+  MUSCLE_FILTERS,
+  getLocalizedMuscleFilters,
+} from "@/types/muscles";
 import React, { useMemo } from "react";
 import {
   ScrollView,
@@ -33,9 +38,14 @@ const ESTIMATED_ROW_HEIGHT = 42; // ~chip height + margin
 const ADVANCED_MAX_HEIGHT = ROWS_VISIBLE_ADVANCED * ESTIMATED_ROW_HEIGHT + 8;
 
 export function MuscleFilterBar({ value, onChange, preset, chipColors }: Props) {
+  const { language } = useTranslation();
   const list = useMemo(
-    () => (preset === "advanced" ? ADVANCED_MUSCLE_FILTERS : MUSCLE_FILTERS),
-    [preset]
+    () =>
+      getLocalizedMuscleFilters(
+        preset === "advanced" ? ADVANCED_MUSCLE_FILTERS : MUSCLE_FILTERS,
+        language
+      ),
+    [language, preset]
   );
 
   // Basic horizontal scroll.

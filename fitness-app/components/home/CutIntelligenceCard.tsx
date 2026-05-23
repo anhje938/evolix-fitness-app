@@ -1,4 +1,5 @@
 import { typography } from "@/config/typography";
+import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useTranslation } from "@/i18n/translations";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -18,6 +19,19 @@ const premiumBlueAccent = [
 
 export function CutIntelligenceCard() {
   const { t } = useTranslation();
+  const { userSettings } = useUserSettings();
+  const title =
+    userSettings.weightDirection === "gain"
+      ? "Bulk Rapport"
+      : userSettings.weightDirection === "maintain"
+      ? "Maintenance Rapport"
+      : t("cutReportTitle");
+  const body =
+    userSettings.weightDirection === "gain"
+      ? "Pro vurderer vektoppgang, styrkerespons, makroer og bulk-kvalitet."
+      : userSettings.weightDirection === "maintain"
+      ? "Pro finner vedlikeholdstempo, stabilitet og faktisk kaloribaseline."
+      : t("cutReportCardBody");
 
   return (
     <Pressable
@@ -49,9 +63,9 @@ export function CutIntelligenceCard() {
           />
         </View>
 
-        <Text style={[typography.h2, styles.title]}>{t("cutReportTitle")}</Text>
+        <Text style={[typography.h2, styles.title]}>{title}</Text>
         <Text style={[typography.body, styles.body]}>
-          {t("cutReportCardBody")}
+          {body}
         </Text>
 
         <View style={styles.metricRow}>

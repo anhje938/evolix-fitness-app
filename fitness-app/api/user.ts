@@ -57,6 +57,8 @@ export async function deleteMyUser(
 export type UserMe = {
   userId: string;
   email?: string | null;
+  username?: string | null;
+  authProvider?: string | null;
   displayName?: string | null;
   isAdmin?: boolean;
 };

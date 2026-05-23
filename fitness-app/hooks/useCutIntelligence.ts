@@ -2,6 +2,7 @@ import {
   applyCutRecommendation,
   getCurrentCutReport,
   getCutReadiness,
+  undoLastCutRecommendation,
 } from "@/api/cutIntelligence";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -38,6 +39,17 @@ export function useApplyCutRecommendation() {
 
   return useMutation({
     mutationFn: applyCutRecommendation,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: cutIntelligenceKeys.all });
+    },
+  });
+}
+
+export function useUndoLastCutRecommendation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: undoLastCutRecommendation,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: cutIntelligenceKeys.all });
     },

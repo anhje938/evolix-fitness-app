@@ -1,5 +1,5 @@
 import { PostUserMeal } from "@/api/food";
-import { getAccessTokenUserId } from "@/api/authSession";
+import { getAccessTokenAuthProvider, getAccessTokenUserId } from "@/api/authSession";
 import { deleteMyUser } from "@/api/user";
 import { PostWeight } from "@/api/weight";
 import SettingsLogo from "@/assets/icons/white-settings.svg";
@@ -54,6 +54,7 @@ import {
 import { getRelativeDateLabel } from "@/utils/pastWeek";
 import { muscleToSlug } from "@/utils/recovery/muscleToSlug";
 import { toBodyHighlighterData } from "@/utils/recovery/toBodyHighlighterData";
+import { getMuscleLabel } from "@/types/muscles";
 import { Ionicons } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { LinearGradient } from "expo-linear-gradient";
@@ -302,7 +303,7 @@ export default function HomePage() {
   const { data: sessions = [] } = useCompletedWorkouts();
   const { data: exercises = [] } = useExercises();
   const { recoveryMap } = useRecoveryMap({ sessions, exercises });
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const labelMap: Record<HomeGoalTile, string> = {
     calories: t("homeCalories"),
@@ -601,13 +602,15 @@ export default function HomePage() {
       throw new Error(t("deleteAccountNotSignedIn"));
     }
 
+    const authProvider = getAccessTokenAuthProvider(token);
     const appleUserId = getAccessTokenUserId(token);
     const isMockAppleUser =
       appleUserId === "mock-user" || appleUserId?.startsWith("mock-");
+    const shouldRevokeApple = authProvider !== "password" && !isMockAppleUser;
 
     let authorizationCode: string | null = null;
 
-    if (!isMockAppleUser) {
+    if (shouldRevokeApple) {
       if (Platform.OS !== "ios") {
         throw new Error(
           t("deleteAccountAppleDevice")
@@ -984,7 +987,7 @@ export default function HomePage() {
                   <View style={styles.musclePopupTitleRow}>
                     <View style={styles.musclePopupDot} />
                     <Text style={styles.musclePopupTitle}>
-                      {musclePopup.muscle}
+                      {getMuscleLabel(musclePopup.muscle, language)}
                     </Text>
                   </View>
 
