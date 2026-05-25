@@ -11,8 +11,10 @@ import { getFutureUtcNoonIsoDate, toUtcNoonIsoDate } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -168,7 +170,7 @@ function buildMacroSuggestion(
 
 export function RegistrationOnboardingModal() {
   const scrollViewRef = useRef<ScrollView>(null);
-  const { token, authReady } = useAuth();
+  const { token, authReady, logout } = useAuth();
   const {
     userSettings,
     saveUserSettingsNow,
@@ -196,6 +198,8 @@ export function RegistrationOnboardingModal() {
   const [stepIndex, setStepIndex] = useState(0);
   const [showValidation, setShowValidation] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isCancellingRegistration, setIsCancellingRegistration] =
+    useState(false);
   const [
     hasCompletedForcedRegistrationThisOpen,
     setHasCompletedForcedRegistrationThisOpen,
@@ -394,6 +398,11 @@ export function RegistrationOnboardingModal() {
             `${change} kg over ${weeks} weeks`,
           validation: "Fill in the fields correctly before continuing.",
           saveError: "Could not save settings right now.",
+          cancel: "Cancel",
+          cancelTitle: "Cancel registration?",
+          cancelBody:
+            "You will be signed out and can start registration again later.",
+          cancelConfirm: "Sign out",
           step: (current: number, total: number) =>
             `Step ${current} of ${total}`,
           back: "Back",
@@ -441,6 +450,11 @@ export function RegistrationOnboardingModal() {
             `${change} kg over ${weeks} uker`,
           validation: "Fyll ut feltene riktig før du går videre.",
           saveError: "Kunne ikke lagre innstillingene akkurat nå.",
+          cancel: "Avbryt",
+          cancelTitle: "Avbryt registrering?",
+          cancelBody:
+            "Du blir logget ut og kan starte registreringen på nytt senere.",
+          cancelConfirm: "Logg ut",
           step: (current: number, total: number) =>
             `Steg ${current} av ${total}`,
           back: "Tilbake",
@@ -472,6 +486,37 @@ export function RegistrationOnboardingModal() {
     setFatGoalText(String(macroSuggestion.fat));
     setShowSuggestion(false);
     setShowValidation(false);
+  };
+
+  const cancelRegistration = async () => {
+    if (isCancellingRegistration || isSavingUserSettings) return;
+
+    try {
+      setIsCancellingRegistration(true);
+      await logout();
+      router.replace("/(auth)/sign-in");
+    } finally {
+      setIsCancellingRegistration(false);
+    }
+  };
+
+  const handleCancelRegistration = () => {
+    Keyboard.dismiss();
+    Alert.alert(
+      copy.cancelTitle,
+      copy.cancelBody,
+      [
+        { text: copy.back, style: "cancel" },
+        {
+          text: copy.cancelConfirm,
+          style: "destructive",
+          onPress: () => {
+            void cancelRegistration();
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const submitSettings = async () => {
@@ -1135,29 +1180,36 @@ export function RegistrationOnboardingModal() {
           <View
             style={[styles.footer, isKeyboardVisible && styles.footerKeyboard]}
           >
-            {stepIndex > 0 ? (
-              <Pressable
-                onPress={() => {
+            <Pressable
+              onPress={() => {
+                if (stepIndex > 0) {
                   Keyboard.dismiss();
                   setStepIndex((current) => current - 1);
                   setShowValidation(false);
-                }}
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  pressed && styles.pressed,
+                } else {
+                  handleCancelRegistration();
+                }
+              }}
+              disabled={isCancellingRegistration || isSavingUserSettings}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                (isCancellingRegistration || isSavingUserSettings) &&
+                  styles.disabled,
+                pressed && styles.pressed,
               ]}
             >
-                <Text style={styles.secondaryButtonText}>{copy.back}</Text>
-              </Pressable>
-            ) : null}
+              <Text style={styles.secondaryButtonText}>
+                {stepIndex > 0 ? copy.back : copy.cancel}
+              </Text>
+            </Pressable>
 
             <Pressable
               onPress={handleContinue}
-              disabled={isSavingUserSettings}
+              disabled={isSavingUserSettings || isCancellingRegistration}
               style={({ pressed }) => [
                 styles.primaryButton,
-                stepIndex === 0 && styles.primaryButtonFull,
-                isSavingUserSettings && styles.disabled,
+                (isSavingUserSettings || isCancellingRegistration) &&
+                  styles.disabled,
                 pressed && styles.pressed,
               ]}
             >
