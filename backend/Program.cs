@@ -207,6 +207,7 @@ try
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
+    await TestFlightMockUserSeeder.SeedAsync(db, app.Configuration);
     if (app.Environment.IsDevelopment())
     {
         await DevMockDataSeeder.SeedAsync(db);

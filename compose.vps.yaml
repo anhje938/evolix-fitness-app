@@ -30,6 +30,11 @@ services:
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SecretKey: ${JWT_SECRET_KEY}
       RefreshToken__LifetimeDays: ${REFRESH_TOKEN_LIFETIME_DAYS:-250}
+      TestFlightMockUser__Enabled: ${TESTFLIGHT_MOCK_USER_ENABLED:-false}
+      TestFlightMockUser__UserId: ${TESTFLIGHT_MOCK_USER_ID:-testflight-mock-user}
+      TestFlightMockUser__Email: ${TESTFLIGHT_MOCK_USER_EMAIL:-testflight@evolix.no}
+      TestFlightMockUser__Username: ${TESTFLIGHT_MOCK_USER_USERNAME:-testflight}
+      TestFlightMockUser__Password: ${TESTFLIGHT_MOCK_USER_PASSWORD:-}
       AppleSettings__ClientId: ${APPLE_CLIENT_ID}
       AppleSettings__TeamId: ${APPLE_TEAM_ID}
       AppleSettings__KeyId: ${APPLE_KEY_ID}
