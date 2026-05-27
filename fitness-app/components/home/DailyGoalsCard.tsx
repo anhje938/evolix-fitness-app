@@ -41,16 +41,16 @@ type TileItem = {
   percentage: number;
 };
 
-function tileLabel(tile: HomeGoalTile) {
+function tileLabel(tile: HomeGoalTile, language: "nb" | "en") {
   switch (tile) {
     case "calories":
-      return "Kalorier";
+      return language === "en" ? "Calories" : "Kalorier";
     case "protein":
       return "Protein";
     case "carbs":
-      return "Karbo";
+      return language === "en" ? "Carbs" : "Karbo";
     case "fat":
-      return "Fett";
+      return language === "en" ? "Fat" : "Fett";
   }
 }
 
@@ -68,6 +68,7 @@ export default function DailyGoalsCard({
   settings,
   onPressEdit,
 }: Props) {
+  const language = settings.language ?? "nb";
   // Remove duplicates + keep stable order
   const uniqueTiles = useMemo(() => {
     const rawTiles = settings.homeGoalTiles?.length
@@ -103,7 +104,7 @@ export default function DailyGoalsCard({
         const pct = max > 0 ? (cur / max) * 100 : 0;
         return {
           key: t,
-          label: tileLabel(t),
+          label: tileLabel(t, language),
           unit: tileUnit(t),
           current: cur,
           max,
@@ -117,7 +118,7 @@ export default function DailyGoalsCard({
         const pct = max > 0 ? (cur / max) * 100 : 0;
         return {
           key: t,
-          label: tileLabel(t),
+          label: tileLabel(t, language),
           unit: tileUnit(t),
           current: cur,
           max,
@@ -131,7 +132,7 @@ export default function DailyGoalsCard({
         const pct = max > 0 ? (cur / max) * 100 : 0;
         return {
           key: t,
-          label: tileLabel(t),
+          label: tileLabel(t, language),
           unit: tileUnit(t),
           current: cur,
           max,
@@ -145,7 +146,7 @@ export default function DailyGoalsCard({
       const pct = max > 0 ? (cur / max) * 100 : 0;
       return {
         key: t,
-        label: tileLabel(t),
+        label: tileLabel(t, language),
         unit: tileUnit(t),
         current: cur,
         max,
@@ -156,7 +157,7 @@ export default function DailyGoalsCard({
     const map = new Map<HomeGoalTile, TileItem>();
     for (const t of enabled) map.set(t, mk(t));
     return map;
-  }, [enabled, todayTotals, settings]);
+  }, [enabled, todayTotals, settings, language]);
 
   const topKey: HomeGoalTile | null =
     enabled.length > 0 && enabled[0] === "calories" ? "calories" : null;
@@ -187,7 +188,7 @@ export default function DailyGoalsCard({
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={[typography.body, styles.headerTitle]} numberOfLines={1}>
-          Dagens mål
+          {language === "en" ? "Today's goals" : "Dagens mål"}
         </Text>
 
         {!!onPressEdit && (

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { useTranslation } from "@/i18n/translations";
 import {
   CameraView,
   type BarcodeType,
@@ -31,11 +32,13 @@ const PRODUCT_BARCODE_TYPES: BarcodeType[] = [
 export default function QRScanner({
   onScanned,
   onCancel,
-  title = "Skann strekkode",
+  title,
   scanBoxSize = DEFAULT_BOX_SIZE,
   enabled = true,
   barcodeTypes = PRODUCT_BARCODE_TYPES,
 }: QRScannerProps) {
+  const { language } = useTranslation();
+  const scannerTitle = title ?? (language === "en" ? "Scan barcode" : "Skann strekkode");
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraErrorMessage, setCameraErrorMessage] = useState<string | null>(
     null
@@ -61,7 +64,9 @@ export default function QRScanner({
   if (!permission) {
     return (
       <View style={styles.center}>
-        <Text style={styles.text}>Sjekker kameratilgang...</Text>
+        <Text style={styles.text}>
+          {language === "en" ? "Checking camera access..." : "Sjekker kameratilgang..."}
+        </Text>
       </View>
     );
   }
@@ -70,11 +75,15 @@ export default function QRScanner({
     return (
       <View style={styles.center}>
         <Text style={[styles.text, { marginBottom: 20 }]}>
-          Appen trenger kameratilgang for å skanne strekkoder.
+          {language === "en"
+            ? "The app needs camera access to scan barcodes."
+            : "Appen trenger kameratilgang for å skanne strekkoder."}
         </Text>
 
         <TouchableOpacity style={styles.button} onPress={requestPermission}>
-          <Text style={styles.buttonLabel}>Gi tilgang</Text>
+          <Text style={styles.buttonLabel}>
+            {language === "en" ? "Allow access" : "Gi tilgang"}
+          </Text>
         </TouchableOpacity>
 
         {onCancel && (
@@ -82,7 +91,9 @@ export default function QRScanner({
             style={[styles.button, { backgroundColor: "#333" }]}
             onPress={onCancel}
           >
-            <Text style={styles.buttonLabel}>Avbryt</Text>
+            <Text style={styles.buttonLabel}>
+              {language === "en" ? "Cancel" : "Avbryt"}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -101,7 +112,9 @@ export default function QRScanner({
             style={[styles.button, { backgroundColor: "#333" }]}
             onPress={onCancel}
           >
-            <Text style={styles.buttonLabel}>Lukk</Text>
+            <Text style={styles.buttonLabel}>
+              {language === "en" ? "Close" : "Lukk"}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -144,7 +157,10 @@ export default function QRScanner({
         barcodeScannerSettings={{ barcodeTypes }}
         onMountError={(event) => {
           setCameraErrorMessage(
-            event.message || "Kameraet kunne ikke startes. Prøv igjen."
+            event.message ||
+              (language === "en"
+                ? "The camera could not start. Try again."
+                : "Kameraet kunne ikke startes. Prøv igjen.")
           );
         }}
         onBarcodeScanned={
@@ -197,9 +213,9 @@ export default function QRScanner({
         <View style={styles.dim} />
       </View>
 
-      {title ? (
+      {scannerTitle ? (
         <View style={styles.titleOverlay} pointerEvents="none">
-          <Text style={styles.titleText}>{title}</Text>
+          <Text style={styles.titleText}>{scannerTitle}</Text>
         </View>
       ) : null}
     </View>

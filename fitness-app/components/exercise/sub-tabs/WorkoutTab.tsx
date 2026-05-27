@@ -31,6 +31,7 @@ import { Paywall } from "@/components/subscription/Paywall";
 import { useSubscription } from "@/context/SubscriptionProvider";
 import { useUserSettings } from "@/context/UserSettingsProvider";
 import { useWorkoutSession } from "@/context/workoutSessionContext";
+import { useTranslation } from "@/i18n/translations";
 import {
   isUserCreatedExercise,
   isUserCreatedWorkout,
@@ -49,6 +50,7 @@ export function WorkoutTab() {
   const [openCreate, setOpenCreate] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const { language } = useTranslation();
 
   const { userSettings } = useUserSettings();
   const { isPremium, isLoading: isSubscriptionLoading } = useSubscription();
@@ -163,7 +165,7 @@ export function WorkoutTab() {
       <View style={styles.center}>
         <ActivityIndicator />
         <Text style={[typography.body, { marginTop: 8 }]}>
-          Laster økter og øvelser...
+          {language === "en" ? "Loading workouts and exercises..." : "Laster økter og øvelser..."}
         </Text>
       </View>
     );
@@ -173,7 +175,7 @@ export function WorkoutTab() {
     return (
       <View style={styles.center}>
         <Text style={typography.body}>
-          Klarte ikke å hente økter: {(workoutsError as Error).message}
+          {language === "en" ? "Could not load workouts" : "Klarte ikke å hente økter"}: {(workoutsError as Error).message}
         </Text>
       </View>
     );
@@ -183,7 +185,7 @@ export function WorkoutTab() {
     return (
       <View style={styles.center}>
         <Text style={typography.body}>
-          Klarte ikke å hente øvelser: {(exercisesError as Error).message}
+          {language === "en" ? "Could not load exercises" : "Klarte ikke å hente øvelser"}: {(exercisesError as Error).message}
         </Text>
       </View>
     );
@@ -199,15 +201,21 @@ export function WorkoutTab() {
       >
         {/* HEADER + PLUSS-KNAPP */}
         <View style={styles.headerRow}>
-          <Text style={[typography.h2, styles.heading]}>Mine økter</Text>
+          <Text style={[typography.h2, styles.heading]}>
+            {language === "en" ? "My workouts" : "Mine økter"}
+          </Text>
           <AddButton open={openCreate} setOpen={setOpenCreate} />
         </View>
 
         {shouldShowPremiumWorkoutTeaser && (
           <View style={styles.premiumTeaser}>
             <LockedFeatureCard
-              title="Premiumøkter"
-              description="Lås opp ferdige premiumøkter når de slippes."
+              title={language === "en" ? "Premium workouts" : "Premiumøkter"}
+              description={
+                language === "en"
+                  ? "Unlock ready-made premium workouts when they launch."
+                  : "Lås opp ferdige premiumøkter når de slippes."
+              }
               isLoading={isSubscriptionLoading}
               compact
               onPress={() => setPaywallVisible(true)}

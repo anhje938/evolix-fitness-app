@@ -1,5 +1,6 @@
 import { typography } from "@/config/typography";
 import { useWorkoutSession } from "@/context/workoutSessionContext";
+import { useTranslation } from "@/i18n/translations";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { memo } from "react";
@@ -13,11 +14,12 @@ type QuickStartProps = {
 export default memo(function QuickStart({
   wrapperPaddingHorizontal = 14,
 }: QuickStartProps) {
+  const { language } = useTranslation();
   const { openQuickSession } = useWorkoutSession();
 
   return (
     <Pressable
-      onPress={() => openQuickSession("Hurtigøkt")}
+      onPress={() => openQuickSession(language === "en" ? "Quick workout" : "Hurtigøkt")}
       style={({ pressed }) => [
         styles.wrap,
         { paddingHorizontal: wrapperPaddingHorizontal },
@@ -75,10 +77,10 @@ export default memo(function QuickStart({
         {/* text */}
         <View style={styles.textCol}>
           <Text style={[typography.body, styles.title]} numberOfLines={1}>
-            Hurtigstart økt
+            {language === "en" ? "Quick start workout" : "Hurtigstart økt"}
           </Text>
           <Text style={[typography.body, styles.subtitle]} numberOfLines={1}>
-            Start uplanlagt økt
+            {language === "en" ? "Start an unplanned workout" : "Start uplanlagt økt"}
           </Text>
         </View>
 

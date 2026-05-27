@@ -17,7 +17,7 @@ namespace backend.Features.AdaptivePlanning
                 };
             }
 
-            var now = DateTime.UtcNow;
+            var now = AdaptivePlanningClock.NowUtc();
             var scored = training.MuscleLoads.Values
                 .Select(load =>
                 {

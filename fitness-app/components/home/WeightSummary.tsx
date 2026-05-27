@@ -21,6 +21,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "@/i18n/translations";
 
 type WeightSummaryBoxProps = {
   todayWeight: number;
@@ -31,6 +32,7 @@ export function WeightSummaryBox({
   todayWeight,
   weightProgressLastWeek,
 }: WeightSummaryBoxProps) {
+  const { language } = useTranslation();
   const isUp = weightProgressLastWeek >= 0;
 
   const progressText = useMemo(() => {
@@ -70,7 +72,9 @@ export function WeightSummaryBox({
         style={styles.accentBar}
       />
 
-      <Text style={[typography.body, styles.kicker]}>Siste vektmåling</Text>
+      <Text style={[typography.body, styles.kicker]}>
+        {language === "en" ? "Latest weight log" : "Siste vektmåling"}
+      </Text>
 
       <Text style={[typography.h1, styles.value]}>{safeWeightText} kg</Text>
 
@@ -99,7 +103,7 @@ export function WeightSummaryBox({
           {progressText}
         </Text>
         <Text style={[typography.body, styles.deltaSub]}>
-          siste 7 målinger
+          {language === "en" ? "last 7 logs" : "siste 7 målinger"}
         </Text>
       </View>
     </View>

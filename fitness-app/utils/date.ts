@@ -1,4 +1,5 @@
 export const NORWEGIAN_LOCALE = "nb-NO";
+const ENGLISH_LOCALE = "en-US";
 export const NORWEGIAN_TIME_ZONE =
   Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -56,6 +57,17 @@ const osloMonthYearFormatter = new Intl.DateTimeFormat(NORWEGIAN_LOCALE, withLoc
   month: "long",
   year: "numeric",
 }));
+
+function localeForLanguage(language: "nb" | "en" = "nb") {
+  return language === "en" ? ENGLISH_LOCALE : NORWEGIAN_LOCALE;
+}
+
+function createDateFormatter(
+  language: "nb" | "en" = "nb",
+  options: Intl.DateTimeFormatOptions
+) {
+  return new Intl.DateTimeFormat(localeForLanguage(language), withLocalTimeZone(options));
+}
 
 function toValidDate(input: DateInput): Date | null {
   const date = input instanceof Date ? new Date(input.getTime()) : new Date(input);
@@ -142,16 +154,45 @@ export function formatTimeNO(input: DateInput): string {
   return osloTimeFormatter.format(date);
 }
 
+export function formatTime(input: DateInput, language: "nb" | "en" = "nb"): string {
+  const date = toValidDate(input);
+  if (!date) return "--:--";
+  return createDateFormatter(language, {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 export function formatDateNO(input: DateInput): string {
   const date = toValidDate(input);
   if (!date) return "Ukjent";
   return osloDateFormatter.format(date);
 }
 
+export function formatDate(input: DateInput, language: "nb" | "en" = "nb"): string {
+  const date = toValidDate(input);
+  if (!date) return language === "en" ? "Unknown" : "Ukjent";
+  return createDateFormatter(language, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
 export function formatDateLongNO(input: DateInput): string {
   const date = toValidDate(input);
   if (!date) return "Ukjent";
   return osloDateLongFormatter.format(date);
+}
+
+export function formatDateLong(input: DateInput, language: "nb" | "en" = "nb"): string {
+  const date = toValidDate(input);
+  if (!date) return language === "en" ? "Unknown" : "Ukjent";
+  return createDateFormatter(language, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
 }
 
 export function formatDateTimeNO(input: DateInput): string {
@@ -166,10 +207,27 @@ export function formatWeekdayNO(input: DateInput): string {
   return osloWeekdayFormatter.format(date);
 }
 
+export function formatWeekday(input: DateInput, language: "nb" | "en" = "nb"): string {
+  const date = toValidDate(input);
+  if (!date) return language === "en" ? "Unknown" : "Ukjent";
+  return createDateFormatter(language, {
+    weekday: "long",
+  }).format(date);
+}
+
 export function formatShortDayMonthNO(input: DateInput): string {
   const date = toValidDate(input);
   if (!date) return "Ukjent";
   return osloShortDayMonthFormatter.format(date);
+}
+
+export function formatShortDayMonth(input: DateInput, language: "nb" | "en" = "nb"): string {
+  const date = toValidDate(input);
+  if (!date) return language === "en" ? "Unknown" : "Ukjent";
+  return createDateFormatter(language, {
+    day: "numeric",
+    month: "short",
+  }).format(date);
 }
 
 export function formatMonthYearNO(input: DateInput): string {
@@ -178,10 +236,25 @@ export function formatMonthYearNO(input: DateInput): string {
   return osloMonthYearFormatter.format(date);
 }
 
+export function formatMonthYear(input: DateInput, language: "nb" | "en" = "nb"): string {
+  const date = toValidDate(input);
+  if (!date) return language === "en" ? "Unknown" : "Ukjent";
+  return createDateFormatter(language, {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
 export function formatDateKeyNO(dateKey: string): string {
   const date = dateKeyToUtcDate(dateKey);
   if (!date) return "Ukjent";
   return formatDateNO(date);
+}
+
+export function formatDateKey(dateKey: string, language: "nb" | "en" = "nb"): string {
+  const date = dateKeyToUtcDate(dateKey);
+  if (!date) return language === "en" ? "Unknown" : "Ukjent";
+  return formatDate(date, language);
 }
 
 export function formatDateKeyLongNO(dateKey: string): string {
@@ -190,10 +263,22 @@ export function formatDateKeyLongNO(dateKey: string): string {
   return formatDateLongNO(date);
 }
 
+export function formatDateKeyLong(dateKey: string, language: "nb" | "en" = "nb"): string {
+  const date = dateKeyToUtcDate(dateKey);
+  if (!date) return language === "en" ? "Unknown" : "Ukjent";
+  return formatDateLong(date, language);
+}
+
 export function formatDateKeyWeekdayNO(dateKey: string): string {
   const date = dateKeyToUtcDate(dateKey);
   if (!date) return "Ukjent";
   return formatWeekdayNO(date);
+}
+
+export function formatDateKeyWeekday(dateKey: string, language: "nb" | "en" = "nb"): string {
+  const date = dateKeyToUtcDate(dateKey);
+  if (!date) return language === "en" ? "Unknown" : "Ukjent";
+  return formatWeekday(date, language);
 }
 
 export function getDateKeyEpochDay(dateKey: string): number | null {

@@ -171,6 +171,24 @@ function normalizeReport(report: CutReport, t: TranslationFn): CutReport {
       maintenanceStabilityStreakWeeks: 0,
       summary: "Timeline mangler i responsen.",
     },
+    monthlySummary: report.monthlySummary ?? {
+      periodStart: "",
+      periodEnd: "",
+      daysTracked: 0,
+      daysRequired: 28,
+      nutritionDays: 0,
+      weighIns: 0,
+      completedWorkouts: 0,
+      dataQualityScore: 0,
+      confidence: "low",
+      isHighConfidence: false,
+      verdict: "Månedsrapporten bygges fortsatt.",
+      topInsight: "Logg mer data for en tryggere månedlig analyse.",
+      recommendation: "Hold planen stabil til datagrunnlaget er bedre.",
+      missingForHighConfidence: [],
+      nextMonthFocus: [],
+      monthJourney: [],
+    },
     previousComparison: report.previousComparison ?? {
       hasPreviousReport: false,
       previousScore: null,
@@ -202,13 +220,13 @@ function goalTitle(
   language: "nb" | "en" = "nb"
 ) {
   if (language === "en") {
-    if (goalType === "leanBulk") return "Bulk Report";
-    if (goalType === "maintenance") return "Maintenance Report";
-    return "Cut Report";
+    if (goalType === "leanBulk") return "Monthly Bulk Report";
+    if (goalType === "maintenance") return "Monthly Maintenance Report";
+    return "Monthly Cut Report";
   }
-  if (goalType === "leanBulk") return "Bulk Rapport";
-  if (goalType === "maintenance") return "Maintenance Rapport";
-  return "Cut Rapport";
+  if (goalType === "leanBulk") return "Månedlig bulkrapport";
+  if (goalType === "maintenance") return "Månedlig vedlikeholdsrapport";
+  return "Månedlig cutrapport";
 }
 
 function goalTypeFromDirection(
@@ -224,13 +242,13 @@ function goalPreviewTitle(
   language: "nb" | "en" = "nb"
 ) {
   if (language === "en") {
-    if (goalType === "leanBulk") return "Bulk Report is locked";
-    if (goalType === "maintenance") return "Maintenance Report is locked";
-    return "Cut Report is locked";
+    if (goalType === "leanBulk") return "Monthly Bulk Report is locked";
+    if (goalType === "maintenance") return "Monthly Maintenance Report is locked";
+    return "Monthly Cut Report is locked";
   }
-  if (goalType === "leanBulk") return "Bulk Rapport er låst";
-  if (goalType === "maintenance") return "Maintenance Rapport er låst";
-  return "Cut Rapport er låst";
+  if (goalType === "leanBulk") return "Månedlig bulkrapport er låst";
+  if (goalType === "maintenance") return "Månedlig vedlikeholdsrapport er låst";
+  return "Månedlig cutrapport er låst";
 }
 
 function goalPreviewBody(
@@ -318,6 +336,70 @@ function confidenceLabel(
   return "Lav sikkerhet";
 }
 
+function monthlyTitle(
+  goalType: GoalReportType | undefined,
+  language: "nb" | "en" = "nb"
+) {
+  if (language === "en") {
+    if (goalType === "leanBulk") return "Monthly Bulk Report";
+    if (goalType === "maintenance") return "Monthly Maintenance Report";
+    return "Monthly Cut Report";
+  }
+  if (goalType === "leanBulk") return "Månedlig bulkrapport";
+  if (goalType === "maintenance") return "Månedlig vedlikeholdsrapport";
+  return "Månedlig cutrapport";
+}
+
+function journeyStatusLabel(status: string, language: "nb" | "en" = "nb") {
+  if (language === "en") {
+    if (status === "strong") return "Strong";
+    if (status === "mixed") return "Mixed";
+    return "Needs data";
+  }
+  if (status === "strong") return "Sterk";
+  if (status === "mixed") return "Blandet";
+  return "Trenger data";
+}
+
+function readinessItemLabel(id: string, language: "nb" | "en") {
+  if (language === "en") {
+    if (id === "goal_days") return "Days tracked";
+    if (id === "weight_logs") return "Weigh-ins";
+    if (id === "food_logs") return "Complete nutrition days";
+    if (id === "strength_sessions") return "Completed workouts";
+    return "Data point";
+  }
+  if (id === "goal_days") return "Dager sporet";
+  if (id === "weight_logs") return "Veiinger";
+  if (id === "food_logs") return "Komplette matdager";
+  if (id === "strength_sessions") return "Fullførte økter";
+  return "Datapunkt";
+}
+
+function readinessUnit(id: string, language: "nb" | "en") {
+  if (language === "en") {
+    if (id === "weight_logs") return "logs";
+    if (id === "strength_sessions") return "workouts";
+    return "days";
+  }
+  if (id === "weight_logs") return "målinger";
+  if (id === "strength_sessions") return "økter";
+  return "dager";
+}
+
+function readinessPreviewSummary(readiness: CutReadiness, language: "nb" | "en") {
+  const ready = readiness.readyItemCount;
+  const total = Math.max(1, readiness.totalItemCount);
+  if (language === "en") {
+    return ready >= total
+      ? "Your monthly analysis has enough data for a stronger report."
+      : `Your monthly analysis is being built: ${ready}/${total} data targets are ready.`;
+  }
+  return ready >= total
+    ? "Månedsanalysen har nok data til en sterkere rapport."
+    : `Månedsanalysen bygges opp: ${ready}/${total} datamål er klare.`;
+}
+
 function problemLabel(problem: string) {
   const labels: Record<string, string> = {
     not_enough_data: "For lite data",
@@ -357,7 +439,13 @@ function SectionCard({
   );
 }
 
-function ReadinessChecklist({ readiness }: { readiness: CutReadiness }) {
+function ReadinessChecklist({
+  readiness,
+  language,
+}: {
+  readiness: CutReadiness;
+  language: "nb" | "en";
+}) {
   return (
     <View style={styles.readinessList}>
       {readiness.items.map((item) => {
@@ -375,10 +463,12 @@ function ReadinessChecklist({ readiness }: { readiness: CutReadiness }) {
                       : "rgba(251,191,36,0.96)"
                   }
                 />
-                <Text style={styles.readinessLabel}>{item.label}</Text>
+                <Text style={styles.readinessLabel}>
+                  {readinessItemLabel(item.id, language)}
+                </Text>
               </View>
               <Text style={styles.readinessValue}>
-                {item.current}/{item.required}
+                {item.current}/{item.required} {readinessUnit(item.id, language)}
               </Text>
             </View>
             <View style={styles.progressTrack}>
@@ -541,6 +631,114 @@ function RecommendationCard({
   );
 }
 
+function MonthlySummaryCard({
+  report,
+  language,
+}: {
+  report: CutReport;
+  language: "nb" | "en";
+}) {
+  const monthly = report.monthlySummary;
+  const timePct = Math.min(
+    100,
+    (monthly.daysTracked / Math.max(1, monthly.daysRequired)) * 100
+  );
+  const qualityPct = Math.min(100, Math.max(0, monthly.dataQualityScore));
+
+  return (
+    <SectionCard
+      title={monthlyTitle(report.goalType, language)}
+      icon="calendar-outline"
+    >
+      <Text style={styles.insightText}>{monthly.verdict}</Text>
+      <Text style={styles.monthlyTopInsight}>{monthly.topInsight}</Text>
+
+      <View style={styles.monthlyProgressBlock}>
+        <View style={styles.monthlyProgressHeader}>
+          <Text style={styles.metricLabel}>
+            {language === "en" ? "Period progress" : "Periode"}
+          </Text>
+          <Text style={styles.metricValue}>
+            {monthly.daysTracked}/{monthly.daysRequired}
+          </Text>
+        </View>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${timePct}%` }]} />
+        </View>
+      </View>
+
+      <View style={styles.monthlyProgressBlock}>
+        <View style={styles.monthlyProgressHeader}>
+          <Text style={styles.metricLabel}>
+            {language === "en" ? "Report confidence" : "Rapportsikkerhet"}
+          </Text>
+          <Text style={styles.metricValue}>
+            {monthly.dataQualityScore} %
+          </Text>
+        </View>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${qualityPct}%` }]} />
+        </View>
+      </View>
+
+      <View style={styles.monthlyMetricGrid}>
+        <MetricRow
+          label={language === "en" ? "Nutrition days" : "Matdager"}
+          value={`${monthly.nutritionDays}`}
+        />
+        <MetricRow
+          label={language === "en" ? "Weigh-ins" : "Veiinger"}
+          value={`${monthly.weighIns}`}
+        />
+        <MetricRow
+          label={language === "en" ? "Workouts" : "Økter"}
+          value={`${monthly.completedWorkouts}`}
+        />
+      </View>
+
+      {monthly.monthJourney.length > 0 ? (
+        <View style={styles.monthJourney}>
+          {monthly.monthJourney.map((week) => (
+            <View key={week.weekNumber} style={styles.monthJourneyCard}>
+              <Text style={styles.monthJourneyTitle}>
+                {language === "en" ? "Week" : "Uke"} {week.weekNumber}
+              </Text>
+              <Text style={styles.monthJourneyStatus}>
+                {journeyStatusLabel(week.status, language)}
+              </Text>
+              <Text style={styles.monthJourneyMeta}>
+                {language === "en"
+                  ? `${week.nutritionDays} food · ${week.weighIns} weight · ${week.workouts} workouts`
+                  : `${week.nutritionDays} mat · ${week.weighIns} vekt · ${week.workouts} økt`}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {monthly.missingForHighConfidence.length > 0 ? (
+        <Text style={styles.insightText}>
+          {language === "en" ? "For higher confidence: " : "For høyere sikkerhet: "}
+          {monthly.missingForHighConfidence.join(", ")}.
+        </Text>
+      ) : null}
+
+      <Text style={styles.recommendationAction}>{monthly.recommendation}</Text>
+
+      {monthly.nextMonthFocus.length > 0 ? (
+        <View style={styles.reasonList}>
+          {monthly.nextMonthFocus.map((focus) => (
+            <View key={focus} style={styles.reasonRow}>
+              <Ionicons name="ellipse" size={6} color={premiumBlue.soft} />
+              <Text style={styles.reasonText}>{focus}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </SectionCard>
+  );
+}
+
 function ReportContent({
   report,
   applyingRecommendationId,
@@ -573,7 +771,7 @@ function ReportContent({
           <View style={styles.heroBadge}>
             <Ionicons name="analytics-outline" size={14} color={premiumBlue.soft} />
             <Text style={styles.heroBadgeText}>
-              {goalTitle(safeReport.goalType, language)}
+              {language === "en" ? "Month verdict" : "Månedens vurdering"}
             </Text>
           </View>
           <Text style={styles.confidenceText}>
@@ -588,14 +786,20 @@ function ReportContent({
           </View>
           <View style={styles.scoreCopy}>
             <Text style={styles.statusText}>
-              {statusLabel(safeReport.status, language)}
+              {safeReport.monthlySummary.verdict ||
+                statusLabel(safeReport.status, language)}
             </Text>
-            <Text style={styles.scoreLabel}>{safeReport.scoreLabel}</Text>
+            <Text style={styles.scoreLabel}>
+              {safeReport.monthlySummary.topInsight || safeReport.scoreLabel}
+            </Text>
             {safeReport.isLimitedReport ? (
-              <Text style={styles.scoreLabel}>Begrenset rapport</Text>
+              <Text style={styles.scoreLabel}>
+                {language === "en" ? "Limited report" : "Begrenset rapport"}
+              </Text>
             ) : null}
             <Text style={styles.heroSummary}>
-              {safeReport.weightTrend.summary}
+              {safeReport.monthlySummary.recommendation ||
+                safeReport.weightTrend.summary}
             </Text>
           </View>
         </View>
@@ -618,6 +822,8 @@ function ReportContent({
         </View>
       ) : null}
 
+      <MonthlySummaryCard report={safeReport} language={language} />
+
       {safeReport.statusReasons.length > 0 ? (
         <SectionCard
           title={t("cutReportWhyStatus")}
@@ -636,7 +842,7 @@ function ReportContent({
 
       <SectionCard title={t("cutReportDataFoundation")} icon="checkmark-done-outline">
         <Text style={styles.insightText}>{safeReport.readiness.summary}</Text>
-        <ReadinessChecklist readiness={safeReport.readiness} />
+        <ReadinessChecklist readiness={safeReport.readiness} language={language} />
       </SectionCard>
 
       {showScore ? (
@@ -1075,6 +1281,26 @@ export default function CutIntelligenceScreen() {
   const [paywallVisible, setPaywallVisible] = useState(false);
   const readinessQuery = useCutReadiness(!isPremium);
   const activeGoalType = goalTypeFromDirection(userSettings.weightDirection);
+  const readiness = readinessQuery.data;
+  const goalDays = readiness?.items.find((item) => item.id === "goal_days");
+  const foodDays = readiness?.items.find((item) => item.id === "food_logs");
+  const weighIns = readiness?.items.find((item) => item.id === "weight_logs");
+  const workouts = readiness?.items.find(
+    (item) => item.id === "strength_sessions"
+  );
+  const daysTracked = Math.min(goalDays?.current ?? 0, goalDays?.required ?? 28);
+  const daysRequired = goalDays?.required ?? 28;
+  const timePct = Math.min(100, (daysTracked / Math.max(1, daysRequired)) * 100);
+  const qualityPct = readiness
+    ? Math.min(
+        100,
+        (readiness.readyItemCount / Math.max(1, readiness.totalItemCount)) * 100
+      )
+    : 0;
+  const signalCount =
+    (foodDays?.current ? 1 : 0) +
+    (weighIns?.current ? 1 : 0) +
+    (workouts?.current ? 1 : 0);
 
   if (isPremium) return <CutIntelligencePremiumScreen />;
 
@@ -1117,12 +1343,67 @@ export default function CutIntelligenceScreen() {
           <Text style={[typography.body, styles.previewText]}>
             {goalPreviewBody(activeGoalType, userSettings.language)}
           </Text>
-          {readinessQuery.data ? (
+          {readiness ? (
             <View style={styles.previewReadiness}>
               <Text style={styles.previewReadinessTitle}>
-                {readinessQuery.data.summary}
+                {readinessPreviewSummary(readiness, userSettings.language)}
               </Text>
-              <ReadinessChecklist readiness={readinessQuery.data} />
+              <View style={styles.previewProgressBlock}>
+                <View style={styles.monthlyProgressHeader}>
+                  <Text style={styles.metricLabel}>
+                    {userSettings.language === "en"
+                      ? "Report progress"
+                      : "Rapporten bygger seg opp"}
+                  </Text>
+                  <Text style={styles.metricValue}>
+                    {daysTracked}/{daysRequired}
+                  </Text>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${timePct}%` }]} />
+                </View>
+              </View>
+
+              <View style={styles.previewProgressBlock}>
+                <View style={styles.monthlyProgressHeader}>
+                  <Text style={styles.metricLabel}>
+                    {userSettings.language === "en"
+                      ? "Data quality"
+                      : "Datakvalitet"}
+                  </Text>
+                  <Text style={styles.metricValue}>{Math.round(qualityPct)} %</Text>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[styles.progressFill, { width: `${qualityPct}%` }]}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.previewStatsRow}>
+                <View style={styles.previewStatPill}>
+                  <Text style={styles.previewStatValue}>{foodDays?.current ?? 0}</Text>
+                  <Text style={styles.previewStatLabel}>
+                    {userSettings.language === "en" ? "food days" : "matdager"}
+                  </Text>
+                </View>
+                <View style={styles.previewStatPill}>
+                  <Text style={styles.previewStatValue}>{weighIns?.current ?? 0}</Text>
+                  <Text style={styles.previewStatLabel}>
+                    {userSettings.language === "en" ? "weigh-ins" : "veiinger"}
+                  </Text>
+                </View>
+                <View style={styles.previewStatPill}>
+                  <Text style={styles.previewStatValue}>{signalCount}</Text>
+                  <Text style={styles.previewStatLabel}>
+                    {userSettings.language === "en"
+                      ? "signals found"
+                      : "signaler funnet"}
+                  </Text>
+                </View>
+              </View>
+
+              <ReadinessChecklist readiness={readiness} language={userSettings.language} />
             </View>
           ) : null}
         </LinearGradient>
@@ -1450,6 +1731,61 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "rgba(96,165,250,0.92)",
   },
+  monthlyTopInsight: {
+    marginTop: 9,
+    color: "rgba(248,250,252,0.96)",
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "800",
+  },
+  monthlyProgressBlock: {
+    marginTop: 12,
+    gap: 7,
+  },
+  monthlyProgressHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  monthlyMetricGrid: {
+    marginTop: 12,
+    gap: 2,
+  },
+  monthJourney: {
+    marginTop: 13,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  monthJourneyCard: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    minHeight: 72,
+    borderRadius: 13,
+    padding: 10,
+    backgroundColor: premiumBlue.panelSoft,
+    borderWidth: 1,
+    borderColor: "rgba(147,197,253,0.14)",
+  },
+  monthJourneyTitle: {
+    color: "rgba(248,250,252,0.96)",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  monthJourneyStatus: {
+    marginTop: 3,
+    color: premiumBlue.soft,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  monthJourneyMeta: {
+    marginTop: 6,
+    color: "rgba(148,163,184,0.94)",
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: "600",
+  },
   scoreFactorList: {
     gap: 9,
   },
@@ -1669,5 +2005,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     fontWeight: "700",
+  },
+  previewProgressBlock: {
+    marginTop: 12,
+    gap: 7,
+  },
+  previewStatsRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    gap: 8,
+  },
+  previewStatPill: {
+    flex: 1,
+    minHeight: 58,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "rgba(147,197,253,0.16)",
+    backgroundColor: premiumBlue.panelSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  previewStatValue: {
+    color: "rgba(248,250,252,0.98)",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  previewStatLabel: {
+    marginTop: 2,
+    color: "rgba(191,219,254,0.78)",
+    fontSize: 10,
+    fontWeight: "700",
+    textAlign: "center",
   },
 });

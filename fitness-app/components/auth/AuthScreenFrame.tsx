@@ -7,6 +7,7 @@ import { router } from "expo-router";
 import { ReactNode, useEffect, useRef } from "react";
 import {
   Animated,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Linking,
@@ -43,6 +44,14 @@ export function AuthScreenFrame({
   const slideAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const logoRotate = useRef(new Animated.Value(0)).current;
+
+  const openExternalUrl = async (url: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert(t("commonError"), t("settingsTryAgainLater"));
+    }
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -254,7 +263,7 @@ export function AuthScreenFrame({
               <Text
                 style={styles.termsLink}
                 onPress={() => {
-                  void Linking.openURL(TERMS_URL);
+                  void openExternalUrl(TERMS_URL);
                 }}
               >
                 {t("signInTerms")}
@@ -263,7 +272,7 @@ export function AuthScreenFrame({
               <Text
                 style={styles.termsLink}
                 onPress={() => {
-                  void Linking.openURL(PRIVACY_URL);
+                  void openExternalUrl(PRIVACY_URL);
                 }}
               >
                 {t("signInPrivacy")}

@@ -447,7 +447,13 @@ export const WorkoutList = memo(function WorkoutList({
                       color="white"
                     />
                     <Text style={[typography.bodyBold, styles.primaryText]}>
-                      {isWorkoutLocked ? "Lås opp" : "Start økt"}
+                      {isWorkoutLocked
+                        ? language === "en"
+                          ? "Unlock"
+                          : "Lås opp"
+                        : language === "en"
+                          ? "Start workout"
+                          : "Start økt"}
                     </Text>
                   </LinearGradient>
                 </Pressable>

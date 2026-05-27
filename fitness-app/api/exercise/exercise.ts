@@ -6,6 +6,21 @@ import {
 } from "@/types/exercise";
 import { API_BASE_URL } from "../baseUrl";
 
+async function readErrorMessage(res: Response) {
+  const text = await res.text().catch(() => "");
+  if (!text) return "";
+
+  try {
+    const payload = JSON.parse(text) as { error?: unknown; message?: unknown };
+    if (typeof payload.error === "string") return payload.error;
+    if (typeof payload.message === "string") return payload.message;
+  } catch {
+    // Keep the raw response if it is not JSON.
+  }
+
+  return text;
+}
+
 export async function getExercisesForUser() {
   const token = await getValidAccessToken();
   if (!token) throw new Error("Mangler auth-token");
@@ -21,7 +36,7 @@ export async function getExercisesForUser() {
   );
 
   if (!res.ok) {
-    const errorText = await res.text().catch(() => "");
+    const errorText = await readErrorMessage(res);
     throw new Error(errorText || `Request failed: ${res.status}`);
   }
 
@@ -46,7 +61,7 @@ export async function CreateExercise(payload: CreateExercisePayload) {
   );
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
+    const text = await readErrorMessage(res);
     throw new Error(text || `Kunne ikke opprette øvelse (status: ${res.status})`);
   }
 
@@ -87,7 +102,7 @@ export async function UpdateExercise(
   );
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
+    const text = await readErrorMessage(res);
     throw new Error(text || `Kunne ikke oppdatere øvelse (status: ${res.status})`);
   }
 
@@ -107,7 +122,7 @@ export async function DeleteExercise(id: string) {
   );
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
+    const text = await readErrorMessage(res);
     throw new Error(text || `Kunne ikke slette øvelse (status: ${res.status})`);
   }
 

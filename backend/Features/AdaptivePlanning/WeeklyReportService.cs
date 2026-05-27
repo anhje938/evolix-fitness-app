@@ -1,4 +1,5 @@
 using backend.Data;
+using backend.Features.Development;
 using backend.Features.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,7 +7,7 @@ namespace backend.Features.AdaptivePlanning
 {
     public class WeeklyReportService
     {
-        public const string AlgorithmVersion = "adaptive-plan-v1.3";
+        public const string AlgorithmVersion = "weekly-check-in-v1.4";
         private const double KcalPerKg = 7700;
 
         private readonly AppDbContext _db;
@@ -14,19 +15,22 @@ namespace backend.Features.AdaptivePlanning
         private readonly NutritionAnalysisService _nutrition;
         private readonly TrainingAnalysisService _training;
         private readonly RecoveryAnalysisService _recovery;
+        private readonly ExpoGoMockUserSettings _expoGoMockUserSettings;
 
         public WeeklyReportService(
             AppDbContext db,
             WeightTrendService weightTrend,
             NutritionAnalysisService nutrition,
             TrainingAnalysisService training,
-            RecoveryAnalysisService recovery)
+            RecoveryAnalysisService recovery,
+            ExpoGoMockUserSettings expoGoMockUserSettings)
         {
             _db = db;
             _weightTrend = weightTrend;
             _nutrition = nutrition;
             _training = training;
             _recovery = recovery;
+            _expoGoMockUserSettings = expoGoMockUserSettings;
         }
 
         public async Task<WeeklyReport> GetOrGenerateCurrentAsync(
@@ -44,11 +48,23 @@ namespace backend.Features.AdaptivePlanning
             int limit = 12,
             CancellationToken ct = default)
         {
-            return await IncludeReportGraph(_db.WeeklyReports.AsNoTracking())
+            var boundedLimit = Math.Clamp(limit, 1, 52);
+            var reports = await IncludeReportGraph(_db.WeeklyReports.AsNoTracking())
                 .Where(x => x.UserId == userId)
                 .OrderByDescending(x => x.WeekStart)
-                .Take(Math.Clamp(limit, 1, 52))
+                .ThenByDescending(x => x.GeneratedAtUtc)
+                .Take(boundedLimit * 4)
                 .ToListAsync(ct);
+
+            return reports
+                .GroupBy(x => new { x.WeekStart, x.WeekEnd })
+                .Select(group => group
+                    .OrderByDescending(x => x.AlgorithmVersion == AlgorithmVersion)
+                    .ThenByDescending(x => x.GeneratedAtUtc)
+                    .First())
+                .OrderByDescending(x => x.WeekStart)
+                .Take(boundedLimit)
+                .ToList();
         }
 
         public async Task<WeeklyReport> GenerateCurrentAsync(
@@ -126,6 +142,22 @@ namespace backend.Features.AdaptivePlanning
                     ct);
         }
 
+        private async Task<WeeklyReport?> FindPreviousReportAsync(
+            string userId,
+            WeekWindow week,
+            CancellationToken ct)
+        {
+            var previousStart = week.Start.AddDays(-7);
+            var previousEnd = week.Start.AddDays(-1);
+
+            return await IncludeReportGraph(_db.WeeklyReports.AsNoTracking())
+                .Where(x => x.UserId == userId &&
+                            x.WeekStart == previousStart &&
+                            x.WeekEnd == previousEnd)
+                .OrderByDescending(x => x.GeneratedAtUtc)
+                .FirstOrDefaultAsync(ct);
+        }
+
         private async Task<WeeklyReport> GenerateAsync(
             string userId,
             WeekWindow week,
@@ -135,6 +167,7 @@ namespace backend.Features.AdaptivePlanning
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.UserId == userId, ct)
                 ?? new UserSettings { UserId = userId };
+            settings = _expoGoMockUserSettings.Apply(userId, settings);
 
             var weight = await _weightTrend.AnalyzeAsync(userId, week, settings, ct);
             var nutrition = await _nutrition.AnalyzeAsync(userId, week, settings, ct);
@@ -145,6 +178,7 @@ namespace backend.Features.AdaptivePlanning
                 week.EndExclusiveUtc,
                 ct);
             var recovery = _recovery.Analyze(recoveryTraining);
+            var previousReport = await FindPreviousReportAsync(userId, week, ct);
             var dataQuality = CombineQuality(weight.Confidence, nutrition.Confidence);
             int? score = CalculateScore(weight, nutrition, training, recovery);
 
@@ -216,12 +250,19 @@ namespace backend.Features.AdaptivePlanning
                 });
             }
 
-            foreach (var action in BuildNextWeekActions(weight, nutrition))
+            foreach (var action in BuildNextWeekActions(weight, nutrition, training, recovery))
             {
                 report.NextWeekActions.Add(action);
             }
 
-            foreach (var recommendation in BuildRecommendations(userId, report, settings, weight, nutrition, dataQuality))
+            foreach (var recommendation in BuildRecommendations(
+                         userId,
+                         report,
+                         settings,
+                         weight,
+                         nutrition,
+                         dataQuality,
+                         previousReport))
             {
                 report.Recommendations.Add(recommendation);
             }
@@ -364,12 +405,14 @@ namespace backend.Features.AdaptivePlanning
             if (weight.Status is "onTrack" or "maintaining")
                 return "Du er nær riktig spor. Hold målene stabile og vurder på nytt etter neste uke.";
 
-            return "Uken gir nok data til en forsiktig justering av mat- og vektplanen.";
+            return "Uken gir nyttige signaler, men store endringer bør vente til samme mønster varer over flere uker.";
         }
 
         private static IEnumerable<WeeklyReportNextWeekAction> BuildNextWeekActions(
             WeightTrendAnalysis weight,
-            NutritionAnalysis nutrition)
+            NutritionAnalysis nutrition,
+            TrainingAnalysis training,
+            RecoveryAnalysis recovery)
         {
             var actions = new List<(string Category, string Text)>
             {
@@ -379,13 +422,26 @@ namespace backend.Features.AdaptivePlanning
             };
 
             if (weight.Status is "behind" or "slightlyBehind")
-                actions.Add(("Weight", "Vurder en liten justering av kalorimålet, ikke et stort hopp."));
+                actions.Add(("Weight", "Hold planen rolig. Vurder bare en liten kalorijustering hvis samme signal varer en uke til."));
             else if (weight.Status is "tooAggressive")
-                actions.Add(("Weight", "Øk handlingsrommet litt hvis tempoet blir for hardt."));
+                actions.Add(("Weight", "Ikke press tempoet høyere. Hold igjen hvis vektnedgangen fortsetter raskt."));
             else if (weight.GoalPaceClipped)
-                actions.Add(("Weight", "Måldatoen ser stram ut. Flytt datoen heller enn å bruke en for aggressiv kaloriplan."));
+                actions.Add(("Weight", "Måldatoen ser stram ut. Flytt datoen heller enn å bruke en aggressiv kaloriplan."));
             else
                 actions.Add(("Weight", "Hold vektmålingene jevne, helst 3 ganger i uken."));
+
+            if (training.CompletedWorkouts == 0)
+                actions.Add(("Training", "Logg minst én fullført økt for bedre treningsinnsikt."));
+            else if (training.CompletedWorkouts == 1)
+                actions.Add(("Training", "Én økt gir tidlig signal. Gjenta planlagte økter før treningen vurderes hardt."));
+            else
+                actions.Add(("Training", "Hold treningsvolumet stabilt og se etter progresjon i hovedøvelsene."));
+
+            if (!string.Equals(recovery.RestMusclesText, "Ingen tydelige begrensninger", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(recovery.RestMusclesText, "Ingen data", StringComparison.OrdinalIgnoreCase))
+            {
+                actions.Add(("Recovery", $"Ta hensyn til {recovery.RestMusclesText} før neste tunge økt."));
+            }
 
             return actions.Select((x, i) => new WeeklyReportNextWeekAction
             {
@@ -401,7 +457,8 @@ namespace backend.Features.AdaptivePlanning
             UserSettings settings,
             WeightTrendAnalysis weight,
             NutritionAnalysis nutrition,
-            DataQualityLevel dataQuality)
+            DataQualityLevel dataQuality,
+            WeeklyReport? previousReport)
         {
             var recommendations = new List<AdaptiveRecommendation>();
             var confidence = ToRecommendationConfidence(dataQuality);
@@ -438,7 +495,7 @@ namespace backend.Features.AdaptivePlanning
                     SourceReport = report,
                     Type = AdaptiveRecommendationType.IncreaseProtein,
                     Title = "Øk proteinmålet i praksis",
-                    Explanation = $"Du lå i snitt {nutrition.TargetProtein - nutrition.AverageProtein.Value} g under proteinmålet. Få protein nærmere målet før kalorimålet senkes videre.",
+                    Explanation = $"Du lå i snitt {nutrition.TargetProtein - nutrition.AverageProtein.Value} g under proteinmålet. Få protein nærmere målet før kalorimålet endres videre.",
                     Confidence = confidence,
                     AppliesFromDate = appliesFrom,
                     ExpiresAtUtc = DateTime.UtcNow.AddDays(7)
@@ -485,6 +542,29 @@ namespace backend.Features.AdaptivePlanning
                 return recommendations;
             }
 
+            if (dataQuality != DataQualityLevel.High ||
+                !HasRepeatedWeightSignal(previousReport, weight))
+            {
+                recommendations.Add(new AdaptiveRecommendation
+                {
+                    UserId = userId,
+                    SourceReport = report,
+                    Type = AdaptiveRecommendationType.HoldCalories,
+                    Title = "Ikke endre kalorier ennå",
+                    Explanation = "Denne uken gir et signal, men ikke nok til en tydelig planendring. Hold kaloriene stabile og se om samme mønster varer neste uke.",
+                    Confidence = confidence,
+                    AppliesFromDate = appliesFrom,
+                    ExpiresAtUtc = DateTime.UtcNow.AddDays(7),
+                    NutritionChange = new RecommendationNutritionChange
+                    {
+                        CurrentCalories = settings.CalorieGoal,
+                        SuggestedCalories = settings.CalorieGoal
+                    }
+                });
+
+                return recommendations;
+            }
+
             var suggestedCalories = CalculateSuggestedCalories(settings, weight, nutrition);
             var calorieAdjustment = suggestedCalories - settings.CalorieGoal;
             if (calorieAdjustment < 0)
@@ -497,8 +577,8 @@ namespace backend.Features.AdaptivePlanning
                     Type = AdaptiveRecommendationType.ReduceCalories,
                     Title = isMaintenance ? "Brems vektoppgang rolig" : "Senk kalorimålet litt",
                     Explanation = isMaintenance
-                        ? "Vekten driver oppover mens kalorimålet følges godt nok. EvoliX anbefaler en liten justering og ny vurdering etter 7 dager."
-                        : "Vekttrenden går litt tregere enn målet. EvoliX anbefaler en liten justering og ny vurdering etter 7 dager.",
+                        ? "Vekten driver oppover mens kalorimålet følges godt nok over flere uker. EvoliX anbefaler en liten justering og ny vurdering etter 7 dager."
+                        : "Vekttrenden går litt tregere enn målet over flere uker. EvoliX anbefaler en liten justering og ny vurdering etter 7 dager.",
                     Confidence = confidence,
                     AppliesFromDate = appliesFrom,
                     ExpiresAtUtc = DateTime.UtcNow.AddDays(7),
@@ -523,8 +603,8 @@ namespace backend.Features.AdaptivePlanning
                     Type = AdaptiveRecommendationType.IncreaseCalories,
                     Title = isMaintenance ? "Brems vektnedgang rolig" : "Øk kalorimålet litt",
                     Explanation = isMaintenance
-                        ? "Vekten driver nedover mens kalorimålet følges godt nok. EvoliX anbefaler en liten justering og ny vurdering etter 7 dager."
-                        : "Vekttrenden går raskere enn planlagt. En liten økning kan gjøre planen mer bærekraftig.",
+                        ? "Vekten driver nedover mens kalorimålet følges godt nok over flere uker. EvoliX anbefaler en liten justering og ny vurdering etter 7 dager."
+                        : "Vekttrenden går raskere enn planlagt over flere uker. En liten økning kan gjøre planen mer bærekraftig.",
                     Confidence = confidence,
                     AppliesFromDate = appliesFrom,
                     ExpiresAtUtc = DateTime.UtcNow.AddDays(7),
@@ -556,6 +636,19 @@ namespace backend.Features.AdaptivePlanning
             }
 
             return recommendations;
+        }
+
+        private static bool HasRepeatedWeightSignal(
+            WeeklyReport? previousReport,
+            WeightTrendAnalysis weight)
+        {
+            if (previousReport?.WeightSummary == null) return false;
+
+            var status = weight.Status;
+            if (status is not ("behind" or "slightlyBehind" or "tooAggressive" or "gaining" or "losing"))
+                return false;
+
+            return previousReport.WeightSummary.Status == status;
         }
 
         private static int CalculateSuggestedCalories(

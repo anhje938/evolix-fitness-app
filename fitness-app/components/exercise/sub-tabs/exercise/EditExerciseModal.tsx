@@ -146,6 +146,14 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
   };
 
   const handleDelete = async () => {
+    if ((exercise.usageCount ?? 0) > 0) {
+      Alert.alert(
+        t("exerciseDeleteBlockedTitle"),
+        t("exerciseDeleteBlockedBody")
+      );
+      return;
+    }
+
     try {
       setDeleting(true);
       await DeleteExercise(exercise.id);
@@ -158,8 +166,13 @@ export function EditExerciseModal({ visible, exercise, onClose }: Props) {
 
       onClose();
     } catch (err) {
+      const message =
+        err instanceof Error ? err.message : t("exerciseDeleteFailedBody");
       if (__DEV__) console.log("Feil ved sletting av øvelse", err);
-      Alert.alert(t("exerciseSaveFailedTitle"), t("exerciseDeleteFailedBody"));
+      Alert.alert(
+        t("exerciseSaveFailedTitle"),
+        message || t("exerciseDeleteFailedBody")
+      );
     } finally {
       setDeleting(false);
     }

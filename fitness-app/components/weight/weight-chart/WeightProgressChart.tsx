@@ -25,6 +25,7 @@ import type { Weight } from "@/types/weight";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useWeightProgressChart } from "@/hooks/useWeightProgressChart";
+import { useTranslation } from "@/i18n/translations";
 import { weightChartColors } from "./WeightChart.tokens";
 import { styles } from "./WeightProgressChart.styles";
 
@@ -229,7 +230,10 @@ export function WeightProgressChart({
 
   showStats = true,
 }: Props) {
+  const { t } = useTranslation();
   const [showGoalInChart, setShowGoalInChart] = React.useState(false);
+  const displayTitle =
+    title === "Vektutvikling" ? t("weightTrendTitle") : title;
 
   const chart = useWeightProgressChart({
     weightList,
@@ -264,9 +268,9 @@ export function WeightProgressChart({
         {showTitle && (
           <View style={styles.headerRow}>
             <View>
-              <Text style={[typography.h2, styles.title]}>{title}</Text>
+              <Text style={[typography.h2, styles.title]}>{displayTitle}</Text>
               <Text style={[typography.body, styles.meta]}>
-                {`0 målinger · siste ${weeks} uker`}
+                {t("weightChartMeta", { count: 0, weeks })}
               </Text>
             </View>
           </View>
@@ -278,10 +282,10 @@ export function WeightProgressChart({
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[typography.bodyBlack, styles.emptyTitle]}>
-              {"Ingen vektmålinger ennå"}
+              {t("weightChartEmptyTitle")}
             </Text>
             <Text style={[typography.body, styles.emptySub]}>
-              {"Legg inn en måling for å se utviklingen her."}
+              {t("weightChartEmptyBody")}
             </Text>
           </View>
         </View>
@@ -359,9 +363,9 @@ export function WeightProgressChart({
       {/* Header */}
       <View style={styles.headerRow}>
         <View style={{ flex: 1, paddingRight: 10 }}>
-          {showTitle && <Text style={[typography.h2, styles.title]}>{title}</Text>}
+          {showTitle && <Text style={[typography.h2, styles.title]}>{displayTitle}</Text>}
           <Text style={[typography.body, styles.meta]}>
-            {`${chart.stats?.count} målinger · siste ${weeks} uker`}
+            {t("weightChartMeta", { count: chart.stats?.count ?? 0, weeks })}
           </Text>
         </View>
 
@@ -406,7 +410,7 @@ export function WeightProgressChart({
               <View style={styles.statIconWrap}>
                 <Ionicons name="flag-outline" size={12} color="#7dd3fc" />
               </View>
-              <Text style={styles.statLabel}>Start</Text>
+              <Text style={styles.statLabel}>{t("weightChartStart")}</Text>
             </View>
             <Text style={styles.statValue}>
               {chart.stats.first.toFixed(decimalPlaces)} kg
@@ -422,7 +426,7 @@ export function WeightProgressChart({
                   color="#7dd3fc"
                 />
               </View>
-              <Text style={styles.statLabel}>Trend</Text>
+              <Text style={styles.statLabel}>{t("weightChartTrend")}</Text>
             </View>
             <View style={styles.changeRow}>
               <Text
@@ -443,7 +447,9 @@ export function WeightProgressChart({
               <View style={styles.statIconWrap}>
                 <Ionicons name="scale-outline" size={12} color="#7dd3fc" />
               </View>
-              <Text style={styles.statLabel}>Siste</Text>
+              <Text style={styles.statLabel}>
+                {t("progressLatest")}
+              </Text>
             </View>
             <Text style={styles.statValue}>
               {chart.stats.last.toFixed(decimalPlaces)} kg
@@ -475,7 +481,9 @@ export function WeightProgressChart({
                   showGoalInChart && styles.goalHintTextActive,
                 ]}
               >
-                {showGoalInChart ? "Skjul mål" : "Vis mål"}
+                {showGoalInChart
+                  ? t("weightHideTarget")
+                  : t("weightShowTarget")}
               </Text>
               <Text style={styles.goalHintValue}>
                 {`${chart.goal.toFixed(decimalPlaces)} kg`}
@@ -673,7 +681,7 @@ export function WeightProgressChart({
                           fontWeight="700"
                           textAnchor="end"
                         >
-                          {`Mål: ${chart.goal.toFixed(decimalPlaces)} kg`}
+                          {`${t("weightTarget")}: ${chart.goal.toFixed(decimalPlaces)} kg`}
                         </SvgText>
                           </>
                         ) : null}
@@ -730,7 +738,9 @@ export function WeightProgressChart({
         <View style={styles.goalStats}>
           <View style={styles.goalStat}>
             <View style={styles.goalLabelRow}>
-              <Text style={styles.goalStatLabel}>Mål</Text>
+              <Text style={styles.goalStatLabel}>
+                {t("weightTarget")}
+              </Text>
             </View>
             <View style={styles.goalValueRow}>
               <Text style={[styles.goalStatValue, styles.goalWeightValue]}>
@@ -746,7 +756,9 @@ export function WeightProgressChart({
           </View>
 
           <View style={styles.goalStat}>
-            <Text style={styles.goalStatLabel}>Snitt/uke</Text>
+            <Text style={styles.goalStatLabel}>
+              {t("weightAveragePerWeek")}
+            </Text>
             <Text
               style={[styles.goalStatValue, { color: chart.trend.trendColor }]}
             >
@@ -756,7 +768,9 @@ export function WeightProgressChart({
           </View>
 
           <View style={styles.goalStat}>
-            <Text style={styles.goalStatLabel}>Tid til mål</Text>
+            <Text style={styles.goalStatLabel}>
+              {t("weightTimeToTarget")}
+            </Text>
 
             {chart.stats.goalDirection === "correct" &&
             chart.stats.daysToGoal !== null ? (
@@ -767,12 +781,19 @@ export function WeightProgressChart({
                 ]}
               >
                 {chart.stats.daysToGoal < 7
-                  ? `${chart.stats.daysToGoal} dag${
-                      chart.stats.daysToGoal !== 1 ? "er" : ""
-                    }`
+                  ? t(
+                      chart.stats.daysToGoal === 1
+                        ? "weightTimeDaySingular"
+                        : "weightTimeDays",
+                      { count: chart.stats.daysToGoal }
+                    )
                   : chart.stats.weeksToGoal! < 4
-                  ? `${Math.round(chart.stats.weeksToGoal!)} uker`
-                  : `${(chart.stats.weeksToGoal! / 4).toFixed(1)} mnd`}
+                  ? t("weightTimeWeeks", {
+                      count: Math.round(chart.stats.weeksToGoal!),
+                    })
+                  : t("weightTimeMonths", {
+                      count: (chart.stats.weeksToGoal! / 4).toFixed(1),
+                    })}
               </Text>
             ) : chart.stats.goalDirection === "wrong" ? (
               <Text
@@ -781,7 +802,7 @@ export function WeightProgressChart({
                   { color: "rgba(239, 68, 68, 0.9)", fontSize: 11 },
                 ]}
               >
-                Feil retning
+                {t("weightWrongDirection")}
               </Text>
             ) : (
               <Text
@@ -790,7 +811,7 @@ export function WeightProgressChart({
                   { color: "rgba(148, 163, 184, 0.7)", fontSize: 11 },
                 ]}
               >
-                Stabil vekt
+                {t("weightStableWeight")}
               </Text>
             )}
           </View>

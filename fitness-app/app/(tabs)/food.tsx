@@ -96,7 +96,7 @@ function normalizeExcludedDateKeys(dateKeys: string[]) {
 }
 
 export default function FoodPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const insets = useSafeAreaInsets();
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<"manual" | "qr">("manual");
@@ -210,7 +210,7 @@ export default function FoodPage() {
       setIsOpen(false);
     } catch (error) {
       if (__DEV__) console.log("Could not save meal to backend", error);
-      Alert.alert("Kunne ikke lagre måltid", "Noe gikk galt. Prøv igjen.");
+      Alert.alert(t("foodSaveFailedTitle"), language === "en" ? "Something went wrong. Try again." : "Noe gikk galt. Prøv igjen.");
     }
   };
 
@@ -243,8 +243,10 @@ export default function FoodPage() {
       }
 
       Alert.alert(
-        "Kunne ikke åpne retten",
-        "Denne måltidsloggen kommer fra en rett som ikke ble funnet. Den kan være slettet."
+        language === "en" ? "Could not open dish" : "Kunne ikke åpne retten",
+        language === "en"
+          ? "This meal log comes from a dish that was not found. It may have been deleted."
+          : "Denne måltidsloggen kommer fra en rett som ikke ble funnet. Den kan være slettet."
       );
       return;
     }
@@ -279,7 +281,7 @@ export default function FoodPage() {
       if (__DEV__) console.log("DeleteUserMeal failed:", e);
       setFoodList(prev);
 
-      Alert.alert("Kunne ikke slette", "Noe gikk galt. Prøv igjen.", [
+      Alert.alert(language === "en" ? "Could not delete" : "Kunne ikke slette", language === "en" ? "Something went wrong. Try again." : "Noe gikk galt. Prøv igjen.", [
         { text: "OK" },
       ]);
     }
@@ -323,7 +325,7 @@ export default function FoodPage() {
       if (__DEV__) console.log("UpdateUserMeal failed:", e);
       setFoodList(prev);
 
-      Alert.alert("Kunne ikke oppdatere", "Noe gikk galt. Prøv igjen.", [
+      Alert.alert(language === "en" ? "Could not update" : "Kunne ikke oppdatere", language === "en" ? "Something went wrong. Try again." : "Noe gikk galt. Prøv igjen.", [
         { text: "OK" },
       ]);
     }
@@ -383,7 +385,10 @@ export default function FoodPage() {
               await refreshComposedData();
             } catch (error) {
               if (__DEV__) console.log("Could not delete composed meal", error);
-              Alert.alert("Kunne ikke slette rett", "Prøv igjen.");
+              Alert.alert(
+                language === "en" ? "Could not delete dish" : "Kunne ikke slette rett",
+                language === "en" ? "Try again." : "Prøv igjen."
+              );
             }
           },
         },
@@ -414,7 +419,10 @@ export default function FoodPage() {
     } catch (error) {
       if (__DEV__) console.log("Could not toggle favorite", error);
       setComposedMeals(prev);
-      Alert.alert("Kunne ikke oppdatere favoritt", "Prøv igjen.");
+      Alert.alert(
+        language === "en" ? "Could not update favorite" : "Kunne ikke oppdatere favoritt",
+        language === "en" ? "Try again." : "Prøv igjen."
+      );
     }
   };
 
@@ -460,7 +468,10 @@ export default function FoodPage() {
       }
     } catch (error) {
       if (__DEV__) console.log("Could not log composed meal (custom)", error);
-      Alert.alert("Kunne ikke logge rett", "Prøv igjen.");
+      Alert.alert(
+        language === "en" ? "Could not log dish" : "Kunne ikke logge rett",
+        language === "en" ? "Try again." : "Prøv igjen."
+      );
     }
   };
 
@@ -478,7 +489,10 @@ export default function FoodPage() {
       await refreshComposedData();
     } catch (error) {
       if (__DEV__) console.log("Could not relog from history", error);
-      Alert.alert("Kunne ikke logge på nytt", "Prøv igjen.");
+      Alert.alert(
+        language === "en" ? "Could not log again" : "Kunne ikke logge på nytt",
+        language === "en" ? "Try again." : "Prøv igjen."
+      );
     }
   };
 
@@ -523,7 +537,7 @@ export default function FoodPage() {
 
           <View style={styles.header}>
             <Text style={[typography.body, styles.headerTitle]}>
-              Dagens mål
+              {t("settingsTodayGoals")}
             </Text>
           </View>
 
@@ -547,7 +561,7 @@ export default function FoodPage() {
               fractionStyle={styles.circleFractionTop}
             />
             <Text style={[typography.body, styles.topLabel]} numberOfLines={1}>
-              Kalorier
+              {t("homeCalories")}
             </Text>
           </View>
 
@@ -568,7 +582,7 @@ export default function FoodPage() {
                 style={[typography.body, styles.macroLabel]}
                 numberOfLines={1}
               >
-                Karbo
+                {t("homeCarbsShort")}
               </Text>
             </View>
 
@@ -588,7 +602,7 @@ export default function FoodPage() {
                 style={[typography.body, styles.macroLabel]}
                 numberOfLines={1}
               >
-                Protein
+                {t("homeProtein")}
               </Text>
             </View>
 
@@ -608,7 +622,7 @@ export default function FoodPage() {
                 style={[typography.body, styles.macroLabel]}
                 numberOfLines={1}
               >
-                Fett
+                {t("homeFat")}
               </Text>
             </View>
           </View>
@@ -616,8 +630,12 @@ export default function FoodPage() {
 
         {userSettings.useFoodCoach && foodCoach ? (
           <PremiumGate
-            featureTitle="Matcoach"
-            description="Få forslag til kalorijusteringer basert på loggen og vekttrenden din."
+            featureTitle={t("settingsFoodCoach")}
+            description={
+              language === "en"
+                ? "Get calorie adjustment suggestions based on your log and weight trend."
+                : "Få forslag til kalorijusteringer basert på loggen og vekttrenden din."
+            }
             style={styles.coachSection}
           >
             <BodyGoalCoachCard recommendation={foodCoach} variant="food" />

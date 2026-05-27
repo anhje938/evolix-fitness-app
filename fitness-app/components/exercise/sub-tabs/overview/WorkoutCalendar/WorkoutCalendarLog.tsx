@@ -6,6 +6,7 @@ import {
   shiftDateKey,
 } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "@/i18n/translations";
 import React, { memo, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Calendar } from "react-native-calendars";
@@ -39,6 +40,7 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
   sessions: CompletedWorkoutSummaryDto[];
   onOpenSession: (sessionId: string) => void;
 }) {
+  const { language } = useTranslation();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const byDate = useMemo(() => {
@@ -221,7 +223,11 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
           </View>
           <View style={styles.statContent}>
             <Text style={styles.statLabel}>Streak</Text>
-            <Text style={styles.statValue}>{stats.currentStreak} dager</Text>
+            <Text style={styles.statValue}>
+              {language === "en"
+                ? `${stats.currentStreak} day${stats.currentStreak === 1 ? "" : "s"}`
+                : `${stats.currentStreak} dager`}
+            </Text>
           </View>
         </View>
 
@@ -232,8 +238,14 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
             <Ionicons name="calendar" size={18} color={colors.accent} />
           </View>
           <View style={styles.statContent}>
-            <Text style={styles.statLabel}>Denne måneden</Text>
-            <Text style={styles.statValue}>{stats.monthCount} økter</Text>
+            <Text style={styles.statLabel}>
+              {language === "en" ? "This month" : "Denne måneden"}
+            </Text>
+            <Text style={styles.statValue}>
+              {language === "en"
+                ? `${stats.monthCount} workout${stats.monthCount === 1 ? "" : "s"}`
+                : `${stats.monthCount} økter`}
+            </Text>
           </View>
         </View>
 
@@ -244,8 +256,14 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
             <Ionicons name="trophy" size={18} color={colors.green} />
           </View>
           <View style={styles.statContent}>
-            <Text style={styles.statLabel}>Lengste streak</Text>
-            <Text style={styles.statValue}>{stats.longestStreak} dager</Text>
+            <Text style={styles.statLabel}>
+              {language === "en" ? "Longest streak" : "Lengste streak"}
+            </Text>
+            <Text style={styles.statValue}>
+              {language === "en"
+                ? `${stats.longestStreak} day${stats.longestStreak === 1 ? "" : "s"}`
+                : `${stats.longestStreak} dager`}
+            </Text>
           </View>
         </View>
       </View>
@@ -256,7 +274,9 @@ export const WorkoutCalendarLog = memo(function WorkoutCalendarLog({
           <View style={styles.calendarHeaderIcon}>
             <Ionicons name="calendar-outline" size={20} color={colors.accent} />
           </View>
-          <Text style={styles.calendarHeaderText}>Treningskalender</Text>
+          <Text style={styles.calendarHeaderText}>
+            {language === "en" ? "Training calendar" : "Treningskalender"}
+          </Text>
         </View>
 
         <Calendar

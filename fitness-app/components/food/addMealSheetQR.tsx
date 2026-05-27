@@ -62,7 +62,7 @@ export function AddMealSheetQR({
   const [grams, setGrams] = useState("100");
   const [isResolvingScan, setIsResolvingScan] = useState(false);
 
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { token } = useAuth();
 
   const [macrosPer100g, setMacrosPer100g] = useState({
@@ -230,7 +230,7 @@ export function AddMealSheetQR({
 
     if (!token) {
       resetScanState();
-      Alert.alert("Mangler innlogging", "Logg inn pa nytt og prov igjen.");
+      Alert.alert(t("commonMissingLoginTitle"), t("commonLoginAgainBody"));
       return;
     }
 
@@ -286,8 +286,8 @@ export function AddMealSheetQR({
       if (__DEV__) console.log("Lookup failed for barcode:", normalizedValue, error);
       resetScanState();
       Alert.alert(
-        "Fant ikke produkt",
-        "Kunne ikke hente produktdata fra strekkoden. Prøv igjen eller legg inn manuelt."
+        t("mealProductNotFoundTitle"),
+        t("mealProductNotFoundBody")
       );
     } finally {
       if (
@@ -323,7 +323,12 @@ export function AddMealSheetQR({
 
   const handleSave = async () => {
     if (!scannedCode || !productName || isResolvingScan) {
-      Alert.alert("Mangler produkt", "Skann et produkt før du lagrer.");
+      Alert.alert(
+        t("mealScanProductFirst"),
+        language === "en"
+          ? "Scan a product before saving."
+          : "Skann et produkt før du lagrer."
+      );
       return;
     }
 
@@ -341,7 +346,10 @@ export function AddMealSheetQR({
       onClose();
     } catch (error) {
       if (__DEV__) console.log("Could not submit scanned meal", error);
-      Alert.alert("Kunne ikke lagre måltid", "Prøv igjen om et øyeblikk.");
+      Alert.alert(
+        t("foodSaveFailedTitle"),
+        language === "en" ? "Try again in a moment." : "Prøv igjen om et øyeblikk."
+      );
     }
   };
 
@@ -364,7 +372,7 @@ export function AddMealSheetQR({
             style={StyleSheet.absoluteFill}
             onPress={handleRequestClose}
             accessibilityRole="button"
-            accessibilityLabel="Lukk skann måltid"
+            accessibilityLabel={language === "en" ? "Close scan meal" : "Lukk skann måltid"}
           />
         </Animated.View>
 
@@ -405,7 +413,7 @@ export function AddMealSheetQR({
               >
                 <View style={styles.headerRow}>
                   <Text style={[typography.h2, styles.title]}>
-                    Skann måltid
+                    {language === "en" ? "Scan meal" : "Skann måltid"}
                   </Text>
                   <TouchableOpacity
                     onPress={handleRequestClose}
@@ -469,13 +477,13 @@ export function AddMealSheetQR({
                             size={16}
                             color="#67E8F9"
                           />
-                          <Text style={styles.rescanText}>Skann på nytt</Text>
+                          <Text style={styles.rescanText}>{t("mealScanAgain")}</Text>
                         </TouchableOpacity>
                       </View>
 
                       <View style={styles.gramsSection}>
                         <Text style={[typography.bodyBlack, styles.label]}>
-                          Mengde (gram)
+                          {language === "en" ? "Amount (grams)" : "Mengde (gram)"}
                         </Text>
                         <View style={styles.gramsRow}>
                           <TextInput
@@ -493,13 +501,13 @@ export function AddMealSheetQR({
 
                       <View style={styles.macroTotalsCard}>
                         <Text style={styles.macroTotalsTitle}>
-                          Beregnet næring
+                          {language === "en" ? "Calculated nutrition" : "Beregnet næring"}
                         </Text>
 
                         <View style={styles.macroTotalsRow}>
                           <View style={styles.macroTotalsCol}>
                             <Text style={styles.macroTotalsLabel}>
-                              Kalorier
+                              {t("homeCalories")}
                             </Text>
                             <Text style={styles.macroTotalsValue}>
                               {totals.calories} kcal
@@ -509,21 +517,21 @@ export function AddMealSheetQR({
 
                         <View style={styles.macroChipRow}>
                           <View style={styles.macroChip}>
-                            <Text style={styles.macroChipLabel}>Protein</Text>
+                            <Text style={styles.macroChipLabel}>{t("homeProtein")}</Text>
                             <Text style={styles.macroChipValue}>
                               {totals.proteins} g
                             </Text>
                           </View>
 
                           <View style={styles.macroChip}>
-                            <Text style={styles.macroChipLabel}>Karbs</Text>
+                            <Text style={styles.macroChipLabel}>{t("homeCarbsShort")}</Text>
                             <Text style={styles.macroChipValue}>
                               {totals.carbs} g
                             </Text>
                           </View>
 
                           <View style={styles.macroChip}>
-                            <Text style={styles.macroChipLabel}>Fett</Text>
+                            <Text style={styles.macroChipLabel}>{t("homeFat")}</Text>
                             <Text style={styles.macroChipValue}>
                               {totals.fats} g
                             </Text>
@@ -545,11 +553,12 @@ export function AddMealSheetQR({
                     </View>
                     <View style={styles.tipCopy}>
                       <Text style={styles.tipTitle}>
-                        Tips for scanning og gram
+                        {language === "en" ? "Tips for scanning and grams" : "Tips for scanning og gram"}
                       </Text>
                       <Text style={styles.tipText}>
-                        Skann først, juster deretter gram etter mengden du vil
-                        registrere. Det gir en langt renere logg.
+                        {language === "en"
+                          ? "Scan first, then adjust grams to the amount you want to log. This keeps the log much cleaner."
+                          : "Skann først, juster deretter gram etter mengden du vil registrere. Det gir en langt renere logg."}
                       </Text>
                     </View>
                   </View>

@@ -1,4 +1,5 @@
 import { typography } from "@/config/typography";
+import { useTranslation } from "@/i18n/translations";
 import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -8,6 +9,7 @@ type ToggleModeButtonsProps = {
 };
 
 export function ToggleModeButtons({ setMode, mode }: ToggleModeButtonsProps) {
+  const { language } = useTranslation();
   return (
     <View style={styles.toggleModeContainer}>
       <TouchableOpacity
@@ -37,7 +39,7 @@ export function ToggleModeButtons({ setMode, mode }: ToggleModeButtonsProps) {
                 : styles.toggleTextInactive,
             ]}
           >
-            Manuell
+            {language === "en" ? "Manual" : "Manuell"}
           </Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -69,7 +71,7 @@ export function ToggleModeButtons({ setMode, mode }: ToggleModeButtonsProps) {
                 : styles.toggleTextInactive,
             ]}
           >
-            Skann QR
+            {language === "en" ? "Scan QR" : "Skann QR"}
           </Text>
         </LinearGradient>
       </TouchableOpacity>

@@ -1,6 +1,7 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using backend.Data;
 using backend.Features.AdaptivePlanning;
+using backend.Features.Development;
 using backend.Features.Training.WorkoutSessions.Entities;
 using backend.Features.Users;
 using Microsoft.EntityFrameworkCore;
@@ -15,10 +16,14 @@ namespace backend.Features.CutIntelligence
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
         private readonly AppDbContext _db;
+        private readonly ExpoGoMockUserSettings _expoGoMockUserSettings;
 
-        public CutIntelligenceService(AppDbContext db)
+        public CutIntelligenceService(
+            AppDbContext db,
+            ExpoGoMockUserSettings expoGoMockUserSettings)
         {
             _db = db;
+            _expoGoMockUserSettings = expoGoMockUserSettings;
         }
 
         public async Task<CutReportDto> GenerateCurrentAsync(
@@ -26,7 +31,7 @@ namespace backend.Features.CutIntelligence
             CancellationToken ct = default,
             bool persistSnapshot = true)
         {
-            var now = DateTime.UtcNow;
+            var now = AdaptivePlanningClock.NowUtc();
             var today = now.Date;
             var tomorrow = today.AddDays(1);
             var last7Start = today.AddDays(-6);
@@ -34,11 +39,13 @@ namespace backend.Features.CutIntelligence
             var previousPrevious7Start = today.AddDays(-20);
             var requestedAnalysisStart = today.AddDays(-41);
             var current14Start = today.AddDays(-13);
+            var current28Start = today.AddDays(-27);
 
             var settings = await _db.UserSettings
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.UserId == userId, ct)
                 ?? new UserSettings { UserId = userId };
+            settings = _expoGoMockUserSettings.Apply(userId, settings);
 
             var goalType = MapGoalType(settings.WeightDirection);
             var configuredGoalStart = settings.CutStartDateUtc?.Date;
@@ -122,6 +129,15 @@ namespace backend.Features.CutIntelligence
             var current14Nutrition = dailyNutrition
                 .Where(x => x.Date >= current14Start && x.Date < tomorrow)
                 .ToList();
+            var current28Nutrition = dailyNutrition
+                .Where(x => x.Date >= current28Start && x.Date < tomorrow)
+                .ToList();
+            var current28Weights = weights
+                .Where(x => x.Date >= current28Start && x.Date < tomorrow)
+                .ToList();
+            var current28Sessions = sessions
+                .Where(x => x.StartedAtUtc.Date >= current28Start && x.StartedAtUtc.Date < tomorrow)
+                .ToList();
 
             var averageWeight7d = AverageOrNull(last7Weights.Select(x => x.WeightKg));
             var averageWeightPrevious7d = AverageOrNull(previous7Weights.Select(x => x.WeightKg));
@@ -170,9 +186,9 @@ namespace backend.Features.CutIntelligence
             var readiness = BuildReadiness(
                 goalType,
                 daysSinceGoalStart,
-                last7Weights.Count,
-                loggedDaysLast7,
-                training.SessionsLast14d);
+                current28Weights.Count,
+                current28Nutrition.Count(x => x.Calories >= 800),
+                current28Sessions.Count);
 
             var notEnoughData = (last7Weights.Count < 2 ||
                                 loggedDaysLast7 < 2) &&
@@ -306,7 +322,22 @@ namespace backend.Features.CutIntelligence
                 StrengthSummary = strength,
                 TrainingLoadSummary = training,
                 AdherenceSummary = adherence,
-                TimelineSummary = timeline
+                TimelineSummary = timeline,
+                MonthlySummary = BuildMonthlySummary(
+                    goalType: goalType,
+                    periodStart: current28Start,
+                    periodEnd: today,
+                    daysSinceGoalStart: daysSinceGoalStart,
+                    nutritionDays: current28Nutrition,
+                    weights: current28Weights,
+                    sessions: current28Sessions,
+                    reportStatus: status,
+                    confidence: confidence,
+                    averageWeight7d: averageWeight7d,
+                    weeklyChangePercent: weeklyChangePercent,
+                    previousWeeklyChangePercent: previousWeeklyChangePercent,
+                    proteinPerKg: proteinPerKg,
+                    settings: settings)
             };
 
             var currentProblemIds = GetProblemIds(report, possibleWaterWeight);
@@ -557,7 +588,7 @@ namespace backend.Features.CutIntelligence
 
         private static WeekWindow GetCurrentWeek()
         {
-            var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+            var today = AdaptivePlanningClock.Today();
             var dayOffset = ((int)today.DayOfWeek + 6) % 7;
             var start = today.AddDays(-dayOffset);
             return new WeekWindow(start, start.AddDays(6));
@@ -589,21 +620,21 @@ namespace backend.Features.CutIntelligence
         private static CutReadinessDto BuildReadiness(
             string goalType,
             int daysSinceGoalStart,
-            int weightLogsLast7,
-            int foodDaysLast7,
-            int strengthSessionsLast14)
+            int weightLogsLast28,
+            int foodDaysLast28,
+            int strengthSessionsLast28)
         {
             var goalLabel = GoalLabel(goalType);
             var items = new List<CutReadinessItemDto>
             {
-                ReadinessItem("goal_days", $"Dager siden {goalLabel}-start", daysSinceGoalStart, 10, "dager"),
-                ReadinessItem("weight_logs", "Vektmålinger siste 7 dager", weightLogsLast7, 4, "målinger"),
-                ReadinessItem("food_logs", "Matloggede dager siste 7 dager", foodDaysLast7, 4, "dager"),
-                ReadinessItem("strength_sessions", "Styrkeøkter siste 14 dager", strengthSessionsLast14, 2, "økter"),
+                ReadinessItem("goal_days", $"Dager siden {goalLabel}-start", daysSinceGoalStart, 28, "dager"),
+                ReadinessItem("weight_logs", "Vektmålinger siste 28 dager", weightLogsLast28, 12, "målinger"),
+                ReadinessItem("food_logs", "Komplette matdager siste 28 dager", foodDaysLast28, 20, "dager"),
+                ReadinessItem("strength_sessions", "Fullførte økter siste 28 dager", strengthSessionsLast28, 6, "økter"),
             };
             var readyCount = items.Count(x => x.IsReady);
-            var hasWeightNutrition = weightLogsLast7 >= 2 && foodDaysLast7 >= 2;
-            var limited = hasWeightNutrition && strengthSessionsLast14 < 2;
+            var hasWeightNutrition = weightLogsLast28 >= 8 && foodDaysLast28 >= 12;
+            var limited = hasWeightNutrition && strengthSessionsLast28 < 6;
 
             return new CutReadinessDto
             {
@@ -612,10 +643,10 @@ namespace backend.Features.CutIntelligence
                 TotalItemCount = items.Count,
                 Items = items,
                 Summary = readyCount == items.Count
-                    ? $"Datagrunnlaget er godt nok for en full {ReportName(goalType)}."
+                    ? $"Datagrunnlaget er godt nok for en månedlig {ReportName(goalType)}."
                     : limited
                         ? "Rapporten har nok vekt og mat til en begrenset vurdering, men trening tolkes forsiktig."
-                        : $"Rapporten bygger fortsatt datagrunnlag: {readyCount}/{items.Count} krav er oppfylt.",
+                        : $"Månedsrapporten bygger fortsatt datagrunnlag: {readyCount}/{items.Count} krav er oppfylt.",
             };
         }
 
@@ -635,6 +666,253 @@ namespace backend.Features.CutIntelligence
                 Unit = unit,
                 IsReady = current >= required,
             };
+        }
+
+        private static GoalMonthlySummaryDto BuildMonthlySummary(
+            string goalType,
+            DateTime periodStart,
+            DateTime periodEnd,
+            int daysSinceGoalStart,
+            List<DailyNutrition> nutritionDays,
+            List<WeightPoint> weights,
+            List<WorkoutSession> sessions,
+            string reportStatus,
+            string confidence,
+            double? averageWeight7d,
+            double? weeklyChangePercent,
+            double? previousWeeklyChangePercent,
+            double? proteinPerKg,
+            UserSettings settings)
+        {
+            var completeNutritionDays = nutritionDays.Count(x => x.Calories >= 800);
+            var weighIns = weights.Select(x => x.Date).Distinct().Count();
+            var completedWorkouts = sessions.Count;
+            var daysTracked = Math.Min(28, Math.Max(0, daysSinceGoalStart));
+            var score = CalculateMonthlyDataQualityScore(
+                daysTracked,
+                completeNutritionDays,
+                weighIns,
+                completedWorkouts);
+            var monthlyConfidence = score >= 85
+                ? "high"
+                : score >= 55
+                    ? "medium"
+                    : "low";
+
+            var missing = new List<string>();
+            if (completeNutritionDays < 20)
+                missing.Add($"{20 - completeNutritionDays} flere komplette matdager");
+            if (weighIns < 12)
+                missing.Add($"{12 - weighIns} flere vektmålinger");
+            if (completedWorkouts < 6)
+                missing.Add($"{6 - completedWorkouts} flere fullførte økter");
+
+            return new GoalMonthlySummaryDto
+            {
+                PeriodStart = periodStart,
+                PeriodEnd = periodEnd,
+                DaysTracked = daysTracked,
+                NutritionDays = completeNutritionDays,
+                WeighIns = weighIns,
+                CompletedWorkouts = completedWorkouts,
+                DataQualityScore = score,
+                Confidence = monthlyConfidence,
+                IsHighConfidence = monthlyConfidence == "high",
+                Verdict = BuildMonthlyVerdict(goalType, reportStatus, monthlyConfidence),
+                TopInsight = BuildMonthlyTopInsight(
+                    goalType,
+                    monthlyConfidence,
+                    weeklyChangePercent,
+                    previousWeeklyChangePercent,
+                    proteinPerKg,
+                    completeNutritionDays),
+                Recommendation = BuildMonthlyRecommendation(
+                    goalType,
+                    monthlyConfidence,
+                    reportStatus,
+                    weeklyChangePercent,
+                    previousWeeklyChangePercent,
+                    proteinPerKg,
+                    settings),
+                MissingForHighConfidence = missing,
+                NextMonthFocus = BuildNextMonthFocus(
+                    goalType,
+                    monthlyConfidence,
+                    completeNutritionDays,
+                    weighIns,
+                    completedWorkouts,
+                    proteinPerKg),
+                MonthJourney = BuildMonthJourney(periodStart, periodEnd, nutritionDays, weights, sessions)
+            };
+        }
+
+        private static int CalculateMonthlyDataQualityScore(
+            int daysTracked,
+            int nutritionDays,
+            int weighIns,
+            int workouts)
+        {
+            var timeScore = Math.Min(1, daysTracked / 28d) * 20;
+            var nutritionScore = Math.Min(1, nutritionDays / 20d) * 30;
+            var weightScore = Math.Min(1, weighIns / 12d) * 25;
+            var trainingScore = Math.Min(1, workouts / 6d) * 25;
+            return Math.Clamp((int)Math.Round(timeScore + nutritionScore + weightScore + trainingScore), 0, 100);
+        }
+
+        private static string BuildMonthlyVerdict(
+            string goalType,
+            string reportStatus,
+            string confidence)
+        {
+            if (confidence == "low")
+                return "Månedsrapporten bygges fortsatt. Hold planen stabil til datagrunnlaget er bedre.";
+
+            return reportStatus switch
+            {
+                "excellent" or "onTrack" or "strengthProgressing" or "stable" or "maintenanceFound" =>
+                    $"{ReportName(goalType)} er hovedsakelig på plan.",
+                "tooAggressive" or "tooFast" or "dirtyBulkRisk" =>
+                    $"{ReportName(goalType)} går litt for aggressivt over måneden.",
+                "tooSlow" or "driftingDown" or "driftingUp" =>
+                    $"{ReportName(goalType)} trenger en rolig justering hvis signalet holder seg.",
+                "strengthRisk" or "poorTrainingResponse" or "fatigueRisk" =>
+                    "Trening og recovery bør vurderes før større kaloriendringer.",
+                _ => "Måneden gir nyttige signaler, men konklusjonen bør holdes forsiktig."
+            };
+        }
+
+        private static string BuildMonthlyTopInsight(
+            string goalType,
+            string confidence,
+            double? weeklyChangePercent,
+            double? previousWeeklyChangePercent,
+            double? proteinPerKg,
+            int nutritionDays)
+        {
+            if (confidence == "low")
+                return "Datakvaliteten er viktigste signal akkurat nå. Mer logging gir en mer presis månedsrapport.";
+            if (nutritionDays < 20)
+                return "Matloggingen er den største begrensningen for sterke konklusjoner denne måneden.";
+            if (proteinPerKg.HasValue && proteinPerKg.Value < 1.6)
+                return "Protein ligger lavt for målet. Prioriter protein før større kalorijusteringer.";
+            if (weeklyChangePercent.HasValue && previousWeeklyChangePercent.HasValue)
+            {
+                var sameDirection = Math.Sign(weeklyChangePercent.Value) == Math.Sign(previousWeeklyChangePercent.Value);
+                if (sameDirection && Math.Abs(weeklyChangePercent.Value) > 0.25)
+                    return "De siste ukene peker i samme retning, så månedsmønsteret er sterkere enn én enkelt uke.";
+            }
+
+            return goalType switch
+            {
+                "leanBulk" => "Bulk-kvaliteten vurderes best mot både vektøkning og styrkerespons, ikke vekt alene.",
+                "maintenance" => "Stabil vekt med stabil eller økende styrke er et sterkt vedlikeholdssignal.",
+                _ => "Cut-kvaliteten handler om tempo, protein, styrke og logging samlet."
+            };
+        }
+
+        private static string BuildMonthlyRecommendation(
+            string goalType,
+            string confidence,
+            string reportStatus,
+            double? weeklyChangePercent,
+            double? previousWeeklyChangePercent,
+            double? proteinPerKg,
+            UserSettings settings)
+        {
+            if (confidence == "low")
+                return "Ikke endre kalorier ennå. Logg mer data og hold planen stabil.";
+            if (proteinPerKg.HasValue && proteinPerKg.Value < 1.6)
+                return "Prioriter protein neste måned før du gjør større endringer i kalorimålet.";
+
+            var repeatedSignal = weeklyChangePercent.HasValue &&
+                                 previousWeeklyChangePercent.HasValue &&
+                                 Math.Sign(weeklyChangePercent.Value) == Math.Sign(previousWeeklyChangePercent.Value);
+            if (!repeatedSignal)
+                return "Hold kaloriene stabile. Måneden har ikke et tydelig nok gjentatt vektsignal.";
+
+            return reportStatus switch
+            {
+                "tooSlow" when goalType == "cut" =>
+                    $"Vurder en liten reduksjon på 100-200 kcal fra {settings.CalorieGoal} kcal hvis loggingen holder seg god.",
+                "tooAggressive" or "tooFast" when goalType == "cut" =>
+                    $"Vurder en liten økning på 100-200 kcal fra {settings.CalorieGoal} kcal for å roe tempoet.",
+                "dirtyBulkRisk" when goalType == "leanBulk" =>
+                    "Ikke øk kaloriene. Vurder lavere surplus eller bedre treningskvalitet neste måned.",
+                "tooSlow" when goalType == "leanBulk" =>
+                    $"Vurder en liten økning på 100-200 kcal fra {settings.CalorieGoal} kcal hvis styrken også står stille.",
+                "driftingUp" when goalType == "maintenance" =>
+                    "Vekten driver opp. Vurder 100-150 kcal lavere hvis dette fortsetter.",
+                "driftingDown" when goalType == "maintenance" =>
+                    "Vekten driver ned. Vurder 100-150 kcal høyere hvis dette fortsetter.",
+                _ => "Hold planen stabil neste måned og bygg videre på samme rytme."
+            };
+        }
+
+        private static List<string> BuildNextMonthFocus(
+            string goalType,
+            string confidence,
+            int nutritionDays,
+            int weighIns,
+            int workouts,
+            double? proteinPerKg)
+        {
+            var focus = new List<string>();
+            if (nutritionDays < 20) focus.Add("Logg mat minst 5 dager per uke");
+            if (weighIns < 12) focus.Add("Vei deg 3-5 ganger per uke");
+            if (workouts < 6) focus.Add("Fullfør planlagte styrkeøkter jevnt");
+            if (proteinPerKg.HasValue && proteinPerKg.Value < 1.6)
+                focus.Add("Treff proteinmålet oftere");
+
+            if (focus.Count == 0)
+            {
+                focus.Add(goalType switch
+                {
+                    "leanBulk" => "Hold bulk-tempoet kontrollert og prioriter progresjon i hovedøvelsene",
+                    "maintenance" => "Hold kaloriene stabile og se etter styrke eller recomp-signal",
+                    _ => "Hold kaloriene stabile og beskytt styrken i hovedøvelsene"
+                });
+            }
+
+            if (confidence != "high")
+                focus.Add("Vent med store planendringer til rapporten har høyere sikkerhet");
+
+            return focus.Take(4).ToList();
+        }
+
+        private static List<GoalMonthJourneyWeekDto> BuildMonthJourney(
+            DateTime periodStart,
+            DateTime periodEnd,
+            List<DailyNutrition> nutritionDays,
+            List<WeightPoint> weights,
+            List<WorkoutSession> sessions)
+        {
+            var journey = new List<GoalMonthJourneyWeekDto>();
+            for (var i = 0; i < 4; i++)
+            {
+                var start = periodStart.AddDays(i * 7);
+                var end = i == 3 ? periodEnd : start.AddDays(6);
+                var nutrition = nutritionDays.Count(x => x.Date >= start && x.Date <= end && x.Calories >= 800);
+                var weighIns = weights.Select(x => x.Date).Distinct().Count(x => x >= start && x <= end);
+                var workouts = sessions.Count(x => x.StartedAtUtc.Date >= start && x.StartedAtUtc.Date <= end);
+                var status = nutrition >= 5 && weighIns >= 3 && workouts >= 2
+                    ? "strong"
+                    : nutrition >= 3 && weighIns >= 2
+                        ? "mixed"
+                        : "needsData";
+
+                journey.Add(new GoalMonthJourneyWeekDto
+                {
+                    WeekNumber = i + 1,
+                    WeekStart = start,
+                    WeekEnd = end,
+                    Status = status,
+                    NutritionDays = nutrition,
+                    WeighIns = weighIns,
+                    Workouts = workouts
+                });
+            }
+
+            return journey;
         }
 
         private static List<string> BuildWarnings(
@@ -669,13 +947,13 @@ namespace backend.Features.CutIntelligence
         }
 
         private static CutAdherenceSummaryDto BuildAdherenceSummary(
-            int weightLogsLast7,
+            int weightLogsLast28,
             List<DailyNutrition> currentNutrition,
             UserSettings settings,
             int sessionsLast14)
         {
             var mealLogging = currentNutrition.Select(x => x.Date).Distinct().Count() / 7d * 100;
-            var weighIn = Math.Min(100, weightLogsLast7 / 5d * 100);
+            var weighIn = Math.Min(100, weightLogsLast28 / 5d * 100);
             var proteinDays = settings.ProteinGoal > 0
                 ? currentNutrition.Count(x => x.ProteinGrams >= settings.ProteinGoal * 0.9)
                 : 0;
@@ -1214,7 +1492,7 @@ namespace backend.Features.CutIntelligence
                     "high",
                     "data",
                     "Rapporten mangler nok vekt, mat og trening til å tolke trenden trygt.",
-                    "Logg vekt minst 4 ganger, mat minst 4 dager og fullfør 2 styrkeøkter før neste rapport.",
+                    "Logg vekt minst 4 ganger, mat minst 4 dager og fullfør 2 fullførte økter før neste rapport.",
                     "Neste rapport kan skille mellom faktisk trend og støy.",
                     "high")));
             }
@@ -1227,7 +1505,7 @@ namespace backend.Features.CutIntelligence
                     "high",
                     "data",
                     "Vekt og mat finnes, men treningsdata mangler eller er ikke sammenlignbar.",
-                    "Logg minst 2 styrkeøkter med samme nøkkeløvelser de neste 14 dagene.",
+                    "Logg minst 2 fullførte økter med samme nøkkeløvelser de neste 14 dagene.",
                     "Coachingen kan vurdere styrke og volum uten å gjette.",
                     report.Confidence)));
             }
@@ -1309,7 +1587,7 @@ namespace backend.Features.CutIntelligence
                         "Vekten øker raskere enn styrke eller volum tilsier.",
                         canAdjustCalories
                             ? "Senk kalorimålet med 150-250 kcal per dag, eller hold kalorier og gjør treningen stabil hvis øktene mangler."
-                            : "Hold kaloriene stabile og få 2-4 solide styrkeøkter før du øker matinntaket.",
+                            : "Hold kaloriene stabile og få 2-4 solide økter før du øker matinntaket.",
                         "Bulk-kvaliteten bør bli bedre og fettøkning mindre sannsynlig.",
                         report.Confidence,
                         canAdjustCalories ? "calories" : null,
@@ -1684,7 +1962,7 @@ namespace backend.Features.CutIntelligence
             bool possibleWaterWeight)
         {
             if (!changeKg.HasValue || !changePercent.HasValue)
-                return "Logg flere vektmålinger for å se 7-dagers trend mot forrige uke.";
+                return "Logg flere Vektmålinger for å se 7-dagers trend mot forrige uke.";
 
             var direction = changeKg.Value < 0 ? "ned" : changeKg.Value > 0 ? "opp" : "stabil";
             var goalText = goalType switch
@@ -1751,7 +2029,7 @@ namespace backend.Features.CutIntelligence
         private static string BuildTrainingSummaryText(string goalType, int currentSessions, int previousSessions, double? volumeChange)
         {
             if (!volumeChange.HasValue)
-                return $"Du har {currentSessions} styrkeøkter siste 14 dager. Mer historikk gjør belastningen lettere å tolke.";
+                return $"Du har {currentSessions} fullførte økter siste 28 dager. Mer historikk gjør belastningen lettere å tolke.";
             if (volumeChange > 20) return "Treningsvolumet er tydelig høyere enn forrige periode.";
             if (volumeChange < -25) return "Treningsvolumet er betydelig lavere enn forrige periode.";
             return "Treningsbelastningen er relativt stabil.";
@@ -1787,7 +2065,7 @@ namespace backend.Features.CutIntelligence
         private static string TrainingScoreReason(CutTrainingLoadSummaryDto training, bool isLimitedReport)
         {
             if (isLimitedReport) return "Rapporten er begrenset fordi treningssignalene mangler.";
-            return $"{training.SessionsLast14d} styrkeøkter siste 14 dager og volumendring {FormatNullable(training.VolumeChangePercent)} %.";
+            return $"{training.SessionsLast14d} fullførte økter siste 28 dager og volumendring {FormatNullable(training.VolumeChangePercent)} %.";
         }
 
         private static string DataScoreReason(CutAdherenceSummaryDto adherence, bool possibleWaterWeight, bool isLimitedReport)

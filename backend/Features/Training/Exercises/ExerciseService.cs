@@ -113,6 +113,43 @@ namespace backend.Features.Training.Exercises
                 throw new ForbiddenException("Forbidden operation");
             }
 
+            var isUsedInHistory = await _db.WorkoutExerciseLogs
+                .AnyAsync(log =>
+                    log.ExerciseId == id &&
+                    (isAdmin || log.WorkoutSession.UserId == userId),
+                    ct);
+
+            if (isUsedInHistory)
+                throw new ConflictException("Øvelsen er brukt i øktloggen og kan ikke slettes uten å ødelegge historikken.");
+
+            if (!isAdmin)
+            {
+                var exerciseTargets = await _db.ExerciseTargets
+                    .Where(target => target.ExerciseId == id && target.UserId == userId)
+                    .ToListAsync(ct);
+                _db.ExerciseTargets.RemoveRange(exerciseTargets);
+
+                var recommendationTargetChanges = await _db.RecommendationExerciseTargetChanges
+                    .Where(change =>
+                        change.ExerciseId == id &&
+                        change.Recommendation.UserId == userId)
+                    .ToListAsync(ct);
+                _db.RecommendationExerciseTargetChanges.RemoveRange(recommendationTargetChanges);
+            }
+            else
+            {
+                var hasCoachReferences = await _db.ExerciseTargets
+                    .AnyAsync(target => target.ExerciseId == id, ct);
+                if (!hasCoachReferences)
+                {
+                    hasCoachReferences = await _db.RecommendationExerciseTargetChanges
+                        .AnyAsync(change => change.ExerciseId == id, ct);
+                }
+
+                if (hasCoachReferences)
+                    throw new ConflictException("Øvelsen er brukt i coach-data og kan ikke slettes trygt.");
+            }
+
             _db.Exercises.Remove(exercise);
             await _db.SaveChangesAsync(ct);
 

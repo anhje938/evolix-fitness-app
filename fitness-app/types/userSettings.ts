@@ -29,4 +29,5 @@ export interface UserSettings {
   cutStartDateUtc: string | null;
   cutStartWeightKg: number | null;
   weightDirection?: "gain" | "lose" | "maintain";
+  expoGoCoachAnchorDateUtc?: string | null;
 }

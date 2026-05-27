@@ -3,6 +3,7 @@ import { useAuth } from "@/context/AuthProvider";
 import type { UserSettings } from "@/types/userSettings";
 import { isUnauthorizedError } from "@/utils/isUnauthorizedError";
 import { getFutureUtcNoonIsoDate } from "@/utils/date";
+import { setExpoGoCoachAnchorDate } from "@/api/authSession";
 import * as SecureStore from "expo-secure-store";
 import React, {
   createContext,
@@ -54,6 +55,7 @@ const INITIAL_USER_SETTINGS: UserSettings = {
   cutStartDateUtc: null,
   cutStartWeightKg: null,
   weightDirection: "maintain",
+  expoGoCoachAnchorDateUtc: null,
 };
 
 const Ctx = createContext<UserSettingsCtx | undefined>(undefined);
@@ -117,6 +119,7 @@ function areSettingsEqual(a: UserSettings, b: UserSettings) {
     a.cutStartDateUtc === b.cutStartDateUtc &&
     a.cutStartWeightKg === b.cutStartWeightKg &&
     a.weightDirection === b.weightDirection &&
+    a.expoGoCoachAnchorDateUtc === b.expoGoCoachAnchorDateUtc &&
     a.muscleFilter === b.muscleFilter &&
     sameStringArray(a.recoveryMapHiddenMuscles, b.recoveryMapHiddenMuscles) &&
     sameStringArray(a.homeGoalTiles, b.homeGoalTiles) &&
@@ -143,6 +146,7 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
   const mountedRef = useRef(true);
   const queuedSaveRef = useRef<UserSettings | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const expoGoCoachAnchorDateRef = useRef<string | null>(null);
 
   const persistLocal = useCallback(async (next: UserSettings) => {
     await SecureStore.setItemAsync(KEY, JSON.stringify(next));
@@ -158,6 +162,9 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
 
         const parsed = JSON.parse(raw) as Partial<UserSettings>;
         const merged = mergeWithDefaults(parsed);
+        expoGoCoachAnchorDateRef.current =
+          merged.expoGoCoachAnchorDateUtc ?? null;
+        setExpoGoCoachAnchorDate(merged.expoGoCoachAnchorDateUtc ?? null);
         setUserSettingsState((prev) =>
           areSettingsEqual(prev, merged) ? prev : merged
         );
@@ -190,10 +197,16 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
       const remote = await fetchUserSettings(token);
       if (!mountedRef.current || !remote) return;
 
-      setUserSettingsState((prev) =>
-        areSettingsEqual(prev, remote) ? prev : remote
-      );
-      await persistLocal(remote);
+      const localAnchor = expoGoCoachAnchorDateRef.current;
+      const mergedRemote = {
+        ...remote,
+        expoGoCoachAnchorDateUtc: localAnchor,
+      };
+
+      setUserSettingsState((prev) => {
+        return areSettingsEqual(prev, mergedRemote) ? prev : mergedRemote;
+      });
+      await persistLocal(mergedRemote);
     } catch (error) {
       if (!mountedRef.current) return;
       if (isUnauthorizedError(error)) {
@@ -213,6 +226,12 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refreshUserSettings();
   }, [refreshUserSettings]);
+
+  useEffect(() => {
+    const value = userSettings.expoGoCoachAnchorDateUtc ?? null;
+    expoGoCoachAnchorDateRef.current = value;
+    setExpoGoCoachAnchorDate(value);
+  }, [userSettings.expoGoCoachAnchorDateUtc]);
 
   const flushQueuedSave = useCallback(async () => {
     const queuedSnapshot = queuedSaveRef.current;

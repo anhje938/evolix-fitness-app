@@ -41,8 +41,8 @@ services:
       AppleSettings__PrivateKey: ${APPLE_PRIVATE_KEY}
       RevenueCat__SecretApiKey: ${REVENUECAT_SECRET_API_KEY}
       RevenueCat__PremiumEntitlementId: ${REVENUECAT_PREMIUM_ENTITLEMENT_ID:-premium}
-      Cors__Origins__0: ${CORS_ORIGIN_0}
-      Cors__Origins__1: ${CORS_ORIGIN_1}
+      Cors__Origins__0: ${CORS_ORIGIN_0:-${CORS_ORIGIN:-}}
+      Cors__Origins__1: ${CORS_ORIGIN_1:-}
     ports:
       - "127.0.0.1:${API_HOST_PORT:-8080}:8080"
 

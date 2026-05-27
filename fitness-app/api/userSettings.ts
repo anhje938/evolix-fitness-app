@@ -49,6 +49,7 @@ const FALLBACK_SETTINGS: UserSettings = {
   cutStartDateUtc: null,
   cutStartWeightKg: null,
   weightDirection: "maintain",
+  expoGoCoachAnchorDateUtc: null,
 };
 
 type BackendEnum = string | number | null | undefined;
@@ -70,6 +71,7 @@ type BackendSettingsResponse = Partial<UserSettings> & {
   language?: unknown;
   hasCompletedRegistration?: unknown;
   hasDismissedRegistrationOnboarding?: unknown;
+  expoGoCoachAnchorDateUtc?: unknown;
 };
 
 type UpdateUserSettingsDto = {
@@ -390,6 +392,9 @@ function normalizeUserSettings(raw?: BackendSettingsResponse | null): UserSettin
     cutStartDateUtc: normalizeOptionalGoalTime(src.cutStartDateUtc),
     cutStartWeightKg: normalizeOptionalWeight(src.cutStartWeightKg),
     weightDirection: normalizeWeightDirection(src.weightDirection),
+    expoGoCoachAnchorDateUtc: normalizeOptionalGoalTime(
+      src.expoGoCoachAnchorDateUtc
+    ),
   };
 }
 
@@ -498,7 +503,10 @@ export async function upsertUserSettings(
   if (!text.trim()) return payload;
 
   try {
-    return normalizeUserSettings(JSON.parse(text) as BackendSettingsResponse);
+    return {
+      ...normalizeUserSettings(JSON.parse(text) as BackendSettingsResponse),
+      expoGoCoachAnchorDateUtc: payload.expoGoCoachAnchorDateUtc,
+    };
   } catch {
     return payload;
   }

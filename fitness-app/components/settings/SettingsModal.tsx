@@ -12,7 +12,7 @@ import {
 } from "@/config/modalTheme";
 import { typography } from "@/config/typography";
 import { useSubscription } from "@/context/SubscriptionProvider";
-import { useTranslation } from "@/i18n/translations";
+import { useTranslation, type TranslationKey } from "@/i18n/translations";
 import {
   ADVANCED_MUSCLE_FILTERS,
   getMuscleLabel,
@@ -25,6 +25,7 @@ import {
   type UserSettings,
 } from "@/types/userSettings";
 import { getFutureUtcNoonIsoDate, toUtcNoonIsoDate } from "@/utils/date";
+import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
@@ -44,9 +45,6 @@ import {
   type AlertButton,
   View,
 } from "react-native";
-import DraggableFlatList, {
-  type RenderItemParams,
-} from "react-native-draggable-flatlist";
 
 type TabKey = "general" | "user";
 const TERMS_URL = "https://evolix.no/terms";
@@ -77,6 +75,7 @@ const INITIAL_SETTINGS: UserSettings = {
   cutStartDateUtc: null,
   cutStartWeightKg: null,
   weightDirection: "maintain",
+  expoGoCoachAnchorDateUtc: null,
 };
 
 type Props = {
@@ -113,18 +112,19 @@ const LANGUAGE_OPTIONS: { value: AppLanguage; label: string }[] = [
 const PROGRESSION_THEME_OPTIONS = [
   {
     value: "lose" as const,
-    label: "Cut",
-    description: "Ned i vekt med styrkebevaring",
+    labelKey: "settingsProgressionCut" as TranslationKey,
+    descriptionKey: "settingsProgressionCutDescription" as TranslationKey,
   },
   {
     value: "gain" as const,
-    label: "Bulk",
-    description: "Opp i vekt med god treningsrespons",
+    labelKey: "settingsProgressionBulk" as TranslationKey,
+    descriptionKey: "settingsProgressionBulkDescription" as TranslationKey,
   },
   {
     value: "maintain" as const,
-    label: "Maintenance",
-    description: "Stabil vekt og vedlikeholdskalorier",
+    labelKey: "settingsProgressionMaintenance" as TranslationKey,
+    descriptionKey:
+      "settingsProgressionMaintenanceDescription" as TranslationKey,
   },
 ];
 
@@ -268,6 +268,7 @@ export default function SettingsModal({
   onDeleteAccount,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("general");
+  const [aboutVisible, setAboutVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -363,6 +364,7 @@ export default function SettingsModal({
   );
 
   const appVersion = Constants.expoConfig?.version ?? "1.0.0";
+  const isExpoGo = Constants.appOwnership === "expo";
   const subscriptionStatusText = subscription.isPremium
     ? t("settingsPremiumActive")
     : subscription.isLoading
@@ -375,18 +377,55 @@ export default function SettingsModal({
     [settings.recoveryMapHiddenMuscles]
   );
 
-  const renderSectionOrderItem = ({
-    item,
-    drag,
-    isActive,
-  }: RenderItemParams<{ key: HomeSectionKey; label: string }>) => (
+  const moveHomeSection = (key: HomeSectionKey, direction: -1 | 1) => {
+    const current = normalizeHomeSectionOrder(settings.homeSectionOrder);
+    const index = current.indexOf(key);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= current.length) return;
+
+    const next = [...current];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    updateSettings({ homeSectionOrder: next });
+  };
+
+  const renderSectionOrderItem = (
+    item: { key: HomeSectionKey; label: string },
+    index: number
+  ) => (
     <Pressable
-      onLongPress={drag}
-      delayLongPress={120}
-      style={[styles.orderRow, isActive && styles.orderRowActive]}
+      key={item.key}
+      style={styles.orderRow}
     >
       <Text style={[typography.body, styles.orderLabel]}>{item.label}</Text>
-      <Text style={[typography.bodyBold, styles.orderHandle]}>=</Text>
+      <View style={styles.orderControls}>
+        <Pressable
+          hitSlop={8}
+          disabled={index === 0}
+          onPress={() => moveHomeSection(item.key, -1)}
+          style={[styles.orderButton, index === 0 && styles.orderButtonDisabled]}
+        >
+          <Ionicons
+            name="chevron-up"
+            size={15}
+            color={settingsLightTheme.muted}
+          />
+        </Pressable>
+        <Pressable
+          hitSlop={8}
+          disabled={index === sectionOrderItems.length - 1}
+          onPress={() => moveHomeSection(item.key, 1)}
+          style={[
+            styles.orderButton,
+            index === sectionOrderItems.length - 1 && styles.orderButtonDisabled,
+          ]}
+        >
+          <Ionicons
+            name="chevron-down"
+            size={15}
+            color={settingsLightTheme.muted}
+          />
+        </Pressable>
+      </View>
     </Pressable>
   );
 
@@ -565,22 +604,45 @@ export default function SettingsModal({
   };
 
   const handleManageSubscription = async () => {
-    if (subscription.managementURL) {
-      await subscription.openManageSubscription();
-      return;
-    }
+    try {
+      if (subscription.managementURL) {
+        await subscription.openManageSubscription();
+        return;
+      }
 
-    await Linking.openURL(APPLE_SUBSCRIPTIONS_URL);
+      const canOpenAppleSubscriptions = await Linking.canOpenURL(
+        APPLE_SUBSCRIPTIONS_URL
+      );
+      if (canOpenAppleSubscriptions) {
+        await Linking.openURL(APPLE_SUBSCRIPTIONS_URL);
+        return;
+      }
+
+      if (Platform.OS === "ios") {
+        await Linking.openSettings();
+        return;
+      }
+    } catch {
+      Alert.alert(t("commonError"), t("settingsTryAgainLater"));
+    }
   };
 
   const openExternalUrl = async (url: string) => {
-    await Linking.openURL(url);
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert(t("commonError"), t("settingsTryAgainLater"));
+    }
   };
 
   const openSupportEmail = async () => {
-    await Linking.openURL(
-      `mailto:${SUPPORT_EMAIL}?subject=EvoliX%20support`
-    );
+    try {
+      await Linking.openURL(
+        `mailto:${SUPPORT_EMAIL}?subject=EvoliX%20support`
+      );
+    } catch {
+      Alert.alert(t("commonError"), t("settingsTryAgainLater"));
+    }
   };
 
   return (
@@ -606,7 +668,7 @@ export default function SettingsModal({
                 onPress={() => setVisible(false)}
                 style={styles.closeButton}
                 accessibilityRole="button"
-                accessibilityLabel="Lukk"
+                accessibilityLabel={t("commonClose")}
               >
                 <CloseIcon height={20} width={20} />
               </TouchableOpacity>
@@ -671,7 +733,7 @@ export default function SettingsModal({
                         void openExternalUrl(PRIVACY_URL);
                       }}
                       accessibilityRole="button"
-                      accessibilityLabel="Åpne personvernerklæring"
+                      accessibilityLabel={t("settingsPrivacyPolicy")}
                     >
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
@@ -689,7 +751,7 @@ export default function SettingsModal({
                         void openExternalUrl(TERMS_URL);
                       }}
                       accessibilityRole="button"
-                      accessibilityLabel="Åpne vilkår for bruk"
+                      accessibilityLabel={t("settingsTerms")}
                     >
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
@@ -804,7 +866,12 @@ export default function SettingsModal({
                       {t("settingsAboutApp")}
                     </Text>
 
-                    <TouchableOpacity style={styles.settingsItemBox}>
+                    <TouchableOpacity
+                      style={styles.settingsItemBox}
+                      onPress={() => setAboutVisible(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("settingsAboutModalTitle")}
+                    >
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
                           {t("settingsAboutEvolix")}
@@ -951,6 +1018,65 @@ export default function SettingsModal({
                       />
                     </View>
 
+                    {isExpoGo ? (
+                      <View
+                        style={[
+                          styles.settingsItemBox,
+                          styles.stackItem,
+                          styles.progressionPanel,
+                        ]}
+                      >
+                        <View style={styles.itemTextBox}>
+                          <Text style={[typography.body, styles.itemText]}>
+                            {t("settingsExpoCoachDateTitle")}
+                          </Text>
+                          <Text style={[typography.body, styles.itemSubtext]}>
+                            {t("settingsExpoCoachDateDescription")}
+                          </Text>
+                        </View>
+
+                        <View style={styles.progressionDateGrid}>
+                          <View style={styles.progressionDateItem}>
+                            <Text style={styles.progressionDateLabel}>
+                              {t("settingsMeasureDate")}
+                            </Text>
+                            <AppDateTimePicker
+                              label={t("settingsMeasureDate")}
+                              mode="date"
+                              compact
+                              value={
+                                toSafeDate(settings.expoGoCoachAnchorDateUtc) ??
+                                new Date()
+                              }
+                              onChange={(date) =>
+                                updateSettings({
+                                  expoGoCoachAnchorDateUtc: date
+                                    ? toUtcNoonIsoDate(date)
+                                    : settings.expoGoCoachAnchorDateUtc,
+                                })
+                              }
+                            />
+                          </View>
+                        </View>
+
+                        <Pressable
+                          onPress={() =>
+                            updateSettings({
+                              expoGoCoachAnchorDateUtc: null,
+                            })
+                          }
+                          style={({ pressed }) => [
+                            styles.subscriptionRefreshBtn,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text style={styles.subscriptionRefreshText}>
+                            {t("settingsUseTodayDate")}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
@@ -1037,7 +1163,7 @@ export default function SettingsModal({
                           {t("settingsCalorieGoal")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Daglig mål (kcal)
+                          {t("settingsDailyGoalKcal")}
                         </Text>
                       </View>
 
@@ -1062,7 +1188,7 @@ export default function SettingsModal({
                           {t("settingsProteinGoal")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Daglig mål (g)
+                          {t("settingsDailyGoalGram")}
                         </Text>
                       </View>
 
@@ -1087,7 +1213,7 @@ export default function SettingsModal({
                           {t("settingsFatGoal")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Daglig mål (g)
+                          {t("settingsDailyGoalGram")}
                         </Text>
                       </View>
 
@@ -1112,7 +1238,7 @@ export default function SettingsModal({
                           {t("settingsCarbGoal")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Daglig mål (g)
+                          {t("settingsDailyGoalGram")}
                         </Text>
                       </View>
 
@@ -1134,10 +1260,10 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Premium progresjon
+                          {t("settingsProgressionTitle")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Velg tema og koble det til målvekt, dato og startpunkt.
+                          {t("settingsProgressionDescription")}
                         </Text>
                       </View>
 
@@ -1166,7 +1292,7 @@ export default function SettingsModal({
                                       styles.progressionThemeTitleActive,
                                   ]}
                                 >
-                                  {option.label}
+                                  {t(option.labelKey)}
                                 </Text>
                                 <Text
                                   style={[
@@ -1174,7 +1300,7 @@ export default function SettingsModal({
                                     styles.progressionThemeDescription,
                                   ]}
                                 >
-                                  {option.description}
+                                  {t(option.descriptionKey)}
                                 </Text>
                               </View>
                               <View
@@ -1196,8 +1322,7 @@ export default function SettingsModal({
 
                       {!subscription.isPremium ? (
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Selve rapporten er Premium-låst, men temaet brukes
-                          allerede av målvekt, dato og coachkort.
+                          {t("settingsProgressionPremiumLocked")}
                         </Text>
                       ) : null}
 
@@ -1206,17 +1331,17 @@ export default function SettingsModal({
                           <View style={styles.progressionFieldCopy}>
                             <Text style={[typography.body, styles.itemText]}>
                               {settings.weightDirection === "maintain"
-                                ? "Stabil vekt"
+                                ? t("settingsStableWeight")
                                 : t("settingsWeightGoal")}
                             </Text>
                             <Text
                               style={[typography.body, styles.itemSubtext]}
                             >
                               {settings.weightDirection === "gain"
-                                ? "Målvekt for bulk (kg)"
+                                ? t("settingsBulkTargetWeight")
                                 : settings.weightDirection === "maintain"
-                                ? "Vekten du vil holde rundt (kg)"
-                                : "Målvekt for cut (kg)"}
+                                ? t("settingsMaintainTargetWeight")
+                                : t("settingsCutTargetWeight")}
                             </Text>
                           </View>
 
@@ -1242,14 +1367,14 @@ export default function SettingsModal({
                           <View style={styles.progressionDateItem}>
                             <Text style={styles.progressionDateLabel}>
                               {settings.weightDirection === "maintain"
-                                ? "Evalueringsdato"
-                                : "Måldato"}
+                                ? t("settingsEvaluationDate")
+                                : t("settingsTargetDate")}
                             </Text>
                             <AppDateTimePicker
                               label={
                                 settings.weightDirection === "maintain"
-                                  ? "Evalueringsdato"
-                                  : "Måldato"
+                                  ? t("settingsEvaluationDate")
+                                  : t("settingsTargetDate")
                               }
                               mode="date"
                               compact
@@ -1266,10 +1391,10 @@ export default function SettingsModal({
 
                           <View style={styles.progressionDateItem}>
                             <Text style={styles.progressionDateLabel}>
-                              Startdato
+                              {t("settingsStartDate")}
                             </Text>
                             <AppDateTimePicker
-                              label="Startdato"
+                              label={t("settingsStartDate")}
                               mode="date"
                               compact
                               value={toSafeDate(settings.cutStartDateUtc)}
@@ -1287,12 +1412,12 @@ export default function SettingsModal({
                         <View style={styles.progressionFieldRow}>
                           <View style={styles.progressionFieldCopy}>
                             <Text style={[typography.body, styles.itemText]}>
-                              Startvekt
+                              {t("settingsStartWeight")}
                             </Text>
                             <Text
                               style={[typography.body, styles.itemSubtext]}
                             >
-                              Brukes for historikk og rapporttempo.
+                              {t("settingsStartWeightDescription")}
                             </Text>
                           </View>
 
@@ -1323,15 +1448,15 @@ export default function SettingsModal({
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
                           {settings.weightDirection === "maintain"
-                            ? "Stabil vekt"
+                            ? t("settingsStableWeight")
                             : t("settingsWeightGoal")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
                           {settings.weightDirection === "gain"
-                            ? "Målvekt for bulk (kg)"
+                            ? t("settingsBulkTargetWeight")
                             : settings.weightDirection === "maintain"
-                            ? "Vekten du vil holde rundt (kg)"
-                            : "Målvekt for cut (kg)"}
+                            ? t("settingsMaintainTargetWeight")
+                            : t("settingsCutTargetWeight")}
                         </Text>
                       </View>
 
@@ -1357,21 +1482,21 @@ export default function SettingsModal({
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
                           {settings.weightDirection === "maintain"
-                            ? "Evalueringsdato"
-                            : "Måldato"}
+                            ? t("settingsEvaluationDate")
+                            : t("settingsTargetDate")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
                           {settings.weightDirection === "maintain"
-                            ? "Når skal vedlikeholdsfasen vurderes på nytt?"
-                            : "Når vil du at målvekten skal være nådd?"}
+                            ? t("settingsEvaluationDate")
+                            : t("settingsTargetDate")}
                         </Text>
                       </View>
 
                       <AppDateTimePicker
                         label={
                           settings.weightDirection === "maintain"
-                            ? "Evalueringsdato"
-                            : "Måldato"
+                            ? t("settingsEvaluationDate")
+                            : t("settingsTargetDate")
                         }
                         mode="date"
                         compact
@@ -1389,16 +1514,15 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Startpunkt for progresjon
+                          {t("settingsProgressionTitle")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Brukes av Cut, Bulk og Maintenance Rapport for å tolke
-                          historikken riktig.
+                          {t("settingsProgressionPremiumLocked")}
                         </Text>
                       </View>
 
                       <AppDateTimePicker
-                        label="Startdato"
+                        label={t("settingsStartDate")}
                         mode="date"
                         compact
                         value={toSafeDate(settings.cutStartDateUtc)}
@@ -1413,7 +1537,7 @@ export default function SettingsModal({
 
                       <View style={styles.inlineInputRow}>
                         <Text style={[typography.body, styles.inlineLabel]}>
-                          Startvekt
+                          {t("settingsStartWeight")}
                         </Text>
                         <TextInput
                           {...settingsInputProps}
@@ -1440,7 +1564,7 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Muskel-filter
+                          {t("settingsMuscleFilter")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
                           {t("settingsMuscleFilterDescription")}
@@ -1528,7 +1652,7 @@ export default function SettingsModal({
                                 styles.segmentTextActive,
                             ]}
                           >
-                            Alle
+                            {t("settingsTrainingContentAll")}
                           </Text>
                         </Pressable>
 
@@ -1553,7 +1677,7 @@ export default function SettingsModal({
                                 styles.segmentTextActive,
                             ]}
                           >
-                            Kun selvlagde
+                            {t("settingsTrainingContentCustomOnly")}
                           </Text>
                         </Pressable>
                       </View>
@@ -1566,7 +1690,7 @@ export default function SettingsModal({
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
                           {
-                            "Bruk matcoach for kalorir\u00e5d mot vektm\u00e5let"
+                            t("settingsFoodCoachDescription")
                           }
                         </Text>
                       </View>
@@ -1587,7 +1711,7 @@ export default function SettingsModal({
                               settings.useFoodCoach && styles.segmentTextActive,
                             ]}
                           >
-                            Ja
+                            {t("commonYes")}
                           </Text>
                         </Pressable>
 
@@ -1609,7 +1733,7 @@ export default function SettingsModal({
                                 styles.segmentTextActive,
                             ]}
                           >
-                            Nei
+                            {t("commonNo")}
                           </Text>
                         </Pressable>
                       </View>
@@ -1618,11 +1742,11 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Treningscoach
+                          {t("settingsWorkoutCoach")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
                           {
-                            "Vis coach i \u00f8ktloggingen med forslag per \u00f8velse"
+                            t("settingsWorkoutCoachDescription")
                           }
                         </Text>
                       </View>
@@ -1646,7 +1770,7 @@ export default function SettingsModal({
                                 styles.segmentTextActive,
                             ]}
                           >
-                            Ja
+                            {t("commonYes")}
                           </Text>
                         </Pressable>
 
@@ -1669,7 +1793,7 @@ export default function SettingsModal({
                                 styles.segmentTextActive,
                             ]}
                           >
-                            Nei
+                            {t("commonNo")}
                           </Text>
                         </Pressable>
                       </View>
@@ -1678,11 +1802,10 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Muskler i restitusjonskart
+                          {t("settingsRecoveryMapMuscles")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Standard er alle. Trykk for å skjule eller vise
-                          muskler.
+                          {t("settingsRecoveryMapMusclesDescription")}
                         </Text>
                       </View>
 
@@ -1816,24 +1939,16 @@ export default function SettingsModal({
                     <View style={[styles.settingsItemBox, styles.stackItem]}>
                       <View style={styles.itemTextBox}>
                         <Text style={[typography.body, styles.itemText]}>
-                          Rekkefølge på hjemskjerm
+                          {t("settingsHomeOrder")}
                         </Text>
                         <Text style={[typography.body, styles.itemSubtext]}>
-                          Hold inne og dra for å endre seksjonsrekkefølge
+                          {t("settingsHomeOrderDescription")}
                         </Text>
                       </View>
 
-                      <DraggableFlatList
-                        data={sectionOrderItems}
-                        keyExtractor={(item) => item.key}
-                        renderItem={renderSectionOrderItem}
-                        onDragEnd={({ data }) =>
-                          updateSettings({
-                            homeSectionOrder: data.map((x) => x.key),
-                          })
-                        }
-                        scrollEnabled={false}
-                      />
+                      <View style={styles.orderList}>
+                        {sectionOrderItems.map(renderSectionOrderItem)}
+                      </View>
                     </View>
                   </View>
 
@@ -2007,6 +2122,57 @@ export default function SettingsModal({
             </View>
           </View>
         </Modal>
+
+        <Modal
+          visible={aboutVisible}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setAboutVisible(false)}
+        >
+          <View style={styles.overlay}>
+            <View style={[styles.container, styles.aboutContainer]}>
+              <LinearGradient
+                colors={modalGradientColors}
+                start={{ x: 0.1, y: 0 }}
+                end={{ x: 0.95, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+
+              <View style={styles.headerRow}>
+                <Text style={[typography.h2, styles.title]}>
+                  {t("settingsAboutModalTitle")}
+                </Text>
+
+                <TouchableOpacity
+                  onPress={() => setAboutVisible(false)}
+                  style={styles.closeButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("commonClose")}
+                >
+                  <CloseIcon height={20} width={20} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.aboutCopy}>
+                <Text style={[typography.body, styles.aboutParagraph]}>
+                  {t("settingsAboutModalIntro")}
+                </Text>
+                <Text style={[typography.body, styles.aboutParagraph]}>
+                  {t("settingsAboutModalEvidence")}
+                </Text>
+                <Text style={[typography.body, styles.aboutParagraph]}>
+                  {t("settingsAboutModalAccuracy")}
+                </Text>
+                <Text style={[typography.body, styles.aboutParagraph]}>
+                  {t("settingsAboutModalCoach")}
+                </Text>
+                <Text style={[typography.body, styles.aboutDisclaimer]}>
+                  {t("settingsAboutModalDisclaimer")}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </Modal>
   );
@@ -2064,6 +2230,9 @@ const styles = StyleSheet.create({
     maxHeight: MODAL_MAX_HEIGHT,
   },
   deleteConfirmContainer: {
+    maxHeight: MODAL_MAX_HEIGHT,
+  },
+  aboutContainer: {
     maxHeight: MODAL_MAX_HEIGHT,
   },
   headerRow: {
@@ -2155,6 +2324,20 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     opacity: 0.92,
     color: settingsLightTheme.textSoft,
+  },
+  aboutCopy: {
+    gap: 10,
+  },
+  aboutParagraph: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: settingsLightTheme.textSoft,
+  },
+  aboutDisclaimer: {
+    marginTop: 2,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: settingsLightTheme.muted,
   },
   deleteConfirmBody: {
     marginTop: 4,
@@ -2580,6 +2763,9 @@ const styles = StyleSheet.create({
     color: settingsLightTheme.accent,
   },
 
+  orderList: {
+    marginTop: 10,
+  },
   orderRow: {
     minHeight: 44,
     borderRadius: 12,
@@ -2592,18 +2778,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  orderRowActive: {
-    backgroundColor: settingsLightTheme.accentSoft,
-    borderColor: "rgba(37,99,235,0.32)",
-  },
   orderLabel: {
     fontSize: 13,
     color: settingsLightTheme.text,
+    flex: 1,
+    minWidth: 0,
   },
-  orderHandle: {
-    fontSize: 18,
-    color: settingsLightTheme.muted,
-    lineHeight: 20,
+  orderControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginLeft: 10,
+  },
+  orderButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: settingsLightTheme.accentSoft,
+    borderWidth: 1,
+    borderColor: "rgba(37,99,235,0.18)",
+  },
+  orderButtonDisabled: {
+    opacity: 0.35,
   },
 
   developmentActionBox: {

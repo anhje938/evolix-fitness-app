@@ -2,8 +2,8 @@ import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import type { Food } from "@/types/meal";
 import {
-  formatDateKeyNO,
-  formatDateKeyWeekdayNO,
+  formatDateKey,
+  formatDateKeyWeekday,
   formatTimeNO,
   getOsloTodayDateKey,
   shiftDateKey,
@@ -33,7 +33,7 @@ export function FoodHistory({
   onToggleFoodCoachDate,
   onEditMeal,
 }: FoodHistoryProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [listMode, setListMode] = useState<"daily" | "weekly">("daily");
   const [dailyVisible, setDailyVisible] = useState(PAGE_SIZE);
   const [weeklyVisible, setWeeklyVisible] = useState(PAGE_SIZE);
@@ -129,8 +129,8 @@ export function FoodHistory({
     const expandable = options?.expandable;
     const expanded = options?.expanded;
     const coachExcluded = options?.coachExcluded ?? false;
-    const weekday = showWeekday ? formatDateKeyWeekdayNO(date) : null;
-    const dayLabel = weekday ?? formatDateKeyNO(date);
+    const weekday = showWeekday ? formatDateKeyWeekday(date, language) : null;
+    const dayLabel = weekday ?? formatDateKey(date, language);
 
     return (
       <View style={styles.dayRow}>
@@ -143,7 +143,10 @@ export function FoodHistory({
             {dayLabel}
           </Text>
           <Text style={styles.dayMetaText}>
-            {mealsCount} {mealsCount === 1 ? "måltid" : "måltider"}
+            {mealsCount}{" "}
+            {language === "en"
+              ? `meal${mealsCount === 1 ? "" : "s"}`
+              : `måltid${mealsCount === 1 ? "" : "er"}`}
           </Text>
 
           <View style={styles.macroLine}>
@@ -166,7 +169,7 @@ export function FoodHistory({
                 color="rgba(251,191,36,0.95)"
               />
               <Text style={styles.coachExcludedBadgeText}>
-                Teller ikke i coach
+                {language === "en" ? "Not counted by coach" : "Teller ikke i coach"}
               </Text>
             </View>
           ) : null}
@@ -241,15 +244,23 @@ export function FoodHistory({
                   />
                   <Text style={styles.coachControlTitle}>
                     {isCoachExcluded
-                      ? "Denne dagen hoppes over av coachen"
-                      : "Denne dagen teller i coachen"}
+                      ? language === "en"
+                        ? "This day is skipped by the coach"
+                        : "Denne dagen hoppes over av coachen"
+                      : language === "en"
+                        ? "This day counts in the coach"
+                        : "Denne dagen teller i coachen"}
                   </Text>
                 </View>
 
                 <Text style={styles.coachControlSub}>
                   {isCoachExcluded
-                    ? "Kaloriene fra denne dagen brukes ikke i coachens kaloriestimat."
-                    : "Bruk denne hvis du logget hele dagen og vil at coachen skal bruke den."}
+                    ? language === "en"
+                      ? "Calories from this day are not used in the coach estimate."
+                      : "Kaloriene fra denne dagen brukes ikke i coachens kaloriestimat."
+                    : language === "en"
+                      ? "Use this if you logged the full day and want the coach to include it."
+                      : "Bruk denne hvis du logget hele dagen og vil at coachen skal bruke den."}
                 </Text>
               </View>
 
@@ -267,7 +278,13 @@ export function FoodHistory({
                     isCoachExcluded && styles.coachToggleBtnTextActive,
                   ]}
                 >
-                  {isCoachExcluded ? "Bruk igjen" : "Ikke tell"}
+                  {isCoachExcluded
+                    ? language === "en"
+                      ? "Use again"
+                      : "Bruk igjen"
+                    : language === "en"
+                      ? "Do not count"
+                      : "Ikke tell"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -385,7 +402,7 @@ export function FoodHistory({
         onPress={onPress}
       >
         <Text style={[typography.body, styles.loadMoreText]}>
-          Vis 50 til
+          {language === "en" ? "Show 50 more" : "Vis 50 til"}
         </Text>
       </TouchableOpacity>
     );
@@ -395,10 +412,14 @@ export function FoodHistory({
     <View style={[styles.container]}>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Text style={[typography.body, styles.headerTitle]}>Matlogg</Text>
+          <Text style={[typography.body, styles.headerTitle]}>
+            {language === "en" ? "Food log" : "Matlogg"}
+          </Text>
           {onEditMeal ? (
             <Text style={[typography.body, styles.headerHint]}>
-              {"Trykk p\u00E5 et m\u00E5ltid for \u00E5 redigere"}
+              {language === "en"
+                ? "Tap a meal to edit"
+                : "Trykk på et måltid for å redigere"}
             </Text>
           ) : null}
         </View>
@@ -418,7 +439,7 @@ export function FoodHistory({
                 listMode === "daily" && styles.segmentTextActive,
               ]}
             >
-              Daglig
+              {language === "en" ? "Daily" : "Daglig"}
             </Text>
           </TouchableOpacity>
 
@@ -436,7 +457,7 @@ export function FoodHistory({
                 listMode === "weekly" && styles.segmentTextActive,
               ]}
             >
-              Ukentlig
+              {language === "en" ? "Weekly" : "Ukentlig"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -445,11 +466,15 @@ export function FoodHistory({
       <View style={styles.summaryRow}>
         <View style={styles.summaryChip}>
           <Ionicons name="calendar-outline" size={12} color="#38bdf8" />
-          <Text style={styles.summaryChipText}>{trackedDays} dager</Text>
+          <Text style={styles.summaryChipText}>
+            {trackedDays} {language === "en" ? "days" : "dager"}
+          </Text>
         </View>
         <View style={styles.summaryChip}>
           <Ionicons name="pulse-outline" size={12} color="#38bdf8" />
-          <Text style={styles.summaryChipText}>{avgMealsPerDay} per dag</Text>
+          <Text style={styles.summaryChipText}>
+            {avgMealsPerDay} {language === "en" ? "per day" : "per dag"}
+          </Text>
         </View>
         {excludedTrackedDays > 0 ? (
           <View style={[styles.summaryChip, styles.summaryChipMuted]}>
@@ -459,7 +484,9 @@ export function FoodHistory({
               color="rgba(251,191,36,0.92)"
             />
             <Text style={styles.summaryChipText}>
-              {excludedTrackedDays} dager skjules for coach
+              {language === "en"
+                ? `${excludedTrackedDays} days hidden from coach`
+                : `${excludedTrackedDays} dager skjules for coach`}
             </Text>
           </View>
         ) : null}
@@ -471,10 +498,12 @@ export function FoodHistory({
             <Ionicons name="sparkles-outline" size={17} color="#38bdf8" />
           </View>
           <Text style={[typography.body, styles.emptyTitle]}>
-            Ingen måltider logget ennå
+            {language === "en" ? "No meals logged yet" : "Ingen måltider logget ennå"}
           </Text>
           <Text style={[typography.body, styles.emptySub]}>
-            Når du logger mat vil historikken vises her.
+            {language === "en"
+              ? "When you log food, the history appears here."
+              : "Når du logger mat vil historikken vises her."}
           </Text>
         </View>
       )}
@@ -497,40 +526,50 @@ export function FoodHistory({
           {weeklyAverages && (
             <View style={[generalStyles.newCard, styles.weekCard]}>
               <Text style={[typography.body, styles.weekTitle]}>
-                Gjennomsnitt per dag (siste 7 dager)
+                {language === "en"
+                  ? "Average per day (last 7 days)"
+                  : "Gjennomsnitt per dag (siste 7 dager)"}
               </Text>
 
               <View style={styles.weekGrid}>
                 <View style={styles.weekCell}>
-                  <Text style={styles.weekLabel}>Kalorier</Text>
+                  <Text style={styles.weekLabel}>{t("homeCalories")}</Text>
                   <Text style={styles.weekValue}>
                     {weeklyAverages.caloriesPerDay}
                   </Text>
-                  <Text style={styles.weekUnit}>kcal / dag</Text>
+                  <Text style={styles.weekUnit}>
+                    {language === "en" ? "kcal / day" : "kcal / dag"}
+                  </Text>
                 </View>
 
                 <View style={styles.weekCell}>
-                  <Text style={styles.weekLabel}>Protein</Text>
+                  <Text style={styles.weekLabel}>{t("homeProtein")}</Text>
                   <Text style={[styles.weekValue, { color: "#4ade80" }]}>
                     {weeklyAverages.proteinsPerDay}
                   </Text>
-                  <Text style={styles.weekUnit}>g / dag</Text>
+                  <Text style={styles.weekUnit}>
+                    {language === "en" ? "g / day" : "g / dag"}
+                  </Text>
                 </View>
 
                 <View style={styles.weekCell}>
-                  <Text style={styles.weekLabel}>Karbo</Text>
+                  <Text style={styles.weekLabel}>{t("homeCarbsShort")}</Text>
                   <Text style={[styles.weekValue, { color: "#38bdf8" }]}>
                     {weeklyAverages.carbsPerDay}
                   </Text>
-                  <Text style={styles.weekUnit}>g / dag</Text>
+                  <Text style={styles.weekUnit}>
+                    {language === "en" ? "g / day" : "g / dag"}
+                  </Text>
                 </View>
 
                 <View style={styles.weekCell}>
-                  <Text style={styles.weekLabel}>Fett</Text>
+                  <Text style={styles.weekLabel}>{t("homeFat")}</Text>
                   <Text style={[styles.weekValue, { color: "#fb923c" }]}>
                     {weeklyAverages.fatsPerDay}
                   </Text>
-                  <Text style={styles.weekUnit}>g / dag</Text>
+                  <Text style={styles.weekUnit}>
+                    {language === "en" ? "g / day" : "g / dag"}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -540,11 +579,13 @@ export function FoodHistory({
             style={[generalStyles.newCard, styles.weekCard, { marginTop: 12 }]}
           >
             <Text style={[typography.body, styles.weekTitle]}>
-              Total ukentlig inntak
+              {language === "en" ? "Total weekly intake" : "Total ukentlig inntak"}
             </Text>
 
             <View style={{ marginTop: 6 }}>
-              <Text style={styles.weekLabel}>Totalt</Text>
+              <Text style={styles.weekLabel}>
+                {language === "en" ? "Total" : "Totalt"}
+              </Text>
               <Text style={styles.weekTotal}>
                 {activeWeek.totalCalories} kcal
               </Text>
@@ -552,19 +593,19 @@ export function FoodHistory({
 
             <View style={styles.weekMacroRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.weekLabel}>Protein</Text>
+                <Text style={styles.weekLabel}>{t("homeProtein")}</Text>
                 <Text style={[styles.weekMacroValue, { color: "#4ade80" }]}>
                   {activeWeek.totalProteins}g
                 </Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.weekLabel}>Karbo</Text>
+                <Text style={styles.weekLabel}>{t("homeCarbsShort")}</Text>
                 <Text style={[styles.weekMacroValue, { color: "#38bdf8" }]}>
                   {activeWeek.totalCarbs}g
                 </Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.weekLabel}>Fett</Text>
+                <Text style={styles.weekLabel}>{t("homeFat")}</Text>
                 <Text style={[styles.weekMacroValue, { color: "#fb923c" }]}>
                   {activeWeek.totalFats}g
                 </Text>
@@ -573,7 +614,7 @@ export function FoodHistory({
           </View>
 
           <Text style={[typography.body, styles.dailyOverviewTitle]}>
-            Daglig oversikt
+            {language === "en" ? "Daily overview" : "Daglig oversikt"}
           </Text>
 
           {sortedDates

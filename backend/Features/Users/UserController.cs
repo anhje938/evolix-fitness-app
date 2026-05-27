@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using backend.Common;
 using backend.Features.AuthAuth;
+using backend.Features.Development;
 using backend.Features.Monitoring;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,17 +17,20 @@ namespace backend.Features.Users
         private readonly IAppleTokenService _appleTokenService;
         private readonly ILogger<UserController> _logger;
         private readonly MonitoringAlertService _monitoring;
+        private readonly ExpoGoMockUserSettings _expoGoMockUserSettings;
 
         public UserController(
             UserService userService,
             IAppleTokenService appleTokenService,
             ILogger<UserController> logger,
-            MonitoringAlertService monitoring)
+            MonitoringAlertService monitoring,
+            ExpoGoMockUserSettings expoGoMockUserSettings)
         {
             _userService = userService;
             _appleTokenService = appleTokenService;
             _logger = logger;
             _monitoring = monitoring;
+            _expoGoMockUserSettings = expoGoMockUserSettings;
         }
 
         [Authorize]
@@ -142,6 +146,7 @@ namespace backend.Features.Users
 
             var settings = await _userService.GetSettingsAsync(userId, ct);
             if (settings == null) return NotFound();
+            settings = _expoGoMockUserSettings.Apply(userId, settings);
 
             var homeProgressCircles = ParseStringArray(settings.HomeProgressCirclesJson);
             var homeSectionOrder = ParseStringArray(settings.HomeSectionOrderJson);
@@ -190,6 +195,11 @@ namespace backend.Features.Users
 
             if (string.IsNullOrWhiteSpace(userId))
                 return Unauthorized();
+
+            if (_expoGoMockUserSettings.IsActiveFor(userId))
+            {
+                dto.CutStartDateUtc = null;
+            }
 
             var updated = await _userService.UpdateSettingsAsync(userId, dto, ct);
 

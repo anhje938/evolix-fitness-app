@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store";
+import Constants from "expo-constants";
 import {
   AuthRequestError,
   type AuthSessionPayload,
@@ -11,6 +12,10 @@ const REFRESH_TOKEN_KEY = "auth_refresh_token";
 const ACCESS_TOKEN_EXPIRY_KEY = "auth_access_token_expires_at";
 const LEGACY_TOKEN_KEY = "token";
 const REFRESH_SKEW_MS = 60_000;
+const EXPO_GO_CLIENT_HEADER = "X-Evolix-Client-App";
+const EXPO_GO_COACH_ANCHOR_HEADER = "X-Evolix-Coach-Anchor-Date";
+const EXPO_GO_MOCK_USER_ID =
+  process.env.EXPO_PUBLIC_EXPO_GO_MOCK_USER_ID?.trim() || "mock-user-123";
 
 export type StoredAuthSession = {
   accessToken: string;
@@ -23,6 +28,7 @@ type AuthSessionListener = (session: StoredAuthSession | null) => void;
 let currentSession: StoredAuthSession | null = null;
 let hasLoadedSession = false;
 let refreshPromise: Promise<StoredAuthSession | null> | null = null;
+let expoGoCoachAnchorDateKey: string | null = null;
 const listeners = new Set<AuthSessionListener>();
 
 function emitSession(next: StoredAuthSession | null) {
@@ -35,6 +41,15 @@ function normalizeIso(value: string | null | undefined): string | null {
   if (!value) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function toDateKey(value: string | null | undefined): string | null {
+  const iso = normalizeIso(value);
+  return iso ? iso.slice(0, 10) : null;
+}
+
+export function setExpoGoCoachAnchorDate(value: string | null | undefined) {
+  expoGoCoachAnchorDateKey = toDateKey(value);
 }
 
 function parseJwtPayload(token: string): Record<string, unknown> | null {
@@ -279,7 +294,25 @@ function withAuthorization(
   } else {
     next.delete("Authorization");
   }
+
+  if (isExpoGoMockUser(accessToken)) {
+    next.set(EXPO_GO_CLIENT_HEADER, "expo-go");
+    if (expoGoCoachAnchorDateKey) {
+      next.set(EXPO_GO_COACH_ANCHOR_HEADER, expoGoCoachAnchorDateKey);
+    } else {
+      next.delete(EXPO_GO_COACH_ANCHOR_HEADER);
+    }
+  } else {
+    next.delete(EXPO_GO_CLIENT_HEADER);
+    next.delete(EXPO_GO_COACH_ANCHOR_HEADER);
+  }
+
   return next;
+}
+
+function isExpoGoMockUser(accessToken: string | null): boolean {
+  if (Constants.appOwnership !== "expo") return false;
+  return getAccessTokenUserId(accessToken) === EXPO_GO_MOCK_USER_ID;
 }
 
 export async function authFetch(

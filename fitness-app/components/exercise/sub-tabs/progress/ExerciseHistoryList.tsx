@@ -154,7 +154,7 @@ function buildDayWindowOptions(total: number): DayWindowOption[] {
 }
 
 export default function ExerciseHistoryList({ history }: Props) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [selectedWindow, setSelectedWindow] = useState<DayWindowValue | null>(
     null
   );
@@ -321,15 +321,18 @@ export default function ExerciseHistoryList({ history }: Props) {
     return rows.slice(0, selectedWindow);
   }, [rows, selectedWindow]);
 
-  const selectedOptionLabel = useMemo(() => {
-    if (selectedWindow == null) return "";
-    return selectedWindow === "all" ? "Alle" : `${selectedWindow} dager`;
-  }, [selectedWindow]);
+  const formatDayWindowLabel = (value: DayWindowValue) =>
+    value === "all" ? t("progressAll") : t("progressDays", { count: value });
+
+  const selectedOptionLabel =
+    selectedWindow == null ? "" : formatDayWindowLabel(selectedWindow);
 
   return (
     <View style={styles.wrap}>
       <View style={styles.header}>
-        <Text style={[typography.h2, styles.title]}>Historikk</Text>
+        <Text style={[typography.h2, styles.title]}>
+          {t("progressHistoryTitle")}
+        </Text>
 
         {rows.length > 0 && selectedWindow != null ? (
           <View style={styles.headerRight}>
@@ -382,7 +385,7 @@ export default function ExerciseHistoryList({ history }: Props) {
                           isSelected && styles.dropdownTextSelected,
                         ]}
                       >
-                        {option.label}
+                        {formatDayWindowLabel(option.value)}
                       </Text>
                       {isSelected ? (
                         <Ionicons
@@ -459,17 +462,17 @@ export default function ExerciseHistoryList({ history }: Props) {
 
                   <View style={styles.dayCopy}>
                     <Text style={[typography.body, styles.dayTitle]}>
-                      {getRelativeDateLabel(row.date)}
+                      {getRelativeDateLabel(row.date, language)}
                     </Text>
                     <Text style={[typography.body, styles.daySub]}>
-                      {row.sets.length} sett
+                      {row.sets.length} {t("progressSets")}
                     </Text>
                   </View>
                 </View>
 
                 <View style={styles.dayRight}>
                   <Text style={[typography.body, styles.bestLabel]}>
-                    Beste 1RM
+                    {t("progressBestOneRm")}
                   </Text>
 
                   <View style={styles.bestValueRow}>
@@ -518,7 +521,7 @@ export default function ExerciseHistoryList({ history }: Props) {
                 <View style={styles.setGrid}>
                   {row.sets.length === 0 ? (
                     <Text style={[typography.body, styles.noSetsText]}>
-                      Ingen sett
+                      {t("progressNoSets")}
                     </Text>
                   ) : (
                     row.sets.map((set, setIndex) => {

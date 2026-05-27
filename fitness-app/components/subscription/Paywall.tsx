@@ -28,6 +28,36 @@ type Props = {
   source?: string;
 };
 
+function premiumPitch(language: AppLanguage) {
+  if (language === "en") {
+    return {
+      eyebrow: "Premium coaching",
+      title: "Unlock your monthly progress report",
+      body:
+        "EvoliX turns food, weight and training logs into a monthly cut, bulk or maintenance analysis with weekly check-ins that keep the plan alive.",
+      benefits: [
+        "Monthly cut, bulk or maintenance report",
+        "EvolIX Week Plan built from your latest logs",
+        "Data quality, confidence and concrete recommendations",
+      ],
+      proof: ["28-day analysis", "Weekly check-ins", "Coach recommendations"],
+    };
+  }
+
+  return {
+    eyebrow: "Premium coaching",
+    title: "Lås opp månedsrapporten din",
+    body:
+      "EvoliX gjør mat, vekt og trening om til en månedlig analyse for cut, bulk eller vedlikehold, med ukentlige innsikter som holder planen levende.",
+    benefits: [
+      "Månedlig cut-, bulk- eller vedlikeholdsrapport",
+      "EvolIX Week Plan bygget fra de nyeste loggene dine",
+      "Datakvalitet, sikkerhet og konkrete anbefalinger",
+    ],
+    proof: ["28-dagers analyse", "Ukentlige innsikter", "Coach-anbefalinger"],
+  };
+}
+
 function packageLabel(packageToShow: PurchasesPackage, language: AppLanguage) {
   if (packageToShow.packageType === "ANNUAL") {
     return translate(language, "premiumAnnual");
@@ -128,6 +158,7 @@ export function Paywall({
   onClose,
   onUnlocked,
   mandatory = false,
+  source,
 }: Props) {
   const {
     getOfferings,
@@ -135,6 +166,7 @@ export function Paywall({
     restorePurchases,
   } = useSubscription();
   const { language, t } = useTranslation();
+  const pitch = premiumPitch(language);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(
     null
@@ -249,7 +281,16 @@ export function Paywall({
     }
   };
 
+  const openExternalUrl = async (url: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      setMessage(t("settingsTryAgainLater"));
+    }
+  };
+
   const isBusy = isPurchasing || isRestoring || isLoadingOfferings;
+  const analyticsSource = source ?? "premium";
 
   return (
     <Modal
@@ -286,17 +327,22 @@ export function Paywall({
             ) : null}
           </View>
 
-          <Text style={[typography.h2, styles.title]}>{t("premiumTitle")}</Text>
+          <Text style={styles.eyebrow}>{pitch.eyebrow}</Text>
+          <Text style={[typography.h2, styles.title]}>{pitch.title}</Text>
           <Text style={[typography.body, styles.body]}>
-            {t("premiumBody")}
+            {pitch.body}
           </Text>
 
+          <View style={styles.proofRow}>
+            {pitch.proof.map((item) => (
+              <View key={`${analyticsSource}-${item}`} style={styles.proofPill}>
+                <Text style={styles.proofText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+
           <View style={styles.benefits}>
-            {[
-              t("premiumBenefitFoodWeight"),
-              t("premiumBenefitWorkout"),
-              t("premiumBenefitPrograms"),
-            ].map((item) => (
+            {pitch.benefits.map((item) => (
               <View key={item} style={styles.benefitRow}>
                 <Ionicons name="checkmark-circle" size={16} color="#67E8F9" />
                 <Text style={styles.benefitText}>{item}</Text>
@@ -389,11 +435,11 @@ export function Paywall({
           </Pressable>
 
           <View style={styles.legalRow}>
-            <Pressable onPress={() => Linking.openURL(TERMS_URL)}>
+            <Pressable onPress={() => void openExternalUrl(TERMS_URL)}>
               <Text style={styles.legalLink}>{t("premiumTerms")}</Text>
             </Pressable>
             <Text style={styles.legalDot}>•</Text>
-            <Pressable onPress={() => Linking.openURL(PRIVACY_URL)}>
+            <Pressable onPress={() => void openExternalUrl(PRIVACY_URL)}>
               <Text style={styles.legalLink}>{t("premiumPrivacy")}</Text>
             </Pressable>
           </View>
@@ -443,14 +489,40 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.05)",
   },
   title: {
-    marginTop: 16,
+    marginTop: 5,
     color: "rgba(248,250,252,0.98)",
+  },
+  eyebrow: {
+    marginTop: 16,
+    color: "#FDE68A",
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
   body: {
     marginTop: 8,
     color: "rgba(203,213,225,0.92)",
     fontSize: 13,
     lineHeight: 19,
+  },
+  proofRow: {
+    marginTop: 14,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  proofPill: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(103,232,249,0.2)",
+    backgroundColor: "rgba(8,47,73,0.38)",
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+  },
+  proofText: {
+    color: "rgba(219,234,254,0.95)",
+    fontSize: 11,
+    fontWeight: "800",
   },
   benefits: {
     marginTop: 16,

@@ -74,19 +74,65 @@ function qualityLabel(value: DataQualityLevel, language: AppLanguage) {
   return "Tidlig signal";
 }
 
-function scoreLabel(score: number | null, language: AppLanguage) {
-  if (language === "en") {
-    if (score === null) return "Building data";
-    if (score >= 90) return "Strong week";
-    if (score >= 75) return "On track";
-    if (score >= 60) return "Useful week";
-    return "Uneven week";
+function checkInVerdict(report: WeeklyReport, language: AppLanguage) {
+  if (report.dataQuality === DataQualityLevel.Low) {
+    return language === "en" ? "Needs more data" : "Trenger mer data";
   }
-  if (score === null) return "Data bygges";
-  if (score >= 90) return "Sterk uke";
-  if (score >= 75) return "På god vei";
-  if (score >= 60) return "Nyttig uke";
-  return "Ujevn uke";
+  if (report.weight?.status === "tooAggressive") {
+    return language === "en" ? "Tempo looks high" : "Tempoet ser høyt ut";
+  }
+  if (report.weight?.status === "behind" || report.weight?.status === "slightlyBehind") {
+    return language === "en" ? "Slightly behind" : "Litt bak planen";
+  }
+  if (report.nutrition?.averageProtein != null &&
+      report.nutrition?.averageProtein < report.nutrition?.targetProtein) {
+    return language === "en" ? "Protein needs focus" : "Protein trenger fokus";
+  }
+  return language === "en" ? "Hold the plan" : "Hold planen";
+}
+
+function dataBasis(report: WeeklyReport, language: AppLanguage) {
+  const nutritionDays = report.nutrition?.loggedDays ?? 0;
+  const weighIns = report.weight?.weightLogsCount ?? 0;
+  const workouts = report.training?.completedWorkouts ?? 0;
+
+  return language === "en"
+    ? `${nutritionDays} food days, ${weighIns} weigh-ins, ${workouts} workouts`
+    : `${nutritionDays} matdager, ${weighIns} veiinger, ${workouts} økter`;
+}
+
+function qualityFromCount(
+  count: number,
+  medium: number,
+  high: number
+): DataQualityLevel {
+  if (count >= high) return DataQualityLevel.High;
+  if (count >= medium) return DataQualityLevel.Medium;
+  return DataQualityLevel.Low;
+}
+
+function qualityShortLabel(value: DataQualityLevel, language: AppLanguage) {
+  if (language === "en") {
+    if (value === DataQualityLevel.High) return "High";
+    if (value === DataQualityLevel.Medium) return "Medium";
+    return "Low";
+  }
+  if (value === DataQualityLevel.High) return "Høy";
+  if (value === DataQualityLevel.Medium) return "Middels";
+  return "Lav";
+}
+
+function weeklyMonthProgress(report: WeeklyReport) {
+  const start = new Date(report.weekStart);
+  if (!Number.isFinite(start.getTime())) return 25;
+  const day = start.getDate();
+  return Math.min(100, Math.max(25, Math.ceil(day / 7) * 25));
+}
+
+function weekOfMonth(report: WeeklyReport) {
+  const start = new Date(report.weekStart);
+  if (!Number.isFinite(start.getTime())) return 1;
+  return Math.min(4, Math.max(1, Math.ceil(start.getDate() / 7)));
 }
 
 function isBodyPlanRecommendation(type: number) {
@@ -144,13 +190,16 @@ function MetricRow({
 function ReportContent({ report }: { report: WeeklyReport }) {
   const { refreshUserSettings } = useUserSettings();
   const { t, language } = useTranslation();
-  const score = report.overallScore;
+  const verdict = checkInVerdict(report, language);
+  const nutritionQuality = qualityFromCount(report.nutrition?.loggedDays ?? 0, 3, 5);
+  const weightQuality = qualityFromCount(report.weight?.weightLogsCount ?? 0, 3, 5);
+  const trainingQuality = qualityFromCount(report.training?.completedWorkouts ?? 0, 1, 2);
+  const monthProgress = weeklyMonthProgress(report);
+  const monthWeek = weekOfMonth(report);
   const bodyRecommendations = report.recommendations.filter((item) =>
     isBodyPlanRecommendation(item.type)
   );
-  const nextActions = report.nextWeekActions.filter((item) =>
-    item.category === "Nutrition" || item.category === "Weight"
-  );
+  const nextActions = report.nextWeekActions.slice(0, 4);
 
   return (
     <>
@@ -179,7 +228,7 @@ function ReportContent({ report }: { report: WeeklyReport }) {
               color="rgba(103,232,249,0.98)"
             />
             <Text style={styles.heroBadgeText}>
-              {language === "en" ? "Weekly report" : "Ukesrapport"}
+              {language === "en" ? "Weekly check-in" : "Ukentlig innsikt"}
             </Text>
           </View>
           <Text style={styles.weekText}>
@@ -190,14 +239,18 @@ function ReportContent({ report }: { report: WeeklyReport }) {
 
         <View style={styles.scoreRow}>
           <View style={styles.scoreCircle}>
-            <Text style={styles.scoreValue}>{score ?? "--"}</Text>
-            <Text style={styles.scoreMax}>/100</Text>
+            <Text style={styles.scoreValue}>
+              {qualityShortLabel(report.dataQuality, language)}
+            </Text>
+            <Text style={styles.scoreMax}>
+              {language === "en" ? "quality" : "kvalitet"}
+            </Text>
           </View>
           <View style={styles.scoreCopy}>
-            <Text style={styles.scoreLabel}>{scoreLabel(score, language)}</Text>
+            <Text style={styles.scoreLabel}>{verdict}</Text>
             <Text style={styles.summaryText}>{report.summaryText}</Text>
             <Text style={styles.dataQuality}>
-              {qualityLabel(report.dataQuality, language)}
+              {dataBasis(report, language)}
             </Text>
           </View>
         </View>
@@ -218,6 +271,77 @@ function ReportContent({ report }: { report: WeeklyReport }) {
           </Text>
         </View>
       )}
+
+      <SectionCard
+        title={language === "en" ? "Data quality" : "Datakvalitet"}
+        icon="shield-checkmark-outline"
+      >
+        <MetricRow
+          label={language === "en" ? "Overall" : "Samlet"}
+          value={qualityLabel(report.dataQuality, language)}
+          accent
+        />
+        <MetricRow
+          label={language === "en" ? "Nutrition" : "Mat"}
+          value={
+            language === "en"
+              ? `${qualityShortLabel(nutritionQuality, language)} · ${report.nutrition?.loggedDays ?? 0}/7 days`
+              : `${qualityShortLabel(nutritionQuality, language)} · ${report.nutrition?.loggedDays ?? 0}/7 dager`
+          }
+        />
+        <MetricRow
+          label={language === "en" ? "Weight" : "Vekt"}
+          value={
+            language === "en"
+              ? `${qualityShortLabel(weightQuality, language)} · ${report.weight?.weightLogsCount ?? 0} weigh-ins`
+              : `${qualityShortLabel(weightQuality, language)} · ${report.weight?.weightLogsCount ?? 0} veiinger`
+          }
+        />
+        <MetricRow
+          label={language === "en" ? "Training" : "Trening"}
+          value={
+            language === "en"
+              ? `${qualityShortLabel(trainingQuality, language)} · ${report.training?.completedWorkouts ?? 0} workouts`
+              : `${qualityShortLabel(trainingQuality, language)} · ${report.training?.completedWorkouts ?? 0} økter`
+          }
+        />
+        <Text style={styles.insightText}>
+          {language === "en"
+              ? "Low confidence means EvoliX should observe, not push a hard change."
+            : "Lav sikkerhet betyr at EvoliX bør observere, ikke presse en hard endring."}
+        </Text>
+      </SectionCard>
+
+      <SectionCard
+        title={language === "en" ? "Monthly goal report progress" : "Månedsrapporten bygges"}
+        icon="bar-chart-outline"
+      >
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${monthProgress}%` }]} />
+        </View>
+        <MetricRow
+          label={language === "en" ? "Month journey" : "Månedsreise"}
+          value={
+            language === "en"
+              ? `Week ${monthWeek} of 4`
+              : `Uke ${monthWeek} av 4`
+          }
+          accent
+        />
+        <MetricRow
+          label={language === "en" ? "This week adds" : "Denne uken bidrar med"}
+          value={
+            language === "en"
+              ? `+${report.nutrition?.loggedDays ?? 0} food days, +${report.weight?.weightLogsCount ?? 0} weigh-ins, +${report.training?.completedWorkouts ?? 0} workouts`
+              : `+${report.nutrition?.loggedDays ?? 0} matdager, +${report.weight?.weightLogsCount ?? 0} veiinger, +${report.training?.completedWorkouts ?? 0} økter`
+          }
+        />
+        <Text style={styles.insightText}>
+          {language === "en"
+              ? "This check-in becomes one building block for the monthly cut, bulk or maintenance report."
+            : "Denne innsikten blir én byggestein i månedlig cut-, bulk- eller maintenance-rapport."}
+        </Text>
+      </SectionCard>
 
       <SectionCard title={t("tabWeight")} icon="scale-outline">
         <MetricRow
@@ -244,7 +368,7 @@ function ReportContent({ report }: { report: WeeklyReport }) {
         {report.weight?.estimatedGoalDate && (
           <MetricRow
             label={language === "en" ? "Estimated goal date" : "Estimert måldato"}
-            value={formatDateLong(report.weight.estimatedGoalDate, language)}
+            value={formatDateLong(report.weight?.estimatedGoalDate, language)}
           />
         )}
         <Text style={styles.insightText}>
@@ -286,6 +410,34 @@ function ReportContent({ report }: { report: WeeklyReport }) {
             (language === "en"
               ? "Log food for safer recommendations."
               : "Logg mat for tryggere anbefalinger.")}
+        </Text>
+      </SectionCard>
+
+      <SectionCard
+        title={language === "en" ? "Training and recovery" : "Trening og recovery"}
+        icon="fitness-outline"
+      >
+        <MetricRow
+          label={language === "en" ? "Completed workouts" : "Fullførte økter"}
+          value={`${report.training?.completedWorkouts ?? 0}`}
+          accent
+        />
+        <MetricRow
+          label={language === "en" ? "Hard sets" : "Harde sett"}
+          value={`${report.training?.totalSets ?? 0}`}
+        />
+        <MetricRow
+          label={language === "en" ? "Next session" : "Neste økt"}
+          value={
+            report.recovery?.recommendedNextSession ||
+            (language === "en" ? "Needs more data" : "Trenger mer data")
+          }
+        />
+        <Text style={styles.insightText}>
+          {report.recovery?.insight ??
+            (language === "en"
+              ? "Log workouts for better recovery signals."
+              : "Logg økter for bedre recovery-signaler.")}
         </Text>
       </SectionCard>
 
@@ -368,7 +520,7 @@ function WeeklyReportPremiumScreen() {
           <Ionicons name="chevron-back" size={20} color="rgba(226,232,240,0.96)" />
         </Pressable>
         <Text style={styles.headerTitle}>
-          {userSettings.language === "en" ? "Report" : "Rapport"}
+          {userSettings.language === "en" ? "Weekly check-in" : "Ukentlig innsikt"}
         </Text>
         <Pressable
           disabled={regenerateReport.isPending}
@@ -399,8 +551,8 @@ function WeeklyReportPremiumScreen() {
             <ActivityIndicator size="small" color="rgba(103,232,249,0.98)" />
             <Text style={styles.loadingText}>
               {userSettings.language === "en"
-                ? "Building weekly report"
-                : "Lager ukesrapport"}
+                ? "Building weekly check-in"
+                : "Lager ukentlig innsikt"}
             </Text>
           </View>
         ) : reportQuery.isError || !reportQuery.data ? (
@@ -455,7 +607,7 @@ export default function WeeklyReportScreen() {
           <Ionicons name="chevron-back" size={20} color="rgba(226,232,240,0.96)" />
         </Pressable>
         <Text style={styles.headerTitle}>
-          {userSettings.language === "en" ? "Report" : "Rapport"}
+          {userSettings.language === "en" ? "Weekly check-in" : "Ukentlig innsikt"}
         </Text>
         <View style={styles.headerButtonPlaceholder} />
       </View>
@@ -467,14 +619,59 @@ export default function WeeklyReportScreen() {
           { paddingBottom: insets.bottom + 28 },
         ]}
       >
+        <LinearGradient
+          colors={[
+            "rgba(15,23,42,0.82)",
+            "rgba(8,47,73,0.48)",
+            "rgba(15,23,42,0.74)",
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.lockedPreviewCard}
+        >
+          <View style={styles.heroBadge}>
+            <Ionicons
+              name="calendar-outline"
+              size={14}
+              color="rgba(103,232,249,0.98)"
+            />
+            <Text style={styles.heroBadgeText}>
+              {userSettings.language === "en"
+                ? "Feeds the monthly report"
+                : "Bygger månedsrapporten"}
+            </Text>
+          </View>
+          <Text style={styles.lockedPreviewTitle}>
+            {userSettings.language === "en"
+              ? "Weekly check-ins become your 28-day analysis."
+              : "Ukentlige innsikter blir til 28-dagers analysen din."}
+          </Text>
+          <Text style={styles.lockedPreviewBody}>
+            {userSettings.language === "en"
+              ? "Each week adds food days, weigh-ins, workouts and recovery signals so the monthly report can recommend with higher confidence."
+              : "Hver uke legger til matdager, veiinger, økter og recovery-signaler, slik at månedsrapporten kan anbefale med høyere sikkerhet."}
+          </Text>
+          <View style={styles.lockedPreviewPills}>
+            {(
+              userSettings.language === "en"
+                ? ["Data quality", "Small actions", "Monthly progress"]
+                : ["Datakvalitet", "Små grep", "Månedsprogresjon"]
+            ).map((item) => (
+              <View key={item} style={styles.lockedPreviewPill}>
+                <Text style={styles.lockedPreviewPillText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        </LinearGradient>
+
         <LockedFeatureCard
           title={
-            userSettings.language === "en" ? "Weekly report" : "Ukesrapport"
+            userSettings.language === "en" ? "Weekly check-in" : "Ukentlig innsikt"
           }
           description={
             userSettings.language === "en"
-              ? "Premium gives you weekly reports, recommendations and next steps based on food, weight and training."
-              : "Premium gir deg ukesrapport, anbefalinger og neste steg basert på mat, vekt og trening."
+              ? "Premium gives you careful weekly feedback, data quality and small next steps based on food, weight and training."
+              : "Premium gir deg forsiktig ukentlig feedback, datakvalitet og små neste steg basert på mat, vekt og trening."
           }
           isLoading={isLoading}
           onPress={() => setPaywallVisible(true)}
@@ -530,6 +727,47 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     gap: 14,
+  },
+  lockedPreviewCard: {
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(125,211,252,0.18)",
+    padding: 16,
+  },
+  lockedPreviewTitle: {
+    marginTop: 13,
+    color: "rgba(248,250,252,0.98)",
+    fontSize: 18,
+    lineHeight: 23,
+    fontWeight: "800",
+  },
+  lockedPreviewBody: {
+    marginTop: 8,
+    color: "rgba(203,213,225,0.92)",
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "500",
+  },
+  lockedPreviewPills: {
+    marginTop: 13,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  lockedPreviewPill: {
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    backgroundColor: "rgba(8,47,73,0.48)",
+    borderWidth: 1,
+    borderColor: "rgba(125,211,252,0.18)",
+  },
+  lockedPreviewPillText: {
+    color: "rgba(219,234,254,0.95)",
+    fontSize: 11,
+    fontWeight: "800",
   },
   heroCard: {
     position: "relative",
@@ -699,6 +937,20 @@ const styles = StyleSheet.create({
     color: "rgba(203,213,225,0.93)",
     fontSize: 12,
     lineHeight: 18,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+    backgroundColor: "rgba(15,23,42,0.82)",
+    borderWidth: 1,
+    borderColor: "rgba(125,211,252,0.14)",
+    marginBottom: 10,
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 4,
+    backgroundColor: "rgba(103,232,249,0.88)",
   },
   muscleGrid: {
     flexDirection: "row",

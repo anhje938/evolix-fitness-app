@@ -501,7 +501,7 @@ export default function ProgressTab({
 
       {metric === "both" ? (
         <CombinedExerciseChart
-          title={language === "en" ? "1RM & volume" : "1RM og volum"}
+          title={t("progressCombinedTitle")}
           metric={metric}
           volumeMetric={volumeMetric}
           range={timeRange}

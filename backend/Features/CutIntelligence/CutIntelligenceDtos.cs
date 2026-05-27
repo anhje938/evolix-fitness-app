@@ -18,6 +18,7 @@ namespace backend.Features.CutIntelligence
         public CutTrainingLoadSummaryDto TrainingLoadSummary { get; set; } = new();
         public CutAdherenceSummaryDto AdherenceSummary { get; set; } = new();
         public CutTimelineSummaryDto TimelineSummary { get; set; } = new();
+        public GoalMonthlySummaryDto MonthlySummary { get; set; } = new();
         public CutPreviousReportComparisonDto PreviousComparison { get; set; } = new();
         public List<CutRecommendationDto> Recommendations { get; set; } = [];
         public List<string> Warnings { get; set; } = [];
@@ -151,6 +152,37 @@ namespace backend.Features.CutIntelligence
         public int? EstimatedWeeksToGoal { get; set; }
         public int MaintenanceStabilityStreakWeeks { get; set; }
         public string Summary { get; set; } = "";
+    }
+
+    public class GoalMonthlySummaryDto
+    {
+        public DateTime PeriodStart { get; set; }
+        public DateTime PeriodEnd { get; set; }
+        public int DaysTracked { get; set; }
+        public int DaysRequired { get; set; } = 28;
+        public int NutritionDays { get; set; }
+        public int WeighIns { get; set; }
+        public int CompletedWorkouts { get; set; }
+        public int DataQualityScore { get; set; }
+        public string Confidence { get; set; } = "low";
+        public bool IsHighConfidence { get; set; }
+        public string Verdict { get; set; } = "";
+        public string TopInsight { get; set; } = "";
+        public string Recommendation { get; set; } = "";
+        public List<string> MissingForHighConfidence { get; set; } = [];
+        public List<string> NextMonthFocus { get; set; } = [];
+        public List<GoalMonthJourneyWeekDto> MonthJourney { get; set; } = [];
+    }
+
+    public class GoalMonthJourneyWeekDto
+    {
+        public int WeekNumber { get; set; }
+        public DateTime WeekStart { get; set; }
+        public DateTime WeekEnd { get; set; }
+        public string Status { get; set; } = "";
+        public int NutritionDays { get; set; }
+        public int WeighIns { get; set; }
+        public int Workouts { get; set; }
     }
 
     public class CutPreviousReportComparisonDto

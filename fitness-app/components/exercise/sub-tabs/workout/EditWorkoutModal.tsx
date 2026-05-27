@@ -22,10 +22,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import DraggableFlatList, {
-  DragEndParams,
-  RenderItemParams,
-} from "react-native-draggable-flatlist";
 import { SafeAreaView } from "react-native-safe-area-context";
 import DumbbellIcon from "../../../../assets/icons/dumbbell-white.svg";
 import XIcon from "../../../../assets/icons/white-x.svg";
@@ -267,6 +263,18 @@ export function EditWorkoutModal({
     );
   };
 
+  const moveSelectedExercise = (id: string, direction: -1 | 1) => {
+    setSelectedExerciseIds((prev) => {
+      const index = prev.indexOf(id);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= prev.length) return prev;
+
+      const next = [...prev];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      return next;
+    });
+  };
+
   const getCurrentSnapshot = () =>
     normalizeWorkoutDraftSnapshot({
       name,
@@ -349,21 +357,12 @@ export function EditWorkoutModal({
     }
   };
 
-  const renderSelectedItem = ({
-    item: exercise,
-    drag,
-    isActive,
-  }: RenderItemParams<Exercise>) => {
+  const renderSelectedItem = (exercise: Exercise, index: number) => {
     return (
       <Pressable
+        key={exercise.id}
         onPress={() => toggleExercise(exercise.id)}
-        onLongPress={drag}
-        delayLongPress={120}
-        style={({ pressed }) => [
-          styles.selectedRow,
-          isActive && styles.selectedRowActive,
-          pressed && !isActive && styles.pressed,
-        ]}
+        style={({ pressed }) => [styles.selectedRow, pressed && styles.pressed]}
       >
         <View style={styles.rowTextWrap}>
           <Text
@@ -397,6 +396,34 @@ export function EditWorkoutModal({
               )}
             </View>
           )}
+        </View>
+
+        <View style={styles.reorderControls}>
+          <Pressable
+            hitSlop={8}
+            disabled={index === 0}
+            onPress={(event) => {
+              event.stopPropagation();
+              moveSelectedExercise(exercise.id, -1);
+            }}
+            style={[styles.orderButton, index === 0 && styles.orderButtonDisabled]}
+          >
+            <Ionicons name="chevron-up" size={15} color={colors.textStrong} />
+          </Pressable>
+          <Pressable
+            hitSlop={8}
+            disabled={index === selectedExercises.length - 1}
+            onPress={(event) => {
+              event.stopPropagation();
+              moveSelectedExercise(exercise.id, 1);
+            }}
+            style={[
+              styles.orderButton,
+              index === selectedExercises.length - 1 && styles.orderButtonDisabled,
+            ]}
+          >
+            <Ionicons name="chevron-down" size={15} color={colors.textStrong} />
+          </Pressable>
         </View>
 
         <View style={styles.addIconWrap}>
@@ -559,18 +586,9 @@ export function EditWorkoutModal({
                   </Text>
                 ) : (
                   <View style={styles.selectedListShell}>
-                    <DraggableFlatList
-                      data={selectedExercises}
-                      keyExtractor={(item) => item.id}
-                      onDragEnd={({ data }: DragEndParams<Exercise>) => {
-                        setSelectedExerciseIds(data.map((item) => item.id));
-                      }}
-                      renderItem={renderSelectedItem}
-                      scrollEnabled={selectedExercises.length > 3}
-                      nestedScrollEnabled
-                      activationDistance={16}
-                      containerStyle={styles.selectedList}
-                    />
+                    <View style={styles.selectedList}>
+                      {selectedExercises.map(renderSelectedItem)}
+                    </View>
                   </View>
                 )}
               </View>
@@ -892,13 +910,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBg,
     borderColor: colors.cardStroke,
   },
-  selectedRowActive: {
-    opacity: 0.95,
-    transform: [{ scale: 1.01 }],
-  },
   rowTextWrap: {
     flex: 1,
     minWidth: 0,
+  },
+  reorderControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  orderButton: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.055)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.09)",
+  },
+  orderButtonDisabled: {
+    opacity: 0.32,
   },
   selectedName: {
     color: colors.textStrong,

@@ -3,6 +3,7 @@ import { typography } from "@/config/typography";
 import { useSubscription } from "@/context/SubscriptionProvider";
 import type { Exercise, Workout } from "@/types/exercise";
 import type { AppLanguage } from "@/types/userSettings";
+import { getMuscleLabel } from "@/types/muscles";
 import { getWorkoutDisplay } from "@/utils/exercise/localizedTraining";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -85,11 +86,14 @@ export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
 
     const uniqueMuscles = [...new Set(muscleNames)];
     if (uniqueMuscles.length > 0) {
-      return uniqueMuscles.slice(0, 3).join(", ");
+      return uniqueMuscles
+        .slice(0, 3)
+        .map((muscle) => getMuscleLabel(muscle, language))
+        .join(", ");
     }
 
     return display.dayLabel || display.description || "";
-  }, [display.dayLabel, display.description, workout.exerciseIds, exerciseMap]);
+  }, [display.dayLabel, display.description, workout.exerciseIds, exerciseMap, language]);
 
   const exerciseCount = exercisesForWorkout.length;
   const estimatedMinutes = estimateWorkoutMinutes(exerciseCount);
@@ -179,7 +183,9 @@ export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
                   color={colors.muted2}
                 />
                 <Text style={styles.metaInlineText}>
-                  {exerciseCount} øvelse{exerciseCount === 1 ? "" : "r"}
+                  {language === "en"
+                    ? `${exerciseCount} exercise${exerciseCount === 1 ? "" : "s"}`
+                    : `${exerciseCount} øvelse${exerciseCount === 1 ? "" : "r"}`}
                 </Text>
               </View>
 
@@ -245,7 +251,13 @@ export const ProgramWorkoutCard = memo(function ProgramWorkoutCard({
                 color="white"
               />
               <Text style={[typography.bodyBold, styles.primaryText]}>
-                {isWorkoutLocked ? "Lås opp" : "Start økt"}
+                {isWorkoutLocked
+                  ? language === "en"
+                    ? "Unlock"
+                    : "Lås opp"
+                  : language === "en"
+                    ? "Start workout"
+                    : "Start økt"}
               </Text>
             </LinearGradient>
           </Pressable>

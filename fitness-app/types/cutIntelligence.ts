@@ -40,6 +40,7 @@ export type CutReport = {
   trainingLoadSummary: CutTrainingLoadSummary;
   adherenceSummary: CutAdherenceSummary;
   timelineSummary: CutTimelineSummary;
+  monthlySummary: GoalMonthlySummary;
   previousComparison: CutPreviousReportComparison;
   recommendations: CutRecommendation[];
   warnings: string[];
@@ -162,6 +163,35 @@ export type CutTimelineSummary = {
   estimatedWeeksToGoal: number | null;
   maintenanceStabilityStreakWeeks: number;
   summary: string;
+};
+
+export type GoalMonthlySummary = {
+  periodStart: string;
+  periodEnd: string;
+  daysTracked: number;
+  daysRequired: number;
+  nutritionDays: number;
+  weighIns: number;
+  completedWorkouts: number;
+  dataQualityScore: number;
+  confidence: CutReportConfidence;
+  isHighConfidence: boolean;
+  verdict: string;
+  topInsight: string;
+  recommendation: string;
+  missingForHighConfidence: string[];
+  nextMonthFocus: string[];
+  monthJourney: GoalMonthJourneyWeek[];
+};
+
+export type GoalMonthJourneyWeek = {
+  weekNumber: number;
+  weekStart: string;
+  weekEnd: string;
+  status: "strong" | "mixed" | "needsData" | string;
+  nutritionDays: number;
+  weighIns: number;
+  workouts: number;
 };
 
 export type CutPreviousReportComparison = {

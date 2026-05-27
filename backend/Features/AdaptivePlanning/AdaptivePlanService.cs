@@ -1,4 +1,5 @@
 using backend.Data;
+using backend.Features.Development;
 using backend.Features.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,15 +10,18 @@ namespace backend.Features.AdaptivePlanning
         private readonly AppDbContext _db;
         private readonly WeeklyReportService _weeklyReportService;
         private readonly RecommendationService _recommendationService;
+        private readonly ExpoGoMockUserSettings _expoGoMockUserSettings;
 
         public AdaptivePlanService(
             AppDbContext db,
             WeeklyReportService weeklyReportService,
-            RecommendationService recommendationService)
+            RecommendationService recommendationService,
+            ExpoGoMockUserSettings expoGoMockUserSettings)
         {
             _db = db;
             _weeklyReportService = weeklyReportService;
             _recommendationService = recommendationService;
+            _expoGoMockUserSettings = expoGoMockUserSettings;
         }
 
         public async Task<TodayFocusDto> GetTodayFocusAsync(
@@ -30,6 +34,7 @@ namespace backend.Features.AdaptivePlanning
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.UserId == userId, ct)
                 ?? new UserSettings { UserId = userId };
+            settings = _expoGoMockUserSettings.Apply(userId, settings);
             var todayNutrition = await GetTodayNutritionAsync(userId, settings, ct);
             var planRecommendations = pending
                 .Where(IsBodyPlanRecommendation)

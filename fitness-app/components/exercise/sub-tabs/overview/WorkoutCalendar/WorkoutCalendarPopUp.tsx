@@ -1,6 +1,6 @@
 import { CompletedWorkoutSummaryDto } from "@/api/exercise/completedWorkouts";
 import { useTranslation } from "@/i18n/translations";
-import { formatDateKeyLongNO, formatTimeNO } from "@/utils/date";
+import { formatDateKeyLong, formatTimeNO } from "@/utils/date";
 import { Ionicons } from "@expo/vector-icons";
 import React, { memo, useMemo } from "react";
 import {
@@ -49,11 +49,11 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
   onClose: () => void;
   onOpenSession: (sessionId: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const formattedDate = useMemo(() => {
     if (!selectedDate) return "";
-    return formatDateKeyLongNO(selectedDate);
-  }, [selectedDate]);
+    return formatDateKeyLong(selectedDate, language);
+  }, [language, selectedDate]);
 
   const completedSetsSum = useMemo(() => {
     return daySessions.reduce((sum, s) => sum + (s.completedSetsCount ?? 0), 0);
@@ -99,7 +99,9 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
                   color={colors.accent}
                 />
                 <Text style={styles.sheetStatText}>
-                  {daySessions.length} økter
+                  {language === "en"
+                    ? `${daySessions.length} workout${daySessions.length === 1 ? "" : "s"}`
+                    : `${daySessions.length} økter`}
                 </Text>
               </View>
 
@@ -112,7 +114,9 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
                   color={colors.green}
                 />
                 <Text style={styles.sheetStatText}>
-                  {completedSetsSum} sett fullført
+                  {language === "en"
+                    ? `${completedSetsSum} sets completed`
+                    : `${completedSetsSum} sett fullført`}
                 </Text>
               </View>
             </View>
@@ -129,9 +133,13 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
                   color={colors.muted2}
                 />
               </View>
-              <Text style={styles.emptyTitle}>Ingen økter denne dagen</Text>
+              <Text style={styles.emptyTitle}>
+                {language === "en" ? "No workouts this day" : "Ingen økter denne dagen"}
+              </Text>
               <Text style={styles.emptySub}>
-                Velg en dag med markering for å se økter
+                {language === "en"
+                  ? "Choose a marked day to see workouts"
+                  : "Velg en dag med markering for å se økter"}
               </Text>
             </View>
           ) : (
@@ -229,7 +237,9 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
                             color={colors.muted}
                           />
                           <Text style={styles.dayRowStatText}>
-                            {s.exercisesCount} øvelser
+                            {language === "en"
+                              ? `${s.exercisesCount} exercise${s.exercisesCount === 1 ? "" : "s"}`
+                              : `${s.exercisesCount} øvelser`}
                           </Text>
                         </View>
 
@@ -242,7 +252,9 @@ export const WorkoutCalendarLogPopUp = memo(function WorkoutCalendarLogPopUp({
                             color={colors.muted}
                           />
                           <Text style={styles.dayRowStatText}>
-                            {s.completedSetsCount}/{s.setsCount} sett
+                            {language === "en"
+                              ? `${s.completedSetsCount}/${s.setsCount} sets`
+                              : `${s.completedSetsCount}/${s.setsCount} sett`}
                           </Text>
                         </View>
 

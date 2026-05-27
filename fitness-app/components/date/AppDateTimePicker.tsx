@@ -1,6 +1,6 @@
 // components/date/AppDateTimePicker.tsx
 import React, { useState } from "react";
-import { formatDateNO, formatTimeNO } from "@/utils/date";
+import { formatDate, formatTime } from "@/utils/date";
 import {
   Keyboard,
   Platform,
@@ -14,6 +14,7 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import { typography } from "@/config/typography";
+import { useTranslation } from "@/i18n/translations";
 
 type AppDateTimePickerProps = {
   label: string;
@@ -30,6 +31,7 @@ export function AppDateTimePicker({
   onChange,
   compact = false,
 }: AppDateTimePickerProps) {
+  const { language } = useTranslation();
   const [show, setShow] = useState(false);
   const [draftValue, setDraftValue] = useState<Date | null>(null);
 
@@ -52,8 +54,8 @@ export function AppDateTimePicker({
 
   const formattedValue =
     mode === "date"
-      ? formatDateNO(currentValue)
-      : formatTimeNO(currentValue);
+      ? formatDate(currentValue, language)
+      : formatTime(currentValue, language);
 
   const openPicker = () => {
     Keyboard.dismiss();
@@ -108,7 +110,9 @@ export function AppDateTimePicker({
                   style={styles.doneButton}
                   onPress={handleDone}
                 >
-                  <Text style={styles.doneButtonText}>Ferdig</Text>
+                  <Text style={styles.doneButtonText}>
+                    {language === "en" ? "Done" : "Ferdig"}
+                  </Text>
                 </TouchableOpacity>
                 <DateTimePicker
                   mode={mode}

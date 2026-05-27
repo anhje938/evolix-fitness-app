@@ -6,6 +6,7 @@ using backend.Features.AdaptivePlanning;
 using backend.Features.Auth;
 using backend.Features.AuthAuth;
 using backend.Features.CutIntelligence;
+using backend.Features.Development;
 using backend.Features.Food;
 using backend.Features.Monitoring;
 using backend.Features.Subscriptions;
@@ -43,6 +44,8 @@ builder.Services.AddScoped<ExerciseService>();
 builder.Services.AddScoped<WorkoutService>();
 builder.Services.AddScoped<WorkoutProgramService>();
 builder.Services.AddScoped<WorkoutSessionService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ExpoGoMockUserSettings>();
 builder.Services.AddScoped<WeightTrendService>();
 builder.Services.AddScoped<NutritionAnalysisService>();
 builder.Services.AddScoped<TrainingAnalysisService>();
@@ -234,6 +237,15 @@ if (app.Environment.IsDevelopment())
 app.UseCors("EvolixCors");
 app.UseStaticFiles();
 
+app.Use(async (context, next) =>
+{
+    var mockSettings = context.RequestServices
+        .GetRequiredService<ExpoGoMockUserSettings>();
+    using var _ = AdaptivePlanningClock.BeginTodayOverride(
+        mockSettings.GetCoachAnchorDate());
+    await next();
+});
+
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
@@ -257,6 +269,7 @@ app.UseExceptionHandler(errorApp =>
         {
             NotFoundException notFound => (StatusCodes.Status404NotFound, notFound.Message),
             ForbiddenException forbidden => (StatusCodes.Status403Forbidden, forbidden.Message),
+            ConflictException conflict => (StatusCodes.Status409Conflict, conflict.Message),
             ArgumentException argument => (StatusCodes.Status400BadRequest, argument.Message),
             _ => (StatusCodes.Status500InternalServerError, "Internal server error")
         };

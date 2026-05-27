@@ -2,7 +2,7 @@ import { generalStyles } from "@/config/styles";
 import { typography } from "@/config/typography";
 import { Weight } from "@/types/weight";
 import {
-  formatMonthYearNO,
+  formatMonthYear,
   getOsloDateKey,
   getOsloTodayDateKey,
   parseISO,
@@ -36,7 +36,7 @@ export default function WeightHistory({
   weeklySummary,
   onEditWeight,
 }: WeightHistoryProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [listMode, setListMode] = useState<"daily" | "weekly">("daily");
   const [visibleCount, setVisibleCount] = useState<number>(DAILY_PAGE_SIZE);
 
@@ -92,8 +92,8 @@ export default function WeightHistory({
   const latestMeta = useMemo(() => {
     if (!latest?.timestampUtc) return null;
     const { date, time } = parseISO(latest.timestampUtc);
-    return { label: getRelativeDateLabel(date), time };
-  }, [latest]);
+    return { label: getRelativeDateLabel(date, language), time };
+  }, [latest, language]);
 
   const uniqueDayKeys = useMemo(() => {
     const dayKeys = new Set<string>();
@@ -126,10 +126,12 @@ export default function WeightHistory({
     <View style={styles.containerCard}>
       <View style={styles.headerRow}>
         <View style={styles.titleBlock}>
-          <Text style={[typography.body, styles.title]}>Vektlogg</Text>
+          <Text style={[typography.body, styles.title]}>
+            {t("weightLogHeading")}
+          </Text>
           {onEditWeight ? (
             <Text style={[typography.body, styles.titleHint]}>
-              {"Trykk p\u00E5 en rad for \u00E5 redigere"}
+              {t("weightLogEditHint")}
             </Text>
           ) : null}
         </View>
@@ -149,7 +151,7 @@ export default function WeightHistory({
                 listMode === "daily" && styles.segmentTextActive,
               ]}
             >
-              Daglig
+              {t("weightHistoryDaily")}
             </Text>
           </TouchableOpacity>
 
@@ -167,7 +169,7 @@ export default function WeightHistory({
                 listMode === "weekly" && styles.segmentTextActive,
               ]}
             >
-              Ukentlig
+              {t("weightHistoryWeekly")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -176,12 +178,26 @@ export default function WeightHistory({
       <View style={styles.summaryRow}>
         <View style={styles.summaryPill}>
           <Ionicons name="flame-outline" size={12} color="#38BDF8" />
-          <Text style={styles.summaryText}>{currentStreak} dager på rad</Text>
+          <Text style={styles.summaryText}>
+            {t(
+              currentStreak === 1
+                ? "weightStreakDaySingular"
+                : "weightStreakDays",
+              { count: currentStreak }
+            )}
+          </Text>
         </View>
 
         <View style={styles.summaryPill}>
           <Ionicons name="calendar-outline" size={12} color="#38BDF8" />
-          <Text style={styles.summaryText}>{trackedDays} dager</Text>
+          <Text style={styles.summaryText}>
+            {t(
+              trackedDays === 1
+                ? "weightTrackedDaySingular"
+                : "weightTrackedDays",
+              { count: trackedDays }
+            )}
+          </Text>
         </View>
       </View>
 
@@ -210,7 +226,7 @@ export default function WeightHistory({
 
             <View style={styles.latestCopy}>
               <Text style={[typography.body, styles.latestLabel]}>
-                Siste vektmåling
+                {t("weightLatestLog")}
               </Text>
               {latestMeta && (
                 <Text style={[typography.body, styles.latestSub]}>
@@ -265,7 +281,7 @@ export default function WeightHistory({
                   />
                 </View>
                 <Text style={[typography.body, styles.avgLabel]}>
-                  7-dagers snitt
+                  {t("weightSevenDayAverage")}
                 </Text>
               </View>
 
@@ -280,7 +296,7 @@ export default function WeightHistory({
 
           {visibleDailyWeights.map((weight, index) => {
             const { date: parsedDate, time } = parseISO(weight.timestampUtc);
-            const label = getRelativeDateLabel(parsedDate);
+            const label = getRelativeDateLabel(parsedDate, language);
 
             const currentMonthKey = getOsloDateKey(weight.timestampUtc).slice(0, 7);
 
@@ -296,7 +312,7 @@ export default function WeightHistory({
               }
             }
 
-            const monthLabel = formatMonthYearNO(weight.timestampUtc);
+            const monthLabel = formatMonthYear(weight.timestampUtc, language);
 
             const deviation = weeklyAverageProgression(weightList, weight.id);
             const diff = deviation?.deviation ?? null;
@@ -404,7 +420,7 @@ export default function WeightHistory({
             <TouchableOpacity activeOpacity={0.9} onPress={handleLoadMore}>
               <View style={styles.loadMoreBtn}>
                 <Text style={[typography.body, styles.loadMoreText]}>
-                  Vis 100 til
+                  {t("weightShowMore")}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -436,7 +452,7 @@ export default function WeightHistory({
                       {week.weekLabel}
                     </Text>
                     <Text style={[typography.body, styles.secondaryText]}>
-                      Ukentlig snitt
+                      {t("weightWeeklyAverage")}
                     </Text>
                   </View>
 

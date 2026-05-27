@@ -8,6 +8,7 @@ import { WorkoutHistoryList } from "./overview/WorkoutHistoryList";
 
 import { useWorkoutSession } from "@/context/workoutSessionContext";
 import { useCompletedWorkouts } from "@/hooks/workout-history/useCompletedWorkouts";
+import { useTranslation } from "@/i18n/translations";
 import { WorkoutCalendarLog } from "./overview/WorkoutCalendar/WorkoutCalendarLog";
 
 const sectionColors = {
@@ -16,6 +17,7 @@ const sectionColors = {
 };
 
 export default function OverviewTab() {
+  const { language } = useTranslation();
   const { data: sessions = [], isLoading } = useCompletedWorkouts();
   const { openCompletedSession } = useWorkoutSession();
 
@@ -37,7 +39,7 @@ export default function OverviewTab() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={[typography.body, styles.sectionTitle]}>
-            Treningslogg
+            {language === "en" ? "Training log" : "Treningslogg"}
           </Text>
           <View style={styles.sectionRule} />
         </View>
@@ -49,7 +51,7 @@ export default function OverviewTab() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={[typography.body, styles.sectionTitle]}>
-            Fullførte økter
+            {language === "en" ? "Completed workouts" : "Fullførte økter"}
           </Text>
           <View style={styles.sectionRule} />
         </View>
@@ -57,7 +59,7 @@ export default function OverviewTab() {
         {isLoading ? (
           <View style={{ paddingHorizontal: 14, paddingTop: 6 }}>
             <Text style={[typography.body, { color: sectionColors.muted }]}>
-              Laster økter...
+              {language === "en" ? "Loading workouts..." : "Laster økter..."}
             </Text>
           </View>
         ) : (

@@ -1,7 +1,8 @@
 import { CompletedWorkoutSummaryDto } from "@/api/exercise/completedWorkouts";
 import { typography } from "@/config/typography";
 import { useTranslation } from "@/i18n/translations";
-import { formatDateKeyNO, formatTimeNO, getOsloDateKey } from "@/utils/date";
+import { formatDateKey, formatTimeNO, getOsloDateKey } from "@/utils/date";
+import { getMuscleLabel } from "@/types/muscles";
 import { Ionicons } from "@expo/vector-icons";
 import React, { memo, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -41,10 +42,11 @@ function formatDurationFromSummary(s: CompletedWorkoutSummaryDto) {
 // Liten "pretty" normalisering (uten antagelser om språk)
 // - fjerner ekstra whitespace
 // - stable casing: første bokstav stor, resten som input
-function prettyMuscleLabel(raw: string) {
+function prettyMuscleLabel(raw: string, language: "nb" | "en") {
   const m = raw.trim();
   if (!m) return m;
-  return m.charAt(0).toUpperCase() + m.slice(1);
+  const localized = getMuscleLabel(m, language);
+  return localized.charAt(0).toUpperCase() + localized.slice(1);
 }
 
 function uniqMuscles(input: string[] | undefined) {
@@ -69,7 +71,7 @@ export const WorkoutHistoryList = memo(function WorkoutHistoryList({
   sessions: CompletedWorkoutSummaryDto[];
   onOpenSession: (sessionId: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const grouped = useMemo(() => {
     const sorted = [...sessions].sort(
       (a, b) =>
@@ -111,7 +113,7 @@ export const WorkoutHistoryList = memo(function WorkoutHistoryList({
         <View key={g.dateKey} style={styles.group}>
           <View style={styles.groupHeader}>
             <Text style={[typography.bodyBold, styles.groupTitle]}>
-              {formatDateKeyNO(g.dateKey)}
+              {formatDateKey(g.dateKey, language)}
             </Text>
             <View style={styles.groupHairline} />
           </View>
@@ -172,7 +174,7 @@ export const WorkoutHistoryList = memo(function WorkoutHistoryList({
                                     style={[typography.body, styles.muscleText]}
                                     numberOfLines={1}
                                   >
-                                    {prettyMuscleLabel(m)}
+                                    {prettyMuscleLabel(m, language)}
                                   </Text>
                                 </View>
                               ))}
@@ -196,13 +198,13 @@ export const WorkoutHistoryList = memo(function WorkoutHistoryList({
                     <View style={styles.rightCol}>
                       <View style={styles.metricsPill}>
                         <Text style={[typography.body, styles.metricText]}>
-                          {s.exercisesCount} øv
+                          {language === "en" ? `${s.exercisesCount} ex` : `${s.exercisesCount} øv`}
                         </Text>
                         <Text style={[typography.body, styles.metricDot]}>
                           ·
                         </Text>
                         <Text style={[typography.body, styles.metricText]}>
-                          {s.setsCount} sett
+                          {language === "en" ? `${s.setsCount} sets` : `${s.setsCount} sett`}
                         </Text>
                       </View>
 

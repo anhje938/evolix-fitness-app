@@ -11,11 +11,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useTranslation } from "@/i18n/translations";
 
 export const GLOBAL_IOS_KEYBOARD_ACCESSORY_ID = "global-ios-keyboard-accessory";
 
 export function GlobalKeyboardAccessory() {
+  const { language } = useTranslation();
   if (Platform.OS !== "ios") return null;
+  const doneLabel = language === "en" ? "Done" : "Ferdig";
 
   const handleDone = () => {
     const textInputState = (TextInput as typeof TextInput & {
@@ -39,7 +42,7 @@ export function GlobalKeyboardAccessory() {
           onPress={handleDone}
           activeOpacity={0.9}
           accessibilityRole="button"
-          accessibilityLabel="Ferdig"
+          accessibilityLabel={doneLabel}
         >
           <LinearGradient
             colors={["#0891B2", "#22D3EE"]}
@@ -48,7 +51,7 @@ export function GlobalKeyboardAccessory() {
             style={styles.doneButton}
           >
             <Ionicons name="checkmark" size={15} color="#ECFEFF" />
-            <Text style={styles.doneText}>Ferdig</Text>
+            <Text style={styles.doneText}>{doneLabel}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>

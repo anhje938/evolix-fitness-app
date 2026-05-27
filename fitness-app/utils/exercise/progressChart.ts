@@ -1,7 +1,7 @@
 import {
   dateKeyToUtcDate,
-  formatDateKeyLongNO,
-  formatShortDayMonthNO,
+  formatDateKeyLong,
+  formatShortDayMonth,
   getOsloDateKey,
 } from "@/utils/date";
 
@@ -79,6 +79,7 @@ type PrepareProgressSeriesOptions = {
   range: ProgressTimeRange;
   targetUnit?: ProgressUnit;
   forcedBucket?: ProgressBucket;
+  language?: "nb" | "en";
 };
 
 const KG_PER_LB = 0.45359237;
@@ -142,44 +143,53 @@ function getWeekStartDateKey(dateKey: string) {
   return getOsloDateKey(date);
 }
 
-function formatShortLabel(dateKey: string, bucket: ProgressBucket) {
+function formatShortLabel(
+  dateKey: string,
+  bucket: ProgressBucket,
+  language: "nb" | "en" = "nb"
+) {
   const date = dateKeyToUtcDate(dateKey);
-  if (!date) return "Ukjent";
+  if (!date) return language === "en" ? "Unknown" : "Ukjent";
 
   if (bucket === "week") {
     const end = addDays(date, 6);
-    return `${formatShortDayMonthNO(date)} - ${formatShortDayMonthNO(end)}`;
+    return `${formatShortDayMonth(date, language)} - ${formatShortDayMonth(end, language)}`;
   }
 
-  return formatShortDayMonthNO(date);
+  return formatShortDayMonth(date, language);
 }
 
-function formatFullLabel(dateKey: string, bucket: ProgressBucket) {
+function formatFullLabel(
+  dateKey: string,
+  bucket: ProgressBucket,
+  language: "nb" | "en" = "nb"
+) {
   if (bucket === "week") {
     const date = dateKeyToUtcDate(dateKey);
-    if (!date) return "Ukjent";
+    if (!date) return language === "en" ? "Unknown" : "Ukjent";
     const end = addDays(date, 6);
-    return `${formatDateKeyLongNO(dateKey)} - ${formatDateKeyLongNO(
-      getOsloDateKey(end)
+    return `${formatDateKeyLong(dateKey, language)} - ${formatDateKeyLong(
+      getOsloDateKey(end),
+      language
     )}`;
   }
 
-  return formatDateKeyLongNO(dateKey);
+  return formatDateKeyLong(dateKey, language);
 }
 
-function formatRangeLabel(range: ProgressTimeRange) {
-  if (range === "20") return "Siste 20 økter";
-  if (range === "50") return "Siste 50 økter";
-  if (range === "100") return "Siste 100 økter";
-  return "Hele historikken";
+function formatRangeLabel(range: ProgressTimeRange, language: "nb" | "en" = "nb") {
+  if (range === "20") return language === "en" ? "Last 20 workouts" : "Siste 20 økter";
+  if (range === "50") return language === "en" ? "Last 50 workouts" : "Siste 50 økter";
+  if (range === "100") return language === "en" ? "Last 100 workouts" : "Siste 100 økter";
+  return language === "en" ? "Full history" : "Hele historikken";
 }
 
-function metricDefaults(metric: ProgressMetricKind) {
+function metricDefaults(metric: ProgressMetricKind, language: "nb" | "en" = "nb") {
   if (metric === "weight") {
     return {
       absoluteMax: 1000,
       unitLabel: "kg",
-      dataLabel: "Rådata",
+      dataLabel: language === "en" ? "Raw data" : "Rådata",
       trendLabel: "Trend",
       fromZero: false,
     };
@@ -189,8 +199,8 @@ function metricDefaults(metric: ProgressMetricKind) {
     return {
       absoluteMax: 1000,
       unitLabel: "sets",
-      dataLabel: "Daglig volum",
-      trendLabel: "Glattet trend",
+      dataLabel: language === "en" ? "Daily volume" : "Daglig volum",
+      trendLabel: language === "en" ? "Smoothed trend" : "Glattet trend",
       fromZero: true,
     };
   }
@@ -198,8 +208,8 @@ function metricDefaults(metric: ProgressMetricKind) {
   return {
     absoluteMax: 250000,
     unitLabel: "kg",
-    dataLabel: "Daglig volum",
-    trendLabel: "Glattet trend",
+    dataLabel: language === "en" ? "Daily volume" : "Daglig volum",
+    trendLabel: language === "en" ? "Smoothed trend" : "Glattet trend",
     fromZero: true,
   };
 }
@@ -442,10 +452,11 @@ export function prepareProgressSeries({
   range,
   targetUnit,
   forcedBucket,
+  language = "nb",
 }: {
   data: ProgressInputPoint[];
 } & PrepareProgressSeriesOptions): PreparedProgressSeries {
-  const defaults = metricDefaults(metric);
+  const defaults = metricDefaults(metric, language);
   const { cleaned, removed } = sanitizePoints(data, metric, range, targetUnit);
 
   if (cleaned.length === 0) {
@@ -453,7 +464,7 @@ export function prepareProgressSeries({
       points: [],
       bucket: forcedBucket ?? "day",
       unitLabel: defaults.unitLabel,
-      rangeLabel: formatRangeLabel(range),
+      rangeLabel: formatRangeLabel(range, language),
       dataLabel: defaults.dataLabel,
       trendLabel: defaults.trendLabel,
       totalChange: null,
@@ -530,8 +541,8 @@ export function prepareProgressSeries({
       key: point.key,
       timestampUtc: point.timestampUtc,
       bucketStartUtc: point.timestampUtc,
-      shortLabel: formatShortLabel(point.bucketDateKey, bucket),
-      fullLabel: formatFullLabel(point.bucketDateKey, bucket),
+      shortLabel: formatShortLabel(point.bucketDateKey, bucket, language),
+      fullLabel: formatFullLabel(point.bucketDateKey, bucket, language),
       value,
       clampedValue: clamp(value, lowerBound, upperBound),
       trendValue: previousTrend,
@@ -566,7 +577,7 @@ export function prepareProgressSeries({
     points,
     bucket,
     unitLabel: defaults.unitLabel,
-    rangeLabel: formatRangeLabel(range),
+    rangeLabel: formatRangeLabel(range, language),
     dataLabel: defaults.dataLabel,
     trendLabel: defaults.trendLabel,
     totalChange,
@@ -589,12 +600,12 @@ export function prepareProgressSeries({
   };
 }
 
-export function getProgressMetricConfig(metric: ProgressMetricKind) {
-  return metricDefaults(metric);
+export function getProgressMetricConfig(metric: ProgressMetricKind, language: "nb" | "en" = "nb") {
+  return metricDefaults(metric, language);
 }
 
-export function getProgressRangeLabel(range: ProgressTimeRange) {
-  return formatRangeLabel(range);
+export function getProgressRangeLabel(range: ProgressTimeRange, language: "nb" | "en" = "nb") {
+  return formatRangeLabel(range, language);
 }
 
 export function getProgressDayKey(timestampUtc: string) {

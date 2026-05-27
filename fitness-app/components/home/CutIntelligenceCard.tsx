@@ -1,6 +1,6 @@
 import { typography } from "@/config/typography";
 import { useUserSettings } from "@/context/UserSettingsProvider";
-import { useTranslation } from "@/i18n/translations";
+import { useCutReadiness } from "@/hooks/useCutIntelligence";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -17,21 +17,79 @@ const premiumBlueAccent = [
   "rgba(34,211,238,0.40)",
 ] as const;
 
+function confidenceLabel(score: number, language: "nb" | "en") {
+  if (language === "en") {
+    if (score >= 75) return "High";
+    if (score >= 45) return "Medium";
+    return "Low";
+  }
+  if (score >= 75) return "Høy";
+  if (score >= 45) return "Middels";
+  return "Lav";
+}
+
+function readinessCopy(
+  readyItems: number,
+  totalItems: number,
+  language: "nb" | "en"
+) {
+  if (language === "en") {
+    return readyItems >= totalItems
+      ? "Your monthly analysis is ready."
+      : "Your monthly analysis is being built.";
+  }
+  return readyItems >= totalItems
+    ? "Månedsanalysen er klar."
+    : "Månedsanalysen bygges opp.";
+}
+
 export function CutIntelligenceCard() {
-  const { t } = useTranslation();
   const { userSettings } = useUserSettings();
+  const { data: readiness } = useCutReadiness(true);
+  const language = userSettings.language;
+  const goalDays = readiness?.items.find((item) => item.id === "goal_days");
+  const foodDays = readiness?.items.find((item) => item.id === "food_logs");
+  const weighIns = readiness?.items.find((item) => item.id === "weight_logs");
+  const workouts = readiness?.items.find(
+    (item) => item.id === "strength_sessions"
+  );
+  const daysTracked = Math.min(goalDays?.current ?? 0, goalDays?.required ?? 28);
+  const daysRequired = goalDays?.required ?? 28;
+  const timePct = Math.min(100, (daysTracked / Math.max(1, daysRequired)) * 100);
+  const readyItems = readiness?.readyItemCount ?? 0;
+  const totalItems = readiness?.totalItemCount ?? 4;
+  const qualityPct = Math.min(
+    100,
+    (readyItems / Math.max(1, totalItems)) * 100
+  );
+  const signalCount =
+    (foodDays?.current ? 1 : 0) +
+    (weighIns?.current ? 1 : 0) +
+    (workouts?.current ? 1 : 0);
   const title =
     userSettings.weightDirection === "gain"
-      ? "Bulk Rapport"
+      ? language === "en"
+        ? "Monthly Bulk Report"
+        : "Månedlig bulkrapport"
       : userSettings.weightDirection === "maintain"
-      ? "Maintenance Rapport"
-      : t("cutReportTitle");
+        ? language === "en"
+          ? "Monthly Maintenance Report"
+          : "Månedlig vedlikeholdsrapport"
+        : language === "en"
+          ? "Monthly Cut Report"
+          : "Månedlig cutrapport";
   const body =
     userSettings.weightDirection === "gain"
-      ? "Pro vurderer vektoppgang, styrkerespons, makroer og bulk-kvalitet."
+      ? language === "en"
+        ? "Pro builds the monthly report from weekly check-ins, weight, macros and strength response."
+        : "Pro bygger månedsrapporten fra ukentlige innsikter, vekt, makroer og styrkerespons."
       : userSettings.weightDirection === "maintain"
-      ? "Pro finner vedlikeholdstempo, stabilitet og faktisk kaloribaseline."
-      : t("cutReportCardBody");
+        ? language === "en"
+          ? "Pro reviews weight stability, logging, training and your real calorie baseline over 28 days."
+          : "Pro vurderer vektstabilitet, logging, trening og faktisk kaloribaseline over 28 dager."
+        : language === "en"
+          ? "Pro turns your weekly check-ins into a 28-day cut analysis."
+        : "Pro gjør ukentlige innsikter om til en 28-dagers analyse av cutten.";
 
   return (
     <Pressable
@@ -68,14 +126,52 @@ export function CutIntelligenceCard() {
           {body}
         </Text>
 
+        <View style={styles.progressBlock}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressTitle}>
+              {readinessCopy(readyItems, totalItems, language)}
+            </Text>
+            <Text style={styles.progressValue}>
+              {daysTracked}/{daysRequired}
+            </Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${timePct}%` }]} />
+          </View>
+        </View>
+
+        <View style={styles.progressBlock}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressTitle}>
+              {language === "en" ? "Report confidence" : "Rapportsikkerhet"}
+            </Text>
+            <Text style={styles.progressValue}>
+              {confidenceLabel(qualityPct, language)}
+            </Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${qualityPct}%` }]} />
+          </View>
+        </View>
+
         <View style={styles.metricRow}>
           <View style={styles.metricPill}>
-            <Ionicons name="scale-outline" size={13} color="#93C5FD" />
-            <Text style={styles.metricText}>{t("cutReportSevenDayAverage")}</Text>
+            <Ionicons name="nutrition-outline" size={13} color="#93C5FD" />
+            <Text style={styles.metricText}>
+              {foodDays?.current ?? 0} {language === "en" ? "food days" : "matdager"}
+            </Text>
           </View>
           <View style={styles.metricPill}>
-            <Ionicons name="barbell-outline" size={13} color="#7DD3FC" />
-            <Text style={styles.metricText}>1RM-trend</Text>
+            <Ionicons name="scale-outline" size={13} color="#7DD3FC" />
+            <Text style={styles.metricText}>
+              {weighIns?.current ?? 0} {language === "en" ? "weigh-ins" : "veiinger"}
+            </Text>
+          </View>
+          <View style={styles.metricPill}>
+            <Ionicons name="sparkles-outline" size={13} color="#FDE68A" />
+            <Text style={styles.metricText}>
+              {signalCount} {language === "en" ? "signals found" : "signaler funnet"}
+            </Text>
           </View>
         </View>
       </LinearGradient>
@@ -138,6 +234,40 @@ const styles = StyleSheet.create({
     color: "rgba(219,234,254,0.88)",
     fontSize: 12.5,
     lineHeight: 18,
+  },
+  progressBlock: {
+    marginTop: 13,
+    gap: 7,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  progressTitle: {
+    flex: 1,
+    color: "rgba(219,234,254,0.9)",
+    fontSize: 11.5,
+    fontWeight: "800",
+  },
+  progressValue: {
+    color: "rgba(248,250,252,0.96)",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  progressTrack: {
+    height: 7,
+    overflow: "hidden",
+    borderRadius: 999,
+    backgroundColor: "rgba(15,23,42,0.62)",
+    borderWidth: 1,
+    borderColor: "rgba(147,197,253,0.14)",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "rgba(103,232,249,0.86)",
   },
   metricRow: {
     marginTop: 13,

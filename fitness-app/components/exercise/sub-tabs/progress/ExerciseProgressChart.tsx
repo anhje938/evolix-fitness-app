@@ -307,7 +307,7 @@ export function ExerciseProgressChart({
   maxZoom = 5,
   zoomStep = 0.35,
 }: Props) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const fillId = useMemo(
     () => `exercise-progress-fill-${Math.random().toString(36).slice(2, 10)}`,
@@ -323,8 +323,9 @@ export function ExerciseProgressChart({
         data,
         metric: effectiveMetric,
         range,
+        language,
       }),
-    [data, effectiveMetric, range]
+    [data, effectiveMetric, language, range]
   );
 
   useEffect(() => {
@@ -383,7 +384,11 @@ export function ExerciseProgressChart({
                 {title}
               </Text>
               <Text style={[typography.body, weightChartStyles.meta]}>
-                0 punkter · valgt periode
+                {t("progressChartMeta", {
+                  count: 0,
+                  pointLabel: t("progressPoints"),
+                  range: t("progressSelectedPeriod"),
+                })}
               </Text>
             </View>
           </View>
@@ -398,7 +403,7 @@ export function ExerciseProgressChart({
               {t("progressionNoData")}
             </Text>
             <Text style={[typography.body, weightChartStyles.emptySub]}>
-              Logg flere sett eller reps, så dukker utviklingen opp her.
+              {t("progressMoreDataBody")}
             </Text>
           </View>
         </View>
@@ -487,9 +492,13 @@ export function ExerciseProgressChart({
     (point) => point.key === selectedPoint.key
   );
   const selectedX = getX(selectedIndex);
-  const metaLabel = `${prepared.points.length} ${
-    prepared.bucket === "week" ? "ukepunkter" : "punkter"
-  } · ${prepared.rangeLabel}`;
+  const pointLabel =
+    prepared.bucket === "week" ? t("progressWeekPoints") : t("progressPoints");
+  const metaLabel = t("progressChartMeta", {
+    count: prepared.points.length,
+    pointLabel,
+    range: prepared.rangeLabel,
+  });
 
   return (
     <View style={[generalStyles.newCard, weightChartStyles.card]}>
@@ -568,7 +577,7 @@ export function ExerciseProgressChart({
                     active && styles.rangePillTextActive,
                   ]}
                 >
-                  {option.label}
+                  {option.value === "all" ? t("progressAll") : option.label}
                 </Text>
               </Pressable>
             );
@@ -582,7 +591,7 @@ export function ExerciseProgressChart({
             <View style={weightChartStyles.statIconWrap}>
               <Ionicons name="flag-outline" size={12} color={COLORS.accent} />
             </View>
-            <Text style={weightChartStyles.statLabel}>Start</Text>
+            <Text style={weightChartStyles.statLabel}>{t("progressStart")}</Text>
           </View>
           <Text style={weightChartStyles.statValue}>
             {formatValue(firstPoint.value, prepared.unitLabel)}
@@ -603,7 +612,7 @@ export function ExerciseProgressChart({
                 color={COLORS.accent}
               />
             </View>
-            <Text style={weightChartStyles.statLabel}>Trend</Text>
+            <Text style={weightChartStyles.statLabel}>{t("progressTrend")}</Text>
           </View>
           <View style={weightChartStyles.changeRow}>
             <Text
@@ -628,7 +637,7 @@ export function ExerciseProgressChart({
                 color={COLORS.accent}
               />
             </View>
-            <Text style={weightChartStyles.statLabel}>Siste</Text>
+            <Text style={weightChartStyles.statLabel}>{t("progressLatest")}</Text>
           </View>
           <Text style={weightChartStyles.statValue}>
             {formatValue(lastPoint.value, prepared.unitLabel)}
@@ -931,7 +940,9 @@ export function ExerciseProgressChart({
 
       <View style={weightChartStyles.additionalStats}>
         <View style={weightChartStyles.miniStat}>
-          <Text style={weightChartStyles.miniStatLabel}>Snitt / uke</Text>
+          <Text style={weightChartStyles.miniStatLabel}>
+            {t("progressAveragePerWeek")}
+          </Text>
           <Text
             style={[
               weightChartStyles.miniStatValue,
@@ -945,14 +956,18 @@ export function ExerciseProgressChart({
         </View>
 
         <View style={weightChartStyles.miniStat}>
-          <Text style={weightChartStyles.miniStatLabel}>Valgt</Text>
+          <Text style={weightChartStyles.miniStatLabel}>
+            {t("progressSelected")}
+          </Text>
           <Text style={weightChartStyles.miniStatValue}>
             {selectedPoint.shortLabel}
           </Text>
         </View>
 
         <View style={weightChartStyles.miniStat}>
-          <Text style={weightChartStyles.miniStatLabel}>Verdi</Text>
+          <Text style={weightChartStyles.miniStatLabel}>
+            {t("progressValue")}
+          </Text>
           <Text style={weightChartStyles.miniStatValue}>
             {formatValue(selectedPoint.value, prepared.unitLabel)}
           </Text>

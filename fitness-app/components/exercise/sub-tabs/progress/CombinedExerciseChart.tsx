@@ -316,7 +316,7 @@ export function CombinedExerciseChart({
   maxZoom = 5,
   zoomStep = 0.35,
 }: Props) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const fillId = useMemo(
     () => `combined-progress-fill-${Math.random().toString(36).slice(2, 10)}`,
@@ -329,8 +329,9 @@ export function CombinedExerciseChart({
         data: weightData,
         metric: "weight",
         range,
+        language,
       }),
-    [range, weightData]
+    [language, range, weightData]
   );
 
   const volumeSeries = useMemo(
@@ -340,8 +341,9 @@ export function CombinedExerciseChart({
         metric: volumeMetric === "kg" ? "volumeKg" : "volumeSets",
         range,
         forcedBucket: weightSeries.bucket,
+        language,
       }),
-    [range, volumeData, volumeMetric, weightSeries.bucket]
+    [language, range, volumeData, volumeMetric, weightSeries.bucket]
   );
 
   const merged = useMemo<MergedPoint[]>(() => {
@@ -436,7 +438,11 @@ export function CombinedExerciseChart({
                 {title}
               </Text>
               <Text style={[typography.body, weightChartStyles.meta]}>
-                0 punkter · valgt periode
+                {t("progressChartMeta", {
+                  count: 0,
+                  pointLabel: t("progressPoints"),
+                  range: t("progressSelectedPeriod"),
+                })}
               </Text>
             </View>
           </View>
@@ -451,7 +457,7 @@ export function CombinedExerciseChart({
               {t("progressionNoData")}
             </Text>
             <Text style={[typography.body, weightChartStyles.emptySub]}>
-              Når øktene inneholder nok data, bygger vi både 1RM og volum her.
+              {t("progressCombinedMoreDataBody")}
             </Text>
           </View>
         </View>
@@ -555,9 +561,13 @@ export function CombinedExerciseChart({
   const ticks = Array.from({ length: tickCount + 1 }, (_, index) => index / tickCount);
   const selectedIndex = merged.findIndex((point) => point.key === selected.key);
   const selectedX = getX(selectedIndex);
-  const metaLabel = `${merged.length} ${
-    weightSeries.bucket === "week" ? "ukepunkter" : "punkter"
-  } · ${weightSeries.rangeLabel}`;
+  const pointLabel =
+    weightSeries.bucket === "week" ? t("progressWeekPoints") : t("progressPoints");
+  const metaLabel = t("progressChartMeta", {
+    count: merged.length,
+    pointLabel,
+    range: weightSeries.rangeLabel,
+  });
 
   return (
     <View style={[generalStyles.newCard, weightChartStyles.card]}>
@@ -636,7 +646,7 @@ export function CombinedExerciseChart({
                     active && styles.rangePillTextActive,
                   ]}
                 >
-                  {option.label}
+                  {option.value === "all" ? t("progressAll") : option.label}
                 </Text>
               </Pressable>
             );
@@ -650,7 +660,7 @@ export function CombinedExerciseChart({
             <View style={weightChartStyles.statIconWrap}>
               <Ionicons name="flag-outline" size={12} color={COLORS.accent} />
             </View>
-            <Text style={weightChartStyles.statLabel}>Start</Text>
+            <Text style={weightChartStyles.statLabel}>{t("progressStart")}</Text>
           </View>
           <Text style={weightChartStyles.statValue}>
             {formatValue(primaryFirst?.value ?? null, primaryUnit)}
@@ -671,7 +681,7 @@ export function CombinedExerciseChart({
                 color={COLORS.accent}
               />
             </View>
-            <Text style={weightChartStyles.statLabel}>Trend</Text>
+            <Text style={weightChartStyles.statLabel}>{t("progressTrend")}</Text>
           </View>
           <View style={weightChartStyles.changeRow}>
             <Text
@@ -702,7 +712,7 @@ export function CombinedExerciseChart({
                 color={COLORS.accent}
               />
             </View>
-            <Text style={weightChartStyles.statLabel}>Siste</Text>
+            <Text style={weightChartStyles.statLabel}>{t("progressLatest")}</Text>
           </View>
           <Text style={weightChartStyles.statValue}>
             {formatValue(primaryLast?.value ?? null, primaryUnit)}
@@ -1055,7 +1065,9 @@ export function CombinedExerciseChart({
       <View style={weightChartStyles.additionalStats}>
         <View style={weightChartStyles.miniStat}>
           <Text style={weightChartStyles.miniStatLabel}>
-            {isWeightVisible && isVolumeVisible ? "1RM snitt/uke" : "Snitt / uke"}
+            {isWeightVisible && isVolumeVisible
+              ? t("progressOneRmAveragePerWeek")
+              : t("progressAveragePerWeek")}
           </Text>
           <Text
             style={[
@@ -1071,7 +1083,9 @@ export function CombinedExerciseChart({
 
         <View style={weightChartStyles.miniStat}>
           <Text style={weightChartStyles.miniStatLabel}>
-            {isWeightVisible && isVolumeVisible ? "Volum valgt" : "Valgt"}
+            {isWeightVisible && isVolumeVisible
+              ? t("progressVolumeSelected")
+              : t("progressSelected")}
           </Text>
           <Text style={weightChartStyles.miniStatValue}>
             {isWeightVisible && isVolumeVisible
@@ -1082,7 +1096,9 @@ export function CombinedExerciseChart({
 
         <View style={weightChartStyles.miniStat}>
           <Text style={weightChartStyles.miniStatLabel}>
-            {isWeightVisible && isVolumeVisible ? "Valgt" : "Verdi"}
+            {isWeightVisible && isVolumeVisible
+              ? t("progressSelected")
+              : t("progressValue")}
           </Text>
           <Text style={weightChartStyles.miniStatValue}>
             {isWeightVisible && isVolumeVisible

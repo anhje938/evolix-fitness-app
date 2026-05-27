@@ -119,6 +119,7 @@ function MainContent({
   collapsed: boolean;
   onToggleCollapsed: () => void;
 }) {
+  const { userSettings } = useUserSettings();
   const copy = buildCoachCopy(focus, foodCoach);
 
   return (
@@ -207,16 +208,32 @@ function MainContent({
         <Text style={styles.recoveryText} numberOfLines={2}>
           {focus.recovery}
         </Text>
-        <Pressable
-          style={({ pressed }) => [
-            styles.reportButton,
-            pressed && styles.reportButtonPressed,
-          ]}
-          onPress={() => router.push("/weekly-report")}
-        >
-          <Text style={styles.reportButtonText}>Rapport</Text>
-          <Ionicons name="chevron-forward" size={14} color="#02111f" />
-        </Pressable>
+        <View style={styles.reportActions}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.reportButton,
+              styles.reportButtonSecondary,
+              pressed && styles.reportButtonPressed,
+            ]}
+            onPress={() => router.push("/weekly-report")}
+          >
+            <Text style={[styles.reportButtonText, styles.reportButtonSecondaryText]}>
+              {userSettings.language === "en" ? "Week" : "Uke"}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.reportButton,
+              pressed && styles.reportButtonPressed,
+            ]}
+            onPress={() => router.push("/cut-intelligence")}
+          >
+            <Text style={styles.reportButtonText}>
+              {userSettings.language === "en" ? "Monthly" : "Måned"}
+            </Text>
+            <Ionicons name="chevron-forward" size={14} color="#02111f" />
+          </Pressable>
+        </View>
       </View>
       <NonMedicalDisclaimer compact />
         </>
@@ -450,6 +467,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
+  reportActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
   reportButton: {
     minHeight: 30,
     paddingHorizontal: 10,
@@ -460,6 +482,11 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: coachVisualTheme.accent,
   },
+  reportButtonSecondary: {
+    backgroundColor: "rgba(15,23,42,0.56)",
+    borderWidth: 1,
+    borderColor: "rgba(103,232,249,0.22)",
+  },
   reportButtonPressed: {
     opacity: 0.82,
     transform: [{ scale: 0.98 }],
@@ -468,6 +495,9 @@ const styles = StyleSheet.create({
     color: "#02111f",
     fontSize: 12,
     fontWeight: "700",
+  },
+  reportButtonSecondaryText: {
+    color: coachVisualTheme.accent,
   },
   loadingRow: {
     minHeight: 138,

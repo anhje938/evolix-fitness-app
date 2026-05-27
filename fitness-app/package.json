@@ -9,6 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "test": "vitest run",
     "postinstall": "patch-package"
   },
   "dependencies": {
@@ -69,7 +70,8 @@
     "eslint-config-expo": "~10.0.0",
     "patch-package": "^8.0.1",
     "react-native-svg-transformer": "^1.5.2",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^4.1.7"
   },
   "private": true,
   "overrides": {
